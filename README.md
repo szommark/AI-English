@@ -36,9 +36,14 @@ supabase/       SQL migrations for this app's dedicated Supabase project
 
 1. `npm install`
 2. Copy `.env.example` to `.env` and fill in the values (see below).
-3. `npm run dev` runs the Vite dev server for the UI. The `/api` functions are Vercel
-   serverless functions, not served by Vite — to exercise them locally, install the
-   Vercel CLI and run `vercel dev` instead (it proxies both the frontend and `/api`).
+3. To exercise the full app, including `/api` (Groq calls, cap check), run two processes:
+   - `npx vercel dev` — serves the serverless functions on `http://localhost:3000`
+     (first run will prompt you to link the local folder to a Vercel project)
+   - `npm run dev` — the Vite dev server on `http://localhost:5173`, which proxies
+     `/api/*` requests to the `vercel dev` instance (see `vite.config.ts`)
+
+   Running `npm run dev` alone still works for UI-only iteration, but `/api` calls will
+   404 since Vite doesn't execute serverless functions itself.
 
 ### Environment variables
 
