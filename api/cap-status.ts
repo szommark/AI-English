@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getUserFromRequest, nextUtcMidnight, supabaseAdmin } from './_lib/supabaseAdmin'
+import { getUserFromRequest, nextUtcMidnight, supabaseAdmin } from './_lib/supabaseAdmin.js'
 
 const DAILY_LIMIT = 3
 

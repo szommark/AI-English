@@ -1,4 +1,4 @@
-import type { Scenario } from '../lib/types'
+import type { Scenario } from '../lib/types.js'
 
 export const scenarios: Scenario[] = [
   {

@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getUserFromRequest, nextUtcMidnight, supabaseAdmin } from './_lib/supabaseAdmin'
-import { callGroqChat, callGroqFeedback, parseFeedbackJson } from './_lib/groq'
-import { getScenario } from '../src/data/scenarios'
-import type { ChatMessage } from '../src/lib/types'
+import { getUserFromRequest, nextUtcMidnight, supabaseAdmin } from './_lib/supabaseAdmin.js'
+import { callGroqChat, callGroqFeedback, parseFeedbackJson } from './_lib/groq.js'
+import { getScenario } from '../src/data/scenarios.js'
+import type { ChatMessage } from '../src/lib/types.js'
 
 const DAILY_LIMIT = 3
 const MAX_USER_TURNS = 6
