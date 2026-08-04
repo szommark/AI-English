@@ -111,35 +111,37 @@ export function computeBubbleLayout(args: ComputeLayoutArgs): BubbleLayout {
   return { direction, left, top, width, height, tailTip }
 }
 
-export interface ComputeSideSlotLayoutArgs extends MouthAnchor {
+export interface ComputeSideCascadeLayoutArgs extends MouthAnchor {
   containerWidth: number
   containerHeight: number
   /** Which side of the mouth this bubble is stacked on. */
   side: 'left' | 'right'
-  /** Position within the column, 0 = topmost. */
+  /** Position within the column, 0 = oldest (topmost, furthest back). */
   slotIndex: number
-  /** Total slots in the column, used to divide the available height without overlap. */
-  slotCount: number
   maxWidthPct: number
   maxHeightPct: number
   /** Gap between the column and the exclusion box edge, in px. */
   gapPx?: number
-  /** Inset from the container's top/bottom edges, in px. */
+  /** Inset from the container's top edge, in px. */
   marginPx?: number
-  /** Vertical gap between stacked bubbles in the same column, in px. */
-  slotGapPx?: number
+  /**
+   * Vertical offset between consecutive bubbles, as a fraction of bubble height. A small
+   * fraction means bubbles overlap heavily (newer bubbles rendered on top of older ones);
+   * 1 would mean no overlap at all.
+   */
+  stepFraction?: number
 }
 
 /**
- * Positions one bubble in a fixed, non-overlapping vertical slot on the left or right side
- * of the mouth — used for the desktop conversation-history layout (as opposed to
- * computeBubbleLayout's single dynamically-placed bubble). Slots are sized by dividing the
- * container height evenly among slotCount, so bubbles in the same column never overlap each
- * other; the column's near edge sits gapPx outside the exclusion box, so it never overlaps
- * the mouth either. Width/height may still exceed the container bounds (extending beyond the
- * photo edges), which is allowed.
+ * Positions one bubble in a cascading, deliberately-overlapping column on the left or right
+ * side of the mouth — used for the desktop conversation-history layout (as opposed to
+ * computeBubbleLayout's single dynamically-placed bubble). Every bubble in the column is the
+ * same large size, offset from the previous one by a fraction of its height, so later
+ * bubbles progressively cover earlier ones. The column's near edge always sits gapPx outside
+ * the exclusion box regardless of slotIndex, so it never overlaps the mouth. Bubbles may
+ * extend beyond the container bounds (top/bottom/side edges), which is allowed.
  */
-export function computeSideSlotLayout(args: ComputeSideSlotLayoutArgs): BubbleLayout {
+export function computeSideCascadeLayout(args: ComputeSideCascadeLayoutArgs): BubbleLayout {
   const {
     containerWidth: W,
     containerHeight: H,
@@ -149,12 +151,11 @@ export function computeSideSlotLayout(args: ComputeSideSlotLayoutArgs): BubbleLa
     mouthBoxHeight,
     side,
     slotIndex,
-    slotCount,
     maxWidthPct,
     maxHeightPct,
     gapPx = DEFAULT_GAP_PX,
     marginPx = DEFAULT_MARGIN_PX,
-    slotGapPx = 10,
+    stepFraction = 0.35,
   } = args
 
   const mouthPx = { x: (mouthX / 100) * W, y: (mouthY / 100) * H }
@@ -167,13 +168,10 @@ export function computeSideSlotLayout(args: ComputeSideSlotLayoutArgs): BubbleLa
     bottom: mouthPx.y + boxH / 2,
   }
 
-  const maxW = (maxWidthPct / 100) * W
-  const maxH = (maxHeightPct / 100) * H
-
-  const totalSlotHeight = Math.max(H - 2 * marginPx - (slotCount - 1) * slotGapPx, 0)
-  const height = Math.min(totalSlotHeight / slotCount, maxH)
-  const width = maxW
-  const top = marginPx + slotIndex * (height + slotGapPx)
+  const width = (maxWidthPct / 100) * W
+  const height = (maxHeightPct / 100) * H
+  const step = height * stepFraction
+  const top = marginPx + slotIndex * step
   const left = side === 'left' ? excl.left - gapPx - width : excl.right + gapPx
 
   const tailTip = computeTailTip(side, mouthPx, excl)

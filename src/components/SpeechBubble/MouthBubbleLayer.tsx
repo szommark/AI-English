@@ -2,32 +2,54 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { MouthAnchor } from '../../lib/types'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { useContainerSize } from '../../hooks/useContainerSize'
-import { computeSideSlotLayout } from '../../lib/bubbleGeometry'
+import { computeSideCascadeLayout } from '../../lib/bubbleGeometry'
 import SpeechBubble from './SpeechBubble'
-import { CROSSFADE_MS, DESKTOP_QUERY, MAX_BUBBLE_HEIGHT_PCT, MAX_BUBBLE_WIDTH_PCT, SLOTS_PER_SIDE } from './constants'
+import {
+  CROSSFADE_MS,
+  DESKTOP_QUERY,
+  EXCHANGES_PER_SIDE,
+  MAX_BUBBLE_HEIGHT_PCT,
+  MAX_BUBBLE_WIDTH_PCT,
+} from './constants'
 
 interface StackedBubble {
   id: number
   text: string
 }
 
+export interface ConversationTurn {
+  role: 'user' | 'assistant'
+  text: string
+}
+
 export interface MouthBubbleLayerProps {
   containerRef: RefObject<HTMLElement | null>
   mouth: MouthAnchor
-  /** The newest line of dialogue to show, or null if nothing has been said yet. */
+  /** The newest AI line to show, or null if nothing has been said yet. Drives mobile only. */
   latestText: string | null
-  /** Increases whenever `latestText` represents a genuinely new message. */
+  /** Increases whenever `latestText` represents a genuinely new AI message. Drives mobile only. */
   messageKey: number
+  /** Full chronological history (both roles). Drives the desktop layout only. */
+  allTurns: ConversationTurn[]
 }
 
 /**
  * Shared bubble orchestrator for both test-mode live replies and the rehearsal
- * sample-script click-through. Desktop (>=768px) lays out the full conversation history in
- * two non-overlapping columns (first SLOTS_PER_SIDE exchanges on the left, next
- * SLOTS_PER_SIDE on the right); mobile crossfades between a single anchored bubble.
+ * sample-script click-through. Desktop (>=768px) shows the full conversation history as a
+ * cascading, overlapping stack split across two columns (first EXCHANGES_PER_SIDE exchanges
+ * on the left, next EXCHANGES_PER_SIDE on the right); mobile crossfades between a single
+ * anchored AI bubble (unchanged).
  */
-export default function MouthBubbleLayer({ containerRef, mouth, latestText, messageKey }: MouthBubbleLayerProps) {
+export default function MouthBubbleLayer({
+  containerRef,
+  mouth,
+  latestText,
+  messageKey,
+  allTurns,
+}: MouthBubbleLayerProps) {
   const isDesktop = useMediaQuery(DESKTOP_QUERY)
+
+  // Mobile-only accumulation, untouched from before.
   const [history, setHistory] = useState<StackedBubble[]>([])
   const nextId = useRef(0)
   const prevKey = useRef<number | null>(null)
@@ -38,59 +60,84 @@ export default function MouthBubbleLayer({ containerRef, mouth, latestText, mess
     setHistory((prev) => [...prev, { id: nextId.current++, text: latestText }])
   }, [messageKey, latestText])
 
-  if (history.length === 0) return null
+  if (isDesktop) {
+    if (allTurns.length === 0) return null
+    return (
+      <div className="pointer-events-none absolute inset-0">
+        <DesktopSplit turns={allTurns} mouth={mouth} containerRef={containerRef} />
+      </div>
+    )
+  }
 
+  if (history.length === 0) return null
   return (
     <div className="pointer-events-none absolute inset-0">
-      {isDesktop ? (
-        <DesktopSplit history={history} mouth={mouth} containerRef={containerRef} />
-      ) : (
-        <MobileSlot current={history[history.length - 1]} mouth={mouth} containerRef={containerRef} />
-      )}
+      <MobileSlot current={history[history.length - 1]} mouth={mouth} containerRef={containerRef} />
     </div>
   )
 }
 
 function DesktopSplit({
-  history,
+  turns,
   mouth,
   containerRef,
 }: {
-  history: StackedBubble[]
+  turns: ConversationTurn[]
   mouth: MouthAnchor
   containerRef: RefObject<HTMLElement | null>
 }) {
   const { width, height } = useContainerSize(containerRef)
   if (!width || !height) return null
 
+  const lastAssistantIndex = (() => {
+    for (let i = turns.length - 1; i >= 0; i--) {
+      if (turns[i].role === 'assistant') return i
+    }
+    return -1
+  })()
+
+  // Two turns (user + AI) make one exchange; group exchanges in threes, alternating sides.
+  const sideOf = (turnIndex: number): 'left' | 'right' => {
+    const exchangeIndex = Math.floor(turnIndex / 2)
+    const groupIndex = Math.floor(exchangeIndex / EXCHANGES_PER_SIDE)
+    return groupIndex % 2 === 0 ? 'left' : 'right'
+  }
+
+  const leftIndices = turns.map((_, i) => i).filter((i) => sideOf(i) === 'left')
+  const rightIndices = turns.map((_, i) => i).filter((i) => sideOf(i) === 'right')
+
+  function renderColumn(indices: number[], side: 'left' | 'right') {
+    return indices.map((turnIndex, slotIndex) => {
+      const turn = turns[turnIndex]
+      const layout = computeSideCascadeLayout({
+        containerWidth: width,
+        containerHeight: height,
+        ...mouth,
+        side,
+        slotIndex,
+        maxWidthPct: MAX_BUBBLE_WIDTH_PCT,
+        maxHeightPct: MAX_BUBBLE_HEIGHT_PCT,
+      })
+
+      return (
+        <SpeechBubble
+          key={turnIndex}
+          text={turn.text}
+          mouth={mouth}
+          containerRef={containerRef}
+          layout={layout}
+          variant={turn.role === 'user' ? 'user' : 'ai'}
+          showTail={turn.role === 'assistant' && turnIndex === lastAssistantIndex}
+          style={{ zIndex: slotIndex + 1 }}
+        />
+      )
+    })
+  }
+
   return (
     <>
-      {history.map((item, index) => {
-        const groupIndex = Math.floor(index / SLOTS_PER_SIDE)
-        const side = groupIndex % 2 === 0 ? 'left' : 'right'
-        const slotIndex = index % SLOTS_PER_SIDE
-        const layout = computeSideSlotLayout({
-          containerWidth: width,
-          containerHeight: height,
-          ...mouth,
-          side,
-          slotIndex,
-          slotCount: SLOTS_PER_SIDE,
-          maxWidthPct: MAX_BUBBLE_WIDTH_PCT,
-          maxHeightPct: MAX_BUBBLE_HEIGHT_PCT,
-        })
-
-        return (
-          <SpeechBubble
-            key={item.id}
-            text={item.text}
-            mouth={mouth}
-            containerRef={containerRef}
-            layout={layout}
-            showTail={index === history.length - 1}
-          />
-        )
-      })}
+      {renderColumn(leftIndices, 'left')}
+      {renderColumn(rightIndices, 'right')}
     </>
   )
 }

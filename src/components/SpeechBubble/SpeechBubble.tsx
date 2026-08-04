@@ -13,13 +13,25 @@ export interface SpeechBubbleProps {
   /** Set false for older bubbles in the desktop conversation-history layout. */
   showTail?: boolean
   /**
-   * Pre-computed layout (e.g. from computeSideSlotLayout) to use instead of the default
+   * Pre-computed layout (e.g. from computeSideCascadeLayout) to use instead of the default
    * single-bubble quadrant placement from computeBubbleLayout. Mobile's anchored bubble
    * leaves this unset and keeps the original auto-placement behavior.
    */
   layout?: BubbleLayout
+  /** Border color: 'ai' (neutral slate, default) vs 'user' (indigo), so the two are distinguishable. */
+  variant?: 'ai' | 'user'
   style?: CSSProperties
   className?: string
+}
+
+const VARIANT_BORDER_CLASS: Record<'ai' | 'user', string> = {
+  ai: 'border-slate-200',
+  user: 'border-indigo-300',
+}
+
+const VARIANT_TAIL_BORDER_COLOR: Record<'ai' | 'user', string> = {
+  ai: '#e2e8f0', // slate-200
+  user: '#a5b4fc', // indigo-300
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -35,6 +47,7 @@ export default function SpeechBubble({
   maxHeightPct = MAX_BUBBLE_HEIGHT_PCT,
   showTail = true,
   layout: layoutOverride,
+  variant = 'ai',
   style,
   className = '',
 }: SpeechBubbleProps) {
@@ -74,7 +87,7 @@ export default function SpeechBubble({
 
   return (
     <div
-      className={`absolute rounded-lg border border-slate-200 bg-white shadow-md transition-[transform,opacity] duration-200 ease-out ${
+      className={`absolute rounded-lg border-2 ${VARIANT_BORDER_CLASS[variant]} bg-white shadow-md transition-[transform,opacity] duration-200 ease-out ${
         entered ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
       } ${className}`}
       style={{
@@ -92,13 +105,13 @@ export default function SpeechBubble({
       {overflowing && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-5 rounded-b-lg bg-gradient-to-t from-white to-transparent" />
       )}
-      {showTail && <Tail direction={layout.direction} x={tailX} y={tailY} />}
+      {showTail && <Tail direction={layout.direction} x={tailX} y={tailY} variant={variant} />}
     </div>
   )
 }
 
-function Tail({ direction, x, y }: { direction: Direction; x: number; y: number }) {
-  const border = '#e2e8f0' // slate-200, matches the bubble's border color
+function Tail({ direction, x, y, variant }: { direction: Direction; x: number; y: number; variant: 'ai' | 'user' }) {
+  const border = VARIANT_TAIL_BORDER_COLOR[variant]
   switch (direction) {
     // Bubble sits above the mouth — tail hangs off the bottom edge, pointing down.
     case 'up':

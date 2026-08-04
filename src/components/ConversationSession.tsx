@@ -104,6 +104,7 @@ export default function ConversationSession({
   const assistantMessages = messages.filter((m) => m.role === 'assistant')
   const userMessages = messages.filter((m) => m.role === 'user')
   const lastAssistantText = assistantMessages.at(-1)?.content ?? null
+  const allTurns = messages.map((m) => ({ role: m.role, text: m.content }))
 
   return (
     <div className="space-y-6">
@@ -123,39 +124,45 @@ export default function ConversationSession({
               mouth={scenario.mouth}
               latestText={lastAssistantText}
               messageKey={assistantMessages.length}
+              allTurns={allTurns}
             />
           </div>
         )}
 
-        {status === 'listening' && recognition.transcript && (
-          <p className="text-sm text-slate-500 italic">"{recognition.transcript}"</p>
-        )}
+        {/* z-10 keeps the mic control cluster clickable above the desktop bubble
+            cascade, which is allowed to overflow well past the photo's bounds. */}
+        <div className="relative z-10 flex flex-col items-center gap-3">
+          {status === 'listening' && recognition.transcript && (
+            <p className="text-sm text-slate-500 italic">"{recognition.transcript}"</p>
+          )}
 
-        <button
-          disabled={status === 'thinking' || status === 'speaking'}
-          onClick={() => {
-            if (status === 'listening') {
-              handleStop()
-            } else {
-              setError(null)
-              recognition.start()
-              setStatus('listening')
-            }
-          }}
-          className={`h-16 w-16 rounded-full text-white text-sm font-medium disabled:opacity-40 ${
-            status === 'listening' ? 'bg-red-500' : 'bg-indigo-600'
-          }`}
-        >
-          {status === 'listening' ? 'Stop' : status === 'thinking' ? '...' : status === 'speaking' ? '🔊' : 'Speak'}
-        </button>
-        <p className="text-xs text-slate-400">
-          {status === 'thinking' && 'Thinking...'}
-          {status === 'speaking' && 'Listen to the reply...'}
-          {status === 'idle' && 'Tap to speak'}
-        </p>
+          <button
+            disabled={status === 'thinking' || status === 'speaking'}
+            onClick={() => {
+              if (status === 'listening') {
+                handleStop()
+              } else {
+                setError(null)
+                recognition.start()
+                setStatus('listening')
+              }
+            }}
+            className={`h-16 w-16 rounded-full text-white text-sm font-medium disabled:opacity-40 ${
+              status === 'listening' ? 'bg-red-500' : 'bg-indigo-600'
+            }`}
+          >
+            {status === 'listening' ? 'Stop' : status === 'thinking' ? '...' : status === 'speaking' ? '🔊' : 'Speak'}
+          </button>
+          <p className="text-xs text-slate-400">
+            {status === 'thinking' && 'Thinking...'}
+            {status === 'speaking' && 'Listen to the reply...'}
+            {status === 'idle' && 'Tap to speak'}
+          </p>
+        </div>
       </div>
 
-      <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-white p-3 text-sm">
+      {/* On desktop, both sides of the conversation now appear as bubbles on the photo. */}
+      <div className="md:hidden max-h-40 space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-white p-3 text-sm">
         {userMessages.length === 0 && (
           <p className="text-slate-400">Tap the mic and start the conversation.</p>
         )}

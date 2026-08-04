@@ -20,6 +20,10 @@ export default function RehearsalPage() {
   const revealedCharacterLines = revealed.filter((l) => l.speaker !== 'You')
   const revealedYouLines = revealed.filter((l) => l.speaker === 'You')
   const lastCharacterLine = revealedCharacterLines.at(-1)?.line ?? null
+  const allTurns = revealed.map((l) => ({
+    role: (l.speaker === 'You' ? 'user' : 'assistant') as 'user' | 'assistant',
+    text: l.line,
+  }))
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -62,11 +66,13 @@ export default function RehearsalPage() {
                     mouth={scenario.mouth}
                     latestText={lastCharacterLine}
                     messageKey={revealedCharacterLines.length}
+                    allTurns={allTurns}
                   />
                 </div>
               )}
 
-              <div className="space-y-2 text-sm">
+              {/* On desktop, "You" lines now appear as bubbles on the photo too. */}
+              <div className="md:hidden space-y-2 text-sm">
                 {revealedYouLines.map((line, i) => (
                   <p key={i}>
                     <span className="font-medium text-slate-700">{line.speaker}: </span>
@@ -75,21 +81,25 @@ export default function RehearsalPage() {
                 ))}
               </div>
 
-              {revealedIndex < script.length ? (
-                <button
-                  onClick={() => setRevealedIndex((i) => i + 1)}
-                  className="rounded-lg border border-indigo-600 text-indigo-600 text-sm px-4 py-2 hover:bg-indigo-50"
-                >
-                  Next
-                </button>
-              ) : (
-                <p className="text-xs text-slate-400">End of sample conversation.</p>
-              )}
+              {/* z-10 keeps the Next button clickable above the desktop bubble cascade,
+                  which is allowed to overflow well past the photo's bounds. */}
+              <div className="relative z-10">
+                {revealedIndex < script.length ? (
+                  <button
+                    onClick={() => setRevealedIndex((i) => i + 1)}
+                    className="rounded-lg border border-indigo-600 text-indigo-600 text-sm px-4 py-2 hover:bg-indigo-50"
+                  >
+                    Next
+                  </button>
+                ) : (
+                  <p className="text-xs text-slate-400">End of sample conversation.</p>
+                )}
+              </div>
             </div>
 
             <button
               onClick={() => setStarted(true)}
-              className="w-full rounded-lg bg-indigo-600 text-white py-2.5 text-sm font-medium hover:bg-indigo-700"
+              className="relative z-10 w-full rounded-lg bg-indigo-600 text-white py-2.5 text-sm font-medium hover:bg-indigo-700"
             >
               Start my own attempt
             </button>
