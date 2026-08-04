@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { MouthAnchor } from '../../lib/types'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
+import { useContainerSize } from '../../hooks/useContainerSize'
+import { computeSideSlotLayout } from '../../lib/bubbleGeometry'
 import SpeechBubble from './SpeechBubble'
-import { CROSSFADE_MS, DESKTOP_QUERY, MAX_STACK_SIZE, STACK_TRANSITION_MS } from './constants'
+import { CROSSFADE_MS, DESKTOP_QUERY, MAX_BUBBLE_HEIGHT_PCT, MAX_BUBBLE_WIDTH_PCT, SLOTS_PER_SIDE } from './constants'
 
 interface StackedBubble {
   id: number
@@ -20,8 +22,9 @@ export interface MouthBubbleLayerProps {
 
 /**
  * Shared bubble orchestrator for both test-mode live replies and the rehearsal
- * sample-script click-through. Desktop (>=768px) pushes older bubbles aside into a
- * capped stack; mobile crossfades between a single anchored bubble.
+ * sample-script click-through. Desktop (>=768px) lays out the full conversation history in
+ * two non-overlapping columns (first SLOTS_PER_SIDE exchanges on the left, next
+ * SLOTS_PER_SIDE on the right); mobile crossfades between a single anchored bubble.
  */
 export default function MouthBubbleLayer({ containerRef, mouth, latestText, messageKey }: MouthBubbleLayerProps) {
   const isDesktop = useMediaQuery(DESKTOP_QUERY)
@@ -40,7 +43,7 @@ export default function MouthBubbleLayer({ containerRef, mouth, latestText, mess
   return (
     <div className="pointer-events-none absolute inset-0">
       {isDesktop ? (
-        <DesktopStack history={history} mouth={mouth} containerRef={containerRef} />
+        <DesktopSplit history={history} mouth={mouth} containerRef={containerRef} />
       ) : (
         <MobileSlot current={history[history.length - 1]} mouth={mouth} containerRef={containerRef} />
       )}
@@ -48,7 +51,7 @@ export default function MouthBubbleLayer({ containerRef, mouth, latestText, mess
   )
 }
 
-function DesktopStack({
+function DesktopSplit({
   history,
   mouth,
   containerRef,
@@ -57,42 +60,39 @@ function DesktopStack({
   mouth: MouthAnchor
   containerRef: RefObject<HTMLElement | null>
 }) {
-  // One extra slot beyond the visible cap: it renders at opacity 0 so the CSS
-  // transition plays before it drops out of the window on the next new message.
-  const windowSize = MAX_STACK_SIZE + 1
-  const windowItems = history.slice(-windowSize).reverse() // index 0 = newest
+  const { width, height } = useContainerSize(containerRef)
+  if (!width || !height) return null
 
   return (
     <>
-      {windowItems.map((item, i) => (
-        <SpeechBubble
-          key={item.id}
-          text={item.text}
-          mouth={mouth}
-          containerRef={containerRef}
-          showTail={i === 0}
-          style={stackStyle(i)}
-        />
-      ))}
+      {history.map((item, index) => {
+        const groupIndex = Math.floor(index / SLOTS_PER_SIDE)
+        const side = groupIndex % 2 === 0 ? 'left' : 'right'
+        const slotIndex = index % SLOTS_PER_SIDE
+        const layout = computeSideSlotLayout({
+          containerWidth: width,
+          containerHeight: height,
+          ...mouth,
+          side,
+          slotIndex,
+          slotCount: SLOTS_PER_SIDE,
+          maxWidthPct: MAX_BUBBLE_WIDTH_PCT,
+          maxHeightPct: MAX_BUBBLE_HEIGHT_PCT,
+        })
+
+        return (
+          <SpeechBubble
+            key={item.id}
+            text={item.text}
+            mouth={mouth}
+            containerRef={containerRef}
+            layout={layout}
+            showTail={index === history.length - 1}
+          />
+        )
+      })}
     </>
   )
-}
-
-function stackStyle(index: number): CSSProperties {
-  const base: CSSProperties = {
-    transition: `transform ${STACK_TRANSITION_MS}ms ease, opacity ${STACK_TRANSITION_MS}ms ease`,
-  }
-  switch (index) {
-    case 0:
-      return { ...base, transform: 'translate(0, 0) scale(1)', opacity: 1, zIndex: 4 }
-    case 1:
-      return { ...base, transform: 'translate(55%, -6%) scale(0.92)', opacity: 0.85, zIndex: 3 }
-    case 2:
-      return { ...base, transform: 'translate(105%, -10%) scale(0.85)', opacity: 0.7, zIndex: 2 }
-    default:
-      // The (MAX_STACK_SIZE + 1)th bubble: fades out in place before being dropped.
-      return { ...base, transform: 'translate(105%, -10%) scale(0.8)', opacity: 0, zIndex: 1, pointerEvents: 'none' }
-  }
 }
 
 function MobileSlot({

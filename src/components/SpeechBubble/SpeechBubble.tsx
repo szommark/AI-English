@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from 'react'
 import type { MouthAnchor } from '../../lib/types'
-import { computeBubbleLayout, type Direction } from '../../lib/bubbleGeometry'
+import { computeBubbleLayout, type BubbleLayout, type Direction } from '../../lib/bubbleGeometry'
 import { useContainerSize } from '../../hooks/useContainerSize'
 import { MAX_BUBBLE_WIDTH_PCT, MAX_BUBBLE_HEIGHT_PCT } from './constants'
 
@@ -10,8 +10,14 @@ export interface SpeechBubbleProps {
   containerRef: RefObject<HTMLElement | null>
   maxWidthPct?: number
   maxHeightPct?: number
-  /** Set false for bubbles further back in the desktop push-aside stack. */
+  /** Set false for older bubbles in the desktop conversation-history layout. */
   showTail?: boolean
+  /**
+   * Pre-computed layout (e.g. from computeSideSlotLayout) to use instead of the default
+   * single-bubble quadrant placement from computeBubbleLayout. Mobile's anchored bubble
+   * leaves this unset and keeps the original auto-placement behavior.
+   */
+  layout?: BubbleLayout
   style?: CSSProperties
   className?: string
 }
@@ -28,6 +34,7 @@ export default function SpeechBubble({
   maxWidthPct = MAX_BUBBLE_WIDTH_PCT,
   maxHeightPct = MAX_BUBBLE_HEIGHT_PCT,
   showTail = true,
+  layout: layoutOverride,
   style,
   className = '',
 }: SpeechBubbleProps) {
@@ -50,15 +57,17 @@ export default function SpeechBubble({
     setOverflowing(el.scrollHeight > el.clientHeight + 1)
   })
 
-  if (!width || !height) return null
+  if (!layoutOverride && (!width || !height)) return null
 
-  const layout = computeBubbleLayout({
-    containerWidth: width,
-    containerHeight: height,
-    ...mouth,
-    maxWidthPct,
-    maxHeightPct,
-  })
+  const layout =
+    layoutOverride ??
+    computeBubbleLayout({
+      containerWidth: width,
+      containerHeight: height,
+      ...mouth,
+      maxWidthPct,
+      maxHeightPct,
+    })
 
   const tailX = clamp(layout.tailTip.x - layout.left, 14, layout.width - 14)
   const tailY = clamp(layout.tailTip.y - layout.top, 14, layout.height - 14)

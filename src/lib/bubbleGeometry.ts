@@ -111,6 +111,76 @@ export function computeBubbleLayout(args: ComputeLayoutArgs): BubbleLayout {
   return { direction, left, top, width, height, tailTip }
 }
 
+export interface ComputeSideSlotLayoutArgs extends MouthAnchor {
+  containerWidth: number
+  containerHeight: number
+  /** Which side of the mouth this bubble is stacked on. */
+  side: 'left' | 'right'
+  /** Position within the column, 0 = topmost. */
+  slotIndex: number
+  /** Total slots in the column, used to divide the available height without overlap. */
+  slotCount: number
+  maxWidthPct: number
+  maxHeightPct: number
+  /** Gap between the column and the exclusion box edge, in px. */
+  gapPx?: number
+  /** Inset from the container's top/bottom edges, in px. */
+  marginPx?: number
+  /** Vertical gap between stacked bubbles in the same column, in px. */
+  slotGapPx?: number
+}
+
+/**
+ * Positions one bubble in a fixed, non-overlapping vertical slot on the left or right side
+ * of the mouth — used for the desktop conversation-history layout (as opposed to
+ * computeBubbleLayout's single dynamically-placed bubble). Slots are sized by dividing the
+ * container height evenly among slotCount, so bubbles in the same column never overlap each
+ * other; the column's near edge sits gapPx outside the exclusion box, so it never overlaps
+ * the mouth either. Width/height may still exceed the container bounds (extending beyond the
+ * photo edges), which is allowed.
+ */
+export function computeSideSlotLayout(args: ComputeSideSlotLayoutArgs): BubbleLayout {
+  const {
+    containerWidth: W,
+    containerHeight: H,
+    mouthX,
+    mouthY,
+    mouthBoxWidth,
+    mouthBoxHeight,
+    side,
+    slotIndex,
+    slotCount,
+    maxWidthPct,
+    maxHeightPct,
+    gapPx = DEFAULT_GAP_PX,
+    marginPx = DEFAULT_MARGIN_PX,
+    slotGapPx = 10,
+  } = args
+
+  const mouthPx = { x: (mouthX / 100) * W, y: (mouthY / 100) * H }
+  const boxW = (mouthBoxWidth / 100) * W
+  const boxH = (mouthBoxHeight / 100) * H
+  const excl = {
+    left: mouthPx.x - boxW / 2,
+    top: mouthPx.y - boxH / 2,
+    right: mouthPx.x + boxW / 2,
+    bottom: mouthPx.y + boxH / 2,
+  }
+
+  const maxW = (maxWidthPct / 100) * W
+  const maxH = (maxHeightPct / 100) * H
+
+  const totalSlotHeight = Math.max(H - 2 * marginPx - (slotCount - 1) * slotGapPx, 0)
+  const height = Math.min(totalSlotHeight / slotCount, maxH)
+  const width = maxW
+  const top = marginPx + slotIndex * (height + slotGapPx)
+  const left = side === 'left' ? excl.left - gapPx - width : excl.right + gapPx
+
+  const tailTip = computeTailTip(side, mouthPx, excl)
+
+  return { direction: side, left, top, width, height, tailTip }
+}
+
 function computeTailTip(
   direction: Direction,
   mouthPx: { x: number; y: number },
