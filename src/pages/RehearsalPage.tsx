@@ -24,6 +24,7 @@ export default function RehearsalPage() {
     role: (l.speaker === 'You' ? 'user' : 'assistant') as 'user' | 'assistant',
     text: l.line,
   }))
+  const totalExchanges = script.filter((l) => l.speaker !== 'You').length
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -67,6 +68,7 @@ export default function RehearsalPage() {
                     latestText={lastCharacterLine}
                     messageKey={revealedCharacterLines.length}
                     allTurns={allTurns}
+                    totalExchanges={totalExchanges}
                   />
                 </div>
               )}

@@ -125,6 +125,7 @@ export default function ConversationSession({
               latestText={lastAssistantText}
               messageKey={assistantMessages.length}
               allTurns={allTurns}
+              totalExchanges={MAX_TURNS}
             />
           </div>
         )}

@@ -4,13 +4,7 @@ import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { useContainerSize } from '../../hooks/useContainerSize'
 import { computeSideCascadeLayout } from '../../lib/bubbleGeometry'
 import SpeechBubble from './SpeechBubble'
-import {
-  CROSSFADE_MS,
-  DESKTOP_QUERY,
-  EXCHANGES_PER_SIDE,
-  MAX_BUBBLE_HEIGHT_PCT,
-  MAX_BUBBLE_WIDTH_PCT,
-} from './constants'
+import { CASCADE_MAX_HEIGHT_PX, CASCADE_MAX_WIDTH_PCT, CROSSFADE_MS, DESKTOP_QUERY } from './constants'
 
 interface StackedBubble {
   id: number
@@ -31,14 +25,22 @@ export interface MouthBubbleLayerProps {
   messageKey: number
   /** Full chronological history (both roles). Drives the desktop layout only. */
   allTurns: ConversationTurn[]
+  /**
+   * The known maximum number of exchanges (user+AI pairs) this conversation can reach —
+   * MAX_TURNS for a live session, or the sample script's character-line count for rehearsal.
+   * Used to split exchanges into two balanced halves so short conversations still use both
+   * sides instead of only ever filling the left. Drives the desktop layout only.
+   */
+  totalExchanges: number
 }
 
 /**
  * Shared bubble orchestrator for both test-mode live replies and the rehearsal
  * sample-script click-through. Desktop (>=768px) shows the full conversation history as a
- * cascading, overlapping stack split across two columns (first EXCHANGES_PER_SIDE exchanges
- * on the left, next EXCHANGES_PER_SIDE on the right); mobile crossfades between a single
- * anchored AI bubble (unchanged).
+ * cascading, overlapping stack split across two columns — the first half of the expected
+ * exchanges on the left, the second half on the right, so both sides fill regardless of how
+ * many exchanges the conversation actually has; mobile crossfades between a single anchored
+ * AI bubble (unchanged).
  */
 export default function MouthBubbleLayer({
   containerRef,
@@ -46,6 +48,7 @@ export default function MouthBubbleLayer({
   latestText,
   messageKey,
   allTurns,
+  totalExchanges,
 }: MouthBubbleLayerProps) {
   const isDesktop = useMediaQuery(DESKTOP_QUERY)
 
@@ -64,7 +67,7 @@ export default function MouthBubbleLayer({
     if (allTurns.length === 0) return null
     return (
       <div className="pointer-events-none absolute inset-0">
-        <DesktopSplit turns={allTurns} mouth={mouth} containerRef={containerRef} />
+        <DesktopSplit turns={allTurns} totalExchanges={totalExchanges} mouth={mouth} containerRef={containerRef} />
       </div>
     )
   }
@@ -79,10 +82,12 @@ export default function MouthBubbleLayer({
 
 function DesktopSplit({
   turns,
+  totalExchanges,
   mouth,
   containerRef,
 }: {
   turns: ConversationTurn[]
+  totalExchanges: number
   mouth: MouthAnchor
   containerRef: RefObject<HTMLElement | null>
 }) {
@@ -96,11 +101,13 @@ function DesktopSplit({
     return -1
   })()
 
-  // Two turns (user + AI) make one exchange; group exchanges in threes, alternating sides.
+  // Two turns (user + AI) make one exchange. Split the *known* total exchange count into two
+  // balanced halves up front, so a short conversation (e.g. rehearsal's 3 exchanges) still
+  // uses both sides instead of only ever filling the left.
+  const leftExchangeCount = Math.ceil(Math.max(totalExchanges, 1) / 2)
   const sideOf = (turnIndex: number): 'left' | 'right' => {
     const exchangeIndex = Math.floor(turnIndex / 2)
-    const groupIndex = Math.floor(exchangeIndex / EXCHANGES_PER_SIDE)
-    return groupIndex % 2 === 0 ? 'left' : 'right'
+    return exchangeIndex < leftExchangeCount ? 'left' : 'right'
   }
 
   const leftIndices = turns.map((_, i) => i).filter((i) => sideOf(i) === 'left')
@@ -115,8 +122,8 @@ function DesktopSplit({
         ...mouth,
         side,
         slotIndex,
-        maxWidthPct: MAX_BUBBLE_WIDTH_PCT,
-        maxHeightPct: MAX_BUBBLE_HEIGHT_PCT,
+        maxWidthPct: CASCADE_MAX_WIDTH_PCT,
+        maxHeightPx: CASCADE_MAX_HEIGHT_PX,
       })
 
       return (

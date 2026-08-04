@@ -119,7 +119,8 @@ export interface ComputeSideCascadeLayoutArgs extends MouthAnchor {
   /** Position within the column, 0 = oldest (topmost, furthest back). */
   slotIndex: number
   maxWidthPct: number
-  maxHeightPct: number
+  /** Fixed bubble height in px (not % of container) — keeps bubbles to ~1-2 lines regardless of photo size. */
+  maxHeightPx: number
   /** Gap between the column and the exclusion box edge, in px. */
   gapPx?: number
   /** Inset from the container's top edge, in px. */
@@ -136,10 +137,11 @@ export interface ComputeSideCascadeLayoutArgs extends MouthAnchor {
  * Positions one bubble in a cascading, deliberately-overlapping column on the left or right
  * side of the mouth — used for the desktop conversation-history layout (as opposed to
  * computeBubbleLayout's single dynamically-placed bubble). Every bubble in the column is the
- * same large size, offset from the previous one by a fraction of its height, so later
- * bubbles progressively cover earlier ones. The column's near edge always sits gapPx outside
- * the exclusion box regardless of slotIndex, so it never overlaps the mouth. Bubbles may
- * extend beyond the container bounds (top/bottom/side edges), which is allowed.
+ * same compact size (maxHeightPx is a fixed px value so bubbles stay ~1-2 lines tall
+ * regardless of photo size), offset from the previous one by a fraction of its height, so
+ * later bubbles progressively cover earlier ones. The column's near edge always sits gapPx
+ * outside the exclusion box regardless of slotIndex, so it never overlaps the mouth. Bubbles
+ * may extend beyond the container bounds (top/bottom/side edges), which is allowed.
  */
 export function computeSideCascadeLayout(args: ComputeSideCascadeLayoutArgs): BubbleLayout {
   const {
@@ -152,7 +154,7 @@ export function computeSideCascadeLayout(args: ComputeSideCascadeLayoutArgs): Bu
     side,
     slotIndex,
     maxWidthPct,
-    maxHeightPct,
+    maxHeightPx,
     gapPx = DEFAULT_GAP_PX,
     marginPx = DEFAULT_MARGIN_PX,
     stepFraction = 0.35,
@@ -169,7 +171,7 @@ export function computeSideCascadeLayout(args: ComputeSideCascadeLayoutArgs): Bu
   }
 
   const width = (maxWidthPct / 100) * W
-  const height = (maxHeightPct / 100) * H
+  const height = maxHeightPx
   const step = height * stepFraction
   const top = marginPx + slotIndex * step
   const left = side === 'left' ? excl.left - gapPx - width : excl.right + gapPx
