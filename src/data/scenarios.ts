@@ -25,6 +25,8 @@ export const scenarios: Scenario[] = [
       { speaker: 'Receptionist', line: "Let me see what's available... yes, I can move you to a sea-view room on the fifth floor for a small extra fee. Would that work?" },
       { speaker: 'You', line: "That sounds great, thank you." },
     ],
+    // Visually estimated from the photo; refine at /dev/mouth-calibrator if it looks off.
+    mouth: { mouthX: 50, mouthY: 30, mouthBoxWidth: 16, mouthBoxHeight: 12 },
   },
   {
     id: 'restaurant-order',
@@ -50,6 +52,8 @@ export const scenarios: Scenario[] = [
       { speaker: 'Waiter', line: "Our grilled salmon is very popular, and the pasta with mushrooms is great too." },
       { speaker: 'You', line: "I'll have the grilled salmon, please, without the side salad." },
     ],
+    // Visually estimated from the photo; refine at /dev/mouth-calibrator if it looks off.
+    mouth: { mouthX: 48, mouthY: 23, mouthBoxWidth: 16, mouthBoxHeight: 13 },
   },
   {
     id: 'asking-directions',
@@ -75,6 +79,8 @@ export const scenarios: Scenario[] = [
       { speaker: 'You', line: "Is it within walking distance from here?" },
       { speaker: 'Local', line: "Yes, about ten minutes on foot. You can't miss it." },
     ],
+    // Visually estimated from the photo; refine at /dev/mouth-calibrator if it looks off.
+    mouth: { mouthX: 71, mouthY: 40, mouthBoxWidth: 18, mouthBoxHeight: 15 },
   },
   {
     id: 'airport-checkin',
@@ -100,6 +106,8 @@ export const scenarios: Scenario[] = [
       { speaker: 'Agent', line: "Yes, I have one near the front. Here is your boarding pass, boarding starts at gate 14." },
       { speaker: 'You', line: "Great, thank you very much." },
     ],
+    // Visually estimated from the photo; refine at /dev/mouth-calibrator if it looks off.
+    mouth: { mouthX: 50, mouthY: 31, mouthBoxWidth: 16, mouthBoxHeight: 12 },
   },
 ]
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Scenario, ChatMessage, FeedbackResult } from '../lib/types'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
@@ -8,6 +8,7 @@ import { scenarioPhotos } from '../assets/scenarioPhotos'
 import UnsupportedBrowserNotice from './UnsupportedBrowserNotice'
 import DailyCapBanner from './DailyCapBanner'
 import FeedbackCard from './FeedbackCard'
+import MouthBubbleLayer from './SpeechBubble/MouthBubbleLayer'
 
 const MAX_TURNS = 6
 
@@ -23,6 +24,7 @@ export default function ConversationSession({
   const recognition = useSpeechRecognition()
   const synthesis = useSpeechSynthesis()
   const photo = scenarioPhotos[scenario.id]
+  const photoContainerRef = useRef<HTMLDivElement>(null)
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [turnIndex, setTurnIndex] = useState(0)
@@ -99,6 +101,10 @@ export default function ConversationSession({
     )
   }
 
+  const assistantMessages = messages.filter((m) => m.role === 'assistant')
+  const userMessages = messages.filter((m) => m.role === 'user')
+  const lastAssistantText = assistantMessages.at(-1)?.content ?? null
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -106,33 +112,19 @@ export default function ConversationSession({
         <span className="text-sm text-slate-500">Turn {turnIndex + 1} of {MAX_TURNS}</span>
       </div>
 
-      <div className="space-y-3 max-h-96 overflow-y-auto rounded-lg border border-slate-200 p-4 bg-white">
-        {messages.length === 0 && (
-          <p className="text-sm text-slate-400">Tap the mic and start the conversation.</p>
-        )}
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-              m.role === 'user'
-                ? 'ml-auto bg-indigo-600 text-white'
-                : 'bg-slate-100 text-slate-800'
-            }`}
-          >
-            {m.content}
-          </div>
-        ))}
-      </div>
-
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="flex flex-col items-center gap-3">
-        {mode === 'test' && photo && (
-          <img
-            src={photo}
-            alt={scenario.title}
-            className="w-full max-w-xs rounded-2xl shadow-sm"
-          />
+        {photo && (
+          <div ref={photoContainerRef} className="relative w-full max-w-xs">
+            <img src={photo} alt={scenario.title} className="block h-auto w-full rounded-2xl shadow-sm" />
+            <MouthBubbleLayer
+              containerRef={photoContainerRef}
+              mouth={scenario.mouth}
+              latestText={lastAssistantText}
+              messageKey={assistantMessages.length}
+            />
+          </div>
         )}
 
         {status === 'listening' && recognition.transcript && (
@@ -161,6 +153,18 @@ export default function ConversationSession({
           {status === 'speaking' && 'Listen to the reply...'}
           {status === 'idle' && 'Tap to speak'}
         </p>
+      </div>
+
+      <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-white p-3 text-sm">
+        {userMessages.length === 0 && (
+          <p className="text-slate-400">Tap the mic and start the conversation.</p>
+        )}
+        {userMessages.map((m, i) => (
+          <p key={i} className="text-slate-700">
+            <span className="font-medium text-indigo-600">You: </span>
+            {m.content}
+          </p>
+        ))}
       </div>
     </div>
   )
