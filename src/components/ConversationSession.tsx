@@ -4,6 +4,7 @@ import type { Scenario, ChatMessage, FeedbackResult } from '../lib/types'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { sendChatTurn } from '../lib/api'
+import { scenarioPhotos } from '../assets/scenarioPhotos'
 import UnsupportedBrowserNotice from './UnsupportedBrowserNotice'
 import DailyCapBanner from './DailyCapBanner'
 import FeedbackCard from './FeedbackCard'
@@ -21,6 +22,7 @@ export default function ConversationSession({
 }) {
   const recognition = useSpeechRecognition()
   const synthesis = useSpeechSynthesis()
+  const photo = scenarioPhotos[scenario.id]
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [turnIndex, setTurnIndex] = useState(0)
@@ -125,6 +127,14 @@ export default function ConversationSession({
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="flex flex-col items-center gap-3">
+        {mode === 'test' && photo && (
+          <img
+            src={photo}
+            alt={scenario.title}
+            className="w-full max-w-xs rounded-2xl shadow-sm"
+          />
+        )}
+
         {status === 'listening' && recognition.transcript && (
           <p className="text-sm text-slate-500 italic">"{recognition.transcript}"</p>
         )}
