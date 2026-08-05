@@ -38,3 +38,43 @@ export async function sendChatTurn(params: {
   if (!res.ok) throw new Error('Failed to reach the conversation service')
   return res.json()
 }
+
+export interface DeepCheckLimitError extends Error {
+  code: 'daily_limit_reached' | 'monthly_limit_reached'
+  message: string
+}
+
+export async function requestDeepCheckToken(scenarioId: string): Promise<{ token: string; region: string }> {
+  const headers = await authHeader()
+  const res = await fetch('/api/pronunciation-token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({ scenarioId }),
+  })
+
+  if (res.status === 403) {
+    const body = await res.json()
+    const err = new Error(body.message ?? 'Deep check limit reached') as DeepCheckLimitError
+    err.code = body.error
+    throw err
+  }
+
+  if (!res.ok) throw new Error('Failed to reach the pronunciation service')
+  return res.json()
+}
+
+export async function logDeepCheck(params: {
+  scenarioId: string
+  targetSentence: string
+  azureResult: unknown
+  audioSeconds: number
+}): Promise<void> {
+  const headers = await authHeader()
+  const res = await fetch('/api/pronunciation-log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify(params),
+  })
+
+  if (!res.ok) throw new Error('Failed to log pronunciation check')
+}
