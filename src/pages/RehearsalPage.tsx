@@ -3,7 +3,7 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { getScenario } from '../data/scenarios'
 import ConversationSession from '../components/ConversationSession'
 import MouthBubbleLayer from '../components/SpeechBubble/MouthBubbleLayer'
-import BubbleArchive from '../components/SpeechBubble/BubbleArchive'
+import TranscriptLines from '../components/SpeechBubble/TranscriptLines'
 import { scenarioPhotos } from '../assets/scenarioPhotos'
 
 export default function RehearsalPage() {
@@ -25,6 +25,7 @@ export default function RehearsalPage() {
     role: (l.speaker === 'You' ? 'user' : 'assistant') as 'user' | 'assistant',
     text: l.line,
   }))
+  const isEnded = script.length > 0 && revealedIndex >= script.length
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -68,6 +69,7 @@ export default function RehearsalPage() {
                     latestText={lastCharacterLine}
                     messageKey={revealedCharacterLines.length}
                     allTurns={allTurns}
+                    isEnded={isEnded}
                   />
                 </div>
               )}
@@ -96,8 +98,8 @@ export default function RehearsalPage() {
                 )}
               </div>
 
-              {/* Desktop: once an exchange is no longer the live one near the mouth, it moves here. */}
-              <BubbleArchive turns={allTurns} />
+              {/* Desktop: once the sample script ends, bubbles stop and the full transcript shows here instead. */}
+              {isEnded && <TranscriptLines turns={allTurns} aiLabel={scenario.aiRole} className="hidden md:block" />}
             </div>
 
             <button

@@ -9,7 +9,7 @@ import UnsupportedBrowserNotice from './UnsupportedBrowserNotice'
 import DailyCapBanner from './DailyCapBanner'
 import FeedbackCard from './FeedbackCard'
 import MouthBubbleLayer from './SpeechBubble/MouthBubbleLayer'
-import BubbleArchive from './SpeechBubble/BubbleArchive'
+import TranscriptLines from './SpeechBubble/TranscriptLines'
 
 const MAX_TURNS = 6
 
@@ -90,22 +90,35 @@ export default function ConversationSession({
     }
   }
 
+  const assistantMessages = messages.filter((m) => m.role === 'assistant')
+  const userMessages = messages.filter((m) => m.role === 'user')
+  const lastAssistantText = assistantMessages.at(-1)?.content ?? null
+  const allTurns = messages.map((m) => ({ role: m.role, text: m.content }))
+
   if (status === 'done' && feedback) {
     return (
       <div className="space-y-6">
         <h2 className="text-xl font-semibold text-slate-800">Here's your feedback</h2>
+
+        {photo && (
+          <div className="hidden md:block relative mx-auto w-full max-w-xs">
+            <img src={photo} alt={scenario.title} className="block h-auto w-full rounded-2xl shadow-sm" />
+          </div>
+        )}
+
         <FeedbackCard feedback={feedback} />
+
+        <div className="hidden md:block rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+          <h2 className="font-medium text-slate-700">Conversation transcript</h2>
+          <TranscriptLines turns={allTurns} aiLabel={scenario.aiRole} />
+        </div>
+
         <Link to="/" className="inline-block text-indigo-600 hover:underline text-sm">
           ← Back to scenarios
         </Link>
       </div>
     )
   }
-
-  const assistantMessages = messages.filter((m) => m.role === 'assistant')
-  const userMessages = messages.filter((m) => m.role === 'user')
-  const lastAssistantText = assistantMessages.at(-1)?.content ?? null
-  const allTurns = messages.map((m) => ({ role: m.role, text: m.content }))
 
   return (
     <div className="space-y-6">
@@ -160,9 +173,6 @@ export default function ConversationSession({
           </p>
         </div>
       </div>
-
-      {/* Desktop: once an exchange is no longer the live one near the mouth, it moves here. */}
-      <BubbleArchive turns={allTurns} className="w-full max-w-xs mx-auto" />
 
       {/* Mobile: plain-text transcript, since only the AI's latest reply shows as a bubble. */}
       <div className="md:hidden max-h-40 space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-white p-3 text-sm">
