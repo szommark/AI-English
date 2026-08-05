@@ -35,22 +35,21 @@ export interface MouthBubbleLayerProps {
   messageKey: number
   /** Full chronological history (both roles). Drives the desktop layout only. */
   allTurns: ConversationTurn[]
-  /**
-   * The known maximum number of exchanges (user+AI pairs) this conversation can reach —
-   * MAX_TURNS for a live session, or the sample script's character-line count for rehearsal.
-   * Used to split exchanges into two balanced halves so short conversations still use both
-   * sides instead of only ever filling the left. Drives the desktop layout only.
-   */
-  totalExchanges: number
+}
+
+/** Index of the exchange (user+AI pair) the most recent turn belongs to, or -1 if empty. */
+export function currentExchangeIndexOf(turns: ConversationTurn[]): number {
+  if (turns.length === 0) return -1
+  return Math.floor((turns.length - 1) / 2)
 }
 
 /**
  * Shared bubble orchestrator for both test-mode live replies and the rehearsal
- * sample-script click-through. Desktop (>=768px) shows the full conversation history as a
- * cascading, overlapping stack split across two columns — the first half of the expected
- * exchanges on the left, the second half on the right, so both sides fill regardless of how
- * many exchanges the conversation actually has; mobile crossfades between a single anchored
- * AI bubble (unchanged).
+ * sample-script click-through. Desktop (>=768px) shows only the *current* exchange
+ * anchored near the photo's mouth (user on the left, AI reply on the right) — older
+ * exchanges move into <BubbleArchive>, rendered separately by the page in normal document
+ * flow below the photo/controls. Mobile crossfades between a single anchored AI bubble
+ * (unchanged).
  */
 export default function MouthBubbleLayer({
   containerRef,
@@ -58,7 +57,6 @@ export default function MouthBubbleLayer({
   latestText,
   messageKey,
   allTurns,
-  totalExchanges,
 }: MouthBubbleLayerProps) {
   const isDesktop = useMediaQuery(DESKTOP_QUERY)
 
@@ -77,7 +75,7 @@ export default function MouthBubbleLayer({
     if (allTurns.length === 0) return null
     return (
       <div className="pointer-events-none absolute inset-0">
-        <DesktopSplit turns={allTurns} totalExchanges={totalExchanges} mouth={mouth} containerRef={containerRef} />
+        <LiveExchange turns={allTurns} mouth={mouth} containerRef={containerRef} />
       </div>
     )
   }
@@ -90,53 +88,35 @@ export default function MouthBubbleLayer({
   )
 }
 
-interface ChunkedTurn {
-  turnIndex: number
-  side: 'left' | 'right'
-  role: 'user' | 'assistant'
-  isLastAssistant: boolean
-  chunks: string[]
-}
-
-function DesktopSplit({
+function LiveExchange({
   turns,
-  totalExchanges,
   mouth,
   containerRef,
 }: {
   turns: ConversationTurn[]
-  totalExchanges: number
   mouth: MouthAnchor
   containerRef: RefObject<HTMLElement | null>
 }) {
   const { width } = useContainerSize(containerRef)
 
-  const lastAssistantIndex = useMemo(() => {
-    for (let i = turns.length - 1; i >= 0; i--) {
-      if (turns[i].role === 'assistant') return i
-    }
-    return -1
-  }, [turns])
+  const currentExchangeIndex = currentExchangeIndexOf(turns)
+  const liveTurns = useMemo(
+    () =>
+      turns
+        .map((turn, turnIndex) => ({ turn, turnIndex }))
+        .filter(({ turnIndex }) => Math.floor(turnIndex / 2) === currentExchangeIndex),
+    [turns, currentExchangeIndex]
+  )
 
-  // Two turns (user + AI) make one exchange. Split the *known* total exchange count into two
-  // balanced halves up front, so a short conversation (e.g. rehearsal's 3 exchanges) still
-  // uses both sides instead of only ever filling the left.
-  const leftExchangeCount = Math.ceil(Math.max(totalExchanges, 1) / 2)
-
-  const chunkedTurns: ChunkedTurn[] = useMemo(() => {
+  const chunked = useMemo(() => {
     const textWrapWidth = CASCADE_MAX_WIDTH_PX - CASCADE_HORIZONTAL_PADDING_PX
-    return turns.map((turn, turnIndex) => {
-      const exchangeIndex = Math.floor(turnIndex / 2)
-      return {
-        turnIndex,
-        side: exchangeIndex < leftExchangeCount ? 'left' : 'right',
-        role: turn.role,
-        isLastAssistant: turnIndex === lastAssistantIndex,
-        chunks: splitTextIntoChunks(turn.text, textWrapWidth, CASCADE_MAX_LINES),
-      }
-    })
+    return liveTurns.map(({ turn, turnIndex }) => ({
+      turnIndex,
+      role: turn.role,
+      chunks: splitTextIntoChunks(turn.text, textWrapWidth, CASCADE_MAX_LINES),
+    }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turns, leftExchangeCount, lastAssistantIndex])
+  }, [liveTurns])
 
   if (!width) return null
 
@@ -145,20 +125,8 @@ function DesktopSplit({
   const exclLeftPx = mouthPxX - boxWidthPx / 2
   const exclRightPx = mouthPxX + boxWidthPx / 2
 
-  function renderColumn(side: 'left' | 'right') {
-    const items = chunkedTurns.filter((t) => t.side === side)
-    return items.flatMap((t) =>
-      t.chunks.map((chunk, chunkIndex) => (
-        <CascadeBubble
-          key={`${t.turnIndex}-${chunkIndex}`}
-          text={chunk}
-          variant={t.role === 'user' ? 'user' : 'ai'}
-          showTail={t.isLastAssistant && chunkIndex === t.chunks.length - 1}
-          side={side}
-        />
-      ))
-    )
-  }
+  const userItem = chunked.find((c) => c.role === 'user')
+  const aiItem = chunked.find((c) => c.role === 'assistant')
 
   return (
     <>
@@ -171,7 +139,9 @@ function DesktopSplit({
           width: CASCADE_MAX_WIDTH_PX,
         }}
       >
-        {renderColumn('left')}
+        {userItem?.chunks.map((chunk, ci) => (
+          <CascadeBubble key={`${userItem.turnIndex}-${ci}`} text={chunk} variant="user" showTail={false} side="left" />
+        ))}
       </div>
       <div
         className="pointer-events-none absolute flex flex-col items-start"
@@ -182,7 +152,15 @@ function DesktopSplit({
           width: CASCADE_MAX_WIDTH_PX,
         }}
       >
-        {renderColumn('right')}
+        {aiItem?.chunks.map((chunk, ci) => (
+          <CascadeBubble
+            key={`${aiItem.turnIndex}-${ci}`}
+            text={chunk}
+            variant="ai"
+            showTail={ci === aiItem.chunks.length - 1}
+            side="right"
+          />
+        ))}
       </div>
     </>
   )

@@ -9,6 +9,7 @@ import UnsupportedBrowserNotice from './UnsupportedBrowserNotice'
 import DailyCapBanner from './DailyCapBanner'
 import FeedbackCard from './FeedbackCard'
 import MouthBubbleLayer from './SpeechBubble/MouthBubbleLayer'
+import BubbleArchive from './SpeechBubble/BubbleArchive'
 
 const MAX_TURNS = 6
 
@@ -125,13 +126,11 @@ export default function ConversationSession({
               latestText={lastAssistantText}
               messageKey={assistantMessages.length}
               allTurns={allTurns}
-              totalExchanges={MAX_TURNS}
             />
           </div>
         )}
 
-        {/* z-10 keeps the mic control cluster clickable above the desktop bubble
-            cascade, which is allowed to overflow well past the photo's bounds. */}
+        {/* z-10 keeps the mic control cluster clickable above the live bubble exchange. */}
         <div className="relative z-10 flex flex-col items-center gap-3">
           {status === 'listening' && recognition.transcript && (
             <p className="text-sm text-slate-500 italic">"{recognition.transcript}"</p>
@@ -162,7 +161,10 @@ export default function ConversationSession({
         </div>
       </div>
 
-      {/* On desktop, both sides of the conversation now appear as bubbles on the photo. */}
+      {/* Desktop: once an exchange is no longer the live one near the mouth, it moves here. */}
+      <BubbleArchive turns={allTurns} className="w-full max-w-xs mx-auto" />
+
+      {/* Mobile: plain-text transcript, since only the AI's latest reply shows as a bubble. */}
       <div className="md:hidden max-h-40 space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-white p-3 text-sm">
         {userMessages.length === 0 && (
           <p className="text-slate-400">Tap the mic and start the conversation.</p>

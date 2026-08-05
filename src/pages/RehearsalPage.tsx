@@ -3,6 +3,7 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { getScenario } from '../data/scenarios'
 import ConversationSession from '../components/ConversationSession'
 import MouthBubbleLayer from '../components/SpeechBubble/MouthBubbleLayer'
+import BubbleArchive from '../components/SpeechBubble/BubbleArchive'
 import { scenarioPhotos } from '../assets/scenarioPhotos'
 
 export default function RehearsalPage() {
@@ -24,7 +25,6 @@ export default function RehearsalPage() {
     role: (l.speaker === 'You' ? 'user' : 'assistant') as 'user' | 'assistant',
     text: l.line,
   }))
-  const totalExchanges = script.filter((l) => l.speaker !== 'You').length
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -68,7 +68,6 @@ export default function RehearsalPage() {
                     latestText={lastCharacterLine}
                     messageKey={revealedCharacterLines.length}
                     allTurns={allTurns}
-                    totalExchanges={totalExchanges}
                   />
                 </div>
               )}
@@ -83,8 +82,7 @@ export default function RehearsalPage() {
                 ))}
               </div>
 
-              {/* z-10 keeps the Next button clickable above the desktop bubble cascade,
-                  which is allowed to overflow well past the photo's bounds. */}
+              {/* z-10 keeps the Next button clickable above the live bubble exchange. */}
               <div className="relative z-10">
                 {revealedIndex < script.length ? (
                   <button
@@ -97,6 +95,9 @@ export default function RehearsalPage() {
                   <p className="text-xs text-slate-400">End of sample conversation.</p>
                 )}
               </div>
+
+              {/* Desktop: once an exchange is no longer the live one near the mouth, it moves here. */}
+              <BubbleArchive turns={allTurns} />
             </div>
 
             <button
