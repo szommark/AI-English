@@ -164,13 +164,23 @@ function DesktopSplit({
     <>
       <div
         className="pointer-events-none absolute flex flex-col items-end"
-        style={{ right: width - (exclLeftPx - CASCADE_GAP_PX), top: CASCADE_MARGIN_PX, gap: CASCADE_STACK_GAP_PX }}
+        style={{
+          right: width - (exclLeftPx - CASCADE_GAP_PX),
+          top: CASCADE_MARGIN_PX,
+          gap: CASCADE_STACK_GAP_PX,
+          width: CASCADE_MAX_WIDTH_PX,
+        }}
       >
         {renderColumn('left')}
       </div>
       <div
         className="pointer-events-none absolute flex flex-col items-start"
-        style={{ left: exclRightPx + CASCADE_GAP_PX, top: CASCADE_MARGIN_PX, gap: CASCADE_STACK_GAP_PX }}
+        style={{
+          left: exclRightPx + CASCADE_GAP_PX,
+          top: CASCADE_MARGIN_PX,
+          gap: CASCADE_STACK_GAP_PX,
+          width: CASCADE_MAX_WIDTH_PX,
+        }}
       >
         {renderColumn('right')}
       </div>

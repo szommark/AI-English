@@ -15,12 +15,12 @@ export const CASCADE_MARGIN_PX = 8
 export const CASCADE_STACK_GAP_PX = 6
 
 export const CASCADE_BORDER_CLASS: Record<'ai' | 'user', string> = {
-  ai: 'border-slate-400',
-  user: 'border-indigo-500',
+  ai: 'border-red-500',
+  user: 'border-green-500',
 }
 export const CASCADE_TAIL_BORDER_COLOR: Record<'ai' | 'user', string> = {
-  ai: '#94a3b8', // slate-400
-  user: '#6366f1', // indigo-500
+  ai: '#ef4444', // red-500
+  user: '#22c55e', // green-500
 }
 
 export const ENTER_DURATION_MS = 200
