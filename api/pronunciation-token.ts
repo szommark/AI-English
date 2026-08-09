@@ -47,10 +47,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
-    res.status(403).json({
-      error: 'daily_limit_reached',
-      message: `Mai limit elérve (${DAILY_DEEP_CHECK_LIMIT}/nap). Holnap (UTC szerint) frissül.`,
-    })
+    if (reserveError.message.includes('daily_cap_exceeded')) {
+      res.status(403).json({
+        error: 'daily_limit_reached',
+        message: `Mai limit elérve (${DAILY_DEEP_CHECK_LIMIT}/nap). Holnap (UTC szerint) frissül.`,
+      })
+      return
+    }
+
+    res.status(502).json({ error: reserveError.message })
     return
   }
 
