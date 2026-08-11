@@ -33,9 +33,13 @@ export default function DeepCheckPanel({ scenarioId, targetSentence }: { scenari
       })
     } catch (err) {
       const limitErr = err as DeepCheckLimitError
-      setErrorMessage(
-        limitErr.code ? limitErr.message : 'A mélyelemzés most nem elérhető. Próbáld újra kicsit később.',
-      )
+      if (limitErr.code) {
+        setErrorMessage(limitErr.message)
+      } else {
+        console.error('Deep check failed:', err)
+        const detail = err instanceof Error ? err.message : String(err)
+        setErrorMessage(`A mélyelemzés most nem elérhető. Próbáld újra kicsit később. (${detail})`)
+      }
       setStatus('error')
     }
   }
