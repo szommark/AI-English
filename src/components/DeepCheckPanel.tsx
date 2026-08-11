@@ -38,7 +38,7 @@ export default function DeepCheckPanel({ scenarioId, targetSentence }: { scenari
       } else {
         console.error('Deep check failed:', err)
         const detail = err instanceof Error ? err.message : String(err)
-        setErrorMessage(`A mélyelemzés most nem elérhető. Próbáld újra kicsit később. (${detail})`)
+        setErrorMessage(`A kiejtésellenőrzés most nem elérhető. Próbáld újra kicsit később. (${detail})`)
       }
       setStatus('error')
     }
@@ -53,7 +53,7 @@ export default function DeepCheckPanel({ scenarioId, targetSentence }: { scenari
       >
         {status === 'recording' && `Felvétel... (max. ${DEEP_CHECK_MAX_SECONDS} mp)`}
         {status === 'scoring' && 'Elemzés...'}
-        {(status === 'idle' || status === 'done' || status === 'error') && 'Mélyelemzés'}
+        {(status === 'idle' || status === 'done' || status === 'error') && 'Kiejtésellenőrzés'}
       </button>
 
       {status === 'error' && <p className="mt-2 text-xs text-red-600">{errorMessage}</p>}

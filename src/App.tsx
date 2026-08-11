@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './lib/AuthContext'
 import LoginPage from './pages/LoginPage'
 import ScenarioSelectPage from './pages/ScenarioSelectPage'
 import RehearsalPage from './pages/RehearsalPage'
+import PronunciationCenterPage from './pages/PronunciationCenterPage'
 import TestModePage from './pages/TestModePage'
 import MouthCalibratorPage from './pages/dev/MouthCalibratorPage'
 
@@ -30,6 +31,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <RehearsalPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/scenario/:scenarioId/pronunciation"
+        element={
+          <ProtectedRoute>
+            <PronunciationCenterPage />
           </ProtectedRoute>
         }
       />

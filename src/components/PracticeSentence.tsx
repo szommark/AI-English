@@ -9,11 +9,13 @@ export default function PracticeSentence({
   hu,
   scenarioId,
   speakerLabel,
+  showDeepCheck = false,
 }: {
   en: string
   hu: string
   scenarioId: string
   speakerLabel?: string
+  showDeepCheck?: boolean
 }) {
   const synth = useSpeechSynthesis()
   const recognition = useSpeechRecognition()
@@ -67,7 +69,7 @@ export default function PracticeSentence({
         <WordMatchFeedback target={en} heard={recognition.transcript} />
       )}
 
-      <DeepCheckPanel scenarioId={scenarioId} targetSentence={en} />
+      {showDeepCheck && <DeepCheckPanel scenarioId={scenarioId} targetSentence={en} />}
     </div>
   )
 }

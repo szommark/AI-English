@@ -47,10 +47,16 @@ export default function RehearsalPage() {
               <p className="text-sm text-slate-500 mt-1">
                 Nézd át ezeket a hasznos kifejezéseket és egy minta beszélgetést, majd kezdd el, amikor készen
                 állsz. Utána saját, élő beszélgetést folytatsz a szereplővel. A hangszóró gombbal meghallgathatod
-                a mondatot, a mikrofon gombbal elmondhatod és azonnali visszajelzést kapsz, a Mélyelemzés gombbal
-                pedig (napi korlátozott számban) valódi kiejtéselemzést kérhetsz.
+                a mondatot, a mikrofon gombbal elmondhatod és azonnali visszajelzést kapsz.
               </p>
             </div>
+
+            <Link
+              to={`/scenario/${scenario.id}/pronunciation`}
+              className="block w-full text-center rounded-lg border border-indigo-600 text-indigo-600 text-sm font-medium py-2.5 hover:bg-indigo-50"
+            >
+              Pronunciation Centre (Kiejtésközpont) — valódi kiejtéselemzés
+            </Link>
 
             <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
               <h2 className="font-medium text-slate-700">Hasznos kifejezések</h2>

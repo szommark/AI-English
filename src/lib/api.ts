@@ -40,7 +40,7 @@ export async function sendChatTurn(params: {
 }
 
 export interface DeepCheckLimitError extends Error {
-  code: 'daily_limit_reached' | 'monthly_limit_reached'
+  code: 'monthly_limit_reached'
   message: string
 }
 

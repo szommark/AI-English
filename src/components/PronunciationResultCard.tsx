@@ -11,7 +11,7 @@ export default function PronunciationResultCard({ result }: { result: Pronunciat
 
   return (
     <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-5">
-      <h3 className="font-semibold text-indigo-800 mb-3">Mélyelemzés (Deep check)</h3>
+      <h3 className="font-semibold text-indigo-800 mb-3">Kiejtésellenőrzés eredménye</h3>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div>

@@ -2,11 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { issueAzureToken } from './_lib/azure.js'
 import { getScenario } from '../src/data/scenarios.js'
-import {
-  DAILY_DEEP_CHECK_LIMIT,
-  DEEP_CHECK_MAX_SECONDS,
-  MONTHLY_AZURE_SECONDS_CAP,
-} from '../src/lib/pronunciationConfig.js'
+import { DEEP_CHECK_MAX_SECONDS, MONTHLY_AZURE_SECONDS_CAP } from '../src/lib/pronunciationConfig.js'
 
 interface PronunciationTokenRequestBody {
   scenarioId: string
@@ -32,8 +28,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { error: reserveError } = await supabaseAdmin.rpc('reserve_deep_check', {
-    p_user_id: user.id,
-    p_daily_max: DAILY_DEEP_CHECK_LIMIT,
     p_reserve_seconds: DEEP_CHECK_MAX_SECONDS,
     p_monthly_cap: MONTHLY_AZURE_SECONDS_CAP,
   })
@@ -47,14 +41,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     }
 
-    if (reserveError.message.includes('daily_cap_exceeded')) {
-      res.status(403).json({
-        error: 'daily_limit_reached',
-        message: `Mai limit elérve (${DAILY_DEEP_CHECK_LIMIT}/nap). Holnap (UTC szerint) frissül.`,
-      })
-      return
-    }
-
     res.status(502).json({ error: reserveError.message })
     return
   }
@@ -63,10 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { token, region } = await issueAzureToken()
     res.status(200).json({ token, region })
   } catch (err) {
-    await supabaseAdmin.rpc('release_deep_check_reservation', {
-      p_user_id: user.id,
-      p_reserve_seconds: DEEP_CHECK_MAX_SECONDS,
-    })
+    await supabaseAdmin.rpc('release_deep_check_reservation', { p_reserve_seconds: DEEP_CHECK_MAX_SECONDS })
     res.status(502).json({ error: err instanceof Error ? err.message : 'Azure token request failed' })
   }
 }
