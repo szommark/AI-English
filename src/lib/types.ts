@@ -6,6 +6,12 @@ export interface ChatMessage {
 export interface ScriptLine {
   speaker: string
   line: string
+  lineHu: string
+}
+
+export interface PracticeLine {
+  en: string
+  hu: string
 }
 
 export interface MouthAnchor {
@@ -22,11 +28,12 @@ export interface MouthAnchor {
 export interface Scenario {
   id: string
   title: string
+  titleHu: string
   description: string
   aiRole: string
   setting: string
   systemPrompt: string
-  rehearsalPhrases: string[]
+  rehearsalPhrases: PracticeLine[]
   rehearsalScript: ScriptLine[]
   /**
    * Where the character's mouth sits in the scenario photo, used to anchor the speech
@@ -58,4 +65,23 @@ export interface CapStatus {
   allowed: boolean
   remaining: number
   resetAt: string
+}
+
+export interface PronunciationScores {
+  accuracy: number
+  fluency: number
+  completeness: number
+  pronunciation: number
+}
+
+export interface PronunciationWordDetail {
+  word: string
+  accuracyScore: number
+  errorType: string
+}
+
+export interface PronunciationCheckResult {
+  scores: PronunciationScores
+  words: PronunciationWordDetail[]
+  audioSeconds: number
 }
