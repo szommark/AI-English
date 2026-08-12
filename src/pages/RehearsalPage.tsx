@@ -51,13 +51,6 @@ export default function RehearsalPage() {
               </p>
             </div>
 
-            <Link
-              to={`/scenario/${scenario.id}/pronunciation`}
-              className="block w-full text-center rounded-lg border border-indigo-600 text-indigo-600 text-sm font-medium py-2.5 hover:bg-indigo-50"
-            >
-              Pronunciation Centre (Kiejtésközpont) — valódi kiejtéselemzés
-            </Link>
-
             <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
               <h2 className="font-medium text-slate-700">Hasznos kifejezések</h2>
               {scenario.rehearsalPhrases.map((p, i) => (
@@ -114,6 +107,13 @@ export default function RehearsalPage() {
               {isEnded && <TranscriptLines turns={allTurns} aiLabel={scenario.aiRole} className="hidden md:block" />}
             </div>
 
+            <button
+              onClick={() => setStarted(true)}
+              className="relative z-10 w-full rounded-lg bg-indigo-600 text-white py-2.5 text-sm font-medium hover:bg-indigo-700"
+            >
+              Kezdem a saját próbámat
+            </button>
+
             <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
               <div>
                 <h2 className="font-medium text-slate-700">Gyakorold a beszélgetést</h2>
@@ -132,12 +132,12 @@ export default function RehearsalPage() {
               ))}
             </div>
 
-            <button
-              onClick={() => setStarted(true)}
-              className="relative z-10 w-full rounded-lg bg-indigo-600 text-white py-2.5 text-sm font-medium hover:bg-indigo-700"
+            <Link
+              to={`/scenario/${scenario.id}/pronunciation`}
+              className="block w-full text-center rounded-lg border border-indigo-600 text-indigo-600 text-sm font-medium py-2.5 hover:bg-indigo-50"
             >
-              Kezdem a saját próbámat
-            </button>
+              Pronunciation Centre (Kiejtésközpont) — valódi kiejtéselemzés
+            </Link>
           </>
         ) : (
           <ConversationSession scenario={scenario} mode="rehearsal" />
