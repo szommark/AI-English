@@ -3,7 +3,9 @@ import { AuthProvider, useAuth } from './lib/AuthContext'
 import LoginPage from './pages/LoginPage'
 import ScenarioSelectPage from './pages/ScenarioSelectPage'
 import RehearsalPage from './pages/RehearsalPage'
+import PronunciationCenterPage from './pages/PronunciationCenterPage'
 import TestModePage from './pages/TestModePage'
+import MouthCalibratorPage from './pages/dev/MouthCalibratorPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -33,6 +35,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/scenario/:scenarioId/pronunciation"
+        element={
+          <ProtectedRoute>
+            <PronunciationCenterPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/scenario/:scenarioId/test"
         element={
           <ProtectedRoute>
@@ -40,6 +50,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      {import.meta.env.DEV && <Route path="/dev/mouth-calibrator" element={<MouthCalibratorPage />} />}
     </Routes>
   )
 }
