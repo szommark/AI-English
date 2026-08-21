@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { scenarios } from '../data/scenarios'
 import { fetchCapStatus } from '../lib/api'
 import type { CapStatus } from '../lib/types'
@@ -21,7 +22,9 @@ export default function ScenarioSelectPage() {
       <header className="max-w-4xl mx-auto flex items-center justify-between px-4 py-6">
         <div>
           <h1 className="text-2xl font-semibold text-slate-800">AI-English</h1>
-          <p className="text-sm text-slate-500">Holiday English — pick a scenario</p>
+          <p className="text-sm text-slate-500">
+            Conversational English (Társalgási angol) — válassz egy szituációt
+          </p>
         </div>
         <div className="flex items-center gap-3 text-sm">
           <span className="text-slate-500">{user?.email}</span>
@@ -32,6 +35,10 @@ export default function ScenarioSelectPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 pb-12 space-y-6">
+        <Link to="/" className="text-sm text-indigo-600 hover:underline">
+          ← Vissza a főoldalra
+        </Link>
+
         {cap && !cap.allowed && <DailyCapBanner resetAt={cap.resetAt} />}
         {cap && cap.allowed && (
           <p className="text-sm text-slate-500">{cap.remaining} practice session(s) left today.</p>
