@@ -18,13 +18,20 @@ const accentClasses: Record<FeatureAccent, { badge: string; border: string }> = 
   rose: { badge: 'bg-rose-100 text-rose-600', border: 'hover:border-rose-200' },
 }
 
-export default function FeatureTile({ feature }: { feature: Feature }) {
+export default function FeatureTile({
+  feature,
+  onClick,
+}: {
+  feature: Feature
+  onClick?: (e: React.MouseEvent) => void
+}) {
   const Icon = icons[feature.icon]
   const accent = accentClasses[feature.accent]
 
   return (
     <Link
       to={feature.route}
+      onClick={onClick}
       className={`group block rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden p-6 transition hover:shadow-lg hover:-translate-y-0.5 ${accent.border}`}
     >
       <div className={`inline-flex h-12 w-12 items-center justify-center rounded-full ${accent.badge}`}>

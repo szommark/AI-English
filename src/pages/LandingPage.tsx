@@ -1,9 +1,44 @@
-import { features } from '../data/features'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { features, type Feature } from '../data/features'
 import FeatureTile from '../components/FeatureTile'
+import AuthModal from '../components/AuthModal'
 import { useAuth } from '../lib/AuthContext'
 
 export default function LandingPage() {
-  const { signOut, user } = useAuth()
+  const { user, signOut } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation() as { state?: { from?: string } }
+
+  const [authOpen, setAuthOpen] = useState(false)
+  const [pendingRoute, setPendingRoute] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!user && location.state?.from) {
+      setPendingRoute(location.state.from)
+      setAuthOpen(true)
+    }
+  }, [location.state, user])
+
+  useEffect(() => {
+    if (user && authOpen) {
+      setAuthOpen(false)
+      if (pendingRoute) {
+        navigate(pendingRoute)
+        setPendingRoute(null)
+      }
+    }
+  }, [user, authOpen, pendingRoute, navigate])
+
+  function handleTileClickFor(feature: Feature) {
+    return (e: React.MouseEvent) => {
+      if (!user) {
+        e.preventDefault()
+        setPendingRoute(feature.route)
+        setAuthOpen(true)
+      }
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-slate-50 to-slate-50">
@@ -12,10 +47,21 @@ export default function LandingPage() {
           <h1 className="text-2xl font-semibold text-slate-800">AI-English</h1>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <span className="text-slate-500">{user?.email}</span>
-          <button onClick={signOut} className="text-indigo-600 hover:underline">
-            Sign out
-          </button>
+          {user ? (
+            <>
+              <span className="text-slate-500">{user.email}</span>
+              <button onClick={signOut} className="text-indigo-600 hover:underline">
+                Sign out
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setAuthOpen(true)}
+              className="rounded-lg bg-indigo-600 text-white text-sm px-4 py-2 hover:bg-indigo-700"
+            >
+              Sign in
+            </button>
+          )}
         </div>
       </header>
 
@@ -27,10 +73,19 @@ export default function LandingPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {features.map((f) => (
-            <FeatureTile key={f.id} feature={f} />
+            <FeatureTile key={f.id} feature={f} onClick={handleTileClickFor(f)} />
           ))}
         </div>
       </main>
+
+      {authOpen && (
+        <AuthModal
+          onClose={() => {
+            setAuthOpen(false)
+            setPendingRoute(null)
+          }}
+        />
+      )}
     </div>
   )
 }
