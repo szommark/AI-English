@@ -1,0 +1,36 @@
+import { features } from '../data/features'
+import FeatureTile from '../components/FeatureTile'
+import { useAuth } from '../lib/AuthContext'
+
+export default function LandingPage() {
+  const { signOut, user } = useAuth()
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-slate-50 to-slate-50">
+      <header className="max-w-4xl mx-auto flex items-center justify-between px-4 py-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-800">AI-English</h1>
+        </div>
+        <div className="flex items-center gap-3 text-sm">
+          <span className="text-slate-500">{user?.email}</span>
+          <button onClick={signOut} className="text-indigo-600 hover:underline">
+            Sign out
+          </button>
+        </div>
+      </header>
+
+      <main className="max-w-5xl mx-auto px-4 pb-12 space-y-8">
+        <div className="text-center">
+          <p className="text-slate-600">Choose how you'd like to practice today</p>
+          <p className="text-sm text-slate-400">Válaszd ki, hogyan szeretnél ma gyakorolni</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          {features.map((f) => (
+            <FeatureTile key={f.id} feature={f} />
+          ))}
+        </div>
+      </main>
+    </div>
+  )
+}

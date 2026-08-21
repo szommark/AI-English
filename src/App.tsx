@@ -1,7 +1,9 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './lib/AuthContext'
 import LoginPage from './pages/LoginPage'
+import LandingPage from './pages/LandingPage'
 import ScenarioSelectPage from './pages/ScenarioSelectPage'
+import ComingSoonPage from './pages/ComingSoonPage'
 import RehearsalPage from './pages/RehearsalPage'
 import PronunciationCenterPage from './pages/PronunciationCenterPage'
 import TestModePage from './pages/TestModePage'
@@ -22,7 +24,23 @@ function AppRoutes() {
         path="/"
         element={
           <ProtectedRoute>
+            <LandingPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/conversational-english"
+        element={
+          <ProtectedRoute>
             <ScenarioSelectPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/coming-soon/:featureId"
+        element={
+          <ProtectedRoute>
+            <ComingSoonPage />
           </ProtectedRoute>
         }
       />
