@@ -6,6 +6,7 @@ import ComingSoonPage from './pages/ComingSoonPage'
 import RehearsalPage from './pages/RehearsalPage'
 import PronunciationCenterPage from './pages/PronunciationCenterPage'
 import TestModePage from './pages/TestModePage'
+import TutorBotPage from './pages/TutorBotPage'
 import MouthCalibratorPage from './pages/dev/MouthCalibratorPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -57,6 +58,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <TestModePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tutor-bot"
+        element={
+          <ProtectedRoute>
+            <TutorBotPage />
           </ProtectedRoute>
         }
       />

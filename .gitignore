@@ -21,6 +21,9 @@ dist-ssr/
 *.swo
 *~
 
+# Claude Code (local-only, not shared config)
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db

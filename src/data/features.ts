@@ -33,8 +33,8 @@ export const features: Feature[] = [
     descriptionHu: 'Szabad beszélgetés egy személyes AI oktatóval, aki emlékszik a fejlődésedre.',
     icon: 'Bot',
     accent: 'violet',
-    status: 'coming-soon',
-    route: '/coming-soon/tutor-bot',
+    status: 'active',
+    route: '/tutor-bot',
   },
   {
     id: 'grammar-coach',
