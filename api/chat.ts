@@ -1,10 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getUserFromRequest, nextUtcMidnight, supabaseAdmin } from './_lib/supabaseAdmin.js'
+import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { callGroqChat, callGroqFeedback, parseFeedbackJson } from './_lib/groq.js'
 import { getScenario } from '../src/data/scenarios.js'
 import type { ChatMessage } from '../src/lib/types.js'
 
-const DAILY_LIMIT = 3
 const MAX_USER_TURNS = 6
 const HISTORY_WINDOW = 4
 
@@ -35,19 +34,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  if (body.turnIndex === 0) {
-    const { error } = await supabaseAdmin.rpc('increment_daily_session_count', {
-      p_user_id: user.id,
-      p_max: DAILY_LIMIT,
-    })
-    if (error) {
-      res.status(403).json({
-        error: 'daily_cap_exceeded',
-        resetAt: nextUtcMidnight(),
-      })
-      return
-    }
-  }
+  // Daily session cap intentionally removed while the user base is small (see git
+  // history for this line — `git log -p -- api/chat.ts` — to reinstate the
+  // increment_daily_session_count RPC call that used to run here on turnIndex 0).
 
   const recentHistory = body.history.slice(-HISTORY_WINDOW)
 
@@ -59,14 +48,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  await supabaseAdmin.from('groq_usage_log').insert({
-    user_id: user.id,
-    scenario_id: scenario.id,
-    call_type: 'chat',
-    prompt_tokens: chatResult.usage?.prompt_tokens ?? null,
-    completion_tokens: chatResult.usage?.completion_tokens ?? null,
-    total_tokens: chatResult.usage?.total_tokens ?? null,
-  })
+  try {
+    const { error } = await supabaseAdmin.from('groq_usage_log').insert({
+      user_id: user.id,
+      scenario_id: scenario.id,
+      call_type: 'chat',
+      prompt_tokens: chatResult.usage?.prompt_tokens ?? null,
+      completion_tokens: chatResult.usage?.completion_tokens ?? null,
+      total_tokens: chatResult.usage?.total_tokens ?? null,
+    })
+    if (error) throw error
+  } catch (err) {
+    console.error('Failed to log chat usage', err)
+  }
 
   const done = body.turnIndex >= MAX_USER_TURNS - 1
 
@@ -85,25 +79,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const feedbackResult = await callGroqFeedback(scenario.title, scenario.aiRole, fullTranscript)
     feedback = parseFeedbackJson(feedbackResult.content)
 
-    await supabaseAdmin.from('groq_usage_log').insert({
-      user_id: user.id,
-      scenario_id: scenario.id,
-      call_type: 'feedback',
-      prompt_tokens: feedbackResult.usage?.prompt_tokens ?? null,
-      completion_tokens: feedbackResult.usage?.completion_tokens ?? null,
-      total_tokens: feedbackResult.usage?.total_tokens ?? null,
-    })
+    try {
+      const { error } = await supabaseAdmin.from('groq_usage_log').insert({
+        user_id: user.id,
+        scenario_id: scenario.id,
+        call_type: 'feedback',
+        prompt_tokens: feedbackResult.usage?.prompt_tokens ?? null,
+        completion_tokens: feedbackResult.usage?.completion_tokens ?? null,
+        total_tokens: feedbackResult.usage?.total_tokens ?? null,
+      })
+      if (error) throw error
+    } catch (err) {
+      console.error('Failed to log feedback usage', err)
+    }
   } catch {
     feedback = { strengths: [], corrections: [] }
   }
 
-  await supabaseAdmin.from('sessions').insert({
-    user_id: user.id,
-    scenario_id: scenario.id,
-    mode: body.mode,
-    transcript: fullTranscript,
-    feedback,
-  })
+  try {
+    const { error } = await supabaseAdmin.from('sessions').insert({
+      user_id: user.id,
+      scenario_id: scenario.id,
+      mode: body.mode,
+      transcript: fullTranscript,
+      feedback,
+    })
+    if (error) throw error
+  } catch (err) {
+    console.error('Failed to save session', err)
+  }
 
   res.status(200).json({ reply: chatResult.content, done: true, feedback })
 }

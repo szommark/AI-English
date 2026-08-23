@@ -54,6 +54,7 @@ supabase/       SQL migrations for this app's dedicated Supabase project
 | `SUPABASE_URL` | server (`/api`) | Same project URL, read from `process.env` |
 | `SUPABASE_SERVICE_ROLE_KEY` | server (`/api`) | Bypasses RLS to verify users and write logs — **never expose to the client** |
 | `GROQ_API_KEY` | server (`/api`) | **Never expose to the client** |
+| `GEMINI_API_KEY` | server (`/api`) | Powers Tutor Bot (`gemini-3.1-flash-lite`) — **never expose to the client** |
 
 ## Supabase schema
 
@@ -62,11 +63,13 @@ supabase/       SQL migrations for this app's dedicated Supabase project
 - `sessions` — one row per completed rehearsal/test session (scenario, mode, full
   transcript, structured feedback JSON, timestamp), RLS-protected so users can only read
   their own rows. Writes happen only via the service role from `/api`.
-- `daily_session_counts` — one row per user per UTC day, incremented atomically by the
-  `increment_daily_session_count(user_id, max)` Postgres function, which raises an
-  exception once the daily cap is hit.
-- `groq_usage_log` — token usage (prompt/completion/total) for every Groq call, tagged by
-  call type (`chat` vs `feedback`), so real consumption can be checked against estimates.
+- `daily_session_counts` / `increment_daily_session_count(user_id, max)` — the daily
+  session cap's storage and enforcement function. **Unused as of the cap removal below**
+  (kept in place so the cap can be reinstated by calling the RPC again — see git history
+  for `api/chat.ts` and `api/cap-status.ts`).
+- `groq_usage_log` — token usage (prompt/completion/total) for every Groq/Gemini call,
+  tagged by call type (`chat`, `feedback`, or `tutor_chat`), so real consumption can be
+  checked against estimates.
 
 Apply migrations to a Supabase project with the Supabase CLI:
 
@@ -75,17 +78,23 @@ supabase link --project-ref <your-project-ref>
 supabase db push
 ```
 
-## Cost controls (Groq free tier)
+## Cost controls (Groq/Gemini free tiers)
 
-- Hard cap of 3 sessions per user per UTC day, enforced server-side via the RPC above.
-  The UI shows a "come back tomorrow" message with a countdown once the cap is hit.
-- Every Groq call retries on HTTP 429 with exponential backoff (1s, 2s, 4s).
-- Only the system prompt plus the last 3-4 turns are sent to Groq per turn; the full
-  transcript is accumulated client-side and sent once, at the end of the session, for
-  the feedback call and for persisting to `sessions`.
+- The daily session cap is **removed for now** while the user base is small (a handful
+  of users) — `api/chat.ts` and `api/cap-status.ts` no longer enforce it. See git
+  history for those files to reinstate it.
+- Tutor Bot (`api/tutor-chat.ts`) has one soft anti-runaway guard instead of a cap: past
+  `turnIndex` 40 it returns a wrap-up reply instead of calling Gemini again — a safety
+  net against a stuck client, not a business rule.
+- Every Groq/Gemini call retries on rate-limit/overload responses with exponential
+  backoff (1s, 2s, 4s).
+- Only the system prompt plus the last 3-4 turns are sent per turn; for the fixed
+  scenarios, the full transcript is accumulated client-side and sent once, at the end
+  of the session, for the feedback call and for persisting to `sessions`.
 - Rehearsal mode's example phrases/script are static data (`src/data/scenarios.ts`) —
   no Groq call. Only the live conversation and end-of-session feedback call Groq, in
-  both rehearsal and test mode.
+  both rehearsal and test mode. Tutor Bot calls Gemini instead of Groq and does not
+  generate end-of-session feedback in this pass.
 
 ## Deploying to Vercel
 

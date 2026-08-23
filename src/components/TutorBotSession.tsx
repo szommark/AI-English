@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { ChatMessage, FeedbackResult } from '../lib/types'
+import type { ChatMessage } from '../lib/types'
 import { useTutorSpeechRecognition } from '../hooks/useTutorSpeechRecognition'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
-import { sendTutorGreeting, sendTutorTurn, sendTutorEnd } from '../lib/tutorBotApi'
+import { sendTutorTurn } from '../lib/tutorBotApi'
 import UnsupportedBrowserNotice from './UnsupportedBrowserNotice'
-import DailyCapBanner from './DailyCapBanner'
-import FeedbackCard from './FeedbackCard'
 import MouthBubbleLayer from './SpeechBubble/MouthBubbleLayer'
 import TranscriptLines from './SpeechBubble/TranscriptLines'
 import TutorAvatar, { TUTOR_MOUTH_ANCHOR } from './TutorBot/TutorAvatar'
@@ -14,7 +12,9 @@ import StateIndicator, { type IndicatorState } from './TutorBot/StateIndicator'
 import LiveCaptions from './TutorBot/LiveCaptions'
 import BottomBar from './TutorBot/BottomBar'
 
-const MAX_TURNS = 6
+// Cheap client-side "have they used Tutor Bot before" signal for isFirstSession —
+// no per-learner backend profile is wired up yet (see api/tutor-chat.ts).
+const VISITED_KEY = 'tutorBot:hasStarted'
 
 const REPROMPT_LINES = [
   "Still there? Take your time.",
@@ -33,8 +33,6 @@ export default function TutorBotSession() {
   const [turnIndex, setTurnIndex] = useState(0)
   const [status, setStatus] = useState<Status>('idle')
   const [error, setError] = useState<string | null>(null)
-  const [capResetAt, setCapResetAt] = useState<string | null>(null)
-  const [feedback, setFeedback] = useState<FeedbackResult | null>(null)
   const [permissionMessage, setPermissionMessage] = useState<string | null>(null)
   const [typingFocused, setTypingFocused] = useState(false)
   const [autoMuted, setAutoMuted] = useState(false)
@@ -43,6 +41,7 @@ export default function TutorBotSession() {
   const pendingEndRef = useRef(false)
   const wasSpeakingRef = useRef(false)
   const emptyStreakRef = useRef(0)
+  const isFirstSessionRef = useRef(typeof window !== 'undefined' ? !window.localStorage.getItem(VISITED_KEY) : true)
 
   useEffect(() => {
     statusRef.current = status
@@ -57,18 +56,16 @@ export default function TutorBotSession() {
     setStatus('thinking')
 
     try {
-      const isFinalTurn = turnIndex >= MAX_TURNS - 1
       const response = await sendTutorTurn({
         history: updatedMessages,
         turnIndex,
-        fullTranscript: isFinalTurn ? updatedMessages : undefined,
+        isFirstSession: isFirstSessionRef.current,
       })
 
       const assistantMessage: ChatMessage = { role: 'assistant', content: response.reply }
       setMessages((prev) => [...prev, assistantMessage])
 
-      if (response.done) {
-        setFeedback(response.feedback ?? { strengths: [], corrections: [] })
+      if (response.ended) {
         pendingEndRef.current = true
       } else {
         setTurnIndex((i) => i + 1)
@@ -76,11 +73,6 @@ export default function TutorBotSession() {
       setStatus('speaking')
       synthesis.speak(response.reply)
     } catch (err) {
-      const capError = err as Error & { resetAt?: string }
-      if (capError.message === 'daily_cap_exceeded' && capError.resetAt) {
-        setCapResetAt(capError.resetAt)
-        return
-      }
       console.error('Tutor Bot turn failed', err)
       speakCanned(APOLOGY_LINE)
     }
@@ -168,24 +160,16 @@ export default function TutorBotSession() {
     return <UnsupportedBrowserNotice />
   }
 
-  if (capResetAt) {
-    return <DailyCapBanner resetAt={capResetAt} />
-  }
-
   async function handleStart() {
     setError(null)
     setStatus('thinking')
     try {
-      const response = await sendTutorGreeting()
+      const response = await sendTutorTurn({ history: [], turnIndex: 0, isFirstSession: isFirstSessionRef.current })
+      window.localStorage.setItem(VISITED_KEY, '1')
       setMessages([{ role: 'assistant', content: response.reply }])
       setStatus('speaking')
       synthesis.speak(response.reply)
     } catch (err) {
-      const capError = err as Error & { resetAt?: string }
-      if (capError.message === 'daily_cap_exceeded' && capError.resetAt) {
-        setCapResetAt(capError.resetAt)
-        return
-      }
       console.error('Tutor Bot greeting failed', err)
       setStatus('idle')
       setError('Something went wrong reaching the tutor bot. Please try again.')
@@ -210,21 +194,10 @@ export default function TutorBotSession() {
     }
   }
 
-  async function handleEnd() {
+  function handleEnd() {
     recognition.stop()
     synthesis.cancel()
-
-    if (messages.some((m) => m.role === 'user')) {
-      setStatus('thinking')
-      try {
-        const result = await sendTutorEnd({ fullTranscript: messages })
-        setFeedback(result.feedback ?? { strengths: [], corrections: [] })
-      } catch {
-        setFeedback({ strengths: [], corrections: [] })
-      }
-    } else {
-      setFeedback({ strengths: [], corrections: [] })
-    }
+    pendingEndRef.current = false
     setStatus('ended')
   }
 
@@ -232,22 +205,22 @@ export default function TutorBotSession() {
   const lastAssistantText = assistantMessages.at(-1)?.content ?? null
   const allTurns = messages.map((m) => ({ role: m.role, text: m.content }))
 
-  if (status === 'ended' && feedback) {
+  if (status === 'ended') {
     return (
       <div className="space-y-6">
-        <h2 className="text-xl font-semibold text-slate-800">Here's your feedback</h2>
+        <h2 className="text-xl font-semibold text-slate-800">Session ended</h2>
 
         <div className="hidden md:block relative mx-auto w-full max-w-xs">
           <TutorAvatar />
         </div>
 
-        <FeedbackCard feedback={feedback} />
-
-        {messages.length > 0 && (
-          <div className="hidden md:block rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+        {messages.length > 0 ? (
+          <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
             <h2 className="font-medium text-slate-700">Conversation transcript</h2>
             <TranscriptLines turns={allTurns} aiLabel="Tutor" />
           </div>
+        ) : (
+          <p className="text-sm text-slate-500">No conversation recorded for this session.</p>
         )}
 
         <Link to="/" className="inline-block text-indigo-600 hover:underline text-sm">
@@ -264,9 +237,7 @@ export default function TutorBotSession() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-slate-800">Tutor Bot</h2>
-        {status !== 'idle' && (
-          <span className="text-sm text-slate-500">Turn {turnIndex + 1} of {MAX_TURNS}</span>
-        )}
+        {status !== 'idle' && <span className="text-sm text-slate-500">Turn {turnIndex + 1}</span>}
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -310,9 +281,9 @@ export default function TutorBotSession() {
       {status !== 'idle' && (
         <BottomBar
           muted={status === 'muted'}
-          micDisabled={status === 'thinking' || status === 'ended'}
-          endDisabled={status === 'ended'}
-          textDisabled={status === 'thinking' || status === 'speaking' || status === 'ended'}
+          micDisabled={status === 'thinking'}
+          endDisabled={false}
+          textDisabled={status === 'thinking' || status === 'speaking'}
           onToggleMute={handleToggleMute}
           onEnd={handleEnd}
           onSubmitText={submitTurn}
