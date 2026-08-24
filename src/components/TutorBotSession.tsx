@@ -30,8 +30,11 @@ const LISTEN_START_DELAY_MS = 500
 
 // Second line of defense against that same leak: if the mic capture is suspiciously
 // similar to what the tutor itself just said, treat it as echo rather than a real turn.
-const ECHO_OVERLAP_THRESHOLD = 0.6
-const ECHO_MIN_WORDS = 4
+// Kept conservative (high overlap, longer minimum) — learners often echo back words
+// from the tutor's own question as part of a natural answer, so this should only catch
+// near-verbatim repeats, not just shared vocabulary.
+const ECHO_OVERLAP_THRESHOLD = 0.85
+const ECHO_MIN_WORDS = 6
 
 function normalizeWords(text: string): string[] {
   return text
@@ -112,7 +115,10 @@ export default function TutorBotSession() {
     synthesis.speak(text)
   }
 
+  // Defense-in-depth against a stale/duplicate recognizer callback: only a turn that
+  // fires while we're actually listening for one should ever be processed.
   function handleUtterance(text: string) {
+    if (statusRef.current !== 'listening') return
     const lastAssistantText = messages.filter((m) => m.role === 'assistant').at(-1)?.content
     if (looksLikeEcho(text, lastAssistantText)) {
       console.warn('[tutor-speech] discarded a captured turn that looked like echo of the tutor\'s own voice:', text)
@@ -123,6 +129,7 @@ export default function TutorBotSession() {
   }
 
   function handleSilenceTimeout() {
+    if (statusRef.current !== 'listening') return
     emptyStreakRef.current += 1
     const next = emptyStreakRef.current
     if (next === 2) {

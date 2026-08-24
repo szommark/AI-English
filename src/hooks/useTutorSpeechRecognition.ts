@@ -136,7 +136,19 @@ export function useTutorSpeechRecognition({ onUtterance, onSilenceTimeout }: Use
     recognition.continuous = true
     recognition.interimResults = true
 
+    // Per spec, .stop() doesn't end a session synchronously — a superseded or
+    // already-finalized instance can still deliver a trailing onresult/onend. Since
+    // transcriptRef/committedRef/listeningRef are shared across instances (not scoped
+    // per recognizer), an unguarded late event from a stale instance can resurrect an
+    // already-submitted transcript and re-arm the silence timer, firing onUtterance a
+    // second time for the same speech. Every handler below checks it's still the
+    // instance currently referenced (not superseded by a newer start()) and that we're
+    // still meant to be listening (not already finalized) before touching shared state.
+    const isActive = () => recognitionRef.current === recognition && listeningRef.current
+
     recognition.onresult = (event) => {
+      if (!isActive()) return
+
       let sessionText = ''
       for (let i = 0; i < event.results.length; i++) {
         sessionText += event.results[i][0].transcript
@@ -154,14 +166,20 @@ export function useTutorSpeechRecognition({ onUtterance, onSilenceTimeout }: Use
     }
     recognition.onerror = (event) => {
       logSpeechDebug('onerror', event.error)
+      if (recognitionRef.current !== recognition) return
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         setPermissionDenied(true)
         listeningRef.current = false
       }
     }
     recognition.onend = () => {
-      logSpeechDebug('onend', { willRestart: listeningRef.current, transcriptSoFar: transcriptRef.current })
-      if (listeningRef.current) {
+      const stillCurrent = recognitionRef.current === recognition
+      logSpeechDebug('onend', {
+        stillCurrent,
+        willRestart: stillCurrent && listeningRef.current,
+        transcriptSoFar: transcriptRef.current,
+      })
+      if (stillCurrent && listeningRef.current) {
         // Preserve whatever we'd captured so far — the next session's `results` starts empty.
         committedRef.current = transcriptRef.current
         recognition.start()
