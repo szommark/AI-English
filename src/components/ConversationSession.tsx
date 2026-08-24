@@ -23,7 +23,7 @@ export default function ConversationSession({
   mode: 'rehearsal' | 'test'
 }) {
   const recognition = useSpeechRecognition()
-  const synthesis = useSpeechSynthesis()
+  const synthesis = useSpeechSynthesis(scenario.voiceGender)
   const photo = scenarioPhotos[scenario.id]
   const photoContainerRef = useRef<HTMLDivElement>(null)
 

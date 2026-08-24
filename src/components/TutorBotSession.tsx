@@ -7,7 +7,7 @@ import { sendTutorTurn } from '../lib/tutorBotApi'
 import UnsupportedBrowserNotice from './UnsupportedBrowserNotice'
 import MouthBubbleLayer from './SpeechBubble/MouthBubbleLayer'
 import TranscriptLines from './SpeechBubble/TranscriptLines'
-import TutorAvatar, { TUTOR_MOUTH_ANCHOR } from './TutorBot/TutorAvatar'
+import TutorAvatar, { TUTOR_MOUTH_ANCHOR, TUTOR_VOICE_GENDER } from './TutorBot/TutorAvatar'
 import StateIndicator, { type IndicatorState } from './TutorBot/StateIndicator'
 import LiveCaptions from './TutorBot/LiveCaptions'
 import BottomBar from './TutorBot/BottomBar'
@@ -57,7 +57,7 @@ function looksLikeEcho(candidate: string, lastAssistantText: string | undefined)
 type Status = 'idle' | 'listening' | 'thinking' | 'speaking' | 'muted' | 'ended'
 
 export default function TutorBotSession() {
-  const synthesis = useSpeechSynthesis()
+  const synthesis = useSpeechSynthesis(TUTOR_VOICE_GENDER)
   const photoContainerRef = useRef<HTMLDivElement>(null)
 
   const [messages, setMessages] = useState<ChatMessage[]>([])

@@ -25,6 +25,8 @@ export interface MouthAnchor {
   mouthBoxHeight: number
 }
 
+export type VoiceGender = 'male' | 'female'
+
 export interface Scenario {
   id: string
   title: string
@@ -42,6 +44,8 @@ export interface Scenario {
    * Recalibrate at /dev/mouth-calibrator (dev server only) rather than eyeballing these.
    */
   mouth: MouthAnchor
+  /** Set by hand against the character photo — never inferred from the image or filename. */
+  voiceGender: VoiceGender
 }
 
 export interface FeedbackCorrection {

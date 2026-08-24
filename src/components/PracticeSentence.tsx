@@ -1,5 +1,6 @@
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
+import { getScenario } from '../data/scenarios'
 import { MicIcon, SpeakerIcon } from './icons/AudioIcons'
 import WordMatchFeedback from './WordMatchFeedback'
 import DeepCheckPanel from './DeepCheckPanel'
@@ -17,7 +18,7 @@ export default function PracticeSentence({
   speakerLabel?: string
   showDeepCheck?: boolean
 }) {
-  const synth = useSpeechSynthesis()
+  const synth = useSpeechSynthesis(getScenario(scenarioId)?.voiceGender)
   const recognition = useSpeechRecognition()
 
   const handleMicClick = () => {

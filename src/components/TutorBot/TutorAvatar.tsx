@@ -1,4 +1,4 @@
-import type { MouthAnchor } from '../../lib/types'
+import type { MouthAnchor, VoiceGender } from '../../lib/types'
 import tutorPhoto from '../../assets/tutor-avatar.jpg'
 
 /**
@@ -12,6 +12,9 @@ export const TUTOR_MOUTH_ANCHOR: MouthAnchor = {
   mouthBoxWidth: 18,
   mouthBoxHeight: 14,
 }
+
+// Set by hand against tutor-avatar.jpg — never inferred from the image or filename.
+export const TUTOR_VOICE_GENDER: VoiceGender = 'male' // TODO: confirm against photo
 
 export default function TutorAvatar() {
   return (
