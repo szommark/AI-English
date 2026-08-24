@@ -1,28 +1,22 @@
 import type { MouthAnchor } from '../../lib/types'
+import tutorPhoto from '../../assets/tutor-avatar.jpg'
 
 /**
- * Rough placeholder anchor for the placeholder avatar below. Recalibrate at
- * /dev/mouth-calibrator once a real tutor photo replaces this SVG.
+ * Calibrated by eye against tutor-avatar.jpg (a square 1254x1254 source rendered with
+ * object-cover into this component's aspect-[3/4] box, which crops ~12.5% off each side).
+ * Re-check with a click-through tool like /dev/mouth-calibrator if the photo changes.
  */
 export const TUTOR_MOUTH_ANCHOR: MouthAnchor = {
-  mouthX: 50,
-  mouthY: 58,
-  mouthBoxWidth: 22,
+  mouthX: 49,
+  mouthY: 47,
+  mouthBoxWidth: 18,
   mouthBoxHeight: 14,
 }
 
 export default function TutorAvatar() {
   return (
-    <div className="relative flex aspect-[3/4] w-full items-center justify-center rounded-2xl bg-gradient-to-b from-violet-100 to-violet-200 shadow-sm">
-      <svg viewBox="0 0 100 100" className="h-2/3 w-2/3 text-violet-500" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="50" cy="8" r="4" fill="currentColor" />
-        <rect x="46" y="10" width="8" height="10" rx="4" fill="currentColor" />
-        <circle cx="50" cy="42" r="24" fill="currentColor" opacity="0.15" />
-        <circle cx="50" cy="42" r="24" stroke="currentColor" strokeWidth="3" />
-        <circle cx="40" cy="40" r="3.2" fill="currentColor" />
-        <circle cx="60" cy="40" r="3.2" fill="currentColor" />
-        <path d="M39 54c4 5 18 5 22 0" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-      </svg>
+    <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-gradient-to-b from-violet-100 to-violet-200 shadow-sm">
+      <img src={tutorPhoto} alt="Tutor Bot" className="h-full w-full object-cover" />
     </div>
   )
 }
