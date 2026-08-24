@@ -33,7 +33,27 @@ function getSpeechRecognitionCtor(): SpeechRecognitionConstructor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null
 }
 
-const SILENCE_MS = 1500
+// How long to wait for the learner to start speaking at all before treating the
+// turn as silence. Generous, since thinking-before-speaking shouldn't feel rushed.
+const NO_SPEECH_TIMEOUT_MS = 8000
+// How long to wait, once speech has begun, before deciding the learner has finished
+// their sentence. Short enough to feel responsive, long enough to survive a
+// mid-sentence breath or thinking pause.
+const END_OF_SPEECH_SILENCE_MS = 1800
+
+// Toggle verbose per-result logging without a redeploy: localStorage.setItem('tutorBot:debugSpeech', '1')
+const DEBUG_SPEECH = typeof window !== 'undefined' && window.localStorage.getItem('tutorBot:debugSpeech') === '1'
+
+function logSpeechDebug(...args: unknown[]) {
+  if (DEBUG_SPEECH) console.debug('[tutor-speech]', new Date().toISOString(), ...args)
+}
+
+/** Concatenates two transcript fragments, inserting a space between them if needed. */
+function joinTranscript(a: string, b: string): string {
+  if (!a) return b
+  if (!b) return a
+  return a.endsWith(' ') || b.startsWith(' ') ? a + b : `${a} ${b}`
+}
 
 export interface UseTutorSpeechRecognitionParams {
   /** Fired once silence follows a non-empty transcript. */
@@ -45,8 +65,12 @@ export interface UseTutorSpeechRecognitionParams {
 /**
  * Continuous, silence-based speech recognition for the Tutor Bot screen (as opposed to
  * useSpeechRecognition's tap-to-start/tap-to-stop model used by the scenario screens).
- * Chrome sometimes ends a continuous recognizer on its own; this hook restarts it
- * transparently for as long as `start()` hasn't been followed by `stop()`.
+ *
+ * Chrome's continuous mode frequently ends the recognizer on its own mid-utterance (its
+ * own VAD deciding a phrase is "done", unrelated to `continuous`/`interimResults`); this
+ * hook restarts it transparently for as long as `start()` hasn't been followed by `stop()`.
+ * Because a restart resets the recognizer's own `results` list, the transcript built up
+ * before the restart is carried forward in `committedRef` so it isn't lost.
  */
 export function useTutorSpeechRecognition({ onUtterance, onSilenceTimeout }: UseTutorSpeechRecognitionParams) {
   const [supported] = useState(() => getSpeechRecognitionCtor() !== null)
@@ -56,6 +80,8 @@ export function useTutorSpeechRecognition({ onUtterance, onSilenceTimeout }: Use
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const listeningRef = useRef(false)
   const transcriptRef = useRef('')
+  // Transcript carried over from prior recognizer sessions within the same turn (see restart note above).
+  const committedRef = useRef('')
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onUtteranceRef = useRef(onUtterance)
   const onSilenceTimeoutRef = useRef(onSilenceTimeout)
@@ -74,22 +100,32 @@ export function useTutorSpeechRecognition({ onUtterance, onSilenceTimeout }: Use
     }
   }, [])
 
-  const armSilenceTimer = useCallback(() => {
-    clearSilenceTimer()
-    silenceTimerRef.current = setTimeout(() => {
-      const text = transcriptRef.current.trim()
-      transcriptRef.current = ''
-      setInterimTranscript('')
-      listeningRef.current = false
-      recognitionRef.current?.stop()
+  // hasSpeech picks which timeout governs this window: the generous "waiting for the
+  // learner to start" one, or the shorter "did they just finish talking" one. Re-armed
+  // on every interim result so a mid-sentence pause never ends the turn early.
+  const armSilenceTimer = useCallback(
+    (hasSpeech: boolean) => {
+      clearSilenceTimer()
+      const delay = hasSpeech ? END_OF_SPEECH_SILENCE_MS : NO_SPEECH_TIMEOUT_MS
+      silenceTimerRef.current = setTimeout(() => {
+        const text = transcriptRef.current.trim()
+        transcriptRef.current = ''
+        committedRef.current = ''
+        setInterimTranscript('')
+        listeningRef.current = false
+        recognitionRef.current?.stop()
 
-      if (text) {
-        onUtteranceRef.current(text)
-      } else {
-        onSilenceTimeoutRef.current()
-      }
-    }, SILENCE_MS)
-  }, [clearSilenceTimer])
+        logSpeechDebug('silence timeout fired', { hasSpeech, delay, text })
+
+        if (text) {
+          onUtteranceRef.current(text)
+        } else {
+          onSilenceTimeoutRef.current()
+        }
+      }, delay)
+    },
+    [clearSilenceTimer],
+  )
 
   const startRecognizer = useCallback(() => {
     const Ctor = getSpeechRecognitionCtor()
@@ -101,22 +137,33 @@ export function useTutorSpeechRecognition({ onUtterance, onSilenceTimeout }: Use
     recognition.interimResults = true
 
     recognition.onresult = (event) => {
-      let text = ''
+      let sessionText = ''
       for (let i = 0; i < event.results.length; i++) {
-        text += event.results[i][0].transcript
+        sessionText += event.results[i][0].transcript
       }
-      transcriptRef.current = text
-      setInterimTranscript(text)
-      armSilenceTimer()
+      const combined = joinTranscript(committedRef.current, sessionText)
+      transcriptRef.current = combined
+      setInterimTranscript(combined)
+
+      if (DEBUG_SPEECH) {
+        const lastResult = event.results[event.results.length - 1]
+        logSpeechDebug('onresult', { isFinal: lastResult?.isFinal ?? false, cumulative: combined })
+      }
+
+      armSilenceTimer(combined.trim().length > 0)
     }
     recognition.onerror = (event) => {
+      logSpeechDebug('onerror', event.error)
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         setPermissionDenied(true)
         listeningRef.current = false
       }
     }
     recognition.onend = () => {
+      logSpeechDebug('onend', { willRestart: listeningRef.current, transcriptSoFar: transcriptRef.current })
       if (listeningRef.current) {
+        // Preserve whatever we'd captured so far — the next session's `results` starts empty.
+        committedRef.current = transcriptRef.current
         recognition.start()
       }
     }
@@ -129,10 +176,11 @@ export function useTutorSpeechRecognition({ onUtterance, onSilenceTimeout }: Use
     if (!supported || listeningRef.current) return
     setPermissionDenied(false)
     transcriptRef.current = ''
+    committedRef.current = ''
     setInterimTranscript('')
     listeningRef.current = true
     startRecognizer()
-    armSilenceTimer()
+    armSilenceTimer(false)
   }, [supported, startRecognizer, armSilenceTimer])
 
   const stop = useCallback(() => {
@@ -141,6 +189,7 @@ export function useTutorSpeechRecognition({ onUtterance, onSilenceTimeout }: Use
     recognitionRef.current?.stop()
     recognitionRef.current = null
     transcriptRef.current = ''
+    committedRef.current = ''
     setInterimTranscript('')
   }, [clearSilenceTimer])
 
