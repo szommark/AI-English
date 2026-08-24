@@ -23,6 +23,37 @@ const REPROMPT_LINES = [
 
 const APOLOGY_LINE = "Sorry, I had trouble there — could you say that again?"
 
+// Without headphones, the tutor's own TTS audio can leak back into the mic (no echo
+// cancellation on the Web Speech API's capture, unlike a WebRTC call). Waiting a beat
+// before reopening the mic lets any trailing playback/room reverb settle first.
+const LISTEN_START_DELAY_MS = 500
+
+// Second line of defense against that same leak: if the mic capture is suspiciously
+// similar to what the tutor itself just said, treat it as echo rather than a real turn.
+// Kept conservative (high overlap, longer minimum) — learners often echo back words
+// from the tutor's own question as part of a natural answer, so this should only catch
+// near-verbatim repeats, not just shared vocabulary.
+const ECHO_OVERLAP_THRESHOLD = 0.85
+const ECHO_MIN_WORDS = 6
+
+function normalizeWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+}
+
+function looksLikeEcho(candidate: string, lastAssistantText: string | undefined): boolean {
+  if (!lastAssistantText) return false
+  const candidateWords = normalizeWords(candidate)
+  if (candidateWords.length < ECHO_MIN_WORDS) return false
+  const assistantWords = new Set(normalizeWords(lastAssistantText))
+  if (assistantWords.size === 0) return false
+  const shared = candidateWords.filter((w) => assistantWords.has(w)).length
+  return shared / candidateWords.length >= ECHO_OVERLAP_THRESHOLD
+}
+
 type Status = 'idle' | 'listening' | 'thinking' | 'speaking' | 'muted' | 'ended'
 
 export default function TutorBotSession() {
@@ -84,11 +115,21 @@ export default function TutorBotSession() {
     synthesis.speak(text)
   }
 
+  // Defense-in-depth against a stale/duplicate recognizer callback: only a turn that
+  // fires while we're actually listening for one should ever be processed.
   function handleUtterance(text: string) {
+    if (statusRef.current !== 'listening') return
+    const lastAssistantText = messages.filter((m) => m.role === 'assistant').at(-1)?.content
+    if (looksLikeEcho(text, lastAssistantText)) {
+      console.warn('[tutor-speech] discarded a captured turn that looked like echo of the tutor\'s own voice:', text)
+      recognition.start()
+      return
+    }
     submitTurn(text)
   }
 
   function handleSilenceTimeout() {
+    if (statusRef.current !== 'listening') return
     emptyStreakRef.current += 1
     const next = emptyStreakRef.current
     if (next === 2) {
@@ -126,13 +167,16 @@ export default function TutorBotSession() {
   }, [synthesis.speaking])
 
   // Keep the mic running whenever we're in `listening`, pausing while the learner types.
+  // The delay before (re)starting gives any trailing TTS playback a moment to clear the
+  // speakers first — see LISTEN_START_DELAY_MS.
   useEffect(() => {
     if (status !== 'listening') return
     if (typingFocused) {
       recognition.stop()
-    } else {
-      recognition.start()
+      return
     }
+    const timer = setTimeout(() => recognition.start(), LISTEN_START_DELAY_MS)
+    return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, typingFocused])
 
