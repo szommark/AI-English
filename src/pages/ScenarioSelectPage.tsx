@@ -28,6 +28,9 @@ export default function ScenarioSelectPage() {
         </div>
         <div className="flex items-center gap-3 text-sm">
           <span className="text-slate-500">{user?.email}</span>
+          <Link to="/settings/voice" className="text-indigo-600 hover:underline">
+            Voice settings
+          </Link>
           <button onClick={signOut} className="text-indigo-600 hover:underline">
             Sign out
           </button>

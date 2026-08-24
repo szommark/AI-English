@@ -30,6 +30,7 @@ export const scenarios: Scenario[] = [
     ],
     // Visually estimated from the photo; refine at /dev/mouth-calibrator if it looks off.
     mouth: { mouthX: 50, mouthY: 30, mouthBoxWidth: 16, mouthBoxHeight: 12 },
+    voiceGender: 'female', // TODO: confirm against photo
   },
   {
     id: 'restaurant-order',
@@ -58,6 +59,7 @@ export const scenarios: Scenario[] = [
     ],
     // Visually estimated from the photo; refine at /dev/mouth-calibrator if it looks off.
     mouth: { mouthX: 48, mouthY: 23, mouthBoxWidth: 16, mouthBoxHeight: 13 },
+    voiceGender: 'male', // TODO: confirm against photo
   },
   {
     id: 'asking-directions',
@@ -86,6 +88,7 @@ export const scenarios: Scenario[] = [
     ],
     // Visually estimated from the photo; refine at /dev/mouth-calibrator if it looks off.
     mouth: { mouthX: 71, mouthY: 40, mouthBoxWidth: 18, mouthBoxHeight: 15 },
+    voiceGender: 'male', // TODO: confirm against photo
   },
   {
     id: 'airport-checkin',
@@ -114,6 +117,7 @@ export const scenarios: Scenario[] = [
     ],
     // Visually estimated from the photo; refine at /dev/mouth-calibrator if it looks off.
     mouth: { mouthX: 50, mouthY: 31, mouthBoxWidth: 16, mouthBoxHeight: 12 },
+    voiceGender: 'female', // TODO: confirm against photo
   },
 ]
 
