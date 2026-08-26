@@ -2,7 +2,9 @@ import type { ChatMessage, GrammarLesson, GrammarWidget } from '../../src/lib/ty
 import type { CefrLevel, GrammarItem } from '../../src/data/grammarCurriculum.js'
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
-const MODEL = 'llama-3.1-8b-instant'
+// llama-3.1-8b-instant was deprecated by Groq (shutdown 2026-08-16); this is their
+// official recommended replacement for that tier.
+const MODEL = 'openai/gpt-oss-20b'
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
 
 export interface GroqUsage {
