@@ -44,8 +44,8 @@ export const features: Feature[] = [
     descriptionHu: 'Érthető magyarázatok és gyakorlás azokhoz a nyelvtani pontokhoz, amikkel nehezen boldogulsz.',
     icon: 'BookOpen',
     accent: 'amber',
-    status: 'coming-soon',
-    route: '/coming-soon/grammar-coach',
+    status: 'active',
+    route: '/grammar-coach',
   },
   {
     id: 'business-english',
