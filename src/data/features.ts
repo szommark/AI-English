@@ -66,8 +66,8 @@ export const features: Feature[] = [
     descriptionHu: 'Önálló kiejtésgyakorlás részletes pontossági visszajelzéssel.',
     icon: 'Mic',
     accent: 'rose',
-    status: 'coming-soon',
-    route: '/coming-soon/pronunciation-session',
+    status: 'active',
+    route: '/pronunciation-session',
   },
 ]
 

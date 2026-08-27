@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { issueAzureToken } from './_lib/azure.js'
 import { getScenario } from '../src/data/scenarios.js'
+import { getSoundItem } from '../src/data/pronunciationCurriculum.js'
 import { DEEP_CHECK_MAX_SECONDS, MONTHLY_AZURE_SECONDS_CAP } from '../src/lib/pronunciationConfig.js'
 
 interface PronunciationTokenRequestBody {
@@ -21,8 +22,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const body = req.body as PronunciationTokenRequestBody
-  const scenario = getScenario(body.scenarioId)
-  if (!scenario) {
+  // `scenarioId` also doubles as a Pronunciation Session sound-item id — that feature has no
+  // "scenario" of its own, so it reuses this same token/log flow with its item id in this slot.
+  const contentExists = Boolean(getScenario(body.scenarioId) ?? getSoundItem(body.scenarioId))
+  if (!contentExists) {
     res.status(400).json({ error: 'Unknown scenario' })
     return
   }

@@ -8,6 +8,7 @@ import PronunciationCenterPage from './pages/PronunciationCenterPage'
 import TestModePage from './pages/TestModePage'
 import TutorBotPage from './pages/TutorBotPage'
 import GrammarCoachPage from './pages/GrammarCoachPage'
+import PronunciationSessionPage from './pages/PronunciationSessionPage'
 import VoiceSettingsPage from './pages/VoiceSettingsPage'
 import ConnectTeacherPage from './pages/settings/ConnectTeacherPage'
 import TeacherDashboardPage from './pages/TeacherDashboardPage'
@@ -91,6 +92,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <GrammarCoachPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/pronunciation-session"
+        element={
+          <ProtectedRoute>
+            <PronunciationSessionPage />
           </ProtectedRoute>
         }
       />

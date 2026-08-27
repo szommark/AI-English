@@ -78,12 +78,22 @@ export interface PronunciationScores {
   fluency: number
   completeness: number
   pronunciation: number
+  prosody?: number
 }
+
+export interface PronunciationPhonemeDetail {
+  phoneme: string
+  accuracyScore: number
+}
+
+export type ProsodyFlag = 'UnexpectedBreak' | 'MissingBreak' | 'Monotone'
 
 export interface PronunciationWordDetail {
   word: string
   accuracyScore: number
   errorType: string
+  phonemes?: PronunciationPhonemeDetail[]
+  prosodyFlags?: ProsodyFlag[]
 }
 
 export interface PronunciationCheckResult {

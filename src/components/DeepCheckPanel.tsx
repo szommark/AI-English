@@ -7,7 +7,17 @@ import PronunciationResultCard from './PronunciationResultCard'
 
 type Status = 'idle' | 'recording' | 'scoring' | 'done' | 'error'
 
-export default function DeepCheckPanel({ scenarioId, targetSentence }: { scenarioId: string; targetSentence: string }) {
+export default function DeepCheckPanel({
+  scenarioId,
+  targetSentence,
+  locale = 'en-US',
+  onResult,
+}: {
+  scenarioId: string
+  targetSentence: string
+  locale?: 'en-US' | 'en-GB'
+  onResult?: (result: PronunciationCheckResult) => void
+}) {
   const [status, setStatus] = useState<Status>('idle')
   const [result, setResult] = useState<PronunciationCheckResult | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
@@ -19,9 +29,10 @@ export default function DeepCheckPanel({ scenarioId, targetSentence }: { scenari
     try {
       const { token, region } = await requestDeepCheckToken(scenarioId)
       setStatus('scoring')
-      const deepResult = await runDeepCheck({ token, region, targetSentence, maxSeconds: DEEP_CHECK_MAX_SECONDS })
+      const deepResult = await runDeepCheck({ token, region, targetSentence, maxSeconds: DEEP_CHECK_MAX_SECONDS, locale })
       setResult(deepResult)
       setStatus('done')
+      onResult?.(deepResult)
 
       await logDeepCheck({
         scenarioId,

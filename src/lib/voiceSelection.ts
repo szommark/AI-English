@@ -17,6 +17,25 @@ export const FEMALE_VOICE_NAMES = [
 ]
 
 const VOICE_OVERRIDE_KEY = 'aiEnglish:voiceOverrideName'
+const ACCENT_PREFERENCE_KEY = 'aiEnglish:accentPreference'
+
+export type AccentPreference = 'us' | 'gb'
+
+/** Default is British English, matching the Pronunciation Session brief's own sourcing (Nádasdy, BBC Learning English). */
+export function getAccentPreference(): AccentPreference {
+  if (typeof window === 'undefined') return 'gb'
+  const stored = window.localStorage.getItem(ACCENT_PREFERENCE_KEY)
+  return stored === 'us' ? 'us' : 'gb'
+}
+
+export function setAccentPreference(accent: AccentPreference): void {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(ACCENT_PREFERENCE_KEY, accent)
+}
+
+export function accentToLangTag(accent: AccentPreference): 'en-US' | 'en-GB' {
+  return accent === 'us' ? 'en-US' : 'en-GB'
+}
 
 let cachedVoicesPromise: Promise<SpeechSynthesisVoice[]> | null = null
 
@@ -67,8 +86,10 @@ export function getVoicesReliably(): Promise<SpeechSynthesisVoice[]> {
 export function pickVoiceForGender(
   voices: SpeechSynthesisVoice[],
   gender: VoiceGender,
+  langPrefix = 'en',
 ): SpeechSynthesisVoice | undefined {
-  const englishVoices = voices.filter((v) => v.lang.startsWith('en'))
+  const accentVoices = voices.filter((v) => v.lang.startsWith(langPrefix))
+  const englishVoices = accentVoices.length > 0 ? accentVoices : voices.filter((v) => v.lang.startsWith('en'))
   if (englishVoices.length === 0) return undefined
 
   const preferredNames = gender === 'male' ? MALE_VOICE_NAMES : FEMALE_VOICE_NAMES
@@ -98,11 +119,12 @@ export function setVoiceOverrideName(voiceName: string | null): void {
 export function resolveVoice(
   voices: SpeechSynthesisVoice[],
   gender: VoiceGender,
+  langPrefix = 'en',
 ): SpeechSynthesisVoice | undefined {
   const overrideName = getVoiceOverrideName()
   if (overrideName) {
     const override = voices.find((v) => v.name === overrideName)
     if (override) return override
   }
-  return pickVoiceForGender(voices, gender)
+  return pickVoiceForGender(voices, gender, langPrefix)
 }
