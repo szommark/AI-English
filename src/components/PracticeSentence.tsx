@@ -1,6 +1,7 @@
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { getScenario } from '../data/scenarios'
+import type { VoiceGender } from '../lib/types'
 import { MicIcon, SpeakerIcon } from './icons/AudioIcons'
 import WordMatchFeedback from './WordMatchFeedback'
 import DeepCheckPanel from './DeepCheckPanel'
@@ -9,16 +10,18 @@ export default function PracticeSentence({
   en,
   hu,
   scenarioId,
+  voiceGender,
   speakerLabel,
   showDeepCheck = false,
 }: {
   en: string
   hu: string
-  scenarioId: string
+  scenarioId?: string
+  voiceGender?: VoiceGender
   speakerLabel?: string
   showDeepCheck?: boolean
 }) {
-  const synth = useSpeechSynthesis(getScenario(scenarioId)?.voiceGender)
+  const synth = useSpeechSynthesis(voiceGender ?? (scenarioId ? getScenario(scenarioId)?.voiceGender : undefined))
   const recognition = useSpeechRecognition()
 
   const handleMicClick = () => {
@@ -70,7 +73,7 @@ export default function PracticeSentence({
         <WordMatchFeedback target={en} heard={recognition.transcript} />
       )}
 
-      {showDeepCheck && <DeepCheckPanel scenarioId={scenarioId} targetSentence={en} />}
+      {showDeepCheck && scenarioId && <DeepCheckPanel scenarioId={scenarioId} targetSentence={en} />}
     </div>
   )
 }

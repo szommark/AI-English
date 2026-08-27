@@ -7,6 +7,7 @@ import RehearsalPage from './pages/RehearsalPage'
 import PronunciationCenterPage from './pages/PronunciationCenterPage'
 import TestModePage from './pages/TestModePage'
 import TutorBotPage from './pages/TutorBotPage'
+import GrammarCoachPage from './pages/GrammarCoachPage'
 import VoiceSettingsPage from './pages/VoiceSettingsPage'
 import MouthCalibratorPage from './pages/dev/MouthCalibratorPage'
 
@@ -67,6 +68,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <TutorBotPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/grammar-coach"
+        element={
+          <ProtectedRoute>
+            <GrammarCoachPage />
           </ProtectedRoute>
         }
       />

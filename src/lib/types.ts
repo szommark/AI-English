@@ -89,3 +89,48 @@ export interface PronunciationCheckResult {
   words: PronunciationWordDetail[]
   audioSeconds: number
 }
+
+export interface RuleBoxWidget {
+  type: 'rule-box'
+  title: string
+  text: string
+}
+
+export interface ExampleSentenceWidget {
+  type: 'example-sentence'
+  tokens: { text: string; highlighted?: boolean }[]
+}
+
+export interface ComparisonTableWidget {
+  type: 'comparison-table'
+  headers: string[]
+  rows: string[][]
+}
+
+export interface SentenceStructureDiagramWidget {
+  type: 'sentence-structure-diagram'
+  blocks: { label: string; text: string }[]
+}
+
+export interface BulletListWidget {
+  type: 'bullet-list'
+  title?: string
+  items: string[]
+}
+
+export type GrammarWidget =
+  | RuleBoxWidget
+  | ExampleSentenceWidget
+  | ComparisonTableWidget
+  | SentenceStructureDiagramWidget
+  | BulletListWidget
+
+export interface GrammarSegment {
+  widget: GrammarWidget
+  narration: string
+}
+
+export interface GrammarLesson {
+  segments: GrammarSegment[]
+  practice: PracticeLine[]
+}
