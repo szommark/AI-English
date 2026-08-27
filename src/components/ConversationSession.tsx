@@ -5,6 +5,7 @@ import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { sendChatTurn } from '../lib/api'
 import { scenarioPhotos } from '../assets/scenarioPhotos'
+import ModelPicker from './ModelPicker'
 import UnsupportedBrowserNotice from './UnsupportedBrowserNotice'
 import DailyCapBanner from './DailyCapBanner'
 import FeedbackCard from './FeedbackCard'
@@ -125,6 +126,9 @@ export default function ConversationSession({
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-slate-800">{scenario.title}</h2>
         <span className="text-sm text-slate-500">Turn {turnIndex + 1} of {MAX_TURNS}</span>
+      </div>
+      <div className="flex justify-end">
+        <ModelPicker feature="rehearsal" />
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

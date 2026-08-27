@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { getModelPreference } from './modelSelection'
 import type { ChatMessage } from './types'
 
 export interface TutorChatResponse {
@@ -22,7 +23,7 @@ export async function sendTutorTurn(params: {
   const res = await fetch('/api/tutor-chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
-    body: JSON.stringify(params),
+    body: JSON.stringify({ ...params, model: getModelPreference('tutorBot') }),
   })
 
   if (!res.ok) throw new Error('Failed to reach the tutor bot service')
