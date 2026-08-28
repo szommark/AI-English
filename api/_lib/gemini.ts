@@ -36,7 +36,16 @@ export async function callGeminiChat(systemPrompt: string, recentHistory: ChatMe
   const requestBody = {
     contents,
     systemInstruction: { parts: [{ text: systemPrompt }] },
-    generationConfig: { temperature: 0.7, maxOutputTokens: 300 },
+    // gemini-3.7-flash has "thinking" on by default and — per Google's docs — can't be
+    // fully disabled for this model; thought tokens draw from the same maxOutputTokens
+    // budget as the visible reply. thinkingLevel "low" minimizes that overhead, and the
+    // budget is sized generously (Grammar Coach's JSON lesson is the largest consumer,
+    // well beyond what Tutor Bot's short replies ever needed).
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 4096,
+      thinkingConfig: { thinkingLevel: 'low' },
+    },
   }
 
   let lastError: unknown = null
