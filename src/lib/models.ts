@@ -5,11 +5,15 @@
 // Kept to one model per provider: Groq's own free-tier roster shrank to just
 // openai/gpt-oss-120b for general chat after moonshotai/kimi-k2-instruct (deprecated
 // 2026-03-23) and deepseek-r1-distill-llama-70b (deprecated 2025-10-02) were both
-// pulled. See docs/model-selector-brief.md for the full history.
+// pulled. gemini-3.7-flash was tried and reverted — its free tier is capped at just 20
+// requests/day/project (confirmed via a live 429: RESOURCE_EXHAUSTED, not a spec sheet),
+// unworkable for a single shared API key backing the whole app. gemini-3.1-flash-lite is
+// the model this app ran in production before this feature ever existed. See
+// docs/model-selector-brief.md for the full history.
 
 export type ModelProvider = 'groq' | 'gemini'
 
-export type ModelId = 'groq-gpt-oss-120b' | 'gemini-3.7-flash'
+export type ModelId = 'groq-gpt-oss-120b' | 'gemini-3.1-flash-lite'
 
 export interface ModelRegistryEntry {
   id: ModelId
@@ -20,7 +24,7 @@ export interface ModelRegistryEntry {
 
 export const MODEL_REGISTRY: ModelRegistryEntry[] = [
   { id: 'groq-gpt-oss-120b', provider: 'groq', providerModelId: 'openai/gpt-oss-120b', label: 'Groq — GPT-OSS 120B' },
-  { id: 'gemini-3.7-flash', provider: 'gemini', providerModelId: 'gemini-3.7-flash', label: 'Gemini — 3.7 Flash' },
+  { id: 'gemini-3.1-flash-lite', provider: 'gemini', providerModelId: 'gemini-3.1-flash-lite', label: 'Gemini — 3.1 Flash Lite' },
 ]
 
 export function isModelId(value: unknown): value is ModelId {
@@ -39,5 +43,5 @@ export type ModelFeature = 'rehearsal' | 'grammarCoach' | 'tutorBot'
 export const DEFAULT_MODEL_BY_FEATURE: Record<ModelFeature, ModelId> = {
   rehearsal: 'groq-gpt-oss-120b',
   grammarCoach: 'groq-gpt-oss-120b',
-  tutorBot: 'gemini-3.7-flash',
+  tutorBot: 'gemini-3.1-flash-lite',
 }

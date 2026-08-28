@@ -26,15 +26,17 @@ Both of Groq's own recommended replacements point back to `openai/gpt-oss-120b`,
 | App model id | Provider | Provider's model id | Notes |
 |---|---|---|---|
 | `groq-gpt-oss-120b` | Groq | `openai/gpt-oss-120b` | Best Groq quality; free tier: 30 RPM / 1K RPD / 8K TPM / 200K TPD |
-| `gemini-3.7-flash` | Gemini | `gemini-3.7-flash` | Best Gemini free-tier model; free tier: 10 RPM / 250 RPD / 250K TPM |
+| `gemini-3.1-flash-lite` | Gemini | `gemini-3.1-flash-lite` | Same model this app already ran in production for Tutor Bot before this feature; free tier: 15 RPM / 1K RPD / 250K TPM |
 
-Dropped from the original candidate list: `openai/gpt-oss-20b` (120b is the better Groq pick), `moonshotai/kimi-k2-instruct` (deprecated on Groq 2026-03-23), `deepseek-r1-distill-llama-70b` (deprecated on Groq 2025-10-02), `gemini-3.1-flash-lite` (3.7-flash is the better Gemini pick), and OpenRouter entirely (its free roster was live-checked and currently has none of DeepSeek/Kimi/Mistral/Llama for $0 — thin and shifts weekly, not worth the integration).
+**Revised again, post-deploy**: `gemini-3.7-flash` shipped 2026-08-13 and looked like the better Gemini pick on paper (per third-party spec pages — see below), but once live it hit a wall the docs didn't mention: its free tier is capped at **20 requests/day/project**, confirmed via a real `429 RESOURCE_EXHAUSTED` in production, not a spec sheet. That's unworkable for a single shared API key backing every learner's Rehearsal/Grammar Coach/Tutor Bot traffic — the daily quota was gone almost immediately just from manual testing. Reverted to `gemini-3.1-flash-lite`. Lesson: for a brand-new model, the free-tier *daily* cap (not RPM/TPM, which third-party trackers report more reliably) needs to be verified against a live call before shipping, not sourced from spec-aggregator sites — the same trust gap that produced the DeepSeek/Kimi mistake above, just on quota instead of availability.
+
+Also dropped from the original candidate list: `openai/gpt-oss-20b` (120b is the better Groq pick), `moonshotai/kimi-k2-instruct` (deprecated on Groq 2026-03-23), `deepseek-r1-distill-llama-70b` (deprecated on Groq 2025-10-02), and OpenRouter entirely (its free roster was live-checked and currently has none of DeepSeek/Kimi/Mistral/Llama for $0 — thin and shifts weekly, not worth the integration).
 
 New default per feature (replaces today's hardcoded model, same provider as before to keep behavior close):
 
 - Rehearsal/Test Mode: `groq-gpt-oss-120b` (was Groq 20b)
 - Grammar Coach: `groq-gpt-oss-120b` (was Groq 20b)
-- Tutor Bot: `gemini-3.7-flash` (was Gemini 3.1-flash-lite)
+- Tutor Bot: `gemini-3.1-flash-lite` (unchanged from before this feature)
 
 ## Architecture changes
 
@@ -80,7 +82,7 @@ No new Supabase table needed. Mirrors the existing client-only, localStorage-bac
 
 ## Rate limits — no fallback in v1
 
-All 4 models are free but rate-limited (see table above). No cost risk, but a learner can hit a 429 during a burst. Proposed v1 behavior: surface the existing error path as-is (`api/chat.ts` and `api/tutor-chat.ts` already `res.status(502)` on a provider failure) — no automatic fallback to a different model. Auto-fallback (e.g. retry on a second free model when the first 429s) is a reasonable follow-up but adds meaningful complexity (cross-provider retry logic, and for Grammar Coach, a cache-key model mismatch) — deferred until real usage shows it's needed.
+Both models are free but rate-limited (see table above). No cost risk, but a learner can hit a 429 during a burst — as happened in practice with `gemini-3.7-flash`'s 20/day cap, which is what forced the revert above. Proposed v1 behavior: surface the existing error path as-is (`api/chat.ts` and `api/tutor-chat.ts` already `res.status(502)` on a provider failure) — no automatic fallback to a different model. Auto-fallback (e.g. retry on a second free model when the first 429s) is a reasonable follow-up but adds meaningful complexity (cross-provider retry logic, and for Grammar Coach, a cache-key model mismatch) — deferred until real usage shows it's needed.
 
 ## Status
 
