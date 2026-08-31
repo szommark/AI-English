@@ -3,6 +3,7 @@ import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { parseFeedbackJson } from './_lib/groq.js'
 import { buildFeedbackPrompt } from './_lib/prompts.js'
 import { callModel } from './_lib/modelRouter.js'
+import { recordFeedbackToPersonalization } from './_lib/personalization.js'
 import { isModelId } from '../src/lib/models.js'
 import { getScenario } from '../src/data/scenarios.js'
 import type { ChatMessage } from '../src/lib/types.js'
@@ -118,6 +119,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     console.error('Failed to save session', err)
   }
+
+  await recordFeedbackToPersonalization(user.id, feedback, modelId)
 
   res.status(200).json({ reply: chatResult.content, done: true, feedback })
 }

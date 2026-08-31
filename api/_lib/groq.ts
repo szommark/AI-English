@@ -1,4 +1,5 @@
-import type { ChatMessage, GrammarLesson, GrammarWidget } from '../../src/lib/types.js'
+import type { ChatMessage, FeedbackResult, GrammarLesson, GrammarWidget } from '../../src/lib/types.js'
+import { MISTAKE_CATEGORIES, type CefrLevel } from './prompts.js'
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
@@ -60,12 +61,51 @@ export async function callGroq(
   throw lastError ?? new Error('Groq API request failed after retries.')
 }
 
-export function parseFeedbackJson(raw: string): { strengths: string[]; corrections: { original: string; corrected: string; note: string }[] } {
+const MISTAKE_CATEGORY_SET = new Set<string>(MISTAKE_CATEGORIES)
+const VALID_CEFR_LEVELS = new Set<string>(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'])
+
+export function parseFeedbackJson(raw: string): FeedbackResult {
   const cleaned = raw.trim().replace(/^```(json)?/i, '').replace(/```$/, '').trim()
   const parsed = JSON.parse(cleaned)
+  const corrections = Array.isArray(parsed.corrections) ? parsed.corrections : []
+
   return {
     strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
-    corrections: Array.isArray(parsed.corrections) ? parsed.corrections : [],
+    corrections: corrections.map((c: Record<string, unknown>) => ({
+      original: typeof c?.original === 'string' ? c.original : '',
+      corrected: typeof c?.corrected === 'string' ? c.corrected : '',
+      note: typeof c?.note === 'string' ? c.note : '',
+      category: typeof c?.category === 'string' && MISTAKE_CATEGORY_SET.has(c.category) ? c.category : 'other',
+    })),
+    vocabularyNoted: Array.isArray(parsed.vocabularyNoted)
+      ? parsed.vocabularyNoted.filter((w: unknown): w is string => typeof w === 'string')
+      : [],
+  }
+}
+
+export interface PersonalizationUpdateResult {
+  summary: string
+  cefrLevel: CefrLevel
+  rationale: string
+}
+
+/**
+ * Same defensive parsing pattern as parseFeedbackJson — falls back to `currentCefr`
+ * if the model returns a missing/invalid cefrLevel, rather than trusting it blindly.
+ */
+export function parsePersonalizationUpdateJson(raw: string, currentCefr: CefrLevel): PersonalizationUpdateResult {
+  const cleaned = raw.trim().replace(/^```(json)?/i, '').replace(/```$/, '').trim()
+  const parsed = JSON.parse(cleaned)
+
+  const cefrLevel =
+    typeof parsed.cefrLevel === 'string' && VALID_CEFR_LEVELS.has(parsed.cefrLevel)
+      ? (parsed.cefrLevel as CefrLevel)
+      : currentCefr
+
+  return {
+    summary: typeof parsed.summary === 'string' ? parsed.summary : '',
+    cefrLevel,
+    rationale: typeof parsed.rationale === 'string' ? parsed.rationale : '',
   }
 }
 

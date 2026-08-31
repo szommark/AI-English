@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { features, type Feature } from '../data/features'
 import FeatureTile from '../components/FeatureTile'
 import AuthModal from '../components/AuthModal'
 import { useAuth } from '../lib/AuthContext'
 
 export default function LandingPage() {
-  const { user, signOut } = useAuth()
+  const { user, role, signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation() as { state?: { from?: string } }
 
@@ -50,6 +50,19 @@ export default function LandingPage() {
           {user ? (
             <>
               <span className="text-slate-500">{user.email}</span>
+              {role === 'teacher' && (
+                <Link to="/teacher" className="text-slate-500 hover:underline">
+                  Teacher Dashboard
+                </Link>
+              )}
+              {role === 'admin' && (
+                <Link to="/admin" className="text-slate-500 hover:underline">
+                  Admin
+                </Link>
+              )}
+              <Link to="/settings/teacher" className="text-slate-500 hover:underline">
+                Connect to teacher
+              </Link>
               <button onClick={signOut} className="text-indigo-600 hover:underline">
                 Sign out
               </button>
