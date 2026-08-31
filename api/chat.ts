@@ -1,6 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
-import { callGroqChat, callGroqFeedback, parseFeedbackJson } from './_lib/groq.js'
+import { parseFeedbackJson } from './_lib/groq.js'
+import { buildFeedbackPrompt } from './_lib/prompts.js'
+import { callModel } from './_lib/modelRouter.js'
+import { isModelId } from '../src/lib/models.js'
 import { getScenario } from '../src/data/scenarios.js'
 import type { ChatMessage } from '../src/lib/types.js'
 
@@ -13,6 +16,7 @@ interface ChatRequestBody {
   history: ChatMessage[]
   turnIndex: number
   fullTranscript?: ChatMessage[]
+  model: string
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -33,6 +37,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: 'Unknown scenario' })
     return
   }
+  if (!isModelId(body.model)) {
+    res.status(400).json({ error: 'Unknown model' })
+    return
+  }
+  const modelId = body.model
 
   // Daily session cap intentionally removed while the user base is small (see git
   // history for this line — `git log -p -- api/chat.ts` — to reinstate the
@@ -42,9 +51,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   let chatResult
   try {
-    chatResult = await callGroqChat(scenario.systemPrompt, recentHistory)
+    chatResult = await callModel(modelId, scenario.systemPrompt, recentHistory)
   } catch (err) {
-    res.status(502).json({ error: err instanceof Error ? err.message : 'Groq request failed' })
+    res.status(502).json({ error: err instanceof Error ? err.message : 'Model request failed' })
     return
   }
 
@@ -76,7 +85,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   let feedback
   try {
-    const feedbackResult = await callGroqFeedback(scenario.title, scenario.aiRole, fullTranscript)
+    const { systemPrompt, messages } = buildFeedbackPrompt(scenario.title, scenario.aiRole, fullTranscript)
+    const feedbackResult = await callModel(modelId, systemPrompt, messages)
     feedback = parseFeedbackJson(feedbackResult.content)
 
     try {

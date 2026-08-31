@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
-import { callGeminiChat } from './_lib/gemini.js'
+import { callModel } from './_lib/modelRouter.js'
+import { isModelId } from '../src/lib/models.js'
 import { buildTutorSystemPrompt, type CefrLevel } from './_lib/prompts.js'
 import type { ChatMessage } from '../src/lib/types.js'
 
@@ -22,6 +23,7 @@ interface TutorChatRequestBody {
   history: ChatMessage[]
   turnIndex: number
   isFirstSession?: boolean
+  model: string
 }
 
 // Placeholder learner profile — real per-learner memory (learner_profiles /
@@ -80,6 +82,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const body = req.body as TutorChatRequestBody
+  if (!isModelId(body.model)) {
+    res.status(400).json({ error: 'Unknown model' })
+    return
+  }
 
   if (body.turnIndex >= MAX_TURN_INDEX) {
     res.status(200).json({ reply: WRAP_UP_REPLY, turnIndex: body.turnIndex, ended: true })
@@ -88,15 +94,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const recentHistory = body.history.slice(-HISTORY_WINDOW)
   // Gemini's contents array can't be empty — the very first call of a session (no
-  // history yet) needs a synthetic kickoff turn to prompt the opening line.
-  const historyForGemini = recentHistory.length > 0 ? recentHistory : [KICKOFF_MESSAGE]
+  // history yet) needs a synthetic kickoff turn to prompt the opening line. Harmless
+  // to include for Groq too, which has no such restriction.
+  const historyForModel = recentHistory.length > 0 ? recentHistory : [KICKOFF_MESSAGE]
   const systemPrompt = buildSystemPrompt(Boolean(body.isFirstSession))
 
   let chatResult
   try {
-    chatResult = await callGeminiChat(systemPrompt, historyForGemini)
+    chatResult = await callModel(body.model, systemPrompt, historyForModel)
   } catch (err) {
-    res.status(502).json({ error: err instanceof Error ? err.message : 'Gemini request failed' })
+    res.status(502).json({ error: err instanceof Error ? err.message : 'Model request failed' })
     return
   }
 

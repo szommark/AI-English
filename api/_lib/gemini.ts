@@ -1,8 +1,8 @@
 import type { ChatMessage } from '../../src/lib/types.js'
 
-// Model id confirmed current as of 2026-08-23 at https://ai.google.dev/gemini-api/docs/models.
-// Google renames/retires model ids periodically — re-check that page if calls start failing.
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent'
+// Google renames/retires model ids periodically — re-check
+// https://ai.google.dev/gemini-api/docs/models if calls start failing.
+const GEMINI_URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
 
 export interface GeminiUsage {
@@ -24,7 +24,7 @@ function toGeminiRole(role: ChatMessage['role']): 'user' | 'model' {
   return role === 'assistant' ? 'model' : 'user'
 }
 
-export async function callGeminiChat(systemPrompt: string, recentHistory: ChatMessage[]): Promise<GeminiResult> {
+export async function callGeminiChat(systemPrompt: string, recentHistory: ChatMessage[], model: string): Promise<GeminiResult> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new Error('Missing GEMINI_API_KEY environment variable.')
 
@@ -36,13 +36,15 @@ export async function callGeminiChat(systemPrompt: string, recentHistory: ChatMe
   const requestBody = {
     contents,
     systemInstruction: { parts: [{ text: systemPrompt }] },
-    generationConfig: { temperature: 0.7, maxOutputTokens: 300 },
+    // maxOutputTokens raised from the old 300 (sized only for Tutor Bot's short replies)
+    // now that this model is also routable to Grammar Coach's multi-segment JSON lesson.
+    generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
   }
 
   let lastError: unknown = null
 
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
-    const response = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+    const response = await fetch(`${GEMINI_URL_BASE}/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody),
