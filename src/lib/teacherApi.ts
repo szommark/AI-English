@@ -17,7 +17,7 @@ export interface RosterEntry {
 
 export async function fetchTeacherRoster(): Promise<RosterEntry[]> {
   const headers = await authHeader()
-  const res = await fetch('/api/teacher/roster', { headers })
+  const res = await fetch('/api/teacher?action=roster', { headers })
   if (!res.ok) throw new Error('Failed to load roster')
   const body = await res.json()
   return body.students
@@ -29,7 +29,7 @@ export interface InviteCode {
 
 export async function fetchInviteCode(): Promise<string> {
   const headers = await authHeader()
-  const res = await fetch('/api/teacher/invite-code', { headers })
+  const res = await fetch('/api/teacher?action=invite-code', { headers })
   if (!res.ok) throw new Error('Failed to load invite code')
   const body = await res.json()
   return body.code
@@ -37,7 +37,7 @@ export async function fetchInviteCode(): Promise<string> {
 
 export async function regenerateInviteCode(): Promise<string> {
   const headers = await authHeader()
-  const res = await fetch('/api/teacher/invite-code', { method: 'POST', headers })
+  const res = await fetch('/api/teacher?action=invite-code', { method: 'POST', headers })
   if (!res.ok) throw new Error('Failed to regenerate invite code')
   const body = await res.json()
   return body.code
@@ -80,7 +80,7 @@ export class StudentDetailAccessError extends Error {}
 
 export async function fetchStudentDetail(studentId: string): Promise<StudentDetail> {
   const headers = await authHeader()
-  const res = await fetch(`/api/teacher/students/${encodeURIComponent(studentId)}`, { headers })
+  const res = await fetch(`/api/teacher?action=student-detail&studentId=${encodeURIComponent(studentId)}`, { headers })
   if (res.status === 403 || res.status === 404) {
     throw new StudentDetailAccessError("You don't have access to this student's data")
   }

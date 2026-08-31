@@ -12,7 +12,7 @@ export interface RedeemInviteCodeError extends Error {
 
 export async function redeemInviteCode(code: string): Promise<{ teacherId: string; teacherEmail: string }> {
   const headers = await authHeader()
-  const res = await fetch('/api/connect/redeem', {
+  const res = await fetch('/api/connect?action=redeem', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify({ code }),
@@ -36,7 +36,7 @@ export interface ConnectedTeacher {
 
 export async function fetchConnectedTeachers(): Promise<ConnectedTeacher[]> {
   const headers = await authHeader()
-  const res = await fetch('/api/connect/teachers', { headers })
+  const res = await fetch('/api/connect?action=teachers', { headers })
   if (!res.ok) throw new Error('Failed to load connected teachers')
   const body = await res.json()
   return body.teachers
@@ -44,7 +44,7 @@ export async function fetchConnectedTeachers(): Promise<ConnectedTeacher[]> {
 
 export async function disconnectLink(otherUserId: string): Promise<void> {
   const headers = await authHeader()
-  const res = await fetch('/api/connect/disconnect', {
+  const res = await fetch('/api/connect?action=disconnect', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify({ otherUserId }),
