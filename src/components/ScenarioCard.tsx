@@ -6,7 +6,7 @@ export default function ScenarioCard({ scenario }: { scenario: Scenario }) {
   const photo = scenarioPhotos[scenario.id]
 
   return (
-    <div className="group rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden transition hover:shadow-lg hover:-translate-y-0.5">
+    <div className="group rounded-2xl border border-border bg-card overflow-hidden transition-all duration-300 hover:shadow-[var(--shadow-card)] hover:-translate-y-1">
       <div className="h-44 overflow-hidden">
         {photo && (
           <img
@@ -18,18 +18,18 @@ export default function ScenarioCard({ scenario }: { scenario: Scenario }) {
       </div>
 
       <div className="p-5">
-        <h2 className="font-semibold text-slate-800">{scenario.title}</h2>
-        <p className="text-sm text-slate-500 mt-1">{scenario.description}</p>
+        <h2 className="font-semibold text-foreground">{scenario.title}</h2>
+        <p className="text-sm text-muted-foreground mt-1">{scenario.description}</p>
         <div className="mt-4 flex gap-2">
           <Link
             to={`/scenario/${scenario.id}/rehearsal`}
-            className="flex-1 text-center rounded-lg border border-indigo-600 text-indigo-600 text-sm py-2 hover:bg-indigo-50"
+            className="flex-1 text-center rounded-lg border border-primary text-primary text-sm py-2 hover:bg-secondary"
           >
             Rehearsal
           </Link>
           <Link
             to={`/scenario/${scenario.id}/test`}
-            className="flex-1 text-center rounded-lg bg-indigo-600 text-white text-sm py-2 hover:bg-indigo-700"
+            className="flex-1 text-center rounded-lg bg-[var(--teal-accent)] text-primary font-semibold text-sm py-2 hover:bg-[var(--teal-accent-strong)]"
           >
             Test mode
           </Link>

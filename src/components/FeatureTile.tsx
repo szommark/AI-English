@@ -32,15 +32,15 @@ export default function FeatureTile({
     <Link
       to={feature.route}
       onClick={onClick}
-      className={`group block rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden p-6 transition hover:shadow-lg hover:-translate-y-0.5 ${accent.border}`}
+      className={`group block rounded-2xl border border-border bg-card overflow-hidden p-6 transition-all duration-300 hover:shadow-[var(--shadow-card)] hover:-translate-y-1 ${accent.border}`}
     >
-      <div className={`inline-flex h-12 w-12 items-center justify-center rounded-full ${accent.badge}`}>
+      <div className={`inline-flex h-11 w-11 items-center justify-center rounded-xl ${accent.badge}`}>
         {Icon && <Icon className="h-6 w-6" />}
       </div>
 
-      <h2 className="mt-4 font-semibold text-slate-800">{feature.title}</h2>
-      <p className="text-sm text-slate-500">{feature.titleHu}</p>
-      <p className="text-sm text-slate-500 mt-2">{feature.description}</p>
+      <h2 className="mt-4 font-semibold text-foreground">{feature.title}</h2>
+      <p className="text-sm text-muted-foreground">{feature.titleHu}</p>
+      <p className="text-sm text-muted-foreground mt-2">{feature.description}</p>
     </Link>
   )
 }
