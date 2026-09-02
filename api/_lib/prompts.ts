@@ -3,6 +3,21 @@ import type { GrammarItem } from '../../src/data/grammarCurriculum.js'
 
 export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
 
+// Must match the `mistake_log.category` check constraint in
+// supabase/migrations/20260831120000_personalization.sql exactly.
+export const MISTAKE_CATEGORIES = [
+  'past_tense',
+  'present_tense',
+  'prepositions',
+  'articles',
+  'word_order',
+  'vocabulary',
+  'pronunciation',
+  'other',
+] as const
+
+export type MistakeCategory = (typeof MISTAKE_CATEGORIES)[number]
+
 export interface TutorPromptParams {
   learnerName: string
   cefrLevel: CefrLevel
@@ -75,10 +90,58 @@ export function buildFeedbackPrompt(scenarioTitle: string, aiRole: string, trans
     .join('\n')
 
   const systemPrompt = `You are an English teacher reviewing a Hungarian learner's roleplay practice for the scenario "${scenarioTitle}". Review the transcript below and respond with ONLY valid JSON (no markdown, no code fences) matching exactly this shape:
-{"strengths": ["...", "..."], "corrections": [{"original": "...", "corrected": "...", "note": "..."}]}
-Give 2-3 strengths and 2-3 corrections. Each correction must reference an actual line the learner said, with a corrected version and a short note explaining the fix (grammar, vocabulary, or phrasing). Be encouraging but specific.`
+{"strengths": ["...", "..."], "corrections": [{"original": "...", "corrected": "...", "note": "...", "category": "prepositions"}], "vocabularyNoted": ["word1", "word2"]}
+Give 2-3 strengths and 2-3 corrections. Each correction must reference an actual line the learner said, with a corrected version and a short note explaining the fix (grammar, vocabulary, or phrasing), and a "category" set to exactly one of: ${MISTAKE_CATEGORIES.join(', ')}. For "vocabularyNoted", list 0-5 individual English words or short phrases the learner used that were either new/notable for their level or that they visibly struggled with — just the words themselves, no extra structure. Be encouraging but specific.`
 
   return { systemPrompt, messages: [{ role: 'user', content: transcriptText }] }
+}
+
+/**
+ * Same JSON shape as buildFeedbackPrompt, but for a scenario-less Tutor Bot
+ * conversation — there's no fixed scenario title or AI role to reference.
+ */
+export function buildTutorFeedbackPrompt(transcript: ChatMessage[]): PromptWithMessages {
+  const transcriptText = transcript
+    .map((m) => `${m.role === 'user' ? 'Learner' : 'Tutor'}: ${m.content}`)
+    .join('\n')
+
+  const systemPrompt = `You are an English teacher reviewing a Hungarian learner's free-form conversation practice with an AI tutor. Review the transcript below and respond with ONLY valid JSON (no markdown, no code fences) matching exactly this shape:
+{"strengths": ["...", "..."], "corrections": [{"original": "...", "corrected": "...", "note": "...", "category": "prepositions"}], "vocabularyNoted": ["word1", "word2"]}
+Give 2-3 strengths and 2-3 corrections. Each correction must reference an actual line the learner said, with a corrected version and a short note explaining the fix (grammar, vocabulary, or phrasing), and a "category" set to exactly one of: ${MISTAKE_CATEGORIES.join(', ')}. For "vocabularyNoted", list 0-5 individual English words or short phrases the learner used that were either new/notable for their level or that they visibly struggled with — just the words themselves, no extra structure. Be encouraging but specific.`
+
+  return { systemPrompt, messages: [{ role: 'user', content: transcriptText }] }
+}
+
+export interface PersonalizationUpdateInput {
+  mistakes: { category: string; occurrences: number }[]
+  vocabulary: { word: string; status: string }[]
+  currentCefr: CefrLevel
+}
+
+/**
+ * Pure prompt builder for the periodic learner_profiles summary/CEFR refresh — see
+ * api/_lib/personalization.ts's maybeUpdateSummaryAndCefr, which runs this every
+ * SUMMARY_CADENCE completed sessions rather than after every single one.
+ */
+export function buildPersonalizationUpdatePrompt(params: PersonalizationUpdateInput): PromptWithMessages {
+  const { mistakes, vocabulary, currentCefr } = params
+
+  const mistakesText =
+    mistakes.length > 0 ? mistakes.map((m) => `${m.category} (${m.occurrences}x)`).join(', ') : 'none recorded yet'
+  const vocabText =
+    vocabulary.length > 0 ? vocabulary.map((v) => `${v.word} (${v.status})`).join(', ') : 'none recorded yet'
+
+  const systemPrompt = `You are an English teacher maintaining a running profile for a Hungarian learner currently estimated at CEFR level ${currentCefr}.
+
+Recent mistake categories (most frequent first): ${mistakesText}
+Recent vocabulary seen: ${vocabText}
+
+Based on this history, respond with ONLY valid JSON (no markdown, no code fences) matching exactly this shape:
+{"summary": "...", "cefrLevel": "B1", "rationale": "..."}
+
+"summary" should be a 150-300 token running summary of this learner's strengths, weaknesses, and progress, written for another English teacher to read before their next session. "cefrLevel" must be your best current estimate of the learner's CEFR level — exactly one of A1, A2, B1, B2, C1, C2 — based on the mistake patterns and vocabulary above; keep it the same as the current level (${currentCefr}) unless the evidence clearly supports moving it up or down one step. "rationale" is one sentence explaining the cefrLevel choice.`
+
+  return { systemPrompt, messages: [{ role: 'user', content: 'Generate the updated profile now.' }] }
 }
 
 const HUNGARIAN_NARRATION_LEVELS: CefrLevel[] = ['A1', 'A2']

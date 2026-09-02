@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { AuthProvider, useAuth } from './lib/AuthContext'
+import { AuthProvider, useAuth, type UserRole } from './lib/AuthContext'
 import LandingPage from './pages/LandingPage'
 import ScenarioSelectPage from './pages/ScenarioSelectPage'
 import ComingSoonPage from './pages/ComingSoonPage'
@@ -9,6 +9,10 @@ import TestModePage from './pages/TestModePage'
 import TutorBotPage from './pages/TutorBotPage'
 import GrammarCoachPage from './pages/GrammarCoachPage'
 import VoiceSettingsPage from './pages/VoiceSettingsPage'
+import ConnectTeacherPage from './pages/settings/ConnectTeacherPage'
+import TeacherDashboardPage from './pages/TeacherDashboardPage'
+import StudentProgressPage from './pages/StudentProgressPage'
+import AdminOverviewPage from './pages/AdminOverviewPage'
 import MouthCalibratorPage from './pages/dev/MouthCalibratorPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -16,6 +20,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   if (loading) return <div className="min-h-screen flex items-center justify-center text-slate-400">Loading...</div>
   if (!user) return <Navigate to="/" state={{ from: location.pathname }} replace />
+  return <>{children}</>
+}
+
+function RoleProtectedRoute({ role, children }: { role: UserRole; children: React.ReactNode }) {
+  const { user, loading, role: userRole } = useAuth()
+  const location = useLocation()
+  if (loading || (user && userRole === null)) {
+    return <div className="min-h-screen flex items-center justify-center text-slate-400">Loading...</div>
+  }
+  if (!user) return <Navigate to="/" state={{ from: location.pathname }} replace />
+  if (userRole !== role) return <Navigate to="/" replace />
   return <>{children}</>
 }
 
@@ -85,6 +100,38 @@ function AppRoutes() {
           <ProtectedRoute>
             <VoiceSettingsPage />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/teacher"
+        element={
+          <ProtectedRoute>
+            <ConnectTeacherPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <TeacherDashboardPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/students/:studentId"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <StudentProgressPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <RoleProtectedRoute role="admin">
+            <AdminOverviewPage />
+          </RoleProtectedRoute>
         }
       />
       {import.meta.env.DEV && <Route path="/dev/mouth-calibrator" element={<MouthCalibratorPage />} />}

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { ChatMessage } from '../lib/types'
+import type { ChatMessage, FeedbackResult } from '../lib/types'
 import { useTutorSpeechRecognition } from '../hooks/useTutorSpeechRecognition'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
-import { sendTutorTurn } from '../lib/tutorBotApi'
+import { sendTutorTurn, sendTutorEnd } from '../lib/tutorBotApi'
 import UnsupportedBrowserNotice from './UnsupportedBrowserNotice'
+import FeedbackCard from './FeedbackCard'
 import MouthBubbleLayer from './SpeechBubble/MouthBubbleLayer'
 import TranscriptLines from './SpeechBubble/TranscriptLines'
 import TutorAvatar, { TUTOR_MOUTH_ANCHOR, TUTOR_VOICE_GENDER } from './TutorBot/TutorAvatar'
@@ -67,11 +68,14 @@ export default function TutorBotSession() {
   const [permissionMessage, setPermissionMessage] = useState<string | null>(null)
   const [typingFocused, setTypingFocused] = useState(false)
   const [autoMuted, setAutoMuted] = useState(false)
+  const [feedback, setFeedback] = useState<FeedbackResult | null>(null)
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
 
   const statusRef = useRef(status)
   const pendingEndRef = useRef(false)
   const wasSpeakingRef = useRef(false)
   const emptyStreakRef = useRef(0)
+  const endCalledRef = useRef(false)
   const isFirstSessionRef = useRef(typeof window !== 'undefined' ? !window.localStorage.getItem(VISITED_KEY) : true)
 
   useEffect(() => {
@@ -191,6 +195,19 @@ export default function TutorBotSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recognition.permissionDenied])
 
+  // Save the session and fetch end-of-session feedback once, the moment the learner
+  // (or the 40-turn safety net) ends the conversation.
+  useEffect(() => {
+    if (status !== 'ended' || messages.length === 0 || endCalledRef.current) return
+    endCalledRef.current = true
+    setFeedbackLoading(true)
+    sendTutorEnd({ fullTranscript: messages })
+      .then((response) => setFeedback(response.feedback))
+      .catch((err) => console.error('Failed to end tutor session', err))
+      .finally(() => setFeedbackLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status])
+
   if (permissionMessage) {
     return (
       <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
@@ -257,6 +274,10 @@ export default function TutorBotSession() {
         <div className="hidden md:block relative mx-auto w-full max-w-xs">
           <TutorAvatar />
         </div>
+
+        {feedbackLoading && <p className="text-sm text-slate-500">Preparing your feedback...</p>}
+
+        {feedback && <FeedbackCard feedback={feedback} />}
 
         {messages.length > 0 ? (
           <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">

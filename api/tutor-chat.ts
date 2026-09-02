@@ -2,7 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { callModel } from './_lib/modelRouter.js'
 import { isModelId } from '../src/lib/models.js'
-import { buildTutorSystemPrompt, type CefrLevel } from './_lib/prompts.js'
+import { buildTutorSystemPrompt } from './_lib/prompts.js'
+import { getLearnerProfile } from './_lib/personalization.js'
 import type { ChatMessage } from '../src/lib/types.js'
 
 const HISTORY_WINDOW = 4
@@ -26,21 +27,8 @@ interface TutorChatRequestBody {
   model: string
 }
 
-// Placeholder learner profile — real per-learner memory (learner_profiles /
-// mistake_log) isn't wired up yet; this is a deliberate scope cut for this pass.
-// Swap this out for a Supabase read once that lands.
-function getPlaceholderProfile() {
-  return {
-    learnerName: 'Alex',
-    cefrLevel: 'B1' as CefrLevel,
-    learnerGoal: 'general everyday conversation practice',
-    personalizationSummary: 'No history recorded yet — this is a placeholder profile.',
-    suggestedTopic: 'weekend plans',
-  }
-}
-
-function buildSystemPrompt(isFirstSession: boolean): string {
-  const profile = getPlaceholderProfile()
+async function buildSystemPrompt(userId: string, userEmail: string | undefined, isFirstSession: boolean): Promise<string> {
+  const profile = await getLearnerProfile(userId, userEmail)
 
   const openingGuidance = isFirstSession
     ? "== OPENING THIS SESSION ==\nThis is the learner's first Tutor Bot session. Introduce yourself briefly and warmly, then ask what they'd like to work on or talk about today."
@@ -97,7 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // history yet) needs a synthetic kickoff turn to prompt the opening line. Harmless
   // to include for Groq too, which has no such restriction.
   const historyForModel = recentHistory.length > 0 ? recentHistory : [KICKOFF_MESSAGE]
-  const systemPrompt = buildSystemPrompt(Boolean(body.isFirstSession))
+  const systemPrompt = await buildSystemPrompt(user.id, user.email, Boolean(body.isFirstSession))
 
   let chatResult
   try {

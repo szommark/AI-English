@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { features, type Feature } from '../data/features'
 import FeatureTile from '../components/FeatureTile'
 import AuthModal from '../components/AuthModal'
 import { useAuth } from '../lib/AuthContext'
 
 export default function LandingPage() {
-  const { user, signOut } = useAuth()
+  const { user, role, signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation() as { state?: { from?: string } }
 
@@ -41,34 +41,60 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-slate-50 to-slate-50">
-      <header className="max-w-4xl mx-auto flex items-center justify-between px-4 py-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-800">AI-English</h1>
-        </div>
-        <div className="flex items-center gap-3 text-sm">
-          {user ? (
-            <>
-              <span className="text-slate-500">{user.email}</span>
-              <button onClick={signOut} className="text-indigo-600 hover:underline">
-                Sign out
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => setAuthOpen(true)}
-              className="rounded-lg bg-indigo-600 text-white text-sm px-4 py-2 hover:bg-indigo-700"
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+        <div className="max-w-5xl mx-auto flex items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-2.5">
+            <div
+              className="h-8 w-8 rounded-md flex items-center justify-center text-white font-bold"
+              style={{ background: 'var(--gradient-hero)' }}
             >
-              Sign in
-            </button>
-          )}
+              A
+            </div>
+            <span className="text-[15px] font-semibold tracking-tight text-foreground">AI-English</span>
+          </div>
+          <div className="flex items-center gap-3 text-sm">
+            {user ? (
+              <>
+                <span className="text-muted-foreground">{user.email}</span>
+                {role === 'teacher' && (
+                  <Link to="/teacher" className="text-muted-foreground hover:underline">
+                    Teacher Dashboard
+                  </Link>
+                )}
+                {role === 'admin' && (
+                  <Link to="/admin" className="text-muted-foreground hover:underline">
+                    Admin
+                  </Link>
+                )}
+                <Link to="/settings/teacher" className="text-muted-foreground hover:underline">
+                  Connect to teacher
+                </Link>
+                <button onClick={signOut} className="text-primary hover:underline">
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setAuthOpen(true)}
+                className="rounded-lg bg-[var(--teal-accent)] text-primary text-sm font-semibold px-4 py-2 hover:bg-[var(--teal-accent-strong)]"
+              >
+                Sign in
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 pb-12 space-y-8">
-        <div className="text-center">
-          <p className="text-slate-600">Choose how you'd like to practice today</p>
-          <p className="text-sm text-slate-400">Válaszd ki, hogyan szeretnél ma gyakorolni</p>
+      <main className="max-w-5xl mx-auto px-4 py-12 space-y-8">
+        <div className="text-center max-w-2xl mx-auto">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--teal-accent-strong)]">
+            Gyakorlás
+          </p>
+          <h2 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
+            Choose how you'd like to practice today
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">Válaszd ki, hogyan szeretnél ma gyakorolni</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">

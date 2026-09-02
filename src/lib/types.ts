@@ -52,11 +52,13 @@ export interface FeedbackCorrection {
   original: string
   corrected: string
   note: string
+  category?: string
 }
 
 export interface FeedbackResult {
   strengths: string[]
   corrections: FeedbackCorrection[]
+  vocabularyNoted?: string[]
 }
 
 export interface ChatTurnResponse {
