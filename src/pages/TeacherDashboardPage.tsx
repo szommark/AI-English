@@ -35,62 +35,70 @@ export default function TeacherDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-slate-50 to-slate-50">
-      <header className="max-w-4xl mx-auto flex items-center justify-between px-4 py-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-800">Teacher Dashboard</h1>
-        </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-slate-500">{user?.email}</span>
-          <button onClick={signOut} className="text-indigo-600 hover:underline">
-            Sign out
-          </button>
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+        <div className="max-w-4xl mx-auto flex items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-2.5">
+            <div
+              className="h-8 w-8 rounded-md flex items-center justify-center text-white font-bold"
+              style={{ background: 'var(--gradient-hero)' }}
+            >
+              A
+            </div>
+            <span className="text-[15px] font-semibold tracking-tight text-foreground">Teacher Dashboard</span>
+          </div>
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-muted-foreground">{user?.email}</span>
+            <button onClick={signOut} className="text-primary hover:underline">
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 pb-12 space-y-8">
-        <Link to="/" className="text-sm text-indigo-600 hover:underline">
+      <main className="max-w-4xl mx-auto px-4 py-12 space-y-8">
+        <Link to="/" className="text-sm text-primary hover:underline">
           ← Back to home
         </Link>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         {loading ? (
-          <p className="text-sm text-slate-400">Loading...</p>
+          <p className="text-sm text-muted-foreground">Loading...</p>
         ) : (
           <>
-            <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
-              <h2 className="font-medium text-slate-700">Your invite code</h2>
-              <p className="text-3xl font-mono tracking-widest text-indigo-700">{code}</p>
+            <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
+              <h2 className="font-medium text-foreground">Your invite code</h2>
+              <p className="text-3xl font-mono tracking-widest text-primary">{code}</p>
               <button
                 onClick={handleRegenerate}
                 disabled={regenerating}
-                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary disabled:opacity-40"
               >
                 {regenerating ? 'Regenerating...' : 'Regenerate'}
               </button>
             </div>
 
             <div className="space-y-3">
-              <h2 className="font-medium text-slate-700">Students</h2>
+              <h2 className="font-medium text-foreground">Students</h2>
 
               {students.length === 0 ? (
-                <p className="text-sm text-slate-500">No students connected yet — share your code above</p>
+                <p className="text-sm text-muted-foreground">No students connected yet — share your code above</p>
               ) : (
                 <div className="space-y-2">
                   {students.map((s) => (
                     <Link
                       key={s.studentId}
                       to={`/teacher/students/${s.studentId}`}
-                      className="block rounded-lg border border-slate-200 bg-white px-4 py-3 hover:border-indigo-300"
+                      className="block rounded-lg border border-border bg-card px-4 py-3 hover:border-[var(--teal-accent)]/40"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-slate-800">{s.email}</span>
-                        <span className="text-xs text-slate-400">
+                        <span className="font-medium text-foreground">{s.email}</span>
+                        <span className="text-xs text-muted-foreground">
                           Connected since {new Date(s.connectedAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <div className="mt-1 text-sm text-slate-500">
+                      <div className="mt-1 text-sm text-muted-foreground">
                         {s.sessionCount} session{s.sessionCount === 1 ? '' : 's'}
                         {s.lastSessionAt && ` · last active ${new Date(s.lastSessionAt).toLocaleDateString()}`}
                       </div>
