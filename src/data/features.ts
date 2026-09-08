@@ -67,7 +67,7 @@ export const features: Feature[] = [
     icon: 'Mic',
     accent: 'rose',
     status: 'active',
-    route: '/pronunciation-session',
+    route: '/pronunciation',
   },
 ]
 

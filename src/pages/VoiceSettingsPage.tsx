@@ -8,6 +8,7 @@ import {
   setAccentPreference,
   type AccentPreference,
 } from '../lib/voiceSelection'
+import AccentToggle from '../components/AccentToggle'
 
 export default function VoiceSettingsPage() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
@@ -50,24 +51,7 @@ export default function VoiceSettingsPage() {
           <p className="text-xs text-slate-500">
             Controls both the practice audio and how your recordings are scored in the Pronunciation Session.
           </p>
-          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
-            {(
-              [
-                { value: 'gb' as const, label: 'British English' },
-                { value: 'us' as const, label: 'General American' },
-              ]
-            ).map((option) => (
-              <button
-                key={option.value}
-                onClick={() => handleAccentChange(option.value)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                  accent === option.value ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-slate-50'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <AccentToggle accent={accent} onChange={handleAccentChange} />
         </div>
 
         {voices.length === 0 ? (
