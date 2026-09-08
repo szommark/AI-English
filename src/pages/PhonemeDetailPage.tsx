@@ -8,6 +8,7 @@ import { fetchPronunciationProgress, type PronunciationProgressEntry } from '../
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import AccentToggle from '../components/AccentToggle'
 import { HighlightedWord } from '../components/Pronunciation/PhonemeTile'
+import ArticulationRig from '../components/Pronunciation/ArticulationRig'
 import DrillFunnel from '../components/PronunciationSession/DrillFunnel'
 
 export default function PhonemeDetailPage() {
@@ -78,6 +79,11 @@ export default function PhonemeDetailPage() {
         <section className="rounded-xl border border-border bg-card p-5 space-y-4">
           <div>
             <h2 className="text-sm font-medium text-foreground mb-1">Képzés</h2>
+            {phoneme.hungarianDifficulty === 'critical' && (
+              <div className="max-w-sm mb-2">
+                <ArticulationRig articulation={phoneme.articulation} />
+              </div>
+            )}
             <p className="text-sm text-muted-foreground">{phoneme.articulation.description}</p>
           </div>
 

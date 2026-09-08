@@ -150,6 +150,7 @@ export const phonemes: Phoneme[] = [
       voicing: 'voiced',
       manner: 'approximant',
       place: 'bilabial',
+      lipRounding: 'rounded',
     },
     curriculumId: 'w-vs-v',
   },
@@ -169,6 +170,7 @@ export const phonemes: Phoneme[] = [
       voicing: 'voiced',
       manner: 'approximant',
       place: 'postalveolar',
+      lipRounding: 'rounded',
     },
   },
   {
