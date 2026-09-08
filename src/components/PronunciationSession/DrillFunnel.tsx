@@ -140,10 +140,12 @@ export default function DrillFunnel({
 
   async function handleProductionResult(result: PronunciationCheckResult) {
     setProductionResult(result)
+    const flaggedWords = result.words.filter((w) => w.errorType !== 'None').map((w) => w.word)
     try {
       await recordPronunciationAttempt(soundItem.id, {
         perceptionScore: perceptionScoreRef.current,
         productionScore: Math.round(result.scores.pronunciation),
+        flaggedWords,
       })
     } catch (err) {
       console.error('Failed to record pronunciation progress', err)

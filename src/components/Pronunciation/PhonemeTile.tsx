@@ -1,7 +1,8 @@
+import { Link } from 'react-router-dom'
 import { Volume2 } from 'lucide-react'
 import type { Phoneme } from '../../data/phonemes'
 
-function HighlightedWord({ word, highlight }: { word: string; highlight: string }) {
+export function HighlightedWord({ word, highlight }: { word: string; highlight: string }) {
   const index = word.toLowerCase().indexOf(highlight.toLowerCase())
   if (index === -1) return <>{word}</>
   return (
@@ -23,9 +24,10 @@ export default function PhonemeTile({
   const primaryWord = phoneme.exampleWords[0]
 
   return (
-    <div
+    <Link
+      to={`/pronunciation/sounds/${phoneme.id}`}
       onMouseEnter={() => onHover(primaryWord.word)}
-      className="group rounded-xl border border-border bg-card p-4 transition-all hover:border-rose-200 hover:shadow-[var(--shadow-card)] hover:-translate-y-0.5 cursor-default"
+      className="group block rounded-xl border border-border bg-card p-4 transition-all hover:border-rose-200 hover:shadow-[var(--shadow-card)] hover:-translate-y-0.5"
     >
       <div className="flex items-start justify-between">
         <span className="text-xl font-semibold text-foreground">/{phoneme.ipaSymbol}/</span>
@@ -39,6 +41,6 @@ export default function PhonemeTile({
           Exercises
         </span>
       )}
-    </div>
+    </Link>
   )
 }

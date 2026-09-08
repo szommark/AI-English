@@ -36,40 +36,54 @@ export async function getLearnerProfile(userId: string, userEmail: string | unde
   }
 }
 
+/**
+ * Upserts one mistake_log row: bumps occurrences if the same category was already
+ * logged in the last 30 days, otherwise inserts a fresh row. Shared by grammar/vocab
+ * corrections (upsertMistakes below) and the Pronunciation Chart's production-stage
+ * write-back (api/pronunciation-progress.ts) — same pattern, different callers.
+ */
+export async function upsertMistakeEntry(
+  userId: string,
+  category: string,
+  exampleOriginal: string | null,
+  exampleCorrected: string | null,
+) {
+  const since = new Date(Date.now() - THIRTY_DAYS_MS).toISOString()
+
+  const { data: existing } = await supabaseAdmin
+    .from('mistake_log')
+    .select('id, occurrences')
+    .eq('user_id', userId)
+    .eq('category', category)
+    .gte('last_seen_at', since)
+    .order('last_seen_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (existing) {
+    await supabaseAdmin
+      .from('mistake_log')
+      .update({
+        occurrences: existing.occurrences + 1,
+        last_seen_at: new Date().toISOString(),
+        example_original: exampleOriginal,
+        example_corrected: exampleCorrected,
+      })
+      .eq('id', existing.id)
+  } else {
+    await supabaseAdmin.from('mistake_log').insert({
+      user_id: userId,
+      category,
+      example_original: exampleOriginal,
+      example_corrected: exampleCorrected,
+      occurrences: 1,
+    })
+  }
+}
+
 async function upsertMistakes(userId: string, feedback: FeedbackResult) {
   for (const correction of feedback.corrections ?? []) {
-    const category = correction.category ?? 'other'
-    const since = new Date(Date.now() - THIRTY_DAYS_MS).toISOString()
-
-    const { data: existing } = await supabaseAdmin
-      .from('mistake_log')
-      .select('id, occurrences')
-      .eq('user_id', userId)
-      .eq('category', category)
-      .gte('last_seen_at', since)
-      .order('last_seen_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (existing) {
-      await supabaseAdmin
-        .from('mistake_log')
-        .update({
-          occurrences: existing.occurrences + 1,
-          last_seen_at: new Date().toISOString(),
-          example_original: correction.original,
-          example_corrected: correction.corrected,
-        })
-        .eq('id', existing.id)
-    } else {
-      await supabaseAdmin.from('mistake_log').insert({
-        user_id: userId,
-        category,
-        example_original: correction.original,
-        example_corrected: correction.corrected,
-        occurrences: 1,
-      })
-    }
+    await upsertMistakeEntry(userId, correction.category ?? 'other', correction.original, correction.corrected)
   }
 }
 

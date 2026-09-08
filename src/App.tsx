@@ -9,6 +9,7 @@ import TestModePage from './pages/TestModePage'
 import TutorBotPage from './pages/TutorBotPage'
 import GrammarCoachPage from './pages/GrammarCoachPage'
 import PronunciationChartPage from './pages/PronunciationChartPage'
+import PhonemeDetailPage from './pages/PhonemeDetailPage'
 import VoiceSettingsPage from './pages/VoiceSettingsPage'
 import ConnectTeacherPage from './pages/settings/ConnectTeacherPage'
 import TeacherDashboardPage from './pages/TeacherDashboardPage'
@@ -100,6 +101,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <PronunciationChartPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/pronunciation/sounds/:phonemeId"
+        element={
+          <ProtectedRoute>
+            <PhonemeDetailPage />
           </ProtectedRoute>
         }
       />

@@ -56,8 +56,8 @@ export default function PronunciationChartPage() {
         </section>
 
         <p className="text-xs text-muted-foreground">
-          Az öt kiemelt hanghoz (θ, ð, w, æ, ə) már elérhetők gyakorlatok — ezt a "Exercises" jelzés mutatja. A
-          részletes nézet és a gyakorlatok megnyitása a következő fejlesztési fázisban érkezik.
+          Kattints egy hangra a részletes nézethez. Az öt kiemelt hanghoz (θ, ð, w, æ, ə) már elérhetők
+          gyakorlatok is — ezt a "Exercises" jelzés mutatja.
         </p>
       </main>
     </div>
