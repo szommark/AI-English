@@ -1,10 +1,24 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getVoicesReliably, getVoiceOverrideName, setVoiceOverrideName } from '../lib/voiceSelection'
+import {
+  getVoicesReliably,
+  getVoiceOverrideName,
+  setVoiceOverrideName,
+  getAccentPreference,
+  setAccentPreference,
+  type AccentPreference,
+} from '../lib/voiceSelection'
+import AccentToggle from '../components/AccentToggle'
 
 export default function VoiceSettingsPage() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
   const [selected, setSelected] = useState<string>(() => getVoiceOverrideName() ?? '')
+  const [accent, setAccent] = useState<AccentPreference>(() => getAccentPreference())
+
+  function handleAccentChange(next: AccentPreference) {
+    setAccent(next)
+    setAccentPreference(next)
+  }
 
   useEffect(() => {
     getVoicesReliably().then((all) => {
@@ -30,6 +44,14 @@ export default function VoiceSettingsPage() {
           <p className="mt-1 text-sm text-slate-500">
             By default, AI-English picks a voice that matches each character's gender. You can override that here.
           </p>
+        </div>
+
+        <div className="space-y-2">
+          <span className="text-sm font-medium text-slate-700">Accent (Pronunciation Session)</span>
+          <p className="text-xs text-slate-500">
+            Controls both the practice audio and how your recordings are scored in the Pronunciation Session.
+          </p>
+          <AccentToggle accent={accent} onChange={handleAccentChange} />
         </div>
 
         {voices.length === 0 ? (
