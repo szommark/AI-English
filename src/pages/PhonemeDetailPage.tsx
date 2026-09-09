@@ -9,6 +9,7 @@ import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import AccentToggle from '../components/AccentToggle'
 import { HighlightedWord } from '../components/Pronunciation/PhonemeTile'
 import ArticulationRig from '../components/Pronunciation/ArticulationRig'
+import SwipeCardExercise from '../components/Pronunciation/SwipeCardExercise'
 import DrillFunnel from '../components/PronunciationSession/DrillFunnel'
 
 export default function PhonemeDetailPage() {
@@ -19,6 +20,7 @@ export default function PhonemeDetailPage() {
   const [accent, setAccent] = useState<AccentPreference>(() => getAccentPreference())
   const [progress, setProgress] = useState<PronunciationProgressEntry | null>(null)
   const [completed, setCompleted] = useState(false)
+  const [swipeResult, setSwipeResult] = useState<{ score: number; total: number } | null>(null)
   const [attemptKey, setAttemptKey] = useState(0)
   const synth = useSpeechSynthesis('female', accent)
 
@@ -42,8 +44,14 @@ export default function PhonemeDetailPage() {
     })
   }
 
+  function handleSwipeComplete(score: number, total: number) {
+    setSwipeResult({ score, total })
+    setCompleted(true)
+  }
+
   function practiceAgain() {
     setCompleted(false)
+    setSwipeResult(null)
     setAttemptKey((k) => k + 1)
   }
 
@@ -118,34 +126,38 @@ export default function PhonemeDetailPage() {
           )}
         </section>
 
-        {soundItem ? (
-          completed ? (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center space-y-3">
-              <p className="text-sm font-medium text-rose-700">Szép munka! Ezt a hangot most gyakoroltad.</p>
-              <div className="flex justify-center gap-3">
-                <button
-                  onClick={practiceAgain}
-                  className="rounded-lg border border-rose-300 text-rose-700 text-sm font-medium px-4 py-2 hover:bg-rose-100"
-                >
-                  Gyakorlás újra
-                </button>
-                <Link
-                  to="/pronunciation"
-                  className="rounded-lg bg-rose-600 text-white text-sm font-medium px-4 py-2 hover:bg-rose-700"
-                >
-                  Vissza a térképhez
-                </Link>
-              </div>
+        {completed ? (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center space-y-3">
+            <p className="text-sm font-medium text-rose-700">
+              {swipeResult
+                ? `Szép munka! ${swipeResult.score}/${swipeResult.total} helyes válasz.`
+                : 'Szép munka! Ezt a hangot most gyakoroltad.'}
+            </p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={practiceAgain}
+                className="rounded-lg border border-rose-300 text-rose-700 text-sm font-medium px-4 py-2 hover:bg-rose-100"
+              >
+                Gyakorlás újra
+              </button>
+              <Link
+                to="/pronunciation"
+                className="rounded-lg bg-rose-600 text-white text-sm font-medium px-4 py-2 hover:bg-rose-700"
+              >
+                Vissza a térképhez
+              </Link>
             </div>
-          ) : (
-            <DrillFunnel
-              key={attemptKey}
-              soundItem={soundItem}
-              accent={accent}
-              hasPriorAttempt={Boolean(progress?.attempts)}
-              onItemComplete={handleItemComplete}
-            />
-          )
+          </div>
+        ) : soundItem ? (
+          <DrillFunnel
+            key={attemptKey}
+            soundItem={soundItem}
+            accent={accent}
+            hasPriorAttempt={Boolean(progress?.attempts)}
+            onItemComplete={handleItemComplete}
+          />
+        ) : phoneme.swipeWords && phoneme.swipeWords.length > 0 ? (
+          <SwipeCardExercise key={attemptKey} phoneme={phoneme} accent={accent} onComplete={handleSwipeComplete} />
         ) : (
           <div className="rounded-xl border border-dashed border-border bg-card p-6 text-center">
             <p className="text-sm text-muted-foreground">

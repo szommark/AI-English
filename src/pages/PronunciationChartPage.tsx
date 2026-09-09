@@ -1,14 +1,21 @@
 import { Link } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { difficultTierPhonemes, straightforwardPhonemes } from '../data/phonemes'
 import { getAccentPreference, setAccentPreference, type AccentPreference } from '../lib/voiceSelection'
+import { fetchPronunciationProgress, type PronunciationProgressEntry } from '../lib/pronunciationProgressApi'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import AccentToggle from '../components/AccentToggle'
 import PhonemeTile from '../components/Pronunciation/PhonemeTile'
+import ResurfaceQueue from '../components/Pronunciation/ResurfaceQueue'
 
 export default function PronunciationChartPage() {
   const [accent, setAccent] = useState<AccentPreference>(() => getAccentPreference())
+  const [progress, setProgress] = useState<PronunciationProgressEntry[]>([])
   const { speak } = useSpeechSynthesis('female', accent)
+
+  useEffect(() => {
+    fetchPronunciationProgress().then(setProgress)
+  }, [])
 
   function handleAccentChange(next: AccentPreference) {
     setAccent(next)
@@ -33,6 +40,8 @@ export default function PronunciationChartPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 pb-12 space-y-8">
+        <ResurfaceQueue progress={progress} />
+
         <section>
           <h2 className="text-sm font-medium text-muted-foreground mb-3">
             Nehezebb hangok magyar anyanyelvűeknek

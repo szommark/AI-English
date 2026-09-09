@@ -27,6 +27,12 @@ export interface MinimalPair {
   b: string
 }
 
+export interface SwipeWord {
+  word: string
+  /** Does this word actually contain the tile's target sound? */
+  isTarget: boolean
+}
+
 export interface Articulation {
   /** Short plain-language cue shown even before the Phase 3 animated rig exists. */
   description: string
@@ -51,6 +57,12 @@ export interface Phoneme {
   articulation: Articulation
   /** Matches an id in pronunciationCurriculum.ts, when a drill funnel already exists for this sound. */
   curriculumId?: string
+  /**
+   * Word list for the swipe-card exercise (§7's "idea 2") — the standard, lighter-weight
+   * exercise for every tile that doesn't have curriculumId funnel content. Only authored
+   * for those tiles; curriculumId tiles rely on the funnel instead.
+   */
+  swipeWords?: SwipeWord[]
 }
 
 export const phonemes: Phoneme[] = [
@@ -172,6 +184,14 @@ export const phonemes: Phoneme[] = [
       place: 'postalveolar',
       lipRounding: 'rounded',
     },
+    swipeWords: [
+      { word: 'red', isTarget: true },
+      { word: 'car', isTarget: true },
+      { word: 'road', isTarget: true },
+      { word: 'led', isTarget: false },
+      { word: 'cow', isTarget: false },
+      { word: 'home', isTarget: false },
+    ],
   },
   {
     id: 'dark-l',
@@ -191,6 +211,14 @@ export const phonemes: Phoneme[] = [
       manner: 'lateral',
       place: 'alveolar',
     },
+    swipeWords: [
+      { word: 'ball', isTarget: true },
+      { word: 'milk', isTarget: true },
+      { word: 'feel', isTarget: true },
+      { word: 'bar', isTarget: false },
+      { word: 'mix', isTarget: false },
+      { word: 'feed', isTarget: false },
+    ],
   },
   {
     id: 'nurse',
@@ -208,6 +236,14 @@ export const phonemes: Phoneme[] = [
       tonguePosition: 'central',
       lipRounding: 'unrounded',
     },
+    swipeWords: [
+      { word: 'bird', isTarget: true },
+      { word: 'nurse', isTarget: true },
+      { word: 'shirt', isTarget: true },
+      { word: 'bed', isTarget: false },
+      { word: 'nose', isTarget: false },
+      { word: 'shot', isTarget: false },
+    ],
   },
   {
     id: 'ng',
@@ -227,6 +263,14 @@ export const phonemes: Phoneme[] = [
       manner: 'nasal',
       place: 'velar',
     },
+    swipeWords: [
+      { word: 'sing', isTarget: true },
+      { word: 'morning', isTarget: true },
+      { word: 'ring', isTarget: true },
+      { word: 'sin', isTarget: false },
+      { word: 'run', isTarget: false },
+      { word: 'rim', isTarget: false },
+    ],
   },
 
   // ---- Challenging (above the line) ----
@@ -246,6 +290,14 @@ export const phonemes: Phoneme[] = [
       tonguePosition: 'central',
       lipRounding: 'unrounded',
     },
+    swipeWords: [
+      { word: 'cup', isTarget: true },
+      { word: 'love', isTarget: true },
+      { word: 'sun', isTarget: true },
+      { word: 'cap', isTarget: false },
+      { word: 'leave', isTarget: false },
+      { word: 'sin', isTarget: false },
+    ],
   },
   {
     id: 'kit',
@@ -264,6 +316,14 @@ export const phonemes: Phoneme[] = [
       tonguePosition: 'high-front',
       lipRounding: 'unrounded',
     },
+    swipeWords: [
+      { word: 'sit', isTarget: true },
+      { word: 'bit', isTarget: true },
+      { word: 'fish', isTarget: true },
+      { word: 'seat', isTarget: false },
+      { word: 'beat', isTarget: false },
+      { word: 'gas', isTarget: false },
+    ],
   },
   {
     id: 'fleece',
@@ -282,6 +342,14 @@ export const phonemes: Phoneme[] = [
       tonguePosition: 'high-front',
       lipRounding: 'unrounded',
     },
+    swipeWords: [
+      { word: 'see', isTarget: true },
+      { word: 'sheep', isTarget: true },
+      { word: 'tea', isTarget: true },
+      { word: 'sit', isTarget: false },
+      { word: 'ship', isTarget: false },
+      { word: 'ten', isTarget: false },
+    ],
   },
   {
     id: 'foot',
@@ -300,6 +368,14 @@ export const phonemes: Phoneme[] = [
       tonguePosition: 'high-back',
       lipRounding: 'rounded',
     },
+    swipeWords: [
+      { word: 'book', isTarget: true },
+      { word: 'put', isTarget: true },
+      { word: 'foot', isTarget: true },
+      { word: 'boot', isTarget: false },
+      { word: 'pet', isTarget: false },
+      { word: 'cup', isTarget: false },
+    ],
   },
   {
     id: 'goose',
@@ -318,6 +394,14 @@ export const phonemes: Phoneme[] = [
       tonguePosition: 'high-back',
       lipRounding: 'rounded',
     },
+    swipeWords: [
+      { word: 'food', isTarget: true },
+      { word: 'blue', isTarget: true },
+      { word: 'moon', isTarget: true },
+      { word: 'foot', isTarget: false },
+      { word: 'blow', isTarget: false },
+      { word: 'man', isTarget: false },
+    ],
   },
   {
     id: 'thought',
@@ -335,6 +419,14 @@ export const phonemes: Phoneme[] = [
       tonguePosition: 'low-back',
       lipRounding: 'rounded',
     },
+    swipeWords: [
+      { word: 'talk', isTarget: true },
+      { word: 'saw', isTarget: true },
+      { word: 'ball', isTarget: true },
+      { word: 'tuck', isTarget: false },
+      { word: 'sea', isTarget: false },
+      { word: 'bell', isTarget: false },
+    ],
   },
   {
     id: 'palm',
@@ -352,6 +444,14 @@ export const phonemes: Phoneme[] = [
       tonguePosition: 'low-back',
       lipRounding: 'unrounded',
     },
+    swipeWords: [
+      { word: 'father', isTarget: true },
+      { word: 'hot', isTarget: true },
+      { word: 'stop', isTarget: true },
+      { word: 'fat', isTarget: false },
+      { word: 'hit', isTarget: false },
+      { word: 'step', isTarget: false },
+    ],
   },
   {
     id: 'goat',
@@ -369,6 +469,14 @@ export const phonemes: Phoneme[] = [
       tonguePosition: 'mid-back',
       lipRounding: 'rounded',
     },
+    swipeWords: [
+      { word: 'go', isTarget: true },
+      { word: 'boat', isTarget: true },
+      { word: 'home', isTarget: true },
+      { word: 'gone', isTarget: false },
+      { word: 'bat', isTarget: false },
+      { word: 'ham', isTarget: false },
+    ],
   },
   {
     id: 'face',
@@ -386,6 +494,14 @@ export const phonemes: Phoneme[] = [
       tonguePosition: 'mid-front',
       lipRounding: 'unrounded',
     },
+    swipeWords: [
+      { word: 'day', isTarget: true },
+      { word: 'rain', isTarget: true },
+      { word: 'cake', isTarget: true },
+      { word: 'den', isTarget: false },
+      { word: 'run', isTarget: false },
+      { word: 'kick', isTarget: false },
+    ],
   },
   {
     id: 'price',
@@ -403,6 +519,14 @@ export const phonemes: Phoneme[] = [
       tonguePosition: 'low-front',
       lipRounding: 'unrounded',
     },
+    swipeWords: [
+      { word: 'time', isTarget: true },
+      { word: 'my', isTarget: true },
+      { word: 'five', isTarget: true },
+      { word: 'team', isTarget: false },
+      { word: 'may', isTarget: false },
+      { word: 'fed', isTarget: false },
+    ],
   },
   {
     id: 'mouth',
@@ -420,6 +544,14 @@ export const phonemes: Phoneme[] = [
       tonguePosition: 'low-front',
       lipRounding: 'unrounded',
     },
+    swipeWords: [
+      { word: 'house', isTarget: true },
+      { word: 'now', isTarget: true },
+      { word: 'cloud', isTarget: true },
+      { word: 'heat', isTarget: false },
+      { word: 'new', isTarget: false },
+      { word: 'cold', isTarget: false },
+    ],
   },
   {
     id: 'choice',
@@ -437,6 +569,14 @@ export const phonemes: Phoneme[] = [
       tonguePosition: 'low-back',
       lipRounding: 'rounded',
     },
+    swipeWords: [
+      { word: 'boy', isTarget: true },
+      { word: 'voice', isTarget: true },
+      { word: 'coin', isTarget: true },
+      { word: 'buy', isTarget: false },
+      { word: 'verse', isTarget: false },
+      { word: 'con', isTarget: false },
+    ],
   },
 
   // ---- Straightforward (below the line) ----
@@ -457,6 +597,14 @@ export const phonemes: Phoneme[] = [
       manner: 'stop',
       place: 'bilabial',
     },
+    swipeWords: [
+      { word: 'pen', isTarget: true },
+      { word: 'stop', isTarget: true },
+      { word: 'cup', isTarget: true },
+      { word: 'ten', isTarget: false },
+      { word: 'stock', isTarget: false },
+      { word: 'cub', isTarget: false },
+    ],
   },
   {
     id: 'b',
@@ -475,6 +623,14 @@ export const phonemes: Phoneme[] = [
       manner: 'stop',
       place: 'bilabial',
     },
+    swipeWords: [
+      { word: 'bag', isTarget: true },
+      { word: 'cab', isTarget: true },
+      { word: 'big', isTarget: true },
+      { word: 'tag', isTarget: false },
+      { word: 'cat', isTarget: false },
+      { word: 'pig', isTarget: false },
+    ],
   },
   {
     id: 't',
@@ -493,6 +649,14 @@ export const phonemes: Phoneme[] = [
       manner: 'stop',
       place: 'alveolar',
     },
+    swipeWords: [
+      { word: 'top', isTarget: true },
+      { word: 'cat', isTarget: true },
+      { word: 'tea', isTarget: true },
+      { word: 'cop', isTarget: false },
+      { word: 'cap', isTarget: false },
+      { word: 'pea', isTarget: false },
+    ],
   },
   {
     id: 'd',
@@ -511,6 +675,14 @@ export const phonemes: Phoneme[] = [
       manner: 'stop',
       place: 'alveolar',
     },
+    swipeWords: [
+      { word: 'dog', isTarget: true },
+      { word: 'bed', isTarget: true },
+      { word: 'day', isTarget: true },
+      { word: 'log', isTarget: false },
+      { word: 'bet', isTarget: false },
+      { word: 'gay', isTarget: false },
+    ],
   },
   {
     id: 'k',
@@ -529,6 +701,14 @@ export const phonemes: Phoneme[] = [
       manner: 'stop',
       place: 'velar',
     },
+    swipeWords: [
+      { word: 'cat', isTarget: true },
+      { word: 'back', isTarget: true },
+      { word: 'key', isTarget: true },
+      { word: 'bat', isTarget: false },
+      { word: 'van', isTarget: false },
+      { word: 'tea', isTarget: false },
+    ],
   },
   {
     id: 'g',
@@ -547,6 +727,14 @@ export const phonemes: Phoneme[] = [
       manner: 'stop',
       place: 'velar',
     },
+    swipeWords: [
+      { word: 'go', isTarget: true },
+      { word: 'big', isTarget: true },
+      { word: 'gate', isTarget: true },
+      { word: 'no', isTarget: false },
+      { word: 'bid', isTarget: false },
+      { word: 'date', isTarget: false },
+    ],
   },
   {
     id: 'f',
@@ -565,6 +753,14 @@ export const phonemes: Phoneme[] = [
       manner: 'fricative',
       place: 'labiodental',
     },
+    swipeWords: [
+      { word: 'fish', isTarget: true },
+      { word: 'laugh', isTarget: true },
+      { word: 'fun', isTarget: true },
+      { word: 'dish', isTarget: false },
+      { word: 'love', isTarget: false },
+      { word: 'sun', isTarget: false },
+    ],
   },
   {
     id: 'v',
@@ -603,6 +799,14 @@ export const phonemes: Phoneme[] = [
       manner: 'fricative',
       place: 'alveolar',
     },
+    swipeWords: [
+      { word: 'sun', isTarget: true },
+      { word: 'bus', isTarget: true },
+      { word: 'sea', isTarget: true },
+      { word: 'fun', isTarget: false },
+      { word: 'bug', isTarget: false },
+      { word: 'tea', isTarget: false },
+    ],
   },
   {
     id: 'z',
@@ -621,6 +825,14 @@ export const phonemes: Phoneme[] = [
       manner: 'fricative',
       place: 'alveolar',
     },
+    swipeWords: [
+      { word: 'zoo', isTarget: true },
+      { word: 'buzz', isTarget: true },
+      { word: 'zip', isTarget: true },
+      { word: 'too', isTarget: false },
+      { word: 'bus', isTarget: false },
+      { word: 'sip', isTarget: false },
+    ],
   },
   {
     id: 'sh',
@@ -639,6 +851,14 @@ export const phonemes: Phoneme[] = [
       manner: 'fricative',
       place: 'postalveolar',
     },
+    swipeWords: [
+      { word: 'shoe', isTarget: true },
+      { word: 'wash', isTarget: true },
+      { word: 'shop', isTarget: true },
+      { word: 'sue', isTarget: false },
+      { word: 'was', isTarget: false },
+      { word: 'stop', isTarget: false },
+    ],
   },
   {
     id: 'zh',
@@ -657,6 +877,14 @@ export const phonemes: Phoneme[] = [
       manner: 'fricative',
       place: 'postalveolar',
     },
+    swipeWords: [
+      { word: 'vision', isTarget: true },
+      { word: 'measure', isTarget: true },
+      { word: 'casual', isTarget: true },
+      { word: 'mission', isTarget: false },
+      { word: 'pressure', isTarget: false },
+      { word: 'national', isTarget: false },
+    ],
   },
   {
     id: 'h',
@@ -675,6 +903,14 @@ export const phonemes: Phoneme[] = [
       manner: 'fricative',
       place: 'glottal',
     },
+    swipeWords: [
+      { word: 'hat', isTarget: true },
+      { word: 'house', isTarget: true },
+      { word: 'behind', isTarget: true },
+      { word: 'at', isTarget: false },
+      { word: 'mouse', isTarget: false },
+      { word: 'inside', isTarget: false },
+    ],
   },
   {
     id: 'ch',
@@ -693,6 +929,14 @@ export const phonemes: Phoneme[] = [
       manner: 'affricate',
       place: 'postalveolar',
     },
+    swipeWords: [
+      { word: 'chair', isTarget: true },
+      { word: 'watch', isTarget: true },
+      { word: 'chin', isTarget: true },
+      { word: 'share', isTarget: false },
+      { word: 'wash', isTarget: false },
+      { word: 'shin', isTarget: false },
+    ],
   },
   {
     id: 'dzh',
@@ -711,6 +955,14 @@ export const phonemes: Phoneme[] = [
       manner: 'affricate',
       place: 'postalveolar',
     },
+    swipeWords: [
+      { word: 'jump', isTarget: true },
+      { word: 'bridge', isTarget: true },
+      { word: 'joy', isTarget: true },
+      { word: 'dump', isTarget: false },
+      { word: 'bring', isTarget: false },
+      { word: 'toy', isTarget: false },
+    ],
   },
   {
     id: 'm',
@@ -729,6 +981,14 @@ export const phonemes: Phoneme[] = [
       manner: 'nasal',
       place: 'bilabial',
     },
+    swipeWords: [
+      { word: 'man', isTarget: true },
+      { word: 'swim', isTarget: true },
+      { word: 'moon', isTarget: true },
+      { word: 'van', isTarget: false },
+      { word: 'swing', isTarget: false },
+      { word: 'noon', isTarget: false },
+    ],
   },
   {
     id: 'n',
@@ -747,6 +1007,14 @@ export const phonemes: Phoneme[] = [
       manner: 'nasal',
       place: 'alveolar',
     },
+    swipeWords: [
+      { word: 'name', isTarget: true },
+      { word: 'sun', isTarget: true },
+      { word: 'no', isTarget: true },
+      { word: 'fame', isTarget: false },
+      { word: 'sub', isTarget: false },
+      { word: 'go', isTarget: false },
+    ],
   },
   {
     id: 'l',
@@ -765,6 +1033,14 @@ export const phonemes: Phoneme[] = [
       manner: 'lateral',
       place: 'alveolar',
     },
+    swipeWords: [
+      { word: 'light', isTarget: true },
+      { word: 'lamp', isTarget: true },
+      { word: 'blue', isTarget: true },
+      { word: 'right', isTarget: false },
+      { word: 'ramp', isTarget: false },
+      { word: 'brew', isTarget: false },
+    ],
   },
   {
     id: 'y',
@@ -783,6 +1059,14 @@ export const phonemes: Phoneme[] = [
       manner: 'approximant',
       place: 'palatal',
     },
+    swipeWords: [
+      { word: 'yes', isTarget: true },
+      { word: 'yellow', isTarget: true },
+      { word: 'use', isTarget: true },
+      { word: 'less', isTarget: false },
+      { word: 'mellow', isTarget: false },
+      { word: 'ooze', isTarget: false },
+    ],
   },
   {
     id: 'dress',
@@ -807,6 +1091,11 @@ export const phonemes: Phoneme[] = [
 
 export function getPhoneme(id: string): Phoneme | undefined {
   return phonemes.find((p) => p.id === id)
+}
+
+/** First tile linking to this curriculum item — used to route the resurfacing queue's cards back to a detail page. */
+export function getPhonemeByCurriculumId(curriculumId: string): Phoneme | undefined {
+  return phonemes.find((p) => p.curriculumId === curriculumId)
 }
 
 /** Critical + Challenging, in that order — the tiles shown above the chart's difficulty divider. */
