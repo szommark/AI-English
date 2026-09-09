@@ -1,31 +1,15 @@
-import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { scenarios } from '../data/scenarios'
 import { categories } from '../data/categories'
-import { fetchCapStatus } from '../lib/api'
-import type { CapStatus } from '../lib/types'
-import DailyCapBanner from '../components/DailyCapBanner'
-import ScenarioCard from '../components/ScenarioCard'
+import CategoryTile from '../components/CategoryTile'
 import CategoryBreadcrumb from '../components/CategoryBreadcrumb'
 import { useAuth } from '../lib/AuthContext'
 
-export default function ScenarioSelectPage() {
+export default function SubcategoryGridPage() {
   const { signOut, user } = useAuth()
-  const { categoryId, subcategoryId } = useParams()
-  const [cap, setCap] = useState<CapStatus | null>(null)
-
-  useEffect(() => {
-    fetchCapStatus()
-      .then(setCap)
-      .catch(() => setCap(null))
-  }, [])
-
+  const { categoryId } = useParams()
   const category = categories.find((c) => c.id === categoryId)
-  const subcategory = category?.subcategories.find((s) => s.id === subcategoryId)
 
-  if (!category || !subcategory) return <Navigate to="/conversational-english" replace />
-
-  const filteredScenarios = scenarios.filter((s) => subcategory.scenarioIds.includes(s.id))
+  if (!category) return <Navigate to="/conversational-english" replace />
 
   return (
     <div className="min-h-screen bg-background">
@@ -40,9 +24,7 @@ export default function ScenarioSelectPage() {
             </div>
             <div>
               <span className="text-[15px] font-semibold tracking-tight text-foreground">AI-English</span>
-              <p className="text-xs text-muted-foreground">
-                {subcategory.title} ({subcategory.titleHu}) — válassz egy szituációt
-              </p>
+              <p className="text-xs text-muted-foreground">{category.title} ({category.titleHu}) — válassz egy alkategóriát</p>
             </div>
           </div>
           <div className="flex items-center gap-3 text-sm">
@@ -62,17 +44,17 @@ export default function ScenarioSelectPage() {
           <Link to="/" className="text-sm text-primary hover:underline">
             ← Vissza a főoldalra
           </Link>
-          <CategoryBreadcrumb category={category} subcategory={subcategory} />
+          <CategoryBreadcrumb category={category} />
         </div>
 
-        {cap && !cap.allowed && <DailyCapBanner resetAt={cap.resetAt} />}
-        {cap && cap.allowed && (
-          <p className="text-sm text-muted-foreground">{cap.remaining} practice session(s) left today.</p>
-        )}
-
-        <div className="grid gap-6 sm:grid-cols-2">
-          {filteredScenarios.map((s) => (
-            <ScenarioCard key={s.id} scenario={s} />
+        <div className="grid gap-6 grid-cols-2 sm:grid-cols-3">
+          {category.subcategories.map((sub) => (
+            <CategoryTile
+              key={sub.id}
+              title={sub.title}
+              photo={sub.tilePhoto}
+              to={`/conversational-english/${category.id}/${sub.id}`}
+            />
           ))}
         </div>
       </main>

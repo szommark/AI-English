@@ -1,6 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth, type UserRole } from './lib/AuthContext'
 import LandingPage from './pages/LandingPage'
+import CategoryGridPage from './pages/CategoryGridPage'
+import SubcategoryGridPage from './pages/SubcategoryGridPage'
 import ScenarioSelectPage from './pages/ScenarioSelectPage'
 import ComingSoonPage from './pages/ComingSoonPage'
 import RehearsalPage from './pages/RehearsalPage'
@@ -42,6 +44,22 @@ function AppRoutes() {
       <Route path="/" element={<LandingPage />} />
       <Route
         path="/conversational-english"
+        element={
+          <ProtectedRoute>
+            <CategoryGridPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/conversational-english/:categoryId"
+        element={
+          <ProtectedRoute>
+            <SubcategoryGridPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/conversational-english/:categoryId/:subcategoryId"
         element={
           <ProtectedRoute>
             <ScenarioSelectPage />
