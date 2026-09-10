@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { Scenario } from '../lib/types'
 import { scenarioPhotos } from '../assets/scenarioPhotos'
+import PlaceholderTileArt from './PlaceholderTileArt'
 
 export default function ScenarioCard({ scenario }: { scenario: Scenario }) {
   const photo = scenarioPhotos[scenario.id]
@@ -8,12 +9,14 @@ export default function ScenarioCard({ scenario }: { scenario: Scenario }) {
   return (
     <div className="group rounded-2xl border border-border bg-card overflow-hidden transition-all duration-300 hover:shadow-[var(--shadow-card)] hover:-translate-y-1">
       <div className="h-44 overflow-hidden">
-        {photo && (
+        {photo ? (
           <img
             src={photo}
             alt={scenario.title}
             className="w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-105"
           />
+        ) : (
+          <PlaceholderTileArt seed={scenario.title} />
         )}
       </div>
 

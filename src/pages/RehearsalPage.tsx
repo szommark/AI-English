@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { getScenario } from '../data/scenarios'
+import { getCategoryForScenario } from '../data/categories'
 import ConversationSession from '../components/ConversationSession'
 import MouthBubbleLayer from '../components/SpeechBubble/MouthBubbleLayer'
 import TranscriptLines from '../components/SpeechBubble/TranscriptLines'
@@ -16,6 +17,7 @@ export default function RehearsalPage() {
 
   if (!scenario) return <Navigate to="/" replace />
 
+  const categoryMatch = getCategoryForScenario(scenario.id)
   const photo = scenarioPhotos[scenario.id]
   const script = scenario.rehearsalScript
   const revealed = script.slice(0, revealedIndex)
@@ -38,9 +40,11 @@ export default function RehearsalPage() {
         {!started ? (
           <>
             <div>
-              <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide">
-                Holiday English (Nyaralási angol)
-              </p>
+              {categoryMatch && (
+                <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide">
+                  {categoryMatch.category.title} ({categoryMatch.category.titleHu})
+                </p>
+              )}
               <h1 className="text-xl font-semibold text-slate-800">
                 {scenario.title} ({scenario.titleHu})
               </h1>
