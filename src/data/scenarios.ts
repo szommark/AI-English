@@ -120,9 +120,10 @@ export const scenarios: Scenario[] = [
     voiceGender: 'female', // TODO: confirm against photo
   },
 
-  // --- Below: no photo authored yet, so `mouth` is a placeholder and unused in the UI
-  // (every consumer of `scenario.mouth` gates on the photo existing first). Each card
-  // falls back to <PlaceholderTileArt />/no image until a photo + calibration is added.
+  // --- Below: no photo authored yet unless noted otherwise, so `mouth` is a placeholder
+  // and unused in the UI (every consumer of `scenario.mouth` gates on the photo existing
+  // first). Each card falls back to <PlaceholderTileArt />/no image until a photo +
+  // calibration is added.
 
   // Daily Errands & Bureaucracy
   {
@@ -150,7 +151,8 @@ export const scenarios: Scenario[] = [
       { speaker: 'Clerk', line: 'With tracking, usually 4 to 6 business days.', lineHu: 'Nyomkövetéssel általában 4-6 munkanap.' },
       { speaker: 'You', line: 'That works. Can I pay by card?', lineHu: 'Ez megfelel. Fizethetek kártyával?' },
     ],
-    mouth: { mouthX: 50, mouthY: 30, mouthBoxWidth: 16, mouthBoxHeight: 12 },
+    // Calibrated at /dev/mouth-calibrator against the actual photo.
+    mouth: { mouthX: 56.6, mouthY: 27.3, mouthBoxWidth: 14, mouthBoxHeight: 10 },
     voiceGender: 'female',
   },
   {
