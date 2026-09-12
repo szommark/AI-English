@@ -39,9 +39,10 @@ export const categories: Category[] = [
     id: 'daily-errands',
     title: 'Daily Errands & Bureaucracy',
     titleHu: 'Napi ügyintézés',
+    tilePhoto: scenarioPhotos['post-office'],
     status: 'active',
     subcategories: [
-      { id: 'post-office', title: 'Post Office', titleHu: 'Posta', scenarioIds: ['post-office'] },
+      { id: 'post-office', title: 'Post Office', titleHu: 'Posta', tilePhoto: scenarioPhotos['post-office'], scenarioIds: ['post-office'] },
       { id: 'pharmacy', title: 'Pharmacy', titleHu: 'Gyógyszertár', scenarioIds: ['pharmacy'] },
       { id: 'bank', title: 'Bank', titleHu: 'Bank', scenarioIds: ['bank'] },
       { id: 'government-paperwork', title: 'Government/Paperwork', titleHu: 'Hivatali ügyintézés', scenarioIds: ['government-paperwork'] },
