@@ -11,7 +11,6 @@ import GrammarWidgetView from '../components/GrammarCoach/GrammarWidgetView'
 import VoiceBar from '../components/GrammarCoach/VoiceBar'
 import PracticeCheck from '../components/GrammarCoach/PracticeCheck'
 import { boardThemes } from '../components/GrammarCoach/boardTheme'
-import ModelPicker from '../components/ModelPicker'
 
 const HUNGARIAN_NARRATION_LEVELS: CefrLevel[] = ['A1', 'A2']
 
@@ -99,7 +98,6 @@ export default function GrammarCoachPage() {
           <p className="text-sm text-slate-500">Nyelvtani segítő — válassz egy nyelvtani témát</p>
         </div>
         <div className="flex items-center gap-4">
-          <ModelPicker feature="grammarCoach" />
           <Link to="/" className="text-sm text-indigo-600 hover:underline">
             ← Vissza a főoldalra
           </Link>

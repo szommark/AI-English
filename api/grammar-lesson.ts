@@ -3,7 +3,8 @@ import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { parseGrammarLessonJson } from './_lib/groq.js'
 import { buildGrammarLessonPrompt } from './_lib/prompts.js'
 import { callModel } from './_lib/modelRouter.js'
-import { isModelId, type ModelId } from '../src/lib/models.js'
+import { getModelForFeature } from './_lib/modelSettings.js'
+import type { ModelId } from '../src/lib/models.js'
 import { getGrammarItem } from '../src/data/grammarCurriculum.js'
 import type { GrammarLesson } from '../src/lib/types.js'
 
@@ -50,18 +51,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const cefrLevel = (req.method === 'GET' ? req.query.cefrLevel : req.body?.cefrLevel) as string | undefined
   const grammarItemId = (req.method === 'GET' ? req.query.itemId : req.body?.itemId) as string | undefined
-  const model = req.method === 'GET' ? req.query.model : req.body?.model
 
   const curriculumEntry = grammarItemId ? getGrammarItem(grammarItemId) : undefined
   if (!curriculumEntry || curriculumEntry.level !== cefrLevel) {
     res.status(400).json({ error: 'Unknown grammar item' })
     return
   }
-  if (!isModelId(model)) {
-    res.status(400).json({ error: 'Unknown model' })
-    return
-  }
-  const modelId = model
+  const modelId: ModelId = await getModelForFeature('grammarCoach')
 
   if (req.method === 'GET') {
     const lesson = await readCachedLesson(curriculumEntry.level, curriculumEntry.item.id, modelId)

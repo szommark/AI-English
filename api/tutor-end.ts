@@ -3,13 +3,12 @@ import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { parseFeedbackJson } from './_lib/groq.js'
 import { buildTutorFeedbackPrompt } from './_lib/prompts.js'
 import { callModel } from './_lib/modelRouter.js'
+import { getModelForFeature } from './_lib/modelSettings.js'
 import { recordFeedbackToPersonalization } from './_lib/personalization.js'
-import { isModelId } from '../src/lib/models.js'
 import type { ChatMessage, FeedbackResult } from '../src/lib/types.js'
 
 interface TutorEndRequestBody {
   fullTranscript: ChatMessage[]
-  model: string
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -25,11 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const body = req.body as TutorEndRequestBody
-  if (!isModelId(body.model)) {
-    res.status(400).json({ error: 'Unknown model' })
-    return
-  }
-  const modelId = body.model
+  const modelId = await getModelForFeature('tutorBot')
   const fullTranscript = Array.isArray(body.fullTranscript) ? body.fullTranscript : []
 
   let feedback: FeedbackResult

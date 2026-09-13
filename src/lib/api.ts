@@ -1,5 +1,4 @@
 import { supabase } from './supabase'
-import { getModelPreference } from './modelSelection'
 import type { CapStatus, ChatMessage, ChatTurnResponse } from './types'
 
 async function authHeader(): Promise<Record<string, string>> {
@@ -26,7 +25,7 @@ export async function sendChatTurn(params: {
   const res = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
-    body: JSON.stringify({ ...params, model: getModelPreference('rehearsal') }),
+    body: JSON.stringify(params),
   })
 
   if (res.status === 403) {

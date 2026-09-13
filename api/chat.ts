@@ -3,8 +3,8 @@ import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { parseFeedbackJson } from './_lib/groq.js'
 import { buildFeedbackPrompt } from './_lib/prompts.js'
 import { callModel } from './_lib/modelRouter.js'
+import { getModelForFeature } from './_lib/modelSettings.js'
 import { recordFeedbackToPersonalization } from './_lib/personalization.js'
-import { isModelId } from '../src/lib/models.js'
 import { getScenario } from '../src/data/scenarios.js'
 import type { ChatMessage } from '../src/lib/types.js'
 
@@ -17,7 +17,6 @@ interface ChatRequestBody {
   history: ChatMessage[]
   turnIndex: number
   fullTranscript?: ChatMessage[]
-  model: string
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -38,11 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: 'Unknown scenario' })
     return
   }
-  if (!isModelId(body.model)) {
-    res.status(400).json({ error: 'Unknown model' })
-    return
-  }
-  const modelId = body.model
+  const modelId = await getModelForFeature('rehearsal')
 
   // Daily session cap intentionally removed while the user base is small (see git
   // history for this line — `git log -p -- api/chat.ts` — to reinstate the
