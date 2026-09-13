@@ -1,7 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { callModel } from './_lib/modelRouter.js'
-import { isModelId } from '../src/lib/models.js'
+import { getModelForFeature } from './_lib/modelSettings.js'
+import { getUserRole } from './_lib/roles.js'
+import { getPersonaForRole, applyPersonaTokens } from './_lib/personas.js'
 import { buildTutorSystemPrompt } from './_lib/prompts.js'
 import { getLearnerProfile } from './_lib/personalization.js'
 import type { ChatMessage } from '../src/lib/types.js'
@@ -24,17 +26,24 @@ interface TutorChatRequestBody {
   history: ChatMessage[]
   turnIndex: number
   isFirstSession?: boolean
-  model: string
+  personaId: string
 }
 
-async function buildSystemPrompt(userId: string, userEmail: string | undefined, isFirstSession: boolean): Promise<string> {
+async function buildSystemPrompt(
+  userId: string,
+  userEmail: string | undefined,
+  isFirstSession: boolean,
+  personaBlock: string,
+): Promise<string> {
   const profile = await getLearnerProfile(userId, userEmail)
 
   const openingGuidance = isFirstSession
     ? "== OPENING THIS SESSION ==\nThis is the learner's first Tutor Bot session. Introduce yourself briefly and warmly, then ask what they'd like to work on or talk about today."
     : '== OPENING THIS SESSION ==\nThe learner has used Tutor Bot before. Give a short, personalized greeting — don\'t re-introduce yourself or re-ask what their goal is.'
 
-  return buildTutorSystemPrompt({ ...profile, openingGuidance })
+  const resolvedPersonaBlock = applyPersonaTokens(personaBlock, { ...profile, openingGuidance })
+
+  return buildTutorSystemPrompt({ ...profile, openingGuidance, personaBlock: resolvedPersonaBlock })
 }
 
 async function logUsage(
@@ -70,8 +79,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const body = req.body as TutorChatRequestBody
-  if (!isModelId(body.model)) {
-    res.status(400).json({ error: 'Unknown model' })
+
+  const role = await getUserRole(user.id)
+  const persona = await getPersonaForRole(body.personaId, role)
+  if (!persona) {
+    res.status(400).json({ error: 'Unknown persona' })
     return
   }
 
@@ -85,11 +97,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // history yet) needs a synthetic kickoff turn to prompt the opening line. Harmless
   // to include for Groq too, which has no such restriction.
   const historyForModel = recentHistory.length > 0 ? recentHistory : [KICKOFF_MESSAGE]
-  const systemPrompt = await buildSystemPrompt(user.id, user.email, Boolean(body.isFirstSession))
+  const systemPrompt = await buildSystemPrompt(user.id, user.email, Boolean(body.isFirstSession), persona.promptText)
+  const modelId = await getModelForFeature('tutorBot')
 
   let chatResult
   try {
-    chatResult = await callModel(body.model, systemPrompt, historyForModel)
+    chatResult = await callModel(modelId, systemPrompt, historyForModel)
   } catch (err) {
     res.status(502).json({ error: err instanceof Error ? err.message : 'Model request failed' })
     return

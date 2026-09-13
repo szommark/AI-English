@@ -57,7 +57,7 @@ function looksLikeEcho(candidate: string, lastAssistantText: string | undefined)
 
 type Status = 'idle' | 'listening' | 'thinking' | 'speaking' | 'muted' | 'ended'
 
-export default function TutorBotSession() {
+export default function TutorBotSession({ personaId }: { personaId: string }) {
   const synthesis = useSpeechSynthesis(TUTOR_VOICE_GENDER)
   const photoContainerRef = useRef<HTMLDivElement>(null)
 
@@ -95,6 +95,7 @@ export default function TutorBotSession() {
         history: updatedMessages,
         turnIndex,
         isFirstSession: isFirstSessionRef.current,
+        personaId,
       })
 
       const assistantMessage: ChatMessage = { role: 'assistant', content: response.reply }
@@ -225,7 +226,12 @@ export default function TutorBotSession() {
     setError(null)
     setStatus('thinking')
     try {
-      const response = await sendTutorTurn({ history: [], turnIndex: 0, isFirstSession: isFirstSessionRef.current })
+      const response = await sendTutorTurn({
+        history: [],
+        turnIndex: 0,
+        isFirstSession: isFirstSessionRef.current,
+        personaId,
+      })
       window.localStorage.setItem(VISITED_KEY, '1')
       setMessages([{ role: 'assistant', content: response.reply }])
       setStatus('speaking')

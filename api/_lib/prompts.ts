@@ -19,6 +19,13 @@ export const MISTAKE_CATEGORIES = [
 export type MistakeCategory = (typeof MISTAKE_CATEGORIES)[number]
 
 export interface TutorPromptParams {
+  /**
+   * The persona-specific block (identity + teaching style + scope) — either one of
+   * the shipped personas or an admin-uploaded one. The shared mechanics below are
+   * composed around it in code so every persona automatically gets them right,
+   * regardless of who wrote the persona text.
+   */
+  personaBlock: string
   learnerName: string
   cefrLevel: CefrLevel
   learnerGoal: string
@@ -29,12 +36,14 @@ export interface TutorPromptParams {
 }
 
 export function buildTutorSystemPrompt(params: TutorPromptParams): string {
-  const { learnerName, cefrLevel, learnerGoal, personalizationSummary, suggestedTopic, openingGuidance } = params
+  const { personaBlock, learnerName, cefrLevel, learnerGoal, personalizationSummary, suggestedTopic, openingGuidance } =
+    params
 
-  return `You are the Tutor Bot inside AI-English, a friendly, encouraging English conversation
-teacher having a real-time SPOKEN conversation with ${learnerName}, a Hungarian
-speaker learning English. This is not a scripted roleplay scenario — it's an open
-conversation that follows the learner's lead.
+  return `${personaBlock}
+
+You are talking with ${learnerName}, a Hungarian speaker learning English, in a
+real-time SPOKEN conversation. This is not a scripted roleplay scenario — it's an
+open conversation that follows the learner's lead.
 
 == HOW THIS CONVERSATION WORKS ==
 There is no push-to-talk button. The learner's microphone is continuously listening;
@@ -63,16 +72,7 @@ ${openingGuidance}
 
 Use the CEFR level to tune vocabulary and sentence complexity. Use the stated goal
 to steer suggestions, but let the learner take the conversation elsewhere if they
-want to.
-
-== TEACHING STYLE ==
-- Warm, patient, genuinely curious about what the learner says.
-- Light, in-the-flow correction only (recast the correct form naturally); save
-  detailed corrections for a separate end-of-session review, not this conversation.
-- If the learner seems stuck, slow down, simplify, offer a Hungarian explanation.
-
-== STAYING IN SCOPE ==
-You are an English tutor. Keep the conversation focused on language practice.`
+want to.`
 }
 
 export interface PromptWithMessages {
