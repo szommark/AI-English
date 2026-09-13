@@ -61,9 +61,12 @@ export interface UpdatePersonaInput {
   enabledForTeachers?: boolean
 }
 
+// Personas and model settings are both served from /api/personas — see the comment
+// at the top of api/personas.ts for why they're multiplexed onto one route.
+
 export async function fetchAdminPersonas(): Promise<AdminPersona[]> {
   const headers = await authHeader()
-  const res = await fetch('/api/admin/personas', { headers })
+  const res = await fetch('/api/personas?admin=1', { headers })
   if (!res.ok) throw new Error('Failed to load personas')
   const body = await res.json()
   return body.personas ?? []
@@ -71,7 +74,7 @@ export async function fetchAdminPersonas(): Promise<AdminPersona[]> {
 
 export async function createAdminPersona(input: CreatePersonaInput): Promise<AdminPersona> {
   const headers = await authHeader()
-  const res = await fetch('/api/admin/personas', {
+  const res = await fetch('/api/personas', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(input),
@@ -83,10 +86,10 @@ export async function createAdminPersona(input: CreatePersonaInput): Promise<Adm
 
 export async function updateAdminPersona(id: string, input: UpdatePersonaInput): Promise<AdminPersona> {
   const headers = await authHeader()
-  const res = await fetch(`/api/admin/personas/${encodeURIComponent(id)}`, {
+  const res = await fetch('/api/personas', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...headers },
-    body: JSON.stringify(input),
+    body: JSON.stringify({ id, ...input }),
   })
   if (!res.ok) throw new Error('Failed to update persona')
   const body = await res.json()
@@ -97,7 +100,7 @@ export type ModelSettings = Record<ModelFeature, ModelId>
 
 export async function fetchModelSettings(): Promise<ModelSettings> {
   const headers = await authHeader()
-  const res = await fetch('/api/admin/model-settings', { headers })
+  const res = await fetch('/api/personas?resource=models', { headers })
   if (!res.ok) throw new Error('Failed to load model settings')
   const body = await res.json()
   return body.settings
@@ -105,7 +108,7 @@ export async function fetchModelSettings(): Promise<ModelSettings> {
 
 export async function updateModelSettings(settings: Partial<ModelSettings>): Promise<void> {
   const headers = await authHeader()
-  const res = await fetch('/api/admin/model-settings', {
+  const res = await fetch('/api/personas?resource=models', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(settings),
