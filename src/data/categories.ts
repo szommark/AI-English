@@ -65,6 +65,7 @@ export const categories: Category[] = [
     id: 'housing-living',
     title: 'Housing & Living',
     titleHu: 'Lakhatás',
+    tilePhoto: scenarioPhotos['apartment-viewing'],
     status: 'active',
     subcategories: [
       { id: 'apartment-viewing', title: 'Apartment Viewing', titleHu: 'Lakásnézés', tilePhoto: scenarioPhotos['apartment-viewing'], scenarioIds: ['apartment-viewing'] },
@@ -102,6 +103,7 @@ export const categories: Category[] = [
     id: 'shopping-complaints',
     title: 'Shopping & Complaints',
     titleHu: 'Vásárlás és panaszkezelés',
+    tilePhoto: scenarioPhotos['clothes-shopping'],
     status: 'active',
     subcategories: [
       { id: 'clothes-shopping', title: 'Clothes Shopping', titleHu: 'Ruhavásárlás', tilePhoto: scenarioPhotos['clothes-shopping'], scenarioIds: ['clothes-shopping'] },
