@@ -389,11 +389,11 @@ export const scenarios: Scenario[] = [
     id: 'landlord-repairs',
     title: 'Asking the landlord for repairs',
     titleHu: 'Javítás kérése a bérbeadótól',
-    description: 'Contact your landlord about a repair needed in your apartment and arrange a fix.',
+    description: 'Visit the property management office about a repair needed in your apartment and arrange a fix.',
     aiRole: 'a landlord',
-    setting: 'a phone call with the landlord, where the user needs to report a repair issue in their rented apartment',
+    setting: "the front desk of a property management office, where the user has come in to report a repair issue in their rented apartment",
     systemPrompt:
-      "You are a landlord being contacted by a tenant about a repair issue. Stay in character. Keep every reply short and natural (2-3 sentences), and if the tenant's description is unclear, gently ask a simple clarifying question about the problem.",
+      "You are a landlord's representative at a property management office, helping a tenant who has come in about a repair issue. Stay in character. Keep every reply short and natural (2-3 sentences), and if the tenant's description is unclear, gently ask a simple clarifying question about the problem.",
     rehearsalPhrases: [
       { en: 'The heating isn\'t working properly.', hu: 'A fűtés nem működik rendesen.' },
       { en: 'There\'s a leak under the kitchen sink.', hu: 'Szivárgás van a konyhai mosogató alatt.' },
@@ -403,14 +403,15 @@ export const scenarios: Scenario[] = [
       { en: 'Thank you for sorting it out so quickly.', hu: 'Köszönöm, hogy ilyen gyorsan elintézte.' },
     ],
     rehearsalScript: [
-      { speaker: 'You', line: 'Hi, I\'m calling because the heating in my apartment isn\'t working properly.', lineHu: 'Szia, azért hívom, mert a fűtés a lakásomban nem működik rendesen.' },
+      { speaker: 'You', line: 'Hi, I wanted to ask about the heating in my apartment — it isn\'t working properly.', lineHu: 'Szia, a lakásom fűtésével kapcsolatban szeretnék kérdezni — nem működik rendesen.' },
       { speaker: 'Landlord', line: 'Oh, I\'m sorry to hear that. Can you tell me exactly what\'s happening?', lineHu: 'Ó, sajnálom ezt hallani. El tudná mondani pontosan, mi történik?' },
       { speaker: 'You', line: 'It turns on but barely gets warm. Could someone come take a look this week?', lineHu: 'Bekapcsol, de alig melegszik fel. Tudna valaki jönni és megnézni ezen a héten?' },
       { speaker: 'Landlord', line: 'Of course, I\'ll send a technician tomorrow morning, if that works for you.', lineHu: 'Természetesen, holnap reggel küldök egy szerelőt, ha ez önnek megfelel.' },
       { speaker: 'You', line: 'That works great. Will I be charged for the repair?', lineHu: 'Ez remekül megfelel. Nekem kell fizetnem a javításért?' },
       { speaker: 'Landlord', line: 'No, don\'t worry, repairs like this are covered by me as the landlord.', lineHu: 'Nem, ne aggódjon, az ilyen javításokat én, mint bérbeadó, fedezem.' },
     ],
-    mouth: { mouthX: 50, mouthY: 30, mouthBoxWidth: 16, mouthBoxHeight: 12 },
+    // Calibrated at /dev/mouth-calibrator against the actual photo.
+    mouth: { mouthX: 58.3, mouthY: 30.3, mouthBoxWidth: 13, mouthBoxHeight: 10 },
     voiceGender: 'female',
   },
   {
@@ -725,7 +726,8 @@ export const scenarios: Scenario[] = [
       { speaker: 'Assistant', line: 'Right this way, second door on the left.', lineHu: 'Erre tessék, a második ajtó balra.' },
       { speaker: 'You', line: 'Great, thank you.', lineHu: 'Remek, köszönöm.' },
     ],
-    mouth: { mouthX: 50, mouthY: 30, mouthBoxWidth: 16, mouthBoxHeight: 12 },
+    // Calibrated at /dev/mouth-calibrator against the actual photo.
+    mouth: { mouthX: 53, mouthY: 27, mouthBoxWidth: 13, mouthBoxHeight: 10 },
     voiceGender: 'female',
   },
   {
@@ -781,7 +783,8 @@ export const scenarios: Scenario[] = [
       { speaker: 'Hairdresser', line: 'That would suit you well. Let\'s start, and I\'ll blow-dry it after.', lineHu: 'Az jól állna neked. Kezdjük is, és utána megszárítom.' },
       { speaker: 'You', line: 'Perfect, I can\'t wait to see it.', lineHu: 'Tökéletes, alig várom, hogy lássam.' },
     ],
-    mouth: { mouthX: 50, mouthY: 30, mouthBoxWidth: 16, mouthBoxHeight: 12 },
+    // Calibrated at /dev/mouth-calibrator against the actual photo.
+    mouth: { mouthX: 62.7, mouthY: 26.4, mouthBoxWidth: 13, mouthBoxHeight: 10 },
     voiceGender: 'female',
   },
   {
@@ -867,7 +870,8 @@ export const scenarios: Scenario[] = [
       { speaker: 'You', line: 'Thank you so much, I appreciate it.', lineHu: 'Nagyon köszönöm, sokat segít.' },
       { speaker: 'Driver', line: 'No problem, happy to help.', lineHu: 'Semmi gond, szívesen segítek.' },
     ],
-    mouth: { mouthX: 50, mouthY: 30, mouthBoxWidth: 16, mouthBoxHeight: 12 },
+    // Calibrated at /dev/mouth-calibrator against the actual photo.
+    mouth: { mouthX: 50.4, mouthY: 38.6, mouthBoxWidth: 13, mouthBoxHeight: 10 },
     voiceGender: 'male',
   },
   {
@@ -934,7 +938,7 @@ export const scenarios: Scenario[] = [
     titleHu: 'Szülői értekezleten',
     description: "Discuss your child's progress with their teacher and ask how to help at home.",
     aiRole: 'a schoolteacher',
-    setting: "a classroom, where the user is meeting their child's teacher for a parent-teacher conference",
+    setting: "a meeting room at school, where the user is meeting their child's teacher for a parent-teacher conference",
     systemPrompt:
       "You are a schoolteacher meeting with a parent to discuss their child's progress. Stay in character, warm and constructive. Keep every reply short and natural (2-3 sentences), and if the parent asks how to help, offer one simple, concrete suggestion.",
     rehearsalPhrases: [
@@ -953,7 +957,8 @@ export const scenarios: Scenario[] = [
       { speaker: 'Teacher', line: 'Yes, very well — she\'s made several good friends this year.', lineHu: 'Igen, nagyon jól — több jó barátot is szerzett idén.' },
       { speaker: 'You', line: 'That\'s great to know. Thank you for taking the time to meet with me.', lineHu: 'Ezt jó tudni. Köszönöm, hogy időt szánt rám.' },
     ],
-    mouth: { mouthX: 50, mouthY: 30, mouthBoxWidth: 16, mouthBoxHeight: 12 },
+    // Calibrated at /dev/mouth-calibrator against the actual photo.
+    mouth: { mouthX: 55.8, mouthY: 35.4, mouthBoxWidth: 13, mouthBoxHeight: 10 },
     voiceGender: 'female',
   },
   {
