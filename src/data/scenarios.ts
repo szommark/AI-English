@@ -266,7 +266,8 @@ export const scenarios: Scenario[] = [
       { speaker: 'Doctor', line: 'Rest, plenty of fluids, and you can take a fever reducer if needed. You should feel better in about a week.', lineHu: 'Pihenés, sok folyadék, és szükség esetén szedhet lázcsillapítót. Körülbelül egy hét alatt jobban kell lennie.' },
       { speaker: 'You', line: 'Thank you, doctor.', lineHu: 'Köszönöm, doktor úr.' },
     ],
-    mouth: { mouthX: 50, mouthY: 30, mouthBoxWidth: 16, mouthBoxHeight: 12 },
+    // Calibrated at /dev/mouth-calibrator against the actual photo.
+    mouth: { mouthX: 49.3, mouthY: 28.3, mouthBoxWidth: 14, mouthBoxHeight: 10 },
     voiceGender: 'male',
   },
   {
@@ -380,7 +381,8 @@ export const scenarios: Scenario[] = [
       { speaker: 'Landlord', line: 'One year minimum, with a one-month deposit up front.', lineHu: 'Minimum egy év, plusz egyhavi kaució előre.' },
       { speaker: 'You', line: 'That sounds reasonable, thank you for showing me around.', lineHu: 'Ez elfogadhatónak hangzik, köszönöm a bemutatást.' },
     ],
-    mouth: { mouthX: 50, mouthY: 30, mouthBoxWidth: 16, mouthBoxHeight: 12 },
+    // Calibrated at /dev/mouth-calibrator against the actual photo.
+    mouth: { mouthX: 62.9, mouthY: 28.3, mouthBoxWidth: 13, mouthBoxHeight: 10 },
     voiceGender: 'male',
   },
   {
@@ -602,14 +604,15 @@ export const scenarios: Scenario[] = [
     ],
     rehearsalScript: [
       { speaker: 'You', line: 'Hi, I don\'t think we\'ve met yet. I\'m Anna.', lineHu: 'Szia, azt hiszem, még nem találkoztunk. Anna vagyok.' },
-      { speaker: 'Stranger', line: 'Nice to meet you, Anna! I\'m Tom. What brings you here today?', lineHu: 'Örülök, hogy megismertelek, Anna! Tom vagyok. Mi hozott ide ma?' },
+      { speaker: 'Stranger', line: 'Nice to meet you, Anna! I\'m Éva. What brings you here today?', lineHu: 'Örülök, hogy megismertelek, Anna! Éva vagyok. Mi hozott ide ma?' },
       { speaker: 'You', line: 'A friend invited me. How do you know the host?', lineHu: 'Egy barátom hívott meg. Te honnan ismered a házigazdát?' },
       { speaker: 'Stranger', line: 'We used to work together a few years ago. What do you do for work?', lineHu: 'Néhány éve együtt dolgoztunk. Te mivel foglalkozol?' },
-      { speaker: 'You', line: 'I\'m a graphic designer. It was really nice meeting you, Tom.', lineHu: 'Grafikus tervező vagyok. Nagyon örülök, hogy megismertelek, Tom.' },
+      { speaker: 'You', line: 'I\'m a graphic designer. It was really nice meeting you, Éva.', lineHu: 'Grafikus tervező vagyok. Nagyon örülök, hogy megismertelek, Éva.' },
       { speaker: 'Stranger', line: 'You too, Anna! Maybe we could grab a coffee sometime.', lineHu: 'Én is örülök, Anna! Talán elmehetnénk egyszer egy kávéra.' },
     ],
-    mouth: { mouthX: 50, mouthY: 30, mouthBoxWidth: 16, mouthBoxHeight: 12 },
-    voiceGender: 'male',
+    // Calibrated at /dev/mouth-calibrator against the actual photo.
+    mouth: { mouthX: 59.2, mouthY: 32.9, mouthBoxWidth: 15, mouthBoxHeight: 11 },
+    voiceGender: 'female',
   },
   {
     id: 'making-plans',

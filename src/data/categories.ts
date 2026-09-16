@@ -52,9 +52,10 @@ export const categories: Category[] = [
     id: 'healthcare',
     title: 'Healthcare',
     titleHu: 'Egészségügy',
+    tilePhoto: scenarioPhotos['doctors-visit'],
     status: 'active',
     subcategories: [
-      { id: 'doctors-visit', title: "Doctor's Visit", titleHu: 'Orvosi vizit', scenarioIds: ['doctors-visit'] },
+      { id: 'doctors-visit', title: "Doctor's Visit", titleHu: 'Orvosi vizit', tilePhoto: scenarioPhotos['doctors-visit'], scenarioIds: ['doctors-visit'] },
       { id: 'booking-appointment', title: 'Booking an Appointment', titleHu: 'Időpontfoglalás', scenarioIds: ['booking-appointment'] },
       { id: 'emergency-call', title: 'Emergency Call', titleHu: 'Segélyhívás', scenarioIds: ['emergency-call'] },
       { id: 'urgent-care', title: 'Urgent Care', titleHu: 'Sürgősségi ellátás', scenarioIds: ['urgent-care'] },
@@ -66,7 +67,7 @@ export const categories: Category[] = [
     titleHu: 'Lakhatás',
     status: 'active',
     subcategories: [
-      { id: 'apartment-viewing', title: 'Apartment Viewing', titleHu: 'Lakásnézés', scenarioIds: ['apartment-viewing'] },
+      { id: 'apartment-viewing', title: 'Apartment Viewing', titleHu: 'Lakásnézés', tilePhoto: scenarioPhotos['apartment-viewing'], scenarioIds: ['apartment-viewing'] },
       { id: 'landlord-repairs', title: 'Landlord/Repairs', titleHu: 'Bérbeadó és javítások', scenarioIds: ['landlord-repairs'] },
       { id: 'utilities-setup', title: 'Utilities Setup', titleHu: 'Közművek beindítása', scenarioIds: ['utilities-setup'] },
       { id: 'neighbors', title: 'Neighbors', titleHu: 'Szomszédok', scenarioIds: ['neighbors'] },
@@ -88,9 +89,10 @@ export const categories: Category[] = [
     id: 'social-small-talk',
     title: 'Social & Small Talk',
     titleHu: 'Társasági beszélgetés',
+    tilePhoto: scenarioPhotos['meeting-new-people'],
     status: 'active',
     subcategories: [
-      { id: 'meeting-new-people', title: 'Meeting New People', titleHu: 'Új emberek megismerése', scenarioIds: ['meeting-new-people'] },
+      { id: 'meeting-new-people', title: 'Meeting New People', titleHu: 'Új emberek megismerése', tilePhoto: scenarioPhotos['meeting-new-people'], scenarioIds: ['meeting-new-people'] },
       { id: 'making-plans', title: 'Making Plans', titleHu: 'Program egyeztetése', scenarioIds: ['making-plans'] },
       { id: 'party-chitchat', title: 'Party Chit-chat', titleHu: 'Csevegés bulikban', scenarioIds: ['party-chitchat'] },
       { id: 'weather-news', title: 'Weather/News', titleHu: 'Időjárás és hírek', scenarioIds: ['weather-news'] },
