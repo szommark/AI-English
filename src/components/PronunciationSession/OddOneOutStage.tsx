@@ -18,7 +18,7 @@ export default function OddOneOutStage({
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-500">
-        Hallgasd meg mindhármat, és válaszd ki, melyik hangzik másképp ({roundNumber}/{totalRounds})
+        Hallgasd meg mindhármat, és válaszd ki, melyikben van benne az adott hang ({roundNumber}/{totalRounds})
       </p>
       <div className="grid grid-cols-3 gap-3">
         {CARD_LABELS.map((label, i) => {
@@ -49,7 +49,7 @@ export default function OddOneOutStage({
                 disabled={feedback !== null}
                 className="text-xs font-medium text-rose-700 border border-rose-200 rounded-lg px-2 py-1 hover:bg-rose-50 disabled:opacity-40 disabled:cursor-default"
               >
-                Ez más
+                Ebben van
               </button>
             </div>
           )

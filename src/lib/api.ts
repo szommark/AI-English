@@ -59,7 +59,10 @@ export async function requestDeepCheckToken(scenarioId: string): Promise<{ token
     throw err
   }
 
-  if (!res.ok) throw new Error('Failed to reach the pronunciation service')
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(body?.error ? `Failed to reach the pronunciation service: ${body.error}` : 'Failed to reach the pronunciation service')
+  }
   return res.json()
 }
 

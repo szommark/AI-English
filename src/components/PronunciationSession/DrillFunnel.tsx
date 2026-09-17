@@ -120,12 +120,12 @@ export default function DrillFunnel({
 
   function replayDictation() {
     if (dictationPlaysRemaining <= 0) return
-    synth.speak(dictationSentence, { rate })
+    synth.speak(dictationSentence.text, { rate })
     setDictationPlaysRemaining((p) => p - 1)
   }
 
   function submitDictation(typed: string) {
-    const matches = matchWords(dictationSentence, typed)
+    const matches = matchWords(dictationSentence.text, typed)
     dictationRatioRef.current = matches.length > 0 ? matches.filter((m) => m.matched).length / matches.length : 0
     setDictationSubmitted(true)
   }
@@ -191,6 +191,7 @@ export default function DrillFunnel({
             roundNumber={fcRound + 1}
             totalRounds={ROUNDS}
             feedback={fcFeedback}
+            onReplay={replayForcedChoice}
             onAnswer={answerForcedChoice}
           />
         )}
@@ -205,10 +206,15 @@ export default function DrillFunnel({
         )}
         {stage === 'dictation' && (
           <DictationStage
-            sentence={dictationSentence}
+            sentence={dictationSentence.text}
+            keyWords={dictationSentence.keyWords}
+            label={soundItem.dictationLabel}
             submitted={dictationSubmitted}
             onSubmit={submitDictation}
             onContinue={continueFromDictation}
+            onReplay={replayDictation}
+            replayLabel={`Lejátszás (${dictationPlaysRemaining} hátra)`}
+            replayDisabled={dictationPlaysRemaining <= 0}
           />
         )}
         {stage === 'production' && (
@@ -227,17 +233,7 @@ export default function DrillFunnel({
         stageIndex={STAGE_INDEX[stage]}
         rate={rate}
         onSetRate={setRate}
-        onReplay={
-          stage === 'forced-choice'
-            ? replayForcedChoice
-            : stage === 'dictation'
-              ? replayDictation
-              : stage === 'production'
-                ? replayProduction
-                : undefined
-        }
-        replayLabel={stage === 'dictation' ? `Lejátszás (${dictationPlaysRemaining} hátra)` : 'Lejátszás'}
-        replayDisabled={stage === 'dictation' && dictationPlaysRemaining <= 0}
+        onReplay={stage === 'production' ? replayProduction : undefined}
       />
     </div>
   )

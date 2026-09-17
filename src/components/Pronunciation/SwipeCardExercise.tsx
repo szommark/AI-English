@@ -39,6 +39,7 @@ export default function SwipeCardExercise({
   const [index, setIndex] = useState(0)
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null)
   const [dragX, setDragX] = useState(0)
+  const [hasPlayed, setHasPlayed] = useState(false)
   const scoreRef = useRef(0)
   const draggingRef = useRef(false)
   const startXRef = useRef(0)
@@ -47,14 +48,19 @@ export default function SwipeCardExercise({
   const finished = index >= deck.length
 
   useEffect(() => {
-    if (!finished && current) synth.speak(current.word)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setHasPlayed(false)
   }, [index])
 
   useEffect(() => {
     if (finished) onComplete(scoreRef.current, deck.length)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished])
+
+  function playWord() {
+    if (!current) return
+    synth.speak(current.word)
+    setHasPlayed(true)
+  }
 
   function decide(saysTarget: boolean) {
     if (feedback || !current) return
@@ -118,11 +124,18 @@ export default function SwipeCardExercise({
           }`}
         >
           <button
-            onClick={() => synth.speak(current.word)}
-            className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 text-rose-600 hover:bg-rose-200"
+            onClick={playWord}
+            className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 text-rose-600 hover:bg-rose-200"
             aria-label="Lejátszás"
           >
             <Volume2 className="h-7 w-7" />
+            <span
+              className={`absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold text-white ${
+                hasPlayed ? 'bg-slate-400' : 'bg-rose-500'
+              }`}
+            >
+              {hasPlayed ? 0 : 1}
+            </span>
           </button>
           {feedback && <p className="mt-4 text-lg font-medium text-slate-800">{current.word}</p>}
         </div>
