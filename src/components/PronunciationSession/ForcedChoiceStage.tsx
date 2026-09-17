@@ -1,21 +1,34 @@
+import { SpeakerIcon } from '../icons/AudioIcons'
+
 export default function ForcedChoiceStage({
   words,
   roundNumber,
   totalRounds,
   feedback,
+  onReplay,
   onAnswer,
 }: {
   words: [string, string]
   roundNumber: number
   totalRounds: number
   feedback: { chosenIndex: 0 | 1; correctIndex: 0 | 1 } | null
+  onReplay: () => void
   onAnswer: (choiceIndex: 0 | 1) => void
 }) {
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-500">
-        Melyik szót hallottad? ({roundNumber}/{totalRounds})
-      </p>
+      <div className="flex items-center gap-3">
+        <p className="text-sm text-slate-500">
+          Melyik szót hallottad? ({roundNumber}/{totalRounds})
+        </p>
+        <button
+          onClick={onReplay}
+          className="flex items-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 text-xs font-medium px-3 py-1.5 hover:bg-rose-50"
+        >
+          <SpeakerIcon className="h-3.5 w-3.5" />
+          Lejátszás
+        </button>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         {words.map((word, i) => {
           const index = i as 0 | 1

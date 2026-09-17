@@ -1,23 +1,49 @@
 import { useState } from 'react'
+import { CheckCircle2, XCircle } from 'lucide-react'
 import { matchWords } from '../../lib/wordMatch'
+import { SpeakerIcon } from '../icons/AudioIcons'
 
 export default function DictationStage({
   sentence,
+  keyWords,
+  label,
   submitted,
   onSubmit,
   onContinue,
+  onReplay,
+  replayLabel,
+  replayDisabled,
 }: {
   sentence: string
+  keyWords: string[]
+  label: string
   submitted: boolean
   onSubmit: (typed: string) => void
   onContinue: () => void
+  onReplay: () => void
+  replayLabel: string
+  replayDisabled: boolean
 }) {
   const [typed, setTyped] = useState('')
   const words = submitted ? matchWords(sentence, typed) : []
+  const matchedCount = words.filter((w) => w.matched).length
+  const keyWordSet = new Set(keyWords.map((k) => k.toLowerCase()))
+  const keyWordMatchedCount = words.filter((w) => w.matched && keyWordSet.has(w.word.toLowerCase())).length
+  const allCorrect = submitted && matchedCount === words.length && keyWordMatchedCount === keyWords.length
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-500">Írd le, amit hallasz.</p>
+      <div className="flex items-center gap-3">
+        <p className="text-sm text-slate-500">Írd le, amit hallasz.</p>
+        <button
+          onClick={onReplay}
+          disabled={replayDisabled}
+          className="flex items-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 text-xs font-medium px-3 py-1.5 hover:bg-rose-50 disabled:opacity-40"
+        >
+          <SpeakerIcon className="h-3.5 w-3.5" />
+          {replayLabel}
+        </button>
+      </div>
 
       <input
         value={typed}
@@ -42,6 +68,16 @@ export default function DictationStage({
 
       {submitted && (
         <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            {allCorrect ? (
+              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+            ) : (
+              <XCircle className="h-5 w-5 text-red-500" />
+            )}
+            <p className="text-sm font-medium text-slate-700">
+              {matchedCount}/{words.length} szó · {keyWordMatchedCount}/{keyWords.length} {label}
+            </p>
+          </div>
           <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm">
             <p>
               {words.map((w, i) => (

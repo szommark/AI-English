@@ -3,15 +3,17 @@
 // (matches the curriculum's own oʊ/ɜr usage); the UK/US accent toggle changes which TTS
 // voice and Azure recognition locale get used, not the chart's IPA labels.
 //
-// Difficulty tiering (hungarianDifficulty) follows the phonetic-sound-chart-design.md
-// reconciliation, §4: Critical + Challenging sit above a single divider (no color/size
-// differentiation between the two), Straightforward below. The five explicit grounded
-// items (th-sounds, w-vs-v, æ-vs-e, schwa) come from the author's dissertation and
-// Nádasdy's "Background to English Pronunciation" (2006), same as pronunciationCurriculum.ts.
-// Everything else is a first-pass placeholder using well-established Hungarian/English
-// contrastive-phonetics facts (vowel length-vs-quality mismatch, absence of dental
-// fricatives, absence of a dark l, etc.) — NOT claimed as dissertation findings, and
-// flagged for linguistic review same as the curriculum file's own disclaimer.
+// Difficulty tiering (hungarianDifficulty): Critical is the curated "difficult sounds"
+// shortlist shown above the chart's divider (th-voiceless, th-voiced, æ, schwa, w, r,
+// dark-l, ŋ, oʊ) — kept deliberately short rather than exhaustive. Everything else sits in
+// Straightforward below the divider; the 'challenging' tier value is unused but kept in the
+// type in case a middle tier returns. The five explicit grounded items (th-sounds, w-vs-v,
+// æ-vs-e, schwa) come from the author's dissertation and Nádasdy's "Background to English
+// Pronunciation" (2006), same as pronunciationCurriculum.ts. Everything else is a first-pass
+// placeholder using well-established Hungarian/English contrastive-phonetics facts (vowel
+// length-vs-quality mismatch, absence of dental fricatives, absence of a dark l, etc.) —
+// NOT claimed as dissertation findings, and flagged for linguistic review same as the
+// curriculum file's own disclaimer.
 
 export type PhonemeCategory = 'consonant' | 'monophthong' | 'diphthong'
 export type HungarianDifficulty = 'critical' | 'challenging' | 'straightforward'
@@ -85,6 +87,14 @@ export const phonemes: Phoneme[] = [
       manner: 'fricative',
       place: 'dental',
     },
+    swipeWords: [
+      { word: 'think', isTarget: true },
+      { word: 'bath', isTarget: true },
+      { word: 'thin', isTarget: true },
+      { word: 'sink', isTarget: false },
+      { word: 'bat', isTarget: false },
+      { word: 'tin', isTarget: false },
+    ],
     curriculumId: 'th-sounds',
   },
   {
@@ -105,6 +115,14 @@ export const phonemes: Phoneme[] = [
       manner: 'fricative',
       place: 'dental',
     },
+    swipeWords: [
+      { word: 'this', isTarget: true },
+      { word: 'then', isTarget: true },
+      { word: 'breathe', isTarget: true },
+      { word: 'den', isTarget: false },
+      { word: 'dare', isTarget: false },
+      { word: 'breed', isTarget: false },
+    ],
     curriculumId: 'th-sounds',
   },
   {
@@ -124,6 +142,14 @@ export const phonemes: Phoneme[] = [
       tonguePosition: 'low-front',
       lipRounding: 'unrounded',
     },
+    swipeWords: [
+      { word: 'cat', isTarget: true },
+      { word: 'bad', isTarget: true },
+      { word: 'had', isTarget: true },
+      { word: 'bed', isTarget: false },
+      { word: 'head', isTarget: false },
+      { word: 'red', isTarget: false },
+    ],
     curriculumId: 'ae-vs-e',
   },
   {
@@ -143,6 +169,14 @@ export const phonemes: Phoneme[] = [
       tonguePosition: 'central',
       lipRounding: 'unrounded',
     },
+    swipeWords: [
+      { word: 'about', isTarget: true },
+      { word: 'sofa', isTarget: true },
+      { word: 'banana', isTarget: true },
+      { word: 'stop', isTarget: false },
+      { word: 'cat', isTarget: false },
+      { word: 'ten', isTarget: false },
+    ],
     curriculumId: 'schwa',
   },
   {
@@ -164,6 +198,14 @@ export const phonemes: Phoneme[] = [
       place: 'bilabial',
       lipRounding: 'rounded',
     },
+    swipeWords: [
+      { word: 'wine', isTarget: true },
+      { word: 'west', isTarget: true },
+      { word: 'wet', isTarget: true },
+      { word: 'vine', isTarget: false },
+      { word: 'vest', isTarget: false },
+      { word: 'vet', isTarget: false },
+    ],
     curriculumId: 'w-vs-v',
   },
   {
@@ -224,7 +266,7 @@ export const phonemes: Phoneme[] = [
     id: 'nurse',
     ipaSymbol: 'ɜr',
     category: 'monophthong',
-    hungarianDifficulty: 'critical',
+    hungarianDifficulty: 'straightforward',
     hungarianNote: 'Combines the difficulty of English r with a vowel quality Hungarian doesn’t have — often flattened toward a Hungarian "er".',
     hungarianNoteHu: 'Az angol "r" nehézségét egy olyan magánhangzóval kombinálja, amely a magyarban nem létezik — gyakran magyaros "er"-ré egyszerűsödik.',
     exampleWords: [
@@ -278,7 +320,7 @@ export const phonemes: Phoneme[] = [
     id: 'strut',
     ipaSymbol: 'ʌ',
     category: 'monophthong',
-    hungarianDifficulty: 'challenging',
+    hungarianDifficulty: 'straightforward',
     hungarianNote: 'Sits between Hungarian a and o — no exact match, often replaced with a Hungarian "a".',
     hungarianNoteHu: 'A magyar "a" és "o" közé esik — nincs pontos megfelelője, gyakran magyaros "a"-val helyettesítik.',
     exampleWords: [
@@ -303,7 +345,7 @@ export const phonemes: Phoneme[] = [
     id: 'kit',
     ipaSymbol: 'ɪ',
     category: 'monophthong',
-    hungarianDifficulty: 'challenging',
+    hungarianDifficulty: 'straightforward',
     hungarianNote: 'Hungarian short i is tenser and closer to English iː — English ɪ is more relaxed and lower, which is easy to miss.',
     hungarianNoteHu: 'A magyar rövid "i" feszesebb és közelebb áll az angol iː-hez — az angol ɪ lazább és nyitottabb, ezt könnyű elvéteni.',
     exampleWords: [
@@ -329,7 +371,7 @@ export const phonemes: Phoneme[] = [
     id: 'fleece',
     ipaSymbol: 'iː',
     category: 'monophthong',
-    hungarianDifficulty: 'challenging',
+    hungarianDifficulty: 'straightforward',
     hungarianNote: 'Close to Hungarian long í, but English length is often paired with a quality change learners don’t make (ship vs sheep sound alike).',
     hungarianNoteHu: 'Közel áll a magyar hosszú í-hez, de az angol hosszúsághoz gyakran hangszínbeli változás is társul, amit a tanulók nem tesznek meg (ship és sheep egyformán hangzik).',
     exampleWords: [
@@ -355,7 +397,7 @@ export const phonemes: Phoneme[] = [
     id: 'foot',
     ipaSymbol: 'ʊ',
     category: 'monophthong',
-    hungarianDifficulty: 'challenging',
+    hungarianDifficulty: 'straightforward',
     hungarianNote: 'No exact Hungarian match — relaxed and lower than Hungarian u, often confused with uː.',
     hungarianNoteHu: 'Nincs pontos magyar megfelelője — lazább és nyitottabb, mint a magyar "u", gyakran összekeverik az uː-val.',
     exampleWords: [
@@ -381,7 +423,7 @@ export const phonemes: Phoneme[] = [
     id: 'goose',
     ipaSymbol: 'uː',
     category: 'monophthong',
-    hungarianDifficulty: 'challenging',
+    hungarianDifficulty: 'straightforward',
     hungarianNote: 'Close to Hungarian long ú, but tenser lip-rounding than most learners use.',
     hungarianNoteHu: 'Közel áll a magyar hosszú ú-hoz, de feszesebb ajakkerekítést igényel, mint amit a tanulók általában használnak.',
     exampleWords: [
@@ -407,7 +449,7 @@ export const phonemes: Phoneme[] = [
     id: 'thought',
     ipaSymbol: 'ɔː',
     category: 'monophthong',
-    hungarianDifficulty: 'challenging',
+    hungarianDifficulty: 'straightforward',
     hungarianNote: 'Between Hungarian o and á — no exact match, and in General American this can merge with the ɑː in "hot".',
     hungarianNoteHu: 'A magyar "o" és "á" közé esik — nincs pontos megfelelője, és amerikai angolban gyakran egybeesik a "hot" szóban lévő ɑː hanggal.',
     exampleWords: [
@@ -432,7 +474,7 @@ export const phonemes: Phoneme[] = [
     id: 'palm',
     ipaSymbol: 'ɑː',
     category: 'monophthong',
-    hungarianDifficulty: 'challenging',
+    hungarianDifficulty: 'straightforward',
     hungarianNote: 'Longer and further back than Hungarian á — also covers many "o"-spelled words in American English (hot, stop), which surprises learners expecting a Hungarian "o".',
     hungarianNoteHu: 'Hosszabb és hátrébb képzett, mint a magyar "á" — amerikai angolban sok "o" betűs szóban is ez a hang (hot, stop), ami meglepi a magyar "o"-t váró tanulókat.',
     exampleWords: [
@@ -457,7 +499,7 @@ export const phonemes: Phoneme[] = [
     id: 'goat',
     ipaSymbol: 'oʊ',
     category: 'diphthong',
-    hungarianDifficulty: 'challenging',
+    hungarianDifficulty: 'critical',
     hungarianNote: 'Hungarian o is a pure, unchanging vowel — English glides from o toward u, and learners often flatten it into a plain Hungarian "o".',
     hungarianNoteHu: 'A magyar "o" tiszta, változatlan hangzó — az angol o-ból u felé csúszik, és a tanulók gyakran sima magyar "o"-vá laposítják.',
     exampleWords: [
@@ -482,7 +524,7 @@ export const phonemes: Phoneme[] = [
     id: 'face',
     ipaSymbol: 'eɪ',
     category: 'diphthong',
-    hungarianDifficulty: 'challenging',
+    hungarianDifficulty: 'straightforward',
     hungarianNote: 'Hungarian has no native glide here — learners often say a pure "e" instead of gliding toward i.',
     hungarianNoteHu: 'A magyarban nincs ehhez hasonló csúszóhang — a tanulók gyakran tiszta "e"-t ejtenek i felé csúszás helyett.',
     exampleWords: [
@@ -507,7 +549,7 @@ export const phonemes: Phoneme[] = [
     id: 'price',
     ipaSymbol: 'aɪ',
     category: 'diphthong',
-    hungarianDifficulty: 'challenging',
+    hungarianDifficulty: 'straightforward',
     hungarianNote: 'Similar to the Hungarian "aj" sequence, so usually learnable, but the glide is often cut short.',
     hungarianNoteHu: 'Hasonlít a magyar "aj" hangkapcsolathoz, ezért általában könnyen megtanulható, de a csúszást gyakran túl röviden ejtik.',
     exampleWords: [
@@ -532,7 +574,7 @@ export const phonemes: Phoneme[] = [
     id: 'mouth',
     ipaSymbol: 'aʊ',
     category: 'diphthong',
-    hungarianDifficulty: 'challenging',
+    hungarianDifficulty: 'straightforward',
     hungarianNote: 'Similar to the Hungarian "au" sequence in loanwords, but English rounds and raises further toward u than most learners expect.',
     hungarianNoteHu: 'Hasonlít a magyar jövevényszavakban előforduló "au" hangkapcsolathoz, de az angolban erősebb ajakkerekítéssel és u felé emelkedéssel jár, mint amit a legtöbb tanuló vár.',
     exampleWords: [
@@ -557,7 +599,7 @@ export const phonemes: Phoneme[] = [
     id: 'choice',
     ipaSymbol: 'ɔɪ',
     category: 'diphthong',
-    hungarianDifficulty: 'challenging',
+    hungarianDifficulty: 'straightforward',
     hungarianNote: 'Rare glide shape for Hungarian speakers — the starting vowel is often replaced with a plain Hungarian "o".',
     hungarianNoteHu: 'Ritka csúszóhang-forma a magyar anyanyelvűek számára — a kezdő magánhangzót gyakran sima magyar "o"-val helyettesítik.',
     exampleWords: [
@@ -1098,9 +1140,7 @@ export function getPhonemeByCurriculumId(curriculumId: string): Phoneme | undefi
   return phonemes.find((p) => p.curriculumId === curriculumId)
 }
 
-/** Critical + Challenging, in that order — the tiles shown above the chart's difficulty divider. */
-export const difficultTierPhonemes = phonemes.filter(
-  (p) => p.hungarianDifficulty === 'critical' || p.hungarianDifficulty === 'challenging',
-)
+/** Critical tier only — the shortlist of tiles shown above the chart's difficulty divider. */
+export const difficultTierPhonemes = phonemes.filter((p) => p.hungarianDifficulty === 'critical')
 
 export const straightforwardPhonemes = phonemes.filter((p) => p.hungarianDifficulty === 'straightforward')
