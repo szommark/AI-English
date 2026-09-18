@@ -122,15 +122,27 @@ export const pronunciationCurriculum: PronunciationSoundItem[] = [
     noteHu:
       'A magyarban nincs redukált (elmosódott) magánhangzó — minden szótagot tisztán ejtünk, ez nehezíti a hangsúlytalan szótagok felismerését.',
     dictationLabel: 'ə',
+    // Schwa only exists in unstressed syllables, so a true single-phoneme minimal pair
+    // (all else equal) would require same-spelling stress-shift homographs (e.g. "content"
+    // the noun vs "content" the adjective), which the two-button forced-choice UI can't show
+    // distinctly. affect/effect, accept/except and allusion/illusion (the previous set) were
+    // rejected as near-homophones even in careful speech — the contrast is too subtle to
+    // fairly test. Using distinct-spelling stress-shift word pairs instead, where the same
+    // root's stressed vowel becomes schwa (or vice versa) — a standard ESL teaching example.
     minimalPairs: [
-      { words: ['affect', 'effect'] },
-      { words: ['accept', 'except'] },
-      { words: ['allusion', 'illusion'] },
+      { words: ['desert', 'dessert'] },
+      { words: ['human', 'humane'] },
+      { words: ['personal', 'personnel'] },
     ],
+    // Previous sets had this backwards: 'about'/'banana' (grouped as the shared "non-target")
+    // in fact both contain schwa, while 'but'/'long' (marked as the odd one with the target
+    // sound) don't reduce at all. Rebuilt so the two "shared" words are simple, fully-stressed
+    // monosyllables with no reduced vowel, and the odd one out is a multisyllabic word whose
+    // unstressed syllable is unambiguously schwa.
     oddOneOutSets: [
-      { words: ['about', 'banana', 'but'], oddIndex: 2 },
-      { words: ['sofa', 'above', 'stop'], oddIndex: 2 },
-      { words: ['aroma', 'along', 'long'], oddIndex: 2 },
+      { words: ['cup', 'bag', 'about'], oddIndex: 2 },
+      { words: ['sun', 'red', 'sofa'], oddIndex: 2 },
+      { words: ['top', 'big', 'banana'], oddIndex: 2 },
     ],
     dictationSentences: [
       { text: 'About an hour later, we arrived.', keyWords: ['About', 'an', 'arrived'] },

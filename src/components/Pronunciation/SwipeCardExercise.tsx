@@ -125,6 +125,7 @@ export default function SwipeCardExercise({
         >
           <button
             onClick={playWord}
+            onPointerDown={(e) => e.stopPropagation()}
             className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 text-rose-600 hover:bg-rose-200"
             aria-label="Lejátszás"
           >
