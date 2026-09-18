@@ -4,6 +4,7 @@ import type { Phoneme } from '../../data/phonemes'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import type { AccentPreference } from '../../lib/voiceSelection'
 import DrillCard from '../PronunciationSession/DrillCard'
+import StageSummary, { type RoundResult } from '../PronunciationSession/StageSummary'
 
 const DECK_SIZE = 6
 const ADVANCE_DELAY_MS = 900
@@ -40,6 +41,7 @@ export default function SwipeCardExercise({
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null)
   const [dragX, setDragX] = useState(0)
   const [hasPlayed, setHasPlayed] = useState(false)
+  const [results, setResults] = useState<RoundResult[]>([])
   const scoreRef = useRef(0)
   const draggingRef = useRef(false)
   const startXRef = useRef(0)
@@ -50,11 +52,6 @@ export default function SwipeCardExercise({
   useEffect(() => {
     setHasPlayed(false)
   }, [index])
-
-  useEffect(() => {
-    if (finished) onComplete(scoreRef.current, deck.length)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [finished])
 
   function playWord() {
     if (!current) return
@@ -67,6 +64,7 @@ export default function SwipeCardExercise({
     const isCorrect = saysTarget === current.isTarget
     if (isCorrect) scoreRef.current += 1
     setFeedback(isCorrect ? 'correct' : 'incorrect')
+    setResults((r) => [...r, { word: current.word, correct: isCorrect }])
     setTimeout(() => {
       setFeedback(null)
       setDragX(0)
@@ -92,7 +90,15 @@ export default function SwipeCardExercise({
     else setDragX(0)
   }
 
-  if (finished || !current) return null
+  if (finished) {
+    return (
+      <DrillCard title={`Kártyás gyakorlat — /${phoneme.ipaSymbol}/`} titleHu="Összesítő">
+        <StageSummary title="Kártyás gyakorlat" results={results} onContinue={() => onComplete(scoreRef.current, deck.length)} />
+      </DrillCard>
+    )
+  }
+
+  if (!current) return null
 
   const tilt = Math.max(-12, Math.min(12, dragX / 8))
   const leanYes = dragX > 24

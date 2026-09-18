@@ -7,14 +7,14 @@ export default function ProductionStage({
   locale,
   done,
   onResult,
-  onFinish,
+  onContinue,
 }: {
   soundItemId: string
   sentence: string
   locale: 'en-US' | 'en-GB'
   done: boolean
   onResult: (result: PronunciationCheckResult) => void
-  onFinish: () => void
+  onContinue: () => void
 }) {
   return (
     <div className="space-y-4">
@@ -26,8 +26,8 @@ export default function ProductionStage({
       <DeepCheckPanel scenarioId={soundItemId} targetSentence={sentence} locale={locale} onResult={onResult} />
 
       {done && (
-        <button onClick={onFinish} className="rounded-lg bg-rose-600 text-white text-sm font-medium px-4 py-2 hover:bg-rose-700">
-          Befejezés
+        <button onClick={onContinue} className="rounded-lg bg-rose-600 text-white text-sm font-medium px-4 py-2 hover:bg-rose-700">
+          Tovább az összesítőhöz →
         </button>
       )}
     </div>

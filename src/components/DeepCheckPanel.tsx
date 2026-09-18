@@ -5,7 +5,7 @@ import { DEEP_CHECK_MAX_SECONDS } from '../lib/pronunciationConfig'
 import type { PronunciationCheckResult } from '../lib/types'
 import PronunciationResultCard from './PronunciationResultCard'
 
-type Status = 'idle' | 'recording' | 'scoring' | 'done' | 'error'
+type Status = 'idle' | 'preparing' | 'recording' | 'done' | 'error'
 
 export default function DeepCheckPanel({
   scenarioId,
@@ -23,12 +23,12 @@ export default function DeepCheckPanel({
   const [errorMessage, setErrorMessage] = useState('')
 
   const run = async () => {
-    setStatus('recording')
+    setStatus('preparing')
     setErrorMessage('')
 
     try {
       const { token, region } = await requestDeepCheckToken(scenarioId)
-      setStatus('scoring')
+      setStatus('recording')
       const deepResult = await runDeepCheck({ token, region, targetSentence, maxSeconds: DEEP_CHECK_MAX_SECONDS, locale })
       setResult(deepResult)
       setStatus('done')
@@ -59,18 +59,18 @@ export default function DeepCheckPanel({
     <div className="mt-2">
       <button
         onClick={run}
-        disabled={status === 'recording' || status === 'scoring'}
+        disabled={status === 'preparing' || status === 'recording'}
         className="rounded-lg border border-slate-300 text-slate-600 text-xs px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50"
       >
-        {status === 'recording' && `Felvétel... (max. ${DEEP_CHECK_MAX_SECONDS} mp)`}
-        {status === 'scoring' && 'Elemzés...'}
+        {status === 'preparing' && 'Előkészítés...'}
+        {status === 'recording' && `Beszélj most... (max. ${DEEP_CHECK_MAX_SECONDS} mp)`}
         {(status === 'idle' || status === 'done' || status === 'error') && 'Kiejtésellenőrzés'}
       </button>
 
       {status === 'error' && <p className="mt-2 text-xs text-red-600">{errorMessage}</p>}
       {status === 'done' && result && (
         <div className="mt-2">
-          <PronunciationResultCard result={result} />
+          <PronunciationResultCard result={result} targetSentence={targetSentence} />
         </div>
       )}
     </div>

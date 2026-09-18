@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { PronunciationCheckResult, ProsodyFlag } from '../lib/types'
+import { Check, X } from 'lucide-react'
+import type { PronunciationCheckResult, PronunciationWordDetail, ProsodyFlag } from '../lib/types'
 
 function scoreColor(score: number): string {
   if (score >= 80) return 'text-emerald-700'
@@ -13,9 +14,38 @@ const PROSODY_LABELS_HU: Record<ProsodyFlag, string> = {
   Monotone: 'monoton hangsúly',
 }
 
-export default function PronunciationResultCard({ result }: { result: PronunciationCheckResult }) {
+function normalizeWord(word: string): string {
+  return word.toLowerCase().replace(/[.,!?;:"'()]/g, '')
+}
+
+/** Aligns each target-sentence word to its Azure result (if any), tolerating omitted words. */
+function alignWords(targetSentence: string, resultWords: PronunciationWordDetail[]) {
+  const targetWords = targetSentence.trim().split(/\s+/)
+  let cursor = 0
+  return targetWords.map((word) => {
+    const key = normalizeWord(word)
+    let foundAt = -1
+    for (let j = cursor; j < Math.min(resultWords.length, cursor + 3); j++) {
+      if (normalizeWord(resultWords[j].word) === key) {
+        foundAt = j
+        break
+      }
+    }
+    if (foundAt === -1) return { word, detail: null }
+    cursor = foundAt + 1
+    return { word, detail: resultWords[foundAt] }
+  })
+}
+
+export default function PronunciationResultCard({
+  result,
+  targetSentence,
+}: {
+  result: PronunciationCheckResult
+  targetSentence: string
+}) {
   const [expandedWord, setExpandedWord] = useState<number | null>(null)
-  const flaggedWords = result.words.filter((w) => w.errorType !== 'None')
+  const aligned = alignWords(targetSentence, result.words)
 
   return (
     <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-5">
@@ -56,23 +86,41 @@ export default function PronunciationResultCard({ result }: { result: Pronunciat
         )}
       </div>
 
-      {flaggedWords.length > 0 && (
-        <div className="mt-4 text-sm">
-          <p className="text-slate-600 mb-1">Ezekre a szavakra érdemes figyelni (érintsd meg a részletekért):</p>
-          <div className="flex flex-wrap gap-x-1 gap-y-2">
-            {flaggedWords.map((w, i) => (
+      <div className="mt-4 text-sm">
+        <p className="text-slate-600 mb-2">A mondatod szavanként (érintsd meg a hibásakat a részletekért):</p>
+        <div className="flex flex-wrap gap-1.5">
+          {aligned.map(({ word, detail }, i) => {
+            const isOk = detail?.errorType === 'None'
+            const isExpandable = detail !== null && !isOk
+            return (
               <div key={i}>
                 <button
-                  onClick={() => setExpandedWord(expandedWord === i ? null : i)}
-                  className="text-red-600 font-medium underline decoration-dotted hover:text-red-700"
+                  onClick={() => isExpandable && setExpandedWord(expandedWord === i ? null : i)}
+                  disabled={!isExpandable}
+                  className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-sm font-medium ${
+                    isOk
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      : isExpandable
+                        ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
+                        : 'border-dashed border-red-200 bg-red-50/50 text-red-500 cursor-default'
+                  }`}
                 >
-                  {w.word}
+                  {isOk ? (
+                    <Check className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <X className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                  {word}
                 </button>
-                {expandedWord === i && (
+                {expandedWord === i && detail && (
                   <div className="mt-1 w-full rounded-lg bg-white border border-red-100 p-2 text-xs space-y-1.5">
-                    {w.phonemes && w.phonemes.length > 0 && (
+                    {detail.errorType === 'Omission' ? (
+                      <p className="text-slate-500">
+                        Ezt a szót nem hallottuk tisztán — próbáld hangosabban és lassabban kimondani.
+                      </p>
+                    ) : detail.phonemes && detail.phonemes.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
-                        {w.phonemes.map((p, pi) => (
+                        {detail.phonemes.map((p, pi) => (
                           <span
                             key={pi}
                             className={`rounded px-1.5 py-0.5 font-mono ${
@@ -87,17 +135,24 @@ export default function PronunciationResultCard({ result }: { result: Pronunciat
                           </span>
                         ))}
                       </div>
+                    ) : (
+                      <p className="text-slate-500">Nincs részletes hangonkénti adat ehhez a szóhoz.</p>
                     )}
-                    {w.prosodyFlags && w.prosodyFlags.length > 0 && (
-                      <p className="text-slate-500">{w.prosodyFlags.map((f) => PROSODY_LABELS_HU[f]).join(', ')}</p>
+                    {detail.prosodyFlags && detail.prosodyFlags.length > 0 && (
+                      <p className="text-slate-500">{detail.prosodyFlags.map((f) => PROSODY_LABELS_HU[f]).join(', ')}</p>
                     )}
                   </div>
                 )}
               </div>
-            ))}
-          </div>
+            )
+          })}
         </div>
-      )}
+        {aligned.some(({ detail }) => detail === null) && (
+          <p className="mt-2 text-xs text-slate-500">
+            A szaggatott szegélyű szavakat egyáltalán nem sikerült felismerni a felvételen — próbáld újra hangosabban.
+          </p>
+        )}
+      </div>
     </div>
   )
 }
