@@ -27,3 +27,21 @@ export function matchWords(target: string, heard: string): WordMatch[] {
     matched: heardWords[i] === word,
   }))
 }
+
+function stripPunctuationWord(word: string): string {
+  return word.toLowerCase().replace(/[.,!?;:"'()]/g, '')
+}
+
+/**
+ * matchWords plus a tally against a sentence's keyWords list — the words that carry the
+ * item's target sound, used for the dictation stage's sound-specific score (e.g. "4/4 th").
+ * Strips punctuation on both sides before comparing, since matchWords' display words keep
+ * theirs (e.g. "November.") while keyWords don't.
+ */
+export function scoreDictation(target: string, heard: string, keyWords: string[]) {
+  const words = matchWords(target, heard)
+  const matchedCount = words.filter((w) => w.matched).length
+  const keyWordSet = new Set(keyWords.map(stripPunctuationWord))
+  const keyWordMatchedCount = words.filter((w) => w.matched && keyWordSet.has(stripPunctuationWord(w.word))).length
+  return { words, matchedCount, keyWordMatchedCount }
+}

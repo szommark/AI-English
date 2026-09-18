@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CheckCircle2, XCircle } from 'lucide-react'
-import { matchWords } from '../../lib/wordMatch'
+import { scoreDictation } from '../../lib/wordMatch'
 import { SpeakerIcon } from '../icons/AudioIcons'
 
 export default function DictationStage({
@@ -25,13 +25,9 @@ export default function DictationStage({
   replayDisabled: boolean
 }) {
   const [typed, setTyped] = useState('')
-  const words = submitted ? matchWords(sentence, typed) : []
-  const matchedCount = words.filter((w) => w.matched).length
-  // Display words keep their sentence punctuation (e.g. "November."), so strip it the same
-  // way matchWords' own normalizeWords does before comparing against the plain keyWords list.
-  const stripPunctuation = (w: string) => w.toLowerCase().replace(/[.,!?;:"'()]/g, '')
-  const keyWordSet = new Set(keyWords.map(stripPunctuation))
-  const keyWordMatchedCount = words.filter((w) => w.matched && keyWordSet.has(stripPunctuation(w.word))).length
+  const { words, matchedCount, keyWordMatchedCount } = submitted
+    ? scoreDictation(sentence, typed, keyWords)
+    : { words: [], matchedCount: 0, keyWordMatchedCount: 0 }
   const allCorrect = submitted && matchedCount === words.length && keyWordMatchedCount === keyWords.length
 
   return (
