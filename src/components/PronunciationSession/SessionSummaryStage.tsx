@@ -1,4 +1,5 @@
 import type { PronunciationCheckResult } from '../../lib/types'
+import { overallSessionScore, perceptionScoreFromRatios, PRODUCTION_WEIGHT } from '../../lib/pronunciationScoring'
 import type { RoundResult } from './StageSummary'
 
 function scoreColor(score: number): string {
@@ -8,32 +9,53 @@ function scoreColor(score: number): string {
 }
 
 export default function SessionSummaryStage({
+  cardResults,
   fcResults,
   ooResults,
   dictationStats,
   productionResult,
   onFinish,
 }: {
+  /** Present only when the tile has a card deck. */
+  cardResults?: RoundResult[]
   fcResults: RoundResult[]
   ooResults: RoundResult[]
   dictationStats: { matched: number; total: number; keyMatched: number; keyTotal: number }
   productionResult: PronunciationCheckResult
   onFinish: () => void
 }) {
-  const fcScore = Math.round((fcResults.filter((r) => r.correct).length / fcResults.length) * 100)
-  const ooScore = Math.round((ooResults.filter((r) => r.correct).length / ooResults.length) * 100)
+  const ratio = (results: RoundResult[]) => results.filter((r) => r.correct).length / results.length
+  const cardScore = cardResults ? Math.round(ratio(cardResults) * 100) : null
+  const fcScore = Math.round(ratio(fcResults) * 100)
+  const ooScore = Math.round(ratio(ooResults) * 100)
   const dictationScore = Math.round((dictationStats.matched / dictationStats.total) * 100)
-  const perceptionScore = Math.round((fcScore + ooScore + dictationScore) / 3)
-  const overallScore = Math.round((perceptionScore + productionResult.scores.pronunciation) / 2)
+  const perceptionScore = perceptionScoreFromRatios([
+    ...(cardResults ? [ratio(cardResults)] : []),
+    ratio(fcResults),
+    ratio(ooResults),
+    dictationStats.matched / dictationStats.total,
+  ])
+  const overallScore = overallSessionScore(perceptionScore, productionResult.scores.pronunciation)
 
   return (
     <div className="space-y-4">
       <div className="text-center">
         <p className={`text-4xl font-bold ${scoreColor(overallScore)}`}>{overallScore}</p>
         <p className="text-sm text-slate-500">Összesített pontszám</p>
+        <p className="text-xs text-slate-400">
+          Hallásgyakorlatok {Math.round((1 - PRODUCTION_WEIGHT) * 100)}% · kiejtés {Math.round(PRODUCTION_WEIGHT * 100)}%
+        </p>
       </div>
 
       <div className="rounded-lg bg-slate-50 border border-slate-200 divide-y divide-slate-200 text-sm">
+        {cardResults && cardScore !== null && (
+          <div className="flex items-center justify-between px-3 py-2">
+            <span className="text-slate-600">Hallod a hangot?</span>
+            <span className={`font-semibold ${scoreColor(cardScore)}`}>
+              {cardResults.filter((r) => r.correct).length}/{cardResults.length}
+            </span>
+          </div>
+        )}
         <div className="flex items-center justify-between px-3 py-2">
           <span className="text-slate-600">Melyik szót hallottad?</span>
           <span className={`font-semibold ${scoreColor(fcScore)}`}>

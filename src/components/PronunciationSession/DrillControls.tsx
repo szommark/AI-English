@@ -1,8 +1,7 @@
 import { SpeakerIcon } from '../icons/AudioIcons'
 
-const STAGE_COUNT = 4
-
 export default function DrillControls({
+  stageCount,
   stageIndex,
   rate,
   onSetRate,
@@ -10,6 +9,7 @@ export default function DrillControls({
   replayLabel = 'Lejátszás',
   replayDisabled = false,
 }: {
+  stageCount: number
   stageIndex: number
   rate: 1 | 0.75
   onSetRate: (rate: 1 | 0.75) => void
@@ -20,7 +20,7 @@ export default function DrillControls({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-4 py-3 flex items-center gap-4">
       <div className="flex items-center gap-1.5 shrink-0">
-        {Array.from({ length: STAGE_COUNT }).map((_, i) => (
+        {Array.from({ length: stageCount }).map((_, i) => (
           <span
             key={i}
             className={`h-2 w-2 rounded-full ${
