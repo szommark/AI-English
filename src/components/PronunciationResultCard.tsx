@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, X } from 'lucide-react'
+import { Check, Lightbulb, X } from 'lucide-react'
 import type { PronunciationCheckResult, PronunciationWordDetail, ProsodyFlag } from '../lib/types'
 
 function scoreColor(score: number): string {
@@ -13,6 +13,9 @@ const PROSODY_LABELS_HU: Record<ProsodyFlag, string> = {
   MissingBreak: 'hiányzó szünet',
   Monotone: 'monoton hangsúly',
 }
+
+/** Below this the prosody score gets an explanation and improvement tips. */
+const PROSODY_HINT_THRESHOLD = 80
 
 function normalizeWord(word: string): string {
   return word.toLowerCase().replace(/[.,!?;:"'()]/g, '')
@@ -35,6 +38,78 @@ function alignWords(targetSentence: string, resultWords: PronunciationWordDetail
     cursor = foundAt + 1
     return { word, detail: resultWords[foundAt] }
   })
+}
+
+function wordsWithFlag(words: PronunciationWordDetail[], flag: ProsodyFlag): string {
+  const hits = words.filter((w) => w.prosodyFlags?.includes(flag)).map((w) => w.word)
+  return hits.slice(0, 4).join(', ') + (hits.length > 4 ? '…' : '')
+}
+
+/**
+ * Explains a low prosody score in Hungarian: why it is low (from Azure's per-word break and
+ * intonation flags where available, else the usual Hungarian-speaker causes) and how to fix it.
+ */
+function ProsodyHints({ result }: { result: PronunciationCheckResult }) {
+  const prosody = result.scores.prosody
+  if (prosody === undefined || prosody >= PROSODY_HINT_THRESHOLD) return null
+
+  const flagged = (flag: ProsodyFlag) => result.words.some((w) => w.prosodyFlags?.includes(flag))
+  const hasUnexpectedBreak = flagged('UnexpectedBreak')
+  const hasMissingBreak = flagged('MissingBreak')
+  const hasMonotone = flagged('Monotone')
+  const noSpecificFlag = !hasUnexpectedBreak && !hasMissingBreak && !hasMonotone
+
+  const why: string[] = []
+  const how: string[] = []
+
+  if (hasUnexpectedBreak) {
+    why.push(
+      `Váratlan szünetet tartottál itt: ${wordsWithFlag(result.words, 'UnexpectedBreak')}. Az angol mondat ilyen helyen általában összefolyik.`,
+    )
+    how.push('Mondd a mondatot egy lendületre, a szavakat kösd össze, és ne állj meg szavak között, ha nincs vessző.')
+  }
+  if (hasMissingBreak) {
+    why.push(
+      `Hiányzott a szünet ezeknél a szavaknál: ${wordsWithFlag(result.words, 'MissingBreak')}. Ezen a helyen a beszélő általában kis levegővételt tart.`,
+    )
+    how.push('Vesszőnél vagy a mondat gondolategységeinél tarts egy rövid szünetet, mielőtt folytatod.')
+  }
+  if (hasMonotone || noSpecificFlag) {
+    why.push(
+      hasMonotone
+        ? `Egyhangú, lapos volt a hangmagasság: ${wordsWithFlag(result.words, 'Monotone')}.`
+        : 'A mondat dallama és ritmusa eltér az angol beszédtől — a magyarban minden szó első szótagja hangsúlyos, az angolban viszont csak a tartalmas szavaké.',
+    )
+    how.push(
+      'Hangsúlyozd a tartalmas szavakat (főnevek, igék, melléknevek): mondd őket hosszabban, erősebben, magasabb hangon. A kis szavakat (a, the, to, of, are) mondd gyorsan és halkan.',
+    )
+    how.push('Mondatvégen az állító mondat dallama ereszkedjen, kérdésnél (igen/nem kérdés) emelkedjen.')
+  }
+  if (result.scores.fluency < 70) {
+    why.push('A tempó megakadt vagy egyenetlen volt, ami a ritmus pontszámát is rontja.')
+    how.push('Olvasd el a mondatot néhányszor némán, majd mondd ki lassabban, de megszakítás nélkül — a gyorsaság később jön magától.')
+  }
+  how.push('Hallgasd meg a mondatot 0,75×-es sebességgel, majd mondd vele egyszerre (árnyékolás), és próbáld utánozni a dallamát.')
+
+  return (
+    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
+      <p className="flex items-center gap-1.5 font-medium text-amber-800">
+        <Lightbulb className="h-4 w-4 shrink-0" />
+        Miért alacsony a beszéddallam pontszám ({Math.round(prosody)})?
+      </p>
+      <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-700">
+        {why.map((line, i) => (
+          <li key={i}>{line}</li>
+        ))}
+      </ul>
+      <p className="mt-3 font-medium text-amber-800">Így javíthatod:</p>
+      <ul className="mt-1 list-disc space-y-1 pl-5 text-slate-700">
+        {how.map((line, i) => (
+          <li key={i}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  )
 }
 
 export default function PronunciationResultCard({
@@ -85,6 +160,8 @@ export default function PronunciationResultCard({
           </div>
         )}
       </div>
+
+      <ProsodyHints result={result} />
 
       <div className="mt-4 text-sm">
         <p className="text-slate-600 mb-2">A mondatod szavanként (érintsd meg a hibásakat a részletekért):</p>

@@ -38,6 +38,8 @@ export interface SwipeWord {
 export interface Articulation {
   /** Short plain-language cue shown even before the Phase 3 animated rig exists. */
   description: string
+  /** Longer Hungarian how-to-pronounce instructions, shown in the detail page's "Képzés" section. */
+  descriptionHu?: string
   voicing?: 'voiced' | 'voiceless'
   /** Consonants only. */
   manner?: 'stop' | 'fricative' | 'affricate' | 'nasal' | 'approximant' | 'lateral'
@@ -83,6 +85,7 @@ export const phonemes: Phoneme[] = [
     minimalPairs: [{ a: 'thin', b: 'tin' }, { a: 'think', b: 'sink' }],
     articulation: {
       description: 'Tongue tip between the teeth, push air through with no voicing.',
+      descriptionHu: 'Tedd a nyelved hegyét enyhén a felső és az alsó fogsor közé, úgy, hogy a nyelv széle éppen érintse a fogakat. Ne szorítsd, és ne harapd meg. Ezután fújj át levegőt a nyelv és a fogak közötti résen: halk, fújó, "sz"-szerű zaj hallatszik. A hangszalagok NEM rezegnek — tedd a kezed a torkodra, itt nem érezhetsz rezgést. Ne mondj t-t vagy sz-t: a nyelv hegye ne ugorjon vissza a fogmederhez.',
       voicing: 'voiceless',
       manner: 'fricative',
       place: 'dental',
@@ -111,6 +114,7 @@ export const phonemes: Phoneme[] = [
     minimalPairs: [{ a: 'this', b: 'dis' }],
     articulation: {
       description: 'Same tongue position as θ, but with the voice box buzzing.',
+      descriptionHu: 'Ugyanaz a nyelvállás, mint a θ-nál: a nyelv hegye enyhén a fogak között van, a levegő a résen áramlik át. A különbség, hogy itt a hangszalagok rezegnek — ha a torkodra teszed a kezed, zümmögést érzel. Ne d-t vagy z-t mondj helyette: a nyelv hegye ne érjen a fogmederhez. Gyakori szavakban fordul elő (the, this, that), ezért érdemes automatizálni.',
       voicing: 'voiced',
       manner: 'fricative',
       place: 'dental',
@@ -139,6 +143,7 @@ export const phonemes: Phoneme[] = [
     minimalPairs: [{ a: 'head', b: 'had' }, { a: 'bed', b: 'bad' }],
     articulation: {
       description: 'Jaw drops low, mouth spread wide — lower and wider than a Hungarian "e".',
+      descriptionHu: 'Nyisd ki az állkapcsot jóval szélesebbre, mint a magyar "e"-nél, és húzd oldalra az ajkadat, mintha mosolyognál. A nyelv hegye az alsó fogak mögött pihen, a nyelv eleje alacsonyan van. A hang valahol a magyar "e" és "a" között szól, de közelebb van az "e"-hez, mint az "á"-hoz. Ha a "had" szót ugyanúgy mondod, mint a "head"-et, még nem nyitottad ki eléggé a szádat.',
       tonguePosition: 'low-front',
       lipRounding: 'unrounded',
     },
@@ -166,6 +171,7 @@ export const phonemes: Phoneme[] = [
     minimalPairs: [{ a: 'affect', b: 'effect' }],
     articulation: {
       description: 'Tongue and lips relax to the middle of the mouth — the "laziest" vowel, only in unstressed syllables.',
+      descriptionHu: 'Lazítsd el teljesen a nyelvet, az ajkat és az állkapcsot — a száj félig nyitott, a nyelv középen, nyugalmi helyzetben van. Nincs feszítés, nincs kerekített ajak. A hang rövid és halk, egy semleges, "e" és "ö" közötti hang. Csak hangsúlytalan szótagban jelenik meg (a-bout, ba-na-na). Ne ejtsd tisztán a magánhangzót, ahogy a magyarban szoktuk — az angolban a hangsúlytalan szótag "elmosódik".',
       tonguePosition: 'central',
       lipRounding: 'unrounded',
     },
@@ -193,6 +199,7 @@ export const phonemes: Phoneme[] = [
     minimalPairs: [{ a: 'wine', b: 'vine' }, { a: 'west', b: 'vest' }],
     articulation: {
       description: 'Round the lips into a tight circle, no contact between teeth and lip — unlike v.',
+      descriptionHu: 'Kerekítsd az ajkadat szoros kis körré, mintha "u"-t akarnál mondani, majd nyisd ki gyorsan az ajkat a következő magánhangzóhoz. A fogaid NEM érintik az alsó ajkadat — ez a legfontosabb különbség a v-hez képest. Ha a fogad az ajkadhoz ér, v-t mondtál. Gyakorold a "wine" és "vine" szavakat tükör előtt: a w-nél az ajkak előre kerekednek, a v-nél a fogak az alsó ajkat érintik.',
       voicing: 'voiced',
       manner: 'approximant',
       place: 'bilabial',
@@ -221,6 +228,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Curl or bunch the tongue up without touching the roof of the mouth; lips slightly rounded.',
+      descriptionHu: 'Húzd vissza a nyelvet a szájban, és emeld meg a hátát, vagy hajlítsd fel a hegyét — de a nyelv SEHOL sem érintheti a szájpadlást vagy a fogmedret. Az ajkak enyhén előrekerekednek. A magyar r-nél a nyelv pereg vagy koppan; az angolban egyetlen, folyamatos, "mormoló" hang van, amely egy "ö" színezetére hasonlít. Kezdj egy "ö" hanggal, és lassan tekerd hátra a nyelvedet, amíg a hegye szabadon lebeg.',
       voicing: 'voiced',
       manner: 'approximant',
       place: 'postalveolar',
@@ -234,6 +242,12 @@ export const phonemes: Phoneme[] = [
       { word: 'cow', isTarget: false },
       { word: 'home', isTarget: false },
     ],
+    minimalPairs: [
+      { a: 'red', b: 'led' },
+      { a: 'right', b: 'light' },
+      { a: 'fear', b: 'feel' },
+    ],
+    curriculumId: 'r-sound',
   },
   {
     id: 'dark-l',
@@ -246,9 +260,14 @@ export const phonemes: Phoneme[] = [
       { word: 'ball', highlight: 'll' },
       { word: 'milk', highlight: 'l' },
     ],
-    minimalPairs: [{ a: 'feel', b: 'feed' }],
+    minimalPairs: [
+      { a: 'feel', b: 'fear' },
+      { a: 'ball', b: 'bar' },
+      { a: 'wall', b: 'war' },
+    ],
     articulation: {
       description: 'Tongue tip touches the gum ridge like a normal l, but the back of the tongue also rises toward the soft palate.',
+      descriptionHu: 'Tedd a nyelv hegyét a fogmederhez, mint a magyar "l"-nél, de EGYSZERRE emeld meg a nyelv hátát is a lágy szájpad felé, mintha közben egy "u" vagy "o" hangot ejtenél. Az eredmény üregesebb, sötétebb hang. Szótag végén (ball, milk, feel) ezt használjuk; a magyar tiszta, világos "l" itt idegenül hangzik. A nyelv hegye csak éppen érint, a lényeg a nyelv hátsó részének megemelése.',
       voicing: 'voiced',
       manner: 'lateral',
       place: 'alveolar',
@@ -261,6 +280,7 @@ export const phonemes: Phoneme[] = [
       { word: 'mix', isTarget: false },
       { word: 'feed', isTarget: false },
     ],
+    curriculumId: 'dark-l',
   },
   {
     id: 'nurse',
@@ -275,6 +295,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Tongue bunched for r while the vowel stays central — one continuous r-colored vowel, not vowel-then-r.',
+      descriptionHu: 'A nyelv középen, enyhén hátrahúzva helyezkedik el, az ajkak nyugodtak, nem kerekítettek. Egyszerre képezed az r-színezetet és a magánhangzót: egyetlen folyamatos, r-színezetű hangot kapsz, nem "e" + "r" két külön hangot. Kerüld a magyar "er"-t, és ne pergesd az r-t.',
       tonguePosition: 'central',
       lipRounding: 'unrounded',
     },
@@ -298,9 +319,15 @@ export const phonemes: Phoneme[] = [
       { word: 'sing', highlight: 'ng' },
       { word: 'morning', highlight: 'ng' },
     ],
-    minimalPairs: [{ a: 'sing', b: 'sin' }],
+    minimalPairs: [
+      { a: 'sing', b: 'sin' },
+      { a: 'thing', b: 'thin' },
+      { a: 'sang', b: 'sag' },
+      { a: 'long', b: 'log' },
+    ],
     articulation: {
       description: 'Back of the tongue against the soft palate, air and voice through the nose, no released g.',
+      descriptionHu: 'A nyelv hátsó része a lágy szájpadhoz (a szájpadlás hátsó, puha részéhez) ér, és lezárja a szájat. A levegő és a hang az orron át távozik — mint a magyar "n" a "bank" szóban, de önállóan. FONTOS: a hang végén NE ejts "g"-t! A "sing" nem "sing-g": a nyelvet lazán vidd el a szájpadlástól, anélkül hogy külön g-t robbantanál. Ha a nyelved hegye a fogmederhez ér, az már "n" — a nyelved hegye maradjon lent, és csak a hátsó része emelkedjen.',
       voicing: 'voiced',
       manner: 'nasal',
       place: 'velar',
@@ -313,6 +340,7 @@ export const phonemes: Phoneme[] = [
       { word: 'run', isTarget: false },
       { word: 'rim', isTarget: false },
     ],
+    curriculumId: 'ng-sound',
   },
 
   // ---- Challenging (above the line) ----
@@ -329,6 +357,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Mouth half-open, tongue central and slightly back, no lip rounding.',
+      descriptionHu: 'A száj félig nyitott, a nyelv középen, kissé hátrébb pihen, az ajkak nyugodtak, nem kerekítettek. Rövid hang, a magyar "a" és "ö" között — közelebb az "a"-hoz, de rövidebb és kevésbé nyitott.',
       tonguePosition: 'central',
       lipRounding: 'unrounded',
     },
@@ -355,6 +384,7 @@ export const phonemes: Phoneme[] = [
     minimalPairs: [{ a: 'ship', b: 'sheep' }],
     articulation: {
       description: 'Tongue high and front but relaxed — noticeably lower than iː, lips unrounded.',
+      descriptionHu: 'A nyelv magasan és elöl van, de lazán, nem feszítve — kicsit lejjebb, mint a hosszú "iː"-nél. Az ajkak nyugodtak, nem húzod szét. Rövid, laza hang: a magyar rövid "i"-hez hasonló, de valamivel nyitottabb.',
       tonguePosition: 'high-front',
       lipRounding: 'unrounded',
     },
@@ -381,6 +411,7 @@ export const phonemes: Phoneme[] = [
     minimalPairs: [{ a: 'ship', b: 'sheep' }],
     articulation: {
       description: 'Tongue high and front, held tense; lips spread.',
+      descriptionHu: 'A nyelv magasan és elöl van, feszesen tartod, az ajkak széthúzva, mosolygós helyzetben. Hosszabb hang, mint a rövid "i" — a magyar hosszú "í"-hez áll közel.',
       tonguePosition: 'high-front',
       lipRounding: 'unrounded',
     },
@@ -407,6 +438,7 @@ export const phonemes: Phoneme[] = [
     minimalPairs: [{ a: 'pull', b: 'pool' }],
     articulation: {
       description: 'Tongue high and back but relaxed, lips only loosely rounded.',
+      descriptionHu: 'A nyelv hátul és magasan van, de lazán; az ajkak csak enyhén kerekítettek. Rövid hang, a magyar rövid "u" és "ö" közötti, kevésbé feszes, mint a hosszú "uː".',
       tonguePosition: 'high-back',
       lipRounding: 'rounded',
     },
@@ -433,6 +465,7 @@ export const phonemes: Phoneme[] = [
     minimalPairs: [{ a: 'pull', b: 'pool' }],
     articulation: {
       description: 'Tongue high and back, tense, lips tightly rounded.',
+      descriptionHu: 'A nyelv hátul és magasan van, feszesen; az ajkak szorosan előrekerekítettek, mint amikor a magyar "ú"-t mondod. Hosszabb hang, mint a "foot" magánhangzója.',
       tonguePosition: 'high-back',
       lipRounding: 'rounded',
     },
@@ -458,6 +491,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Jaw drops, back of tongue low, lips rounded.',
+      descriptionHu: 'Nyisd ki az állkapcsot, a nyelv háta alacsonyan hátul van, az ajkak kerekítettek. A magyar "á" és "o" közötti, mély, kerek hang — inkább hosszú, mint rövid.',
       tonguePosition: 'low-back',
       lipRounding: 'rounded',
     },
@@ -483,6 +517,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Jaw drops fully open, tongue low and back, lips relaxed and unrounded.',
+      descriptionHu: 'Nyisd ki teljesen a szádat, a nyelv alacsonyan és hátul van, az ajkak nyugodtak, nem kerekítettek. Hosszú, nyitott "á"-szerű hang, mint amikor az orvosnál kinyitod a szádat.',
       tonguePosition: 'low-back',
       lipRounding: 'unrounded',
     },
@@ -508,6 +543,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Starts mid-back rounded, glides upward and further rounded toward u.',
+      descriptionHu: 'Kezdd egy kerek, félig hátsó "o" hanggal, majd az ajkadat egyre jobban kerekítve, a nyelvet felfelé csúsztatva halad a hang egy "u" felé. A hang két részből áll: o → u. A magyar "o" tiszta és nem változik, ezért a tanulók gyakran csak egy sima "o"-t mondanak. Tükör előtt figyeld: az ajkaknak a hang végére még szorosabban kell összehúzódniuk.',
       tonguePosition: 'mid-back',
       lipRounding: 'rounded',
     },
@@ -519,6 +555,12 @@ export const phonemes: Phoneme[] = [
       { word: 'bat', isTarget: false },
       { word: 'ham', isTarget: false },
     ],
+    minimalPairs: [
+      { a: 'coat', b: 'cot' },
+      { a: 'note', b: 'not' },
+      { a: 'hope', b: 'hop' },
+    ],
+    curriculumId: 'ou-vs-o',
   },
   {
     id: 'face',
@@ -533,6 +575,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Starts mid-front, glides upward toward ɪ.',
+      descriptionHu: 'A nyelv félig elöl indul (mint az "é"), majd felfelé, az "i" felé csúszik. Két részből álló hang: e → i, a hang végén az állkapocs kissé záródik.',
       tonguePosition: 'mid-front',
       lipRounding: 'unrounded',
     },
@@ -558,6 +601,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Starts low-front/central, glides upward toward ɪ.',
+      descriptionHu: 'Nyitott, elöl-középső "a" hangról indul, és felfelé csúszik az "i" felé. A hang elejét ejtsd hosszabban, a végét gyorsan, halkan.',
       tonguePosition: 'low-front',
       lipRounding: 'unrounded',
     },
@@ -583,6 +627,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Starts low-central, glides upward and rounds toward u.',
+      descriptionHu: 'Nyitott, középső "a"-ról indul, majd az ajkak egyre kerekednek, és a nyelv az "u" felé emelkedik. Az első rész hosszabb és erősebb, a második gyorsan elhal.',
       tonguePosition: 'low-front',
       lipRounding: 'unrounded',
     },
@@ -608,6 +653,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Starts low-back rounded, glides upward toward ɪ.',
+      descriptionHu: 'Nyitott, hátsó, kerek "o" hangról indul, majd a nyelv felfelé, az "i" felé csúszik, és az ajkak szétnyílnak. Hasonlít a magyar "oj"-ra, de az első hang nyitottabb.',
       tonguePosition: 'low-back',
       lipRounding: 'rounded',
     },
@@ -635,6 +681,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Lips press together, then release with a puff of air, no voicing.',
+      descriptionHu: 'Zárd össze az ajkakat, majd nyisd fel gyorsan, hogy egy kis levegőlöket (aspiráció) szabaduljon ki. A hangszalagok nem rezegnek. Szó elején a levegőlökés erősebb, mint a magyar p-nél — tarts egy papírlapot a szád elé, és lengenie kell.',
       voicing: 'voiceless',
       manner: 'stop',
       place: 'bilabial',
@@ -661,6 +708,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Lips press together, release with voicing, no puff of air.',
+      descriptionHu: 'Zárd össze az ajkakat, majd nyisd fel a hangszalagok rezgésével, levegőlöket nélkül. Ugyanaz az ajakállás, mint a p-nél, de zöngés.',
       voicing: 'voiced',
       manner: 'stop',
       place: 'bilabial',
@@ -687,6 +735,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Tongue tip against the gum ridge, release with a puff of air, no voicing.',
+      descriptionHu: 'A nyelv hegye a fogmederhez (a felső fogak mögötti dombhoz) nyomódik, majd gyorsan elengeded egy kis levegőlökettel. Zöngétlen. Szó elején az angol t erősebben "pattan", mint a magyar.',
       voicing: 'voiceless',
       manner: 'stop',
       place: 'alveolar',
@@ -713,6 +762,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Tongue tip against the gum ridge, release with voicing.',
+      descriptionHu: 'Ugyanaz a nyelvállás, mint a t-nél: a nyelv hegye a fogmederhez ér, de a hangszalagok rezegnek, és nincs levegőlöket.',
       voicing: 'voiced',
       manner: 'stop',
       place: 'alveolar',
@@ -739,6 +789,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Back of tongue against the soft palate, release with a puff of air, no voicing.',
+      descriptionHu: 'A nyelv hátsó része a lágy szájpadhoz nyomódik, majd gyorsan elengeded egy kis levegőlökettel. Zöngétlen, szó elején erősebb aspirációval, mint a magyar k.',
       voicing: 'voiceless',
       manner: 'stop',
       place: 'velar',
@@ -765,6 +816,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Back of tongue against the soft palate, release with voicing.',
+      descriptionHu: 'Ugyanaz a nyelvállás, mint a k-nál, de a hangszalagok rezegnek, és nincs levegőlöket. Ez egy kemény "g", mint a magyar.',
       voicing: 'voiced',
       manner: 'stop',
       place: 'velar',
@@ -791,6 +843,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Top teeth touch the bottom lip, push air through, no voicing.',
+      descriptionHu: 'A felső fogak enyhén az alsó ajkat érintik, és a levegő átáramlik a résen. Zöngétlen, mint a magyar "f".',
       voicing: 'voiceless',
       manner: 'fricative',
       place: 'labiodental',
@@ -818,6 +871,7 @@ export const phonemes: Phoneme[] = [
     minimalPairs: [{ a: 'wine', b: 'vine' }, { a: 'west', b: 'vest' }],
     articulation: {
       description: 'Top teeth touch the bottom lip, push air through with voicing — unlike w, which uses only the lips.',
+      descriptionHu: 'A felső fogak az alsó ajkat érintik, a levegő átáramlik a résen, a hangszalagok rezegnek. Ez a magyar "v" — de figyelj arra, hogy az angol w-nél a fogak NEM érintik az ajkat.',
       voicing: 'voiced',
       manner: 'fricative',
       place: 'labiodental',
@@ -837,6 +891,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Tongue tip near the gum ridge, narrow channel for air, no voicing.',
+      descriptionHu: 'A nyelv hegye a fogmeder közelében, keskeny résen áramlik át a levegő. Zöngétlen, mint a magyar "sz".',
       voicing: 'voiceless',
       manner: 'fricative',
       place: 'alveolar',
@@ -863,6 +918,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Same tongue position as s, but with voicing.',
+      descriptionHu: 'Ugyanaz a nyelvállás, mint az s-nél, de a hangszalagok rezegnek. Mint a magyar "z".',
       voicing: 'voiced',
       manner: 'fricative',
       place: 'alveolar',
@@ -889,6 +945,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Tongue slightly further back than s, lips a little rounded, no voicing.',
+      descriptionHu: 'A nyelv kissé hátrébb van, mint az s-nél, az ajkak enyhén előrekerekednek. Zöngétlen, mint a magyar "s" ("sál").',
       voicing: 'voiceless',
       manner: 'fricative',
       place: 'postalveolar',
@@ -915,6 +972,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Same tongue position as ʃ, but with voicing.',
+      descriptionHu: 'Ugyanaz a nyelvállás, mint a ʃ-nál, de zöngés. Mint a magyar "zs" ("zseb").',
       voicing: 'voiced',
       manner: 'fricative',
       place: 'postalveolar',
@@ -941,6 +999,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Open breath through the vocal folds, no tongue obstruction.',
+      descriptionHu: 'Nyitott szájjal, akadály nélkül fújj ki egy kis levegőt a torokból. A nyelvet nem kell sehova nyomni.',
       voicing: 'voiceless',
       manner: 'fricative',
       place: 'glottal',
@@ -967,6 +1026,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Starts like t, released as ʃ instead of a clean burst.',
+      descriptionHu: 'Kezdd úgy, mint a t-t (nyelv a fogmederhez), de a robbanás helyett engedd át a levegőt a ʃ helyzetében. Mint a magyar "cs".',
       voicing: 'voiceless',
       manner: 'affricate',
       place: 'postalveolar',
@@ -993,6 +1053,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Starts like d, released as ʒ instead of a clean burst.',
+      descriptionHu: 'Kezdd úgy, mint a d-t, majd engedd át a levegőt a ʒ helyzetében, zöngésen. Mint a magyar "dzs".',
       voicing: 'voiced',
       manner: 'affricate',
       place: 'postalveolar',
@@ -1019,6 +1080,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Lips together, air and voice through the nose.',
+      descriptionHu: 'Zárd össze az ajkakat, a levegő és a hang az orron át távozik. Mint a magyar "m".',
       voicing: 'voiced',
       manner: 'nasal',
       place: 'bilabial',
@@ -1045,6 +1107,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Tongue tip against the gum ridge, air and voice through the nose.',
+      descriptionHu: 'A nyelv hegye a fogmederhez nyomódik, a levegő és a hang az orron át távozik. Mint a magyar "n".',
       voicing: 'voiced',
       manner: 'nasal',
       place: 'alveolar',
@@ -1071,6 +1134,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Tongue tip against the gum ridge, air flows around the sides, voiced.',
+      descriptionHu: 'A nyelv hegye a fogmederhez ér, a levegő a nyelv két oldalán áramlik. Zöngés. Szó vagy szótag elején ugyanúgy ejtjük, mint a magyar "l"-t.',
       voicing: 'voiced',
       manner: 'lateral',
       place: 'alveolar',
@@ -1097,6 +1161,7 @@ export const phonemes: Phoneme[] = [
     ],
     articulation: {
       description: 'Tongue glides from a high-front position into the next vowel.',
+      descriptionHu: 'A nyelv magasan elöl van, mint az "i"-nél, majd gyorsan csúszik a következő magánhangzó felé. Mint a magyar "j".',
       voicing: 'voiced',
       manner: 'approximant',
       place: 'palatal',
@@ -1124,6 +1189,7 @@ export const phonemes: Phoneme[] = [
     minimalPairs: [{ a: 'head', b: 'had' }, { a: 'bed', b: 'bad' }],
     articulation: {
       description: 'Jaw half-open, tongue mid-front — higher and less spread than æ.',
+      descriptionHu: 'Az állkapocs félig nyitott, a nyelv félig elöl van — magasabban és kevésbé szétfeszítve, mint az æ-nél. A magyar "e"-hez áll a legközelebb.',
       tonguePosition: 'mid-front',
       lipRounding: 'unrounded',
     },
