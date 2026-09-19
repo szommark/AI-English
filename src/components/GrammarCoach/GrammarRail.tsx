@@ -49,7 +49,7 @@ export default function GrammarRail({
             </button>
 
             {isOpen && (
-              <ul className="pb-2">
+              <ul className="pb-2 max-h-96 overflow-y-auto">
                 {group.items.map((item) => {
                   const isSelected = item.id === selectedItemId
                   const status = illustrativeStatus(item.id)
