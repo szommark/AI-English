@@ -31,12 +31,7 @@ export default function RehearsalPage() {
   const isEnded = script.length > 0 && revealedIndex >= script.length
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        <Link to="/" className="text-sm text-indigo-600 hover:underline">
-          ← Vissza a forgatókönyvekhez
-        </Link>
-
+    <div className="max-w-2xl space-y-6">
         {!started ? (
           <>
             <div>
@@ -146,7 +141,6 @@ export default function RehearsalPage() {
         ) : (
           <ConversationSession scenario={scenario} mode="rehearsal" />
         )}
-      </main>
     </div>
   )
 }

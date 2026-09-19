@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import PageHeading from '../components/PageHeading'
+import { localizeFeature, useLanguage } from '../lib/i18n'
+import { getFeature } from '../data/features'
 import { type CefrLevel, type GrammarItem } from '../data/grammarCurriculum'
 import type { GrammarLesson } from '../lib/types'
 import { fetchCachedGrammarLesson, requestGrammarLesson } from '../lib/grammarCoachApi'
@@ -12,9 +14,12 @@ import VoiceBar from '../components/GrammarCoach/VoiceBar'
 import PracticeCheck from '../components/GrammarCoach/PracticeCheck'
 import { boardThemes } from '../components/GrammarCoach/boardTheme'
 
+const grammarFeature = getFeature('grammar-coach')!
+
 const HUNGARIAN_NARRATION_LEVELS: CefrLevel[] = ['A1', 'A2']
 
 export default function GrammarCoachPage() {
+  const { lang, t: tr } = useLanguage()
   const [selected, setSelected] = useState<{ level: CefrLevel; item: GrammarItem } | null>(null)
   const [lesson, setLesson] = useState<GrammarLesson | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -91,20 +96,10 @@ export default function GrammarCoachPage() {
   const t = boardThemes[theme]
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="max-w-6xl mx-auto flex items-center justify-between px-4 py-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-800">Grammar Coach</h1>
-          <p className="text-sm text-slate-500">Nyelvtani segítő — válassz egy nyelvtani témát</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link to="/" className="text-sm text-indigo-600 hover:underline">
-            ← Vissza a főoldalra
-          </Link>
-        </div>
-      </header>
+    <div className="space-y-6">
+      <PageHeading title={localizeFeature(lang, grammarFeature).title} subtitle={tr('grammarSubtitle')} />
 
-      <main className="max-w-6xl mx-auto px-4 pb-12 grid gap-6 lg:grid-cols-[280px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <GrammarRail selectedItemId={selected?.item.id ?? null} onSelectItem={handleSelectItem} />
 
         <div className="space-y-4 min-w-0">
@@ -148,7 +143,7 @@ export default function GrammarCoachPage() {
             <p className="text-center text-sm text-slate-400">Pick a grammar point from the list to get started.</p>
           )}
         </div>
-      </main>
+      </div>
     </div>
   )
 }

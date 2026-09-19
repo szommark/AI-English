@@ -1,4 +1,4 @@
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Navigate, useParams } from 'react-router-dom'
 import { getScenario } from '../data/scenarios'
 import PracticeSentence from '../components/PracticeSentence'
 
@@ -9,12 +9,7 @@ export default function PronunciationCenterPage() {
   if (!scenario) return <Navigate to="/" replace />
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        <Link to={`/scenario/${scenario.id}/rehearsal`} className="text-sm text-indigo-600 hover:underline">
-          ← Vissza a gyakorláshoz
-        </Link>
-
+    <div className="max-w-2xl space-y-6">
         <div>
           <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide">
             Holiday English (Nyaralási angol) · {scenario.title} ({scenario.titleHu})
@@ -32,7 +27,6 @@ export default function PronunciationCenterPage() {
             <PracticeSentence key={i} en={p.en} hu={p.hu} scenarioId={scenario.id} showDeepCheck />
           ))}
         </div>
-      </main>
     </div>
   )
 }

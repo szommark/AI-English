@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
   getVoicesReliably,
   getVoiceOverrideName,
@@ -9,8 +8,10 @@ import {
   type AccentPreference,
 } from '../lib/voiceSelection'
 import AccentToggle from '../components/AccentToggle'
+import { useLanguage } from '../lib/i18n'
 
 export default function VoiceSettingsPage() {
+  const { t } = useLanguage()
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
   const [selected, setSelected] = useState<string>(() => getVoiceOverrideName() ?? '')
   const [accent, setAccent] = useState<AccentPreference>(() => getAccentPreference())
@@ -33,14 +34,9 @@ export default function VoiceSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <main className="max-w-md mx-auto px-4 py-8 space-y-6">
-        <Link to="/conversational-english" className="text-sm text-indigo-600 hover:underline">
-          ← Back
-        </Link>
-
+    <div className="max-w-md space-y-6">
         <div>
-          <h1 className="text-xl font-semibold text-slate-800">Voice settings</h1>
+          <h1 className="text-xl font-semibold text-slate-800">{t('voiceTitle')}</h1>
           <p className="mt-1 text-sm text-slate-500">
             By default, AI-English picks a voice that matches each character's gender. You can override that here.
           </p>
@@ -73,7 +69,6 @@ export default function VoiceSettingsPage() {
             </select>
           </label>
         )}
-      </main>
     </div>
   )
 }

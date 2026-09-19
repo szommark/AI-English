@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
   fetchAdminPersonas,
   createAdminPersona,
@@ -233,16 +232,8 @@ export default function AdminPersonasPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <main className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-slate-800">Tutor Bot Personas</h1>
-          <div className="flex items-center gap-4">
-            <Link to="/admin" className="text-sm text-indigo-600 hover:underline">
-              ← Admin overview
-            </Link>
-          </div>
-        </div>
+    <div className="max-w-4xl space-y-8">
+        <h1 className="text-xl font-semibold text-slate-800">Tutor Bot Personas</h1>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -274,7 +265,6 @@ export default function AdminPersonasPage() {
         <AddPersonaForm onCreated={handlePersonaCreated} />
 
         <ModelSettingsSection />
-      </main>
     </div>
   )
 }
