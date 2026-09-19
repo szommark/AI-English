@@ -198,6 +198,120 @@ export const pronunciationCurriculum: PronunciationSoundItem[] = [
     ],
     productionSentences: ['I can help you if you want.', 'There are some books for you.'],
   },
+  // ---- Hard sounds for Hungarian speakers (previously phase 2): r, dark l, oʊ, ŋ ----
+  // These four pools are deliberately larger than the ROUNDS a drill draws (DrillFunnel picks a
+  // random subset), so repeat visits don't replay the same three words. R and dark L are each
+  // other's contrast (fear/feel, ball/bar) plus the onset r/l pairs; oʊ contrasts with short o
+  // (coat/cot); ŋ contrasts with n (sing/sin) and with g (sang/sag).
+  {
+    id: 'r-sound',
+    title: 'English R',
+    titleHu: 'Az angol "r" hang',
+    ipa: 'r',
+    noteHu:
+      'A magyar r pergő vagy kopogó hang, az angol r-nél viszont a nyelv semmihez sem ér hozzá. A tanulók gyakran magyar r-t mondanak, vagy l-nek hallják.',
+    dictationLabel: 'r',
+    minimalPairs: [
+      { words: ['red', 'led'] },
+      { words: ['right', 'light'] },
+      { words: ['rock', 'lock'] },
+      { words: ['road', 'load'] },
+      { words: ['fear', 'feel'] },
+    ],
+    oddOneOutSets: [
+      { words: ['led', 'lid', 'red'], oddIndex: 2 },
+      { words: ['lock', 'lap', 'rock'], oddIndex: 2 },
+      { words: ['light', 'lane', 'right'], oddIndex: 2 },
+      { words: ['load', 'lamp', 'road'], oddIndex: 2 },
+    ],
+    dictationSentences: [
+      { text: 'The red rose grew right by the road.', keyWords: ['red', 'rose', 'right', 'road'] },
+      { text: 'Rita ran around the rocky river.', keyWords: ['Rita', 'ran', 'around', 'rocky', 'river'] },
+    ],
+    productionSentences: ['Rita read a red book right away.', 'The rabbit ran across the road.'],
+  },
+  {
+    id: 'dark-l',
+    title: 'Dark L',
+    titleHu: 'A "sötét l" hang',
+    ipa: 'ɫ',
+    noteHu:
+      'A magyar l mindig tiszta, világos hangzású. Az angol szótagvégi l "sötét": a nyelv hátulja megemelkedik, a hang üregesebb, magánhangzó-szerű lesz.',
+    dictationLabel: 'sötét l',
+    minimalPairs: [
+      { words: ['feel', 'fear'] },
+      { words: ['ball', 'bar'] },
+      { words: ['wall', 'war'] },
+      { words: ['pool', 'poor'] },
+      { words: ['bowl', 'bore'] },
+    ],
+    oddOneOutSets: [
+      { words: ['bar', 'bat', 'ball'], oddIndex: 2 },
+      { words: ['fear', 'feed', 'feel'], oddIndex: 2 },
+      { words: ['war', 'wax', 'wall'], oddIndex: 2 },
+      { words: ['tea', 'ten', 'tell'], oddIndex: 2 },
+    ],
+    dictationSentences: [
+      { text: 'The milk fell off the wall.', keyWords: ['milk', 'fell', 'wall'] },
+      { text: 'We feel well after a cold meal.', keyWords: ['feel', 'well', 'cold', 'meal'] },
+    ],
+    productionSentences: ['The tall child fell off the old wall.', 'Bill will sell the small bell.'],
+  },
+  {
+    id: 'ou-vs-o',
+    title: 'OU vs O',
+    titleHu: 'Az "oʊ" és az "o" hang',
+    ipa: 'oʊ / ɒ',
+    noteHu:
+      'A magyar o tiszta, változatlan hang. Az angol oʊ két részből áll: o-val indul, és u felé csúszik. A tanulók ezt sima o-nak mondják, így a coat és a cot egyformán hangzik.',
+    dictationLabel: 'oʊ',
+    minimalPairs: [
+      { words: ['coat', 'cot'] },
+      { words: ['note', 'not'] },
+      { words: ['hope', 'hop'] },
+      { words: ['road', 'rod'] },
+      { words: ['post', 'pot'] },
+    ],
+    oddOneOutSets: [
+      { words: ['cot', 'cop', 'coat'], oddIndex: 2 },
+      { words: ['not', 'hot', 'note'], oddIndex: 2 },
+      { words: ['hop', 'top', 'hope'], oddIndex: 2 },
+      { words: ['rod', 'nod', 'road'], oddIndex: 2 },
+    ],
+    dictationSentences: [
+      { text: 'Joe wrote a note on the coat.', keyWords: ['Joe', 'wrote', 'note', 'coat'] },
+      { text: 'I hope we go home slowly.', keyWords: ['hope', 'go', 'home', 'slowly'] },
+    ],
+    productionSentences: ['Joe hopes to go home alone.', 'Oh no, the boat won\'t go slow.'],
+  },
+  {
+    id: 'ng-sound',
+    title: 'NG sound',
+    titleHu: 'Az "ng" (ŋ) hang',
+    ipa: 'ŋ',
+    noteHu:
+      'A magyarban az ŋ csak k/g előtt jelenik meg (pl. "bank"). Az angol szóvégi ng-ben nincs külön g: a tanulók vagy n-t mondanak (sin), vagy kemény g-t tesznek a végére (sing-g).',
+    dictationLabel: 'ng',
+    minimalPairs: [
+      { words: ['sing', 'sin'] },
+      { words: ['thing', 'thin'] },
+      { words: ['wing', 'win'] },
+      { words: ['sang', 'sag'] },
+      { words: ['long', 'log'] },
+      { words: ['hung', 'hug'] },
+    ],
+    oddOneOutSets: [
+      { words: ['ran', 'man', 'rang'], oddIndex: 2 },
+      { words: ['sag', 'log', 'song'], oddIndex: 2 },
+      { words: ['ban', 'tan', 'bang'], oddIndex: 2 },
+      { words: ['rug', 'bag', 'hung'], oddIndex: 2 },
+    ],
+    dictationSentences: [
+      { text: 'I am singing a long song this morning.', keyWords: ['singing', 'long', 'song', 'morning'] },
+      { text: 'The young king was bringing a ring.', keyWords: ['young', 'king', 'bringing', 'ring'] },
+    ],
+    productionSentences: ['The king is singing a long song.', 'Everything is going wrong this morning.'],
+  },
 ]
 
 export function getSoundItem(id: string): PronunciationSoundItem | undefined {

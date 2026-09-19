@@ -8,7 +8,6 @@ import { fetchPronunciationProgress, type PronunciationProgressEntry } from '../
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import AccentToggle from '../components/AccentToggle'
 import { HighlightedWord } from '../components/Pronunciation/PhonemeTile'
-import ArticulationRig from '../components/Pronunciation/ArticulationRig'
 import SwipeCardExercise from '../components/Pronunciation/SwipeCardExercise'
 import DrillFunnel from '../components/PronunciationSession/DrillFunnel'
 
@@ -21,13 +20,8 @@ export default function PhonemeDetailPage() {
   const [progress, setProgress] = useState<PronunciationProgressEntry | null>(null)
   const [completed, setCompleted] = useState(false)
   const [swipeResult, setSwipeResult] = useState<{ score: number; total: number } | null>(null)
-  const [swipeDone, setSwipeDone] = useState(false)
   const [attemptKey, setAttemptKey] = useState(0)
   const synth = useSpeechSynthesis('female', accent)
-
-  // Difficult sounds get the swipe/true-false card deck as a warm-up before the full funnel.
-  const hasSwipeWarmup = phoneme?.hungarianDifficulty === 'critical' && Boolean(phoneme.swipeWords?.length) && Boolean(soundItem)
-  const showSwipeWarmup = hasSwipeWarmup && !swipeDone
 
   useEffect(() => {
     if (!soundItem) return
@@ -51,17 +45,12 @@ export default function PhonemeDetailPage() {
 
   function handleSwipeComplete(score: number, total: number) {
     setSwipeResult({ score, total })
-    if (hasSwipeWarmup) {
-      setSwipeDone(true)
-    } else {
-      setCompleted(true)
-    }
+    setCompleted(true)
   }
 
   function practiceAgain() {
     setCompleted(false)
     setSwipeResult(null)
-    setSwipeDone(false)
     setAttemptKey((k) => k + 1)
   }
 
@@ -97,12 +86,9 @@ export default function PhonemeDetailPage() {
         <section className="rounded-xl border border-border bg-card p-5 space-y-4">
           <div>
             <h2 className="text-sm font-medium text-foreground mb-1">Képzés</h2>
-            {phoneme.hungarianDifficulty === 'critical' && (
-              <div className="max-w-sm mb-2">
-                <ArticulationRig articulation={phoneme.articulation} />
-              </div>
-            )}
-            <p className="text-sm text-muted-foreground">{phoneme.articulation.description}</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {phoneme.articulation.descriptionHu ?? phoneme.articulation.description}
+            </p>
           </div>
 
           <div>
@@ -139,11 +125,9 @@ export default function PhonemeDetailPage() {
         {completed ? (
           <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center space-y-3">
             <p className="text-sm font-medium text-rose-700">
-              {swipeResult && soundItem
-                ? `Szép munka! A felismerő kártyákon ${swipeResult.score}/${swipeResult.total} helyes válasz, és a kiejtésgyakorlatot is teljesítetted.`
-                : swipeResult
-                  ? `Szép munka! ${swipeResult.score}/${swipeResult.total} helyes válasz.`
-                  : 'Szép munka! Ezt a hangot most gyakoroltad.'}
+              {swipeResult
+                ? `Szép munka! ${swipeResult.score}/${swipeResult.total} helyes válasz.`
+                : 'Szép munka! Ezt a hangot most gyakoroltad.'}
             </p>
             <div className="flex justify-center gap-3">
               <button
@@ -160,12 +144,11 @@ export default function PhonemeDetailPage() {
               </Link>
             </div>
           </div>
-        ) : showSwipeWarmup ? (
-          <SwipeCardExercise key={attemptKey} phoneme={phoneme} accent={accent} onComplete={handleSwipeComplete} />
         ) : soundItem ? (
           <DrillFunnel
             key={attemptKey}
             soundItem={soundItem}
+            phoneme={phoneme}
             accent={accent}
             hasPriorAttempt={Boolean(progress?.attempts)}
             onItemComplete={handleItemComplete}

@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "tsc -b --noEmit",
+    "check:grammar": "node scripts/check-grammar-points.ts",
     "preview": "vite preview"
   },
   "dependencies": {

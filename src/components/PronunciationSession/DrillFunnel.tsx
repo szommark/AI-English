@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PronunciationSoundItem } from '../../data/pronunciationCurriculum'
+import type { Phoneme } from '../../data/phonemes'
 import { accentToLangTag, type AccentPreference } from '../../lib/voiceSelection'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import { scoreDictation } from '../../lib/wordMatch'
 import { recordPronunciationAttempt } from '../../lib/pronunciationProgressApi'
+import { perceptionScoreFromRatios } from '../../lib/pronunciationScoring'
 import type { PronunciationCheckResult } from '../../lib/types'
 import DrillCard from './DrillCard'
 import DrillControls from './DrillControls'
+import { SwipeCardDeck } from '../Pronunciation/SwipeCardExercise'
 import ForcedChoiceStage from './ForcedChoiceStage'
 import OddOneOutStage from './OddOneOutStage'
 import DictationStage from './DictationStage'
@@ -16,6 +19,8 @@ import SessionSummaryStage from './SessionSummaryStage'
 
 type Stage =
   | 'intro'
+  | 'cards'
+  | 'cards-summary'
   | 'forced-choice'
   | 'forced-choice-summary'
   | 'odd-one-out'
@@ -28,7 +33,9 @@ const ROUNDS = 3
 const DICTATION_MAX_PLAYS = 3
 const ADVANCE_DELAY_MS = 800
 
-const STAGE_INDEX: Record<Exclude<Stage, 'intro'>, number> = {
+// Index within the free-then-production funnel, not counting the optional card-deck stage
+// (which is prepended, shifting every index by one — see stageIndex below).
+const STAGE_INDEX: Record<Exclude<Stage, 'intro' | 'cards' | 'cards-summary'>, number> = {
   'forced-choice': 0,
   'forced-choice-summary': 0,
   'odd-one-out': 1,
@@ -56,26 +63,38 @@ function shuffleIndices(n: number): number[] {
 /**
  * Drives one sound item through the brief's fixed 4-stage funnel
  * (forced-choice → odd-one-out → dictation → production), with a tick/cross recap after each
- * multi-round stage and a combined score summary at the end. Perception score is the average
- * of the three free stages' accuracy ratios; production score comes straight from Azure's
+ * multi-round stage and a combined score summary at the end. When the tile has a card deck
+ * (`phoneme.swipeWords`) it runs first as a fifth, warm-up stage in the same panel. Perception
+ * score is the average of the free stages' accuracy ratios; production score comes straight from Azure's
  * overall pronunciation score. Both are recorded once, together, when production finishes —
  * see docs/pronunciation-session-brief.md.
  */
 export default function DrillFunnel({
   soundItem,
+  phoneme,
   accent,
   hasPriorAttempt,
   onItemComplete,
 }: {
   soundItem: PronunciationSoundItem
+  /** The tile the learner came from — supplies the card deck for the warm-up stage, if it has one. */
+  phoneme?: Phoneme
   accent: AccentPreference
   hasPriorAttempt: boolean
   onItemComplete: () => void
 }) {
-  const [stage, setStage] = useState<Stage>(hasPriorAttempt ? 'intro' : 'forced-choice')
+  const hasCards = Boolean(phoneme?.swipeWords?.length)
+  const firstStage: Stage = hasCards ? 'cards' : 'forced-choice'
+  const [stage, setStage] = useState<Stage>(hasPriorAttempt ? 'intro' : firstStage)
   const [rate, setRate] = useState<1 | 0.75>(1)
   const synth = useSpeechSynthesis('female', accent)
   const locale = accentToLangTag(accent)
+
+  const [cardResults, setCardResults] = useState<RoundResult[]>([])
+
+  // Pools are larger than ROUNDS for the newer items, so each attempt draws a random subset.
+  const [fcPairs] = useState(() => shuffleIndices(soundItem.minimalPairs.length).slice(0, ROUNDS).map((i) => soundItem.minimalPairs[i]))
+  const [ooSets] = useState(() => shuffleIndices(soundItem.oddOneOutSets.length).slice(0, ROUNDS).map((i) => soundItem.oddOneOutSets[i]))
 
   const [fcRound, setFcRound] = useState(0)
   const [fcSpokenIndex, setFcSpokenIndex] = useState<0 | 1>(0)
@@ -117,7 +136,7 @@ export default function DrillFunnel({
   }, [stage, ooRound])
 
   function replayForcedChoice() {
-    synth.speak(soundItem.minimalPairs[fcRound].words[fcSpokenIndex], { rate })
+    synth.speak(fcPairs[fcRound].words[fcSpokenIndex], { rate })
   }
 
   function answerForcedChoice(choiceIndex: 0 | 1) {
@@ -125,7 +144,7 @@ export default function DrillFunnel({
     setFcFeedback({ chosenIndex: choiceIndex, correctIndex: fcSpokenIndex })
     const isCorrect = choiceIndex === fcSpokenIndex
     if (isCorrect) fcCorrectRef.current += 1
-    setFcResults((r) => [...r, { word: soundItem.minimalPairs[fcRound].words[fcSpokenIndex], correct: isCorrect }])
+    setFcResults((r) => [...r, { word: fcPairs[fcRound].words[fcSpokenIndex], correct: isCorrect }])
     setTimeout(() => {
       if (fcRound < ROUNDS - 1) {
         setFcRound((r) => r + 1)
@@ -138,17 +157,17 @@ export default function DrillFunnel({
 
   function playOddOneOut(displayIndex: 0 | 1 | 2) {
     const originalIndex = ooOrder[displayIndex]
-    synth.speak(soundItem.oddOneOutSets[ooRound].words[originalIndex], { rate })
+    synth.speak(ooSets[ooRound].words[originalIndex], { rate })
   }
 
   function answerOddOneOut(displayIndex: 0 | 1 | 2) {
     if (ooFeedback) return
-    const originalOddIndex = soundItem.oddOneOutSets[ooRound].oddIndex
+    const originalOddIndex = ooSets[ooRound].oddIndex
     const correctDisplayIndex = ooOrder.indexOf(originalOddIndex) as 0 | 1 | 2
     setOoFeedback({ chosenIndex: displayIndex, oddIndex: correctDisplayIndex })
     const isCorrect = displayIndex === correctDisplayIndex
     if (isCorrect) ooCorrectRef.current += 1
-    setOoResults((r) => [...r, { word: soundItem.oddOneOutSets[ooRound].words[originalOddIndex], correct: isCorrect }])
+    setOoResults((r) => [...r, { word: ooSets[ooRound].words[originalOddIndex], correct: isCorrect }])
     setTimeout(() => {
       if (ooRound < ROUNDS - 1) {
         setOoRound((r) => r + 1)
@@ -178,9 +197,12 @@ export default function DrillFunnel({
   }
 
   function continueFromDictation() {
-    const perception = Math.round(
-      ((fcCorrectRef.current / ROUNDS + ooCorrectRef.current / ROUNDS + dictationRatioRef.current) / 3) * 100,
-    )
+    const perception = perceptionScoreFromRatios([
+      ...(hasCards ? [cardResults.filter((r) => r.correct).length / cardResults.length] : []),
+      fcCorrectRef.current / ROUNDS,
+      ooCorrectRef.current / ROUNDS,
+      dictationRatioRef.current,
+    ])
     perceptionScoreRef.current = perception
     setStage('production')
   }
@@ -212,7 +234,7 @@ export default function DrillFunnel({
           </p>
           <div className="flex gap-3">
             <button
-              onClick={() => setStage('forced-choice')}
+              onClick={() => setStage(firstStage)}
               className="rounded-lg border border-rose-300 text-rose-700 text-sm font-medium px-4 py-2 hover:bg-rose-50"
             >
               Kezdés elölről
@@ -232,9 +254,23 @@ export default function DrillFunnel({
   return (
     <div className="space-y-4">
       <DrillCard title={soundItem.title} titleHu={soundItem.titleHu}>
+        {stage === 'cards' && phoneme && (
+          <SwipeCardDeck
+            words={phoneme.swipeWords ?? []}
+            ipaSymbol={phoneme.ipaSymbol}
+            speak={(word) => synth.speak(word, { rate })}
+            onFinish={(results) => {
+              setCardResults(results)
+              setStage('cards-summary')
+            }}
+          />
+        )}
+        {stage === 'cards-summary' && (
+          <StageSummary title="Hallod a hangot?" results={cardResults} onContinue={() => setStage('forced-choice')} />
+        )}
         {stage === 'forced-choice' && (
           <ForcedChoiceStage
-            words={soundItem.minimalPairs[fcRound].words}
+            words={fcPairs[fcRound].words}
             roundNumber={fcRound + 1}
             totalRounds={ROUNDS}
             feedback={fcFeedback}
@@ -282,6 +318,7 @@ export default function DrillFunnel({
         )}
         {stage === 'session-summary' && productionResult && (
           <SessionSummaryStage
+            cardResults={hasCards ? cardResults : undefined}
             fcResults={fcResults}
             ooResults={ooResults}
             dictationStats={dictationStats}
@@ -292,7 +329,8 @@ export default function DrillFunnel({
       </DrillCard>
 
       <DrillControls
-        stageIndex={STAGE_INDEX[stage]}
+        stageCount={hasCards ? 5 : 4}
+        stageIndex={stage === 'cards' || stage === 'cards-summary' ? 0 : STAGE_INDEX[stage] + (hasCards ? 1 : 0)}
         rate={rate}
         onSetRate={setRate}
         onReplay={stage === 'production' ? replayProduction : undefined}

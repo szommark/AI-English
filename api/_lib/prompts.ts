@@ -157,8 +157,10 @@ export function buildGrammarLessonPrompt(item: GrammarItem, cefrLevel: CefrLevel
     ? `The learner is at CEFR level ${cefrLevel}, so write every "title", "text", "narration", "label", table header/cell, and bullet-list item in HUNGARIAN. The only exception: English-language example sentences themselves (inside "example-sentence" tokens, "sentence-structure-diagram" block text when it quotes an actual sentence, and the "practice" sentences' "en" field) MUST stay in English — never translate the examples.`
     : `The learner is at CEFR level ${cefrLevel}, so write everything — rule text, narration, labels, table content, bullet items, and example sentences — in ENGLISH.`
 
-  const systemPrompt = `You are an English grammar teacher preparing a short micro-lesson for a Hungarian learner on the grammar point "${item.title}" (CEFR level ${cefrLevel}).
+  const hintLine = item.hint ? `\nHungarian-learner focus: ${item.hint}\n` : ''
 
+  const systemPrompt = `You are an English grammar teacher preparing a short micro-lesson for a Hungarian learner on the grammar point "${item.title}" (CEFR level ${cefrLevel}). Explain at this level; keep vocabulary and example sentences appropriate to it.
+${hintLine}
 Respond with ONLY valid JSON (no markdown, no code fences) matching EXACTLY this shape:
 {"segments":[{"widget":<widget>,"narration":"..."}],"practice":[{"en":"...","hu":"..."}]}
 
