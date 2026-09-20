@@ -12,6 +12,8 @@ export type MeterPeriod = 'month' | 'day' | 'minute' | 'cycle' | 'total' | 'depl
 /** Fraction of the limit at which a meter turns "Watch" / "Critical". */
 export const USAGE_WATCH_AT = 0.6
 export const USAGE_CRITICAL_AT = 0.9
+/** A header-based per-minute reading older than this has since reset; the UI shows it as "last seen". */
+export const RATE_LIMIT_MINUTE_STALE_MS = 2 * 60 * 1000
 /** Manual values older than this are flagged stale. */
 export const MANUAL_STALE_DAYS = 5
 

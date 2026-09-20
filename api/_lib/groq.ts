@@ -1,5 +1,6 @@
 import type { ChatMessage, FeedbackResult, GrammarLesson, GrammarWidget, LessonLanguage } from '../../src/lib/types.js'
 import { MISTAKE_CATEGORIES, type CefrLevel } from './prompts.js'
+import { recordGroqRateLimits } from './groqRateLimit.js'
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
@@ -41,6 +42,9 @@ export async function callGroq(
         temperature: 0.7,
       }),
     })
+
+    // Headers ride on both successful and 429 responses; recording never throws.
+    if (response.ok || response.status === 429) await recordGroqRateLimits(response.headers)
 
     if (response.status === 429 && attempt < RETRY_DELAYS_MS.length) {
       await sleep(RETRY_DELAYS_MS[attempt])
