@@ -7,6 +7,7 @@ import { getAccentPreference, setAccentPreference, type AccentPreference } from 
 import { fetchPronunciationProgress, type PronunciationProgressEntry } from '../lib/pronunciationProgressApi'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import AccentToggle from '../components/AccentToggle'
+import PageHeading from '../components/PageHeading'
 import { HighlightedWord } from '../components/Pronunciation/PhonemeTile'
 import SwipeCardExercise from '../components/Pronunciation/SwipeCardExercise'
 import DrillFunnel from '../components/PronunciationSession/DrillFunnel'
@@ -56,33 +57,24 @@ export default function PhonemeDetailPage() {
 
   if (!phoneme) {
     return (
-      <div className="min-h-screen bg-background">
-        <main className="max-w-2xl mx-auto px-4 py-12 text-center space-y-4">
-          <p className="text-sm text-muted-foreground">Ez a hang nem található.</p>
-          <Link to="/pronunciation" className="text-sm text-primary hover:underline">
-            ← Vissza a kiejtési térképhez
-          </Link>
-        </main>
+      <div className="max-w-2xl py-6 space-y-4">
+        <p className="text-sm text-muted-foreground">Ez a hang nem található.</p>
+        <Link to="/pronunciation" className="text-sm text-primary hover:underline">
+          ← Vissza a kiejtési térképhez
+        </Link>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="max-w-4xl mx-auto flex items-center justify-between px-4 py-6">
-        <div>
-          <h1 className="text-3xl font-semibold text-foreground">/{phoneme.ipaSymbol}/</h1>
-          <p className="text-sm text-muted-foreground">{phoneme.hungarianNoteHu}</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <AccentToggle accent={accent} onChange={handleAccentChange} />
-          <Link to="/pronunciation" className="text-sm text-primary hover:underline">
-            ← Vissza a térképhez
-          </Link>
-        </div>
-      </header>
+    <div className="max-w-4xl space-y-6">
+      <PageHeading
+        title={`/${phoneme.ipaSymbol}/`}
+        subtitle={phoneme.hungarianNoteHu}
+        actions={<AccentToggle accent={accent} onChange={handleAccentChange} />}
+      />
 
-      <main className="max-w-4xl mx-auto px-4 pb-12 space-y-6">
+      <div className="space-y-6">
         <section className="rounded-xl border border-border bg-card p-5 space-y-4">
           <div>
             <h2 className="text-sm font-medium text-foreground mb-1">Képzés</h2>
@@ -162,7 +154,7 @@ export default function PhonemeDetailPage() {
             </p>
           </div>
         )}
-      </main>
+      </div>
     </div>
   )
 }

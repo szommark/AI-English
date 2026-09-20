@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Plane, Bot, BookOpen, Briefcase, Mic, type LucideIcon } from 'lucide-react'
 import type { Feature, FeatureAccent } from '../data/features'
+import { localizeFeature, useLanguage } from '../lib/i18n'
 
 const icons: Record<string, LucideIcon> = {
   Plane,
@@ -25,6 +26,8 @@ export default function FeatureTile({
   feature: Feature
   onClick?: (e: React.MouseEvent) => void
 }) {
+  const { lang } = useLanguage()
+  const text = localizeFeature(lang, feature)
   const Icon = icons[feature.icon]
   const accent = accentClasses[feature.accent]
 
@@ -38,9 +41,8 @@ export default function FeatureTile({
         {Icon && <Icon className="h-6 w-6" />}
       </div>
 
-      <h2 className="mt-4 font-semibold text-foreground">{feature.title}</h2>
-      <p className="text-sm text-muted-foreground">{feature.titleHu}</p>
-      <p className="text-sm text-muted-foreground mt-2">{feature.description}</p>
+      <h2 className="mt-4 font-semibold text-foreground">{text.title}</h2>
+      <p className="text-sm text-muted-foreground mt-2">{text.description}</p>
     </Link>
   )
 }

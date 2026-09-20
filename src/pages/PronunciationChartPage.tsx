@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { difficultTierPhonemes, straightforwardPhonemes } from '../data/phonemes'
 import { getAccentPreference, setAccentPreference, type AccentPreference } from '../lib/voiceSelection'
@@ -7,8 +6,14 @@ import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import AccentToggle from '../components/AccentToggle'
 import PhonemeTile from '../components/Pronunciation/PhonemeTile'
 import ResurfaceQueue from '../components/Pronunciation/ResurfaceQueue'
+import PageHeading from '../components/PageHeading'
+import { localizeFeature, useLanguage } from '../lib/i18n'
+import { getFeature } from '../data/features'
+
+const pronunciationFeature = getFeature('pronunciation-session')!
 
 export default function PronunciationChartPage() {
+  const { lang, t } = useLanguage()
   const [accent, setAccent] = useState<AccentPreference>(() => getAccentPreference())
   const [progress, setProgress] = useState<PronunciationProgressEntry[]>([])
   const { speak } = useSpeechSynthesis('female', accent)
@@ -23,23 +28,14 @@ export default function PronunciationChartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="max-w-6xl mx-auto flex items-center justify-between px-4 py-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Pronunciation Chart</h1>
-          <p className="text-sm text-muted-foreground">
-            Kiejtési térkép — vidd az egeret egy hangra a meghallgatáshoz
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <AccentToggle accent={accent} onChange={handleAccentChange} />
-          <Link to="/" className="text-sm text-primary hover:underline">
-            ← Vissza a főoldalra
-          </Link>
-        </div>
-      </header>
+    <div className="space-y-8">
+      <PageHeading
+        title={localizeFeature(lang, pronunciationFeature).title}
+        subtitle={t('pronunciationSubtitle')}
+        actions={<AccentToggle accent={accent} onChange={handleAccentChange} />}
+      />
 
-      <main className="max-w-6xl mx-auto px-4 pb-12 space-y-8">
+      <div className="space-y-8">
         <ResurfaceQueue progress={progress} />
 
         <section>
@@ -68,7 +64,7 @@ export default function PronunciationChartPage() {
           Kattints egy hangra a részletes nézethez. Az öt kiemelt hanghoz (θ, ð, w, æ, ə) már elérhetők
           gyakorlatok is — ezt a "Exercises" jelzés mutatja.
         </p>
-      </main>
+      </div>
     </div>
   )
 }

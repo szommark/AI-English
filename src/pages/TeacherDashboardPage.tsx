@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
+import PageHeading from '../components/PageHeading'
+import { useLanguage } from '../lib/i18n'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../lib/AuthContext'
 import { fetchInviteCode, regenerateInviteCode, fetchTeacherRoster, type RosterEntry } from '../lib/teacherApi'
 
 export default function TeacherDashboardPage() {
-  const { signOut, user } = useAuth()
+  const { t } = useLanguage()
   const [code, setCode] = useState<string | null>(null)
   const [regenerating, setRegenerating] = useState(false)
   const [students, setStudents] = useState<RosterEntry[]>([])
@@ -35,31 +36,8 @@ export default function TeacherDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
-        <div className="max-w-4xl mx-auto flex items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-2.5">
-            <div
-              className="h-8 w-8 rounded-md flex items-center justify-center text-white font-bold"
-              style={{ background: 'var(--gradient-hero)' }}
-            >
-              A
-            </div>
-            <span className="text-[15px] font-semibold tracking-tight text-foreground">Teacher Dashboard</span>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-muted-foreground">{user?.email}</span>
-            <button onClick={signOut} className="text-primary hover:underline">
-              Sign out
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-4 py-12 space-y-8">
-        <Link to="/" className="text-sm text-primary hover:underline">
-          ← Back to home
-        </Link>
+    <div className="max-w-4xl space-y-8">
+      <PageHeading title={t('teacherDashboard')} />
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -109,7 +87,6 @@ export default function TeacherDashboardPage() {
             </div>
           </>
         )}
-      </main>
     </div>
   )
 }

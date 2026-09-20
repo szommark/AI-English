@@ -37,28 +37,22 @@ export default function StudentProgressPage() {
   }, [studentId])
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-slate-400">Loading...</div>
+    return <div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>
   }
 
   if (accessError) {
     return (
-      <div className="min-h-screen bg-slate-50">
-        <main className="max-w-2xl mx-auto px-4 py-8 space-y-4">
-          <p className="text-sm text-slate-600">You don't have access to this student's data.</p>
-          <Link to="/teacher" className="text-sm text-indigo-600 hover:underline">
-            ← Back to dashboard
-          </Link>
-        </main>
+      <div className="max-w-2xl space-y-4">
+        <p className="text-sm text-slate-600">You don't have access to this student's data.</p>
+        <Link to="/teacher" className="text-sm text-indigo-600 hover:underline">
+          ← Back to dashboard
+        </Link>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <main className="max-w-2xl mx-auto px-4 py-8 space-y-8">
-        <Link to="/teacher" className="text-sm text-indigo-600 hover:underline">
-          ← Back to dashboard
-        </Link>
+    <div className="max-w-2xl space-y-8">
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -134,7 +128,6 @@ export default function StudentProgressPage() {
             </div>
           </>
         )}
-      </main>
     </div>
   )
 }

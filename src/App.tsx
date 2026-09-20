@@ -1,5 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth, type UserRole } from './lib/AuthContext'
+import { LanguageProvider } from './lib/i18n'
+import AppLayout from './components/AppLayout'
 import LandingPage from './pages/LandingPage'
 import CategoryGridPage from './pages/CategoryGridPage'
 import SubcategoryGridPage from './pages/SubcategoryGridPage'
@@ -23,7 +25,7 @@ import MouthCalibratorPage from './pages/dev/MouthCalibratorPage'
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
   const location = useLocation()
-  if (loading) return <div className="min-h-screen flex items-center justify-center text-slate-400">Loading...</div>
+  if (loading) return <div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>
   if (!user) return <Navigate to="/" state={{ from: location.pathname }} replace />
   return <>{children}</>
 }
@@ -32,7 +34,7 @@ function RoleProtectedRoute({ role, children }: { role: UserRole; children: Reac
   const { user, loading, role: userRole } = useAuth()
   const location = useLocation()
   if (loading || (user && userRole === null)) {
-    return <div className="min-h-screen flex items-center justify-center text-slate-400">Loading...</div>
+    return <div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>
   }
   if (!user) return <Navigate to="/" state={{ from: location.pathname }} replace />
   if (userRole !== role) return <Navigate to="/" replace />
@@ -42,6 +44,7 @@ function RoleProtectedRoute({ role, children }: { role: UserRole; children: Reac
 function AppRoutes() {
   return (
     <Routes>
+      <Route element={<AppLayout />}>
       <Route path="/" element={<LandingPage />} />
       <Route
         path="/conversational-english"
@@ -179,6 +182,7 @@ function AppRoutes() {
           </RoleProtectedRoute>
         }
       />
+      </Route>
       {import.meta.env.DEV && <Route path="/dev/mouth-calibrator" element={<MouthCalibratorPage />} />}
     </Routes>
   )
@@ -186,10 +190,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </LanguageProvider>
   )
 }

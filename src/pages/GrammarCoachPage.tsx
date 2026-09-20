@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import PageHeading from '../components/PageHeading'
+import { localizeFeature, useLanguage } from '../lib/i18n'
+import { getFeature } from '../data/features'
 import { type CefrLevel, type GrammarItem } from '../data/grammarCurriculum'
 import type { GrammarLesson } from '../lib/types'
 import { fetchCachedGrammarLesson, requestGrammarLesson } from '../lib/grammarCoachApi'
@@ -12,9 +14,15 @@ import VoiceBar from '../components/GrammarCoach/VoiceBar'
 import PracticeCheck from '../components/GrammarCoach/PracticeCheck'
 import { boardThemes } from '../components/GrammarCoach/boardTheme'
 
-const HUNGARIAN_NARRATION_LEVELS: CefrLevel[] = ['A1', 'A2']
+const grammarFeature = getFeature('grammar-coach')!
+
+// At these levels the lesson is narrated in the learner's UI language instead of English.
+const SUPPORT_LANGUAGE_LEVELS: CefrLevel[] = ['A1', 'A2']
+
+const NARRATION_LOCALES = { hu: 'hu-HU', en: 'en-US', de: 'de-DE' } as const
 
 export default function GrammarCoachPage() {
+  const { lang, t: tr } = useLanguage()
   const [selected, setSelected] = useState<{ level: CefrLevel; item: GrammarItem } | null>(null)
   const [lesson, setLesson] = useState<GrammarLesson | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -25,7 +33,7 @@ export default function GrammarCoachPage() {
   const selectionTokenRef = useRef(0)
   const pendingAutoPlayRef = useRef(false)
 
-  const narrationLang = selected && HUNGARIAN_NARRATION_LEVELS.includes(selected.level) ? 'hu-HU' : 'en-US'
+  const narrationLang = selected && SUPPORT_LANGUAGE_LEVELS.includes(selected.level) ? NARRATION_LOCALES[lang] : 'en-US'
   const player = useSegmentPlayer(lesson?.segments ?? [], narrationLang)
 
   const handleSelectItem = useCallback((level: CefrLevel, item: GrammarItem) => {
@@ -36,13 +44,20 @@ export default function GrammarCoachPage() {
     setLesson(null)
     setIsGenerating(false)
 
-    fetchCachedGrammarLesson(level, item.id).then((cached) => {
+    fetchCachedGrammarLesson(level, item.id, lang).then((cached) => {
       if (selectionTokenRef.current !== token || !cached) return
       setLesson(cached)
     })
     // player.reset intentionally omitted from deps — it's stable enough for this handler's purpose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [lang])
+
+  // Lessons are written in the UI language, so switching it swaps in (or clears) the lesson for the same item.
+  useEffect(() => {
+    if (selected) handleSelectItem(selected.level, selected.item)
+    // Only a language change should re-select the current item.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang])
 
   const handlePlay = useCallback(async () => {
     if (!selected) return
@@ -56,7 +71,7 @@ export default function GrammarCoachPage() {
     pendingAutoPlayRef.current = true
     setIsGenerating(true)
     try {
-      const generated = await requestGrammarLesson(selected.level, selected.item.id)
+      const generated = await requestGrammarLesson(selected.level, selected.item.id, lang)
       if (selectionTokenRef.current !== token) return
       setLesson(generated)
     } catch (err) {
@@ -91,20 +106,10 @@ export default function GrammarCoachPage() {
   const t = boardThemes[theme]
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="max-w-6xl mx-auto flex items-center justify-between px-4 py-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-800">Grammar Coach</h1>
-          <p className="text-sm text-slate-500">Nyelvtani segítő — válassz egy nyelvtani témát</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link to="/" className="text-sm text-indigo-600 hover:underline">
-            ← Vissza a főoldalra
-          </Link>
-        </div>
-      </header>
+    <div className="space-y-6">
+      <PageHeading title={localizeFeature(lang, grammarFeature).title} subtitle={tr('grammarSubtitle')} />
 
-      <main className="max-w-6xl mx-auto px-4 pb-12 grid gap-6 lg:grid-cols-[280px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <GrammarRail selectedItemId={selected?.item.id ?? null} onSelectItem={handleSelectItem} />
 
         <div className="space-y-4 min-w-0">
@@ -124,7 +129,7 @@ export default function GrammarCoachPage() {
             </div>
           </div>
 
-          <ChalkBoard status={boardStatus} theme={theme} title={selected?.item.title} titleHu={selected?.item.titleHu}>
+          <ChalkBoard status={boardStatus} theme={theme} title={selected?.item.title} titleGloss={lang === 'hu' ? selected?.item.titleHu : undefined}>
             {currentSegment && <GrammarWidgetView widget={currentSegment.widget} theme={t} />}
           </ChalkBoard>
 
@@ -145,10 +150,10 @@ export default function GrammarCoachPage() {
           {player.isFinished && lesson && <PracticeCheck practice={lesson.practice} />}
 
           {!selected && (
-            <p className="text-center text-sm text-slate-400">Pick a grammar point from the list to get started.</p>
+            <p className="text-center text-sm text-slate-400">{tr('pickGrammarPoint')}</p>
           )}
         </div>
-      </main>
+      </div>
     </div>
   )
 }

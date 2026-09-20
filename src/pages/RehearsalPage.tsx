@@ -7,8 +7,11 @@ import MouthBubbleLayer from '../components/SpeechBubble/MouthBubbleLayer'
 import TranscriptLines from '../components/SpeechBubble/TranscriptLines'
 import PracticeSentence from '../components/PracticeSentence'
 import { scenarioPhotos } from '../assets/scenarioPhotos'
+import { localizeCategory, localizeScenario, useLanguage, withGloss } from '../lib/i18n'
+import { lineGloss, phraseGloss } from '../lib/scenarioGloss'
 
 export default function RehearsalPage() {
+  const { lang, t } = useLanguage()
   const { scenarioId } = useParams()
   const scenario = scenarioId ? getScenario(scenarioId) : undefined
   const [started, setStarted] = useState(false)
@@ -31,39 +34,30 @@ export default function RehearsalPage() {
   const isEnded = script.length > 0 && revealedIndex >= script.length
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        <Link to="/" className="text-sm text-indigo-600 hover:underline">
-          ← Vissza a forgatókönyvekhez
-        </Link>
-
+    <div className="max-w-2xl space-y-6">
         {!started ? (
           <>
             <div>
               {categoryMatch && (
                 <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide">
-                  {categoryMatch.category.title} ({categoryMatch.category.titleHu})
+                  {withGloss(lang, categoryMatch.category.title, localizeCategory(lang, categoryMatch.category))}
                 </p>
               )}
               <h1 className="text-xl font-semibold text-slate-800">
-                {scenario.title} ({scenario.titleHu})
+                {withGloss(lang, scenario.title, localizeScenario(lang, scenario))}
               </h1>
-              <p className="text-sm text-slate-500 mt-1">
-                Nézd át ezeket a hasznos kifejezéseket és egy minta beszélgetést, majd kezdd el, amikor készen
-                állsz. Utána saját, élő beszélgetést folytatsz a szereplővel. A hangszóró gombbal meghallgathatod
-                a mondatot, a mikrofon gombbal elmondhatod és azonnali visszajelzést kapsz.
-              </p>
+              <p className="text-sm text-slate-500 mt-1">{t('rehearsalIntro')}</p>
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
-              <h2 className="font-medium text-slate-700">Hasznos kifejezések</h2>
+              <h2 className="font-medium text-slate-700">{t('usefulPhrases')}</h2>
               {scenario.rehearsalPhrases.map((p, i) => (
-                <PracticeSentence key={i} en={p.en} hu={p.hu} scenarioId={scenario.id} />
+                <PracticeSentence key={i} en={p.en} gloss={phraseGloss(lang, scenario, i)} scenarioId={scenario.id} />
               ))}
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
-              <h2 className="font-medium text-slate-700">Minta beszélgetés</h2>
+              <h2 className="font-medium text-slate-700">{t('sampleConversation')}</h2>
 
               {photo && (
                 <div ref={photoContainerRef} className="relative mx-auto w-full max-w-xs">
@@ -100,10 +94,10 @@ export default function RehearsalPage() {
                     onClick={() => setRevealedIndex((i) => i + 1)}
                     className="rounded-lg border border-indigo-600 text-indigo-600 text-sm px-4 py-2 hover:bg-indigo-50"
                   >
-                    Következő
+                    {t('next')}
                   </button>
                 ) : (
-                  <p className="text-xs text-slate-400">Vége a minta beszélgetésnek.</p>
+                  <p className="text-xs text-slate-400">{t('sampleEnded')}</p>
                 )}
               </div>
 
@@ -115,21 +109,19 @@ export default function RehearsalPage() {
               onClick={() => setStarted(true)}
               className="relative z-10 w-full rounded-lg bg-indigo-600 text-white py-2.5 text-sm font-medium hover:bg-indigo-700"
             >
-              Kezdem a saját próbámat
+              {t('startMyTry')}
             </button>
 
             <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
               <div>
-                <h2 className="font-medium text-slate-700">Gyakorold a beszélgetést</h2>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Minden sort meghallgathatsz és elmondhatsz, akár a szereplő, akár a saját mondataidat.
-                </p>
+                <h2 className="font-medium text-slate-700">{t('practiceConversation')}</h2>
+                <p className="text-xs text-slate-400 mt-0.5">{t('practiceConversationHint')}</p>
               </div>
               {script.map((line, i) => (
                 <PracticeSentence
                   key={i}
                   en={line.line}
-                  hu={line.lineHu}
+                  gloss={lineGloss(lang, scenario, i)}
                   scenarioId={scenario.id}
                   speakerLabel={line.speaker}
                 />
@@ -140,13 +132,12 @@ export default function RehearsalPage() {
               to={`/scenario/${scenario.id}/pronunciation`}
               className="block w-full text-center rounded-lg border border-indigo-600 text-indigo-600 text-sm font-medium py-2.5 hover:bg-indigo-50"
             >
-              Pronunciation Centre (Kiejtésközpont) — valódi kiejtéselemzés
+              {t('pronCentreLink')}
             </Link>
           </>
         ) : (
           <ConversationSession scenario={scenario} mode="rehearsal" />
         )}
-      </main>
     </div>
   )
 }

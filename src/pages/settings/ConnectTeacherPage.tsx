@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/AuthContext'
+import { useLanguage } from '../../lib/i18n'
 import {
   redeemInviteCode,
   disconnectLink,
@@ -10,6 +10,7 @@ import {
 } from '../../lib/connectApi'
 
 export default function ConnectTeacherPage() {
+  const { t } = useLanguage()
   const { user } = useAuth()
   const [code, setCode] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -68,14 +69,9 @@ export default function ConnectTeacherPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <main className="max-w-md mx-auto px-4 py-8 space-y-6">
-        <Link to="/" className="text-sm text-indigo-600 hover:underline">
-          ← Back
-        </Link>
-
+    <div className="max-w-md space-y-6">
         <div>
-          <h1 className="text-xl font-semibold text-slate-800">Connect to a teacher</h1>
+          <h1 className="text-xl font-semibold text-slate-800">{t('connectTitle')}</h1>
           <p className="mt-1 text-sm text-slate-500">
             Enter the invite code your teacher gave you to connect your account.
           </p>
@@ -137,7 +133,6 @@ export default function ConnectTeacherPage() {
             </ul>
           )}
         </div>
-      </main>
     </div>
   )
 }

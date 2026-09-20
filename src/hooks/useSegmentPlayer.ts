@@ -10,7 +10,7 @@ export type PlaybackRate = 0.75 | 1 | 1.25
  * "reality check") — progress is a stepped, one-dot-per-segment indicator, and
  * play/pause map to real speechSynthesis.pause()/resume().
  */
-export function useSegmentPlayer(segments: GrammarSegment[], narrationLang: 'en-US' | 'hu-HU') {
+export function useSegmentPlayer(segments: GrammarSegment[], narrationLang: 'en-US' | 'hu-HU' | 'de-DE') {
   const supported = typeof window !== 'undefined' && 'speechSynthesis' in window
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)

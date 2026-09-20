@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import type { CefrLevel } from '../data/grammarCurriculum'
-import type { GrammarLesson } from './types'
+import type { GrammarLesson, LessonLanguage } from './types'
 
 async function authHeader(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession()
@@ -9,10 +9,14 @@ async function authHeader(): Promise<Record<string, string>> {
 }
 
 /** Cache-only lookup — never triggers generation. Used to silently prefetch on item select. */
-export async function fetchCachedGrammarLesson(cefrLevel: CefrLevel, itemId: string): Promise<GrammarLesson | null> {
+export async function fetchCachedGrammarLesson(
+  cefrLevel: CefrLevel,
+  itemId: string,
+  lang: LessonLanguage,
+): Promise<GrammarLesson | null> {
   const headers = await authHeader()
   const res = await fetch(
-    `/api/grammar-lesson?cefrLevel=${encodeURIComponent(cefrLevel)}&itemId=${encodeURIComponent(itemId)}`,
+    `/api/grammar-lesson?cefrLevel=${encodeURIComponent(cefrLevel)}&itemId=${encodeURIComponent(itemId)}&lang=${lang}`,
     { headers },
   )
   if (!res.ok) return null
@@ -21,12 +25,16 @@ export async function fetchCachedGrammarLesson(cefrLevel: CefrLevel, itemId: str
 }
 
 /** Generates the lesson if not cached (or returns the cached one). Throws on failure — the caller should fail silently. */
-export async function requestGrammarLesson(cefrLevel: CefrLevel, itemId: string): Promise<GrammarLesson> {
+export async function requestGrammarLesson(
+  cefrLevel: CefrLevel,
+  itemId: string,
+  lang: LessonLanguage,
+): Promise<GrammarLesson> {
   const headers = await authHeader()
   const res = await fetch('/api/grammar-lesson', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
-    body: JSON.stringify({ cefrLevel, itemId }),
+    body: JSON.stringify({ cefrLevel, itemId, lang }),
   })
   if (!res.ok) throw new Error('Grammar lesson generation failed')
   const body = await res.json()
