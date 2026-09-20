@@ -109,6 +109,7 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
   const admin: Crumb = { label: t('admin'), to: '/admin' }
   if (at('/admin')) return finish([admin])
   if (at('/admin/personas')) return finish([admin, { label: t('crumbPersonas') }])
+  if (at('/admin/usage')) return finish([admin, { label: t('crumbUsage') }])
 
   return []
 }

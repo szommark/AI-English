@@ -18,9 +18,14 @@ export default function AdminOverviewPage() {
     <div className="max-w-4xl space-y-8">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold text-slate-800">Admin Overview</h1>
-          <Link to="/admin/personas" className="text-sm text-indigo-600 hover:underline">
-            Tutor Bot personas
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link to="/admin/personas" className="text-sm text-indigo-600 hover:underline">
+              Tutor Bot personas
+            </Link>
+            <Link to="/admin/usage" className="text-sm text-indigo-600 hover:underline">
+              API usage
+            </Link>
+          </div>
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
