@@ -142,7 +142,17 @@ export interface GrammarSegment {
   narration: string
 }
 
+/** Language a Grammar Coach lesson is written in (its narration and, at A1/A2, its board text). */
+export type LessonLanguage = 'hu' | 'en' | 'de'
+
+/** Practice sentence; the translation field present depends on the lesson language. */
+export interface GrammarPracticeLine {
+  en: string
+  hu?: string
+  de?: string
+}
+
 export interface GrammarLesson {
   segments: GrammarSegment[]
-  practice: PracticeLine[]
+  practice: GrammarPracticeLine[]
 }

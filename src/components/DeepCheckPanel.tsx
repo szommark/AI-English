@@ -4,6 +4,7 @@ import { runDeepCheck } from '../lib/pronunciation'
 import { DEEP_CHECK_MAX_SECONDS } from '../lib/pronunciationConfig'
 import type { PronunciationCheckResult } from '../lib/types'
 import PronunciationResultCard from './PronunciationResultCard'
+import { useLanguage } from '../lib/i18n'
 
 type Status = 'idle' | 'preparing' | 'recording' | 'done' | 'error'
 
@@ -18,6 +19,7 @@ export default function DeepCheckPanel({
   locale?: 'en-US' | 'en-GB'
   onResult?: (result: PronunciationCheckResult) => void
 }) {
+  const { t } = useLanguage()
   const [status, setStatus] = useState<Status>('idle')
   const [result, setResult] = useState<PronunciationCheckResult | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
@@ -49,7 +51,7 @@ export default function DeepCheckPanel({
       } else {
         console.error('Deep check failed:', err)
         const detail = err instanceof Error ? err.message : String(err)
-        setErrorMessage(`A kiejtésellenőrzés most nem elérhető. Próbáld újra kicsit később. (${detail})`)
+        setErrorMessage(t('deepCheckUnavailable', { detail }))
       }
       setStatus('error')
     }
@@ -62,9 +64,9 @@ export default function DeepCheckPanel({
         disabled={status === 'preparing' || status === 'recording'}
         className="rounded-lg border border-slate-300 text-slate-600 text-xs px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50"
       >
-        {status === 'preparing' && 'Előkészítés...'}
-        {status === 'recording' && `Beszélj most... (max. ${DEEP_CHECK_MAX_SECONDS} mp)`}
-        {(status === 'idle' || status === 'done' || status === 'error') && 'Kiejtésellenőrzés'}
+        {status === 'preparing' && t('deepCheckPreparing')}
+        {status === 'recording' && t('deepCheckRecording', { n: DEEP_CHECK_MAX_SECONDS })}
+        {(status === 'idle' || status === 'done' || status === 'error') && t('deepCheckIdle')}
       </button>
 
       {status === 'error' && <p className="mt-2 text-xs text-red-600">{errorMessage}</p>}

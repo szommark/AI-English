@@ -1,4 +1,4 @@
-import type { ChatMessage, FeedbackResult, GrammarLesson, GrammarWidget } from '../../src/lib/types.js'
+import type { ChatMessage, FeedbackResult, GrammarLesson, GrammarWidget, LessonLanguage } from '../../src/lib/types.js'
 import { MISTAKE_CATEGORIES, type CefrLevel } from './prompts.js'
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
@@ -158,7 +158,7 @@ function validateWidget(widget: unknown): widget is GrammarWidget {
  * widget allowlist / expected shape, so an invalid Groq response never reaches the cache
  * or the board (see the fail-silent retry-once handling in api/grammar-lesson.ts).
  */
-export function parseGrammarLessonJson(raw: string): GrammarLesson {
+export function parseGrammarLessonJson(raw: string, lang: LessonLanguage = 'hu'): GrammarLesson {
   const cleaned = raw.trim().replace(/^```(json)?/i, '').replace(/```$/, '').trim()
   const parsed = JSON.parse(cleaned)
 
@@ -178,8 +178,10 @@ export function parseGrammarLessonJson(raw: string): GrammarLesson {
   if (!Array.isArray(practice) || practice.length === 0) throw new Error('Grammar lesson is missing "practice" sentences')
   for (const line of practice) {
     if (typeof line !== 'object' || line === null) throw new Error('Grammar lesson practice line is not an object')
-    if (!isNonEmptyString((line as Record<string, unknown>).en) || !isNonEmptyString((line as Record<string, unknown>).hu)) {
-      throw new Error('Grammar lesson practice line is missing en/hu text')
+    const fields = line as Record<string, unknown>
+    // English learners get no translation; hu/de lessons must carry theirs.
+    if (!isNonEmptyString(fields.en) || (lang !== 'en' && !isNonEmptyString(fields[lang]))) {
+      throw new Error(`Grammar lesson practice line is missing en/${lang} text`)
     }
   }
 

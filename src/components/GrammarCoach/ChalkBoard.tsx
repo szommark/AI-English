@@ -1,19 +1,22 @@
 import type { ReactNode } from 'react'
 import { boardThemes, type BoardTheme } from './boardTheme'
+import { useLanguage } from '../../lib/i18n'
 
 export default function ChalkBoard({
   theme,
   status,
   title,
-  titleHu,
+  titleGloss,
   children,
 }: {
   theme: BoardTheme
   status: 'idle' | 'loading' | 'content'
   title?: string
-  titleHu?: string
+  /** Translation of the title in the UI language, when there is one. */
+  titleGloss?: string
   children?: ReactNode
 }) {
+  const { t: tr } = useLanguage()
   const t = boardThemes[theme]
 
   return (
@@ -37,16 +40,16 @@ export default function ChalkBoard({
               {title && (
                 <p className={`font-hand text-xl ${t.chalkDim}`}>
                   {title}
-                  {titleHu && <span className="opacity-70"> — {titleHu}</span>}
+                  {titleGloss && <span className="opacity-70"> — {titleGloss}</span>}
                 </p>
               )}
-              <p className={`font-hand text-4xl ${t.chalk}`}>Press play to begin</p>
+              <p className={`font-hand text-4xl ${t.chalk}`}>{tr('pressPlay')}</p>
             </div>
           )}
 
           {status === 'loading' && (
             <div className="text-center">
-              <p className={`font-hand text-2xl ${t.chalkDim} animate-pulse`}>Writing the lesson on the board…</p>
+              <p className={`font-hand text-2xl ${t.chalkDim} animate-pulse`}>{tr('writingLesson')}</p>
             </div>
           )}
 

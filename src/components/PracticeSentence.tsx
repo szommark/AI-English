@@ -5,22 +5,25 @@ import type { VoiceGender } from '../lib/types'
 import { MicIcon, SpeakerIcon } from './icons/AudioIcons'
 import WordMatchFeedback from './WordMatchFeedback'
 import DeepCheckPanel from './DeepCheckPanel'
+import { useLanguage } from '../lib/i18n'
 
 export default function PracticeSentence({
   en,
-  hu,
+  gloss,
   scenarioId,
   voiceGender,
   speakerLabel,
   showDeepCheck = false,
 }: {
   en: string
-  hu: string
+  /** Translation into the UI language; omitted (e.g. for English) when there is none to show. */
+  gloss?: string
   scenarioId?: string
   voiceGender?: VoiceGender
   speakerLabel?: string
   showDeepCheck?: boolean
 }) {
+  const { t } = useLanguage()
   const synth = useSpeechSynthesis(voiceGender ?? (scenarioId ? getScenario(scenarioId)?.voiceGender : undefined))
   const recognition = useSpeechRecognition()
 
@@ -39,20 +42,20 @@ export default function PracticeSentence({
         <div>
           {speakerLabel && <p className="text-xs font-medium text-slate-400">{speakerLabel}</p>}
           <p className="text-sm text-slate-700">{en}</p>
-          <p className="text-xs text-slate-400 mt-0.5">{hu}</p>
+          {gloss && <p className="text-xs text-slate-400 mt-0.5">{gloss}</p>}
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => synth.speak(en)}
-            aria-label="Meghallgatás"
+            aria-label={t('listen')}
             className="h-8 w-8 flex items-center justify-center rounded-full text-indigo-600 hover:bg-indigo-50"
           >
             <SpeakerIcon className="h-4 w-4" />
           </button>
           <button
             onClick={handleMicClick}
-            aria-label="Felvétel"
+            aria-label={t('record')}
             disabled={!recognition.supported}
             className={`h-8 w-8 flex items-center justify-center rounded-full disabled:opacity-30 ${
               recognition.listening ? 'text-red-600 bg-red-50' : 'text-indigo-600 hover:bg-indigo-50'
@@ -65,7 +68,7 @@ export default function PracticeSentence({
 
       {!recognition.supported && (
         <p className="mt-2 text-xs text-amber-600">
-          A hangfelismerés nem támogatott ebben a böngészőben. Kérjük, használj Chrome böngészőt.
+          {t('speechUnsupported')}
         </p>
       )}
 

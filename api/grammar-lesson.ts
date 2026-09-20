@@ -6,17 +6,25 @@ import { callModel } from './_lib/modelRouter.js'
 import { getModelForFeature } from './_lib/modelSettings.js'
 import type { ModelId } from '../src/lib/models.js'
 import { getGrammarItem } from '../src/data/grammarCurriculum.js'
-import type { GrammarLesson } from '../src/lib/types.js'
+import type { GrammarLesson, LessonLanguage } from '../src/lib/types.js'
 
 const GENERATION_ATTEMPTS = 2
 
-async function readCachedLesson(cefrLevel: string, grammarItemId: string, modelId: ModelId): Promise<GrammarLesson | null> {
+const LESSON_LANGUAGES: LessonLanguage[] = ['hu', 'en', 'de']
+
+async function readCachedLesson(
+  cefrLevel: string,
+  grammarItemId: string,
+  modelId: ModelId,
+  lang: LessonLanguage,
+): Promise<GrammarLesson | null> {
   const { data, error } = await supabaseAdmin
     .from('grammar_lessons')
     .select('content')
     .eq('cefr_level', cefrLevel)
     .eq('grammar_item_id', grammarItemId)
     .eq('model_id', modelId)
+    .eq('lang', lang)
     .maybeSingle()
 
   if (error) {
@@ -57,10 +65,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: 'Unknown grammar item' })
     return
   }
+  // Lessons are cached per UI language; Hungarian is the base language.
+  const requestedLang = (req.method === 'GET' ? req.query.lang : req.body?.lang) as string | undefined
+  const lang: LessonLanguage = LESSON_LANGUAGES.includes(requestedLang as LessonLanguage)
+    ? (requestedLang as LessonLanguage)
+    : 'hu'
   const modelId: ModelId = await getModelForFeature('grammarCoach')
 
   if (req.method === 'GET') {
-    const lesson = await readCachedLesson(curriculumEntry.level, curriculumEntry.item.id, modelId)
+    const lesson = await readCachedLesson(curriculumEntry.level, curriculumEntry.item.id, modelId, lang)
     res.status(200).json({ lesson })
     return
   }
@@ -70,7 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const cached = await readCachedLesson(curriculumEntry.level, curriculumEntry.item.id, modelId)
+  const cached = await readCachedLesson(curriculumEntry.level, curriculumEntry.item.id, modelId, lang)
   if (cached) {
     res.status(200).json({ lesson: cached })
     return
@@ -81,9 +94,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   for (let attempt = 0; attempt < GENERATION_ATTEMPTS; attempt++) {
     try {
-      const { systemPrompt, messages } = buildGrammarLessonPrompt(curriculumEntry.item, curriculumEntry.level)
+      const { systemPrompt, messages } = buildGrammarLessonPrompt(curriculumEntry.item, curriculumEntry.level, lang)
       const result = await callModel(modelId, systemPrompt, messages)
-      lesson = parseGrammarLessonJson(result.content)
+      lesson = parseGrammarLessonJson(result.content, lang)
       await logUsage(user.id, curriculumEntry.item.id, result.usage)
       break
     } catch (err) {
@@ -97,6 +110,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('Grammar lesson generation failed after retries', {
       grammarItemId: curriculumEntry.item.id,
       cefrLevel: curriculumEntry.level,
+      lang,
       error: lastError,
     })
     res.status(502).json({ error: 'generation_failed' })
@@ -107,6 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cefr_level: curriculumEntry.level,
     grammar_item_id: curriculumEntry.item.id,
     model_id: modelId,
+    lang,
     content: lesson,
   })
   if (insertError) {

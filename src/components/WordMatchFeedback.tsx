@@ -1,6 +1,8 @@
 import { matchWords } from '../lib/wordMatch'
+import { useLanguage } from '../lib/i18n'
 
 export default function WordMatchFeedback({ target, heard }: { target: string; heard: string }) {
+  const { t } = useLanguage()
   const words = matchWords(target, heard)
 
   return (
@@ -14,11 +16,10 @@ export default function WordMatchFeedback({ target, heard }: { target: string; h
         ))}
       </p>
       <p className="text-slate-500">
-        <span className="font-medium">Amit hallottunk:</span> {heard || '—'}
+        <span className="font-medium">{t('heardLabel')}</span> {heard || '—'}
       </p>
       <p className="text-xs text-slate-400">
-        Ez szóalapú visszajelzés, nem valódi kiejtéselemzés. (This is a word-match proxy, not real pronunciation
-        scoring.)
+        {t('wordMatchNote')}
       </p>
     </div>
   )

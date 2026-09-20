@@ -1,4 +1,4 @@
-import type { ChatMessage } from '../../src/lib/types.js'
+import type { ChatMessage, LessonLanguage } from '../../src/lib/types.js'
 import type { GrammarItem } from '../../src/data/grammarCurriculum.js'
 
 export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
@@ -144,25 +144,37 @@ Based on this history, respond with ONLY valid JSON (no markdown, no code fences
   return { systemPrompt, messages: [{ role: 'user', content: 'Generate the updated profile now.' }] }
 }
 
-const HUNGARIAN_NARRATION_LEVELS: CefrLevel[] = ['A1', 'A2']
+// At these levels the lesson is written in the learner's own language rather than English.
+const SUPPORT_LANGUAGE_LEVELS: CefrLevel[] = ['A1', 'A2']
+
+const LANGUAGE_NAMES: Record<LessonLanguage, string> = { hu: 'HUNGARIAN', en: 'ENGLISH', de: 'GERMAN' }
 
 /**
  * Pure prompt builder — no network call — so the same prompt can be sent to whichever
  * provider the learner picked for Grammar Coach (see api/_lib/modelRouter.ts).
  */
-export function buildGrammarLessonPrompt(item: GrammarItem, cefrLevel: CefrLevel): PromptWithMessages {
-  const useHungarian = HUNGARIAN_NARRATION_LEVELS.includes(cefrLevel)
+export function buildGrammarLessonPrompt(
+  item: GrammarItem,
+  cefrLevel: CefrLevel,
+  lang: LessonLanguage = 'hu',
+): PromptWithMessages {
+  const useSupportLanguage = lang !== 'en' && SUPPORT_LANGUAGE_LEVELS.includes(cefrLevel)
+  const languageName = LANGUAGE_NAMES[lang]
+  // Field carrying the translation of each practice sentence; English learners get none.
+  const translationField = lang === 'en' ? null : lang
 
-  const languageRule = useHungarian
-    ? `The learner is at CEFR level ${cefrLevel}, so write every "title", "text", "narration", "label", table header/cell, and bullet-list item in HUNGARIAN. The only exception: English-language example sentences themselves (inside "example-sentence" tokens, "sentence-structure-diagram" block text when it quotes an actual sentence, and the "practice" sentences' "en" field) MUST stay in English — never translate the examples.`
+  const languageRule = useSupportLanguage
+    ? `The learner is at CEFR level ${cefrLevel}, so write every "title", "text", "narration", "label", table header/cell, and bullet-list item in ${languageName}. The only exception: English-language example sentences themselves (inside "example-sentence" tokens, "sentence-structure-diagram" block text when it quotes an actual sentence, and the "practice" sentences' "en" field) MUST stay in English — never translate the examples.`
     : `The learner is at CEFR level ${cefrLevel}, so write everything — rule text, narration, labels, table content, bullet items, and example sentences — in ENGLISH.`
 
-  const hintLine = item.hint ? `\nHungarian-learner focus: ${item.hint}\n` : ''
+  // The curriculum hints are written about Hungarian speakers' specific difficulties.
+  const hintLine = item.hint && lang === 'hu' ? `\nHungarian-learner focus: ${item.hint}\n` : ''
+  const learnerDescription = lang === 'hu' ? 'a Hungarian learner' : lang === 'de' ? 'a German-speaking learner' : 'a learner'
 
-  const systemPrompt = `You are an English grammar teacher preparing a short micro-lesson for a Hungarian learner on the grammar point "${item.title}" (CEFR level ${cefrLevel}). Explain at this level; keep vocabulary and example sentences appropriate to it.
+  const systemPrompt = `You are an English grammar teacher preparing a short micro-lesson for ${learnerDescription} on the grammar point "${item.title}" (CEFR level ${cefrLevel}). Explain at this level; keep vocabulary and example sentences appropriate to it.
 ${hintLine}
 Respond with ONLY valid JSON (no markdown, no code fences) matching EXACTLY this shape:
-{"segments":[{"widget":<widget>,"narration":"..."}],"practice":[{"en":"...","hu":"..."}]}
+{"segments":[{"widget":<widget>,"narration":"..."}],"practice":[{"en":"..."${translationField ? `,"${translationField}":"..."` : ''}}]}
 
 Produce 3 to 5 segments, ordered so the lesson builds up naturally (e.g. rule first, then examples, then a summary). Each segment's "widget" must be EXACTLY one of these shapes — no other fields, no other widget types:
 - {"type":"rule-box","title":"...","text":"..."}
@@ -173,7 +185,7 @@ Produce 3 to 5 segments, ordered so the lesson builds up naturally (e.g. rule fi
 
 Don't use the same widget type in two consecutive segments. "narration" is a short (1-3 sentence) spoken-aloud script for that segment — plain text, no markdown, no asterisks.
 
-"practice" must contain exactly 4 short practice sentences in English that test this exact grammar point, ordered from easier to harder, each with an "en" (English) and "hu" (Hungarian translation) field.
+"practice" must contain exactly 4 short practice sentences in English that test this exact grammar point, ordered from easier to harder, ${translationField ? `each with an "en" (English) and "${translationField}" (${languageName[0]}${languageName.slice(1).toLowerCase()} translation) field` : 'each with an "en" (English) field only'}.
 
 ${languageRule}`
 

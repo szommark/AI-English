@@ -71,6 +71,71 @@ const messages = {
   connectTitle: { hu: 'Kapcsolódás tanárhoz', en: 'Connect to a teacher', de: 'Mit einem Lehrer verbinden' },
   adminOverviewTitle: { hu: 'Admin áttekintés', en: 'Admin Overview', de: 'Admin-Übersicht' },
   personasTitle: { hu: 'Tutor Bot személyiségek', en: 'Tutor Bot Personas', de: 'Tutor-Bot-Personas' },
+  rehearsalIntro: {
+    hu: 'Nézd át ezeket a hasznos kifejezéseket és egy minta beszélgetést, majd kezdd el, amikor készen állsz. Utána saját, élő beszélgetést folytatsz a szereplővel. A hangszóró gombbal meghallgathatod a mondatot, a mikrofon gombbal elmondhatod és azonnali visszajelzést kapsz.',
+    en: 'Look through these useful phrases and a sample conversation, then start when you are ready. After that you will have your own live conversation with the character. Use the speaker button to hear a sentence and the microphone button to say it and get instant feedback.',
+    de: 'Sieh dir diese nützlichen Ausdrücke und ein Beispielgespräch an und fang an, wenn du bereit bist. Danach führst du ein eigenes Live-Gespräch mit der Figur. Mit dem Lautsprecher-Button kannst du dir einen Satz anhören, mit dem Mikrofon-Button sprichst du ihn nach und erhältst sofort Feedback.',
+  },
+  usefulPhrases: { hu: 'Hasznos kifejezések', en: 'Useful phrases', de: 'Nützliche Ausdrücke' },
+  sampleConversation: { hu: 'Minta beszélgetés', en: 'Sample conversation', de: 'Beispielgespräch' },
+  next: { hu: 'Következő', en: 'Next', de: 'Weiter' },
+  sampleEnded: { hu: 'Vége a minta beszélgetésnek.', en: 'End of the sample conversation.', de: 'Ende des Beispielgesprächs.' },
+  startMyTry: { hu: 'Kezdem a saját próbámat', en: 'Start my own try', de: 'Ich starte meinen eigenen Versuch' },
+  practiceConversation: { hu: 'Gyakorold a beszélgetést', en: 'Practice the conversation', de: 'Übe das Gespräch' },
+  practiceConversationHint: {
+    hu: 'Minden sort meghallgathatsz és elmondhatsz, akár a szereplő, akár a saját mondataidat.',
+    en: 'You can listen to and say every line, whether it is the character\'s or your own.',
+    de: 'Du kannst jede Zeile anhören und nachsprechen, egal ob von der Figur oder deine eigene.',
+  },
+  pronCentreLink: {
+    hu: 'Kiejtésközpont — valódi kiejtéselemzés',
+    en: 'Pronunciation Centre — real pronunciation analysis',
+    de: 'Aussprachezentrum — echte Ausspracheanalyse',
+  },
+  pronCentreTitle: { hu: 'Kiejtésközpont', en: 'Pronunciation Centre', de: 'Aussprachezentrum' },
+  pronCentreIntro: {
+    hu: 'Hallgasd meg a mondatot a hangszóró gombbal, majd nyomd meg a Kiejtésellenőrzés gombot, és mondd el hangosan. Valódi, Azure-alapú kiejtéselemzést kapsz pontossági, folyékonysági és teljességi pontszámmal.',
+    en: 'Listen to the sentence with the speaker button, then press the pronunciation check button and say it aloud. You get a real Azure-based pronunciation analysis with accuracy, fluency and completeness scores.',
+    de: 'Höre dir den Satz mit dem Lautsprecher-Button an, drücke dann den Button für die Ausspracheprüfung und sprich ihn laut nach. Du erhältst eine echte Azure-basierte Ausspracheanalyse mit Bewertungen für Genauigkeit, Flüssigkeit und Vollständigkeit.',
+  },
+  listen: { hu: 'Meghallgatás', en: 'Listen', de: 'Anhören' },
+  record: { hu: 'Felvétel', en: 'Record', de: 'Aufnehmen' },
+  speechUnsupported: {
+    hu: 'A hangfelismerés nem támogatott ebben a böngészőben. Kérjük, használj Chrome böngészőt.',
+    en: 'Speech recognition is not supported in this browser. Please use Chrome.',
+    de: 'Die Spracherkennung wird in diesem Browser nicht unterstützt. Bitte verwende Chrome.',
+  },
+  deepCheckPreparing: { hu: 'Előkészítés...', en: 'Preparing...', de: 'Wird vorbereitet...' },
+  deepCheckRecording: {
+    hu: 'Beszélj most... (max. {n} mp)',
+    en: 'Speak now... (max. {n} s)',
+    de: 'Sprich jetzt... (max. {n} Sek.)',
+  },
+  deepCheckIdle: { hu: 'Kiejtésellenőrzés', en: 'Pronunciation check', de: 'Ausspracheprüfung' },
+  deepCheckUnavailable: {
+    hu: 'A kiejtésellenőrzés most nem elérhető. Próbáld újra kicsit később. ({detail})',
+    en: 'The pronunciation check is unavailable right now. Please try again a little later. ({detail})',
+    de: 'Die Ausspracheprüfung ist derzeit nicht verfügbar. Bitte versuche es später noch einmal. ({detail})',
+  },
+  heardLabel: { hu: 'Amit hallottunk:', en: 'What we heard:', de: 'Das haben wir gehört:' },
+  wordMatchNote: {
+    hu: 'Ez szóalapú visszajelzés, nem valódi kiejtéselemzés.',
+    en: 'This is word-match feedback, not real pronunciation scoring.',
+    de: 'Dies ist ein wortbasiertes Feedback, keine echte Ausspracheanalyse.',
+  },
+  yourTurn: { hu: 'Most te jössz', en: 'Your turn', de: 'Du bist dran' },
+  tryAnother: { hu: 'Próbálj egy másikat →', en: 'Try another →', de: 'Noch einen versuchen →' },
+  pressPlay: { hu: 'Nyomd meg a lejátszást', en: 'Press play to begin', de: 'Drücke Play, um zu beginnen' },
+  writingLesson: {
+    hu: 'Az óra felkerül a táblára…',
+    en: 'Writing the lesson on the board…',
+    de: 'Die Lektion wird an die Tafel geschrieben…',
+  },
+  pickGrammarPoint: {
+    hu: 'Válassz egy nyelvtani témát a listából a kezdéshez.',
+    en: 'Pick a grammar point from the list to get started.',
+    de: 'Wähle ein Grammatikthema aus der Liste, um zu beginnen.',
+  },
   tutorPersonas: { hu: 'Tutor Bot személyiségek', en: 'Tutor Bot personas', de: 'Tutor-Bot-Personas' },
 } as const satisfies Record<string, Record<Lang, string>>
 
@@ -156,6 +221,11 @@ export function localizeFeature(
     description: lang === 'hu' ? f.descriptionHu : lang === 'de' ? (de?.description ?? f.description) : f.description,
   }
 }
+/** "English title (localized)" for Hungarian/German, plain English for English. */
+export function withGloss(lang: Lang, english: string, localized: string): string {
+  return lang === 'en' || localized === english ? english : `${english} (${localized})`
+}
+
 export const localizeCategory = (lang: Lang, c: Titled) => pick(lang, c, categoryDe[c.id])
 export const localizeSubcategory = (lang: Lang, s: Titled) => pick(lang, s, subcategoryDe[s.id])
 export const localizeScenario = (lang: Lang, s: Titled) => pick(lang, s, scenarioDe[s.id])

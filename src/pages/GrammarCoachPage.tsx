@@ -16,7 +16,10 @@ import { boardThemes } from '../components/GrammarCoach/boardTheme'
 
 const grammarFeature = getFeature('grammar-coach')!
 
-const HUNGARIAN_NARRATION_LEVELS: CefrLevel[] = ['A1', 'A2']
+// At these levels the lesson is narrated in the learner's UI language instead of English.
+const SUPPORT_LANGUAGE_LEVELS: CefrLevel[] = ['A1', 'A2']
+
+const NARRATION_LOCALES = { hu: 'hu-HU', en: 'en-US', de: 'de-DE' } as const
 
 export default function GrammarCoachPage() {
   const { lang, t: tr } = useLanguage()
@@ -30,7 +33,7 @@ export default function GrammarCoachPage() {
   const selectionTokenRef = useRef(0)
   const pendingAutoPlayRef = useRef(false)
 
-  const narrationLang = selected && HUNGARIAN_NARRATION_LEVELS.includes(selected.level) ? 'hu-HU' : 'en-US'
+  const narrationLang = selected && SUPPORT_LANGUAGE_LEVELS.includes(selected.level) ? NARRATION_LOCALES[lang] : 'en-US'
   const player = useSegmentPlayer(lesson?.segments ?? [], narrationLang)
 
   const handleSelectItem = useCallback((level: CefrLevel, item: GrammarItem) => {
@@ -41,13 +44,20 @@ export default function GrammarCoachPage() {
     setLesson(null)
     setIsGenerating(false)
 
-    fetchCachedGrammarLesson(level, item.id).then((cached) => {
+    fetchCachedGrammarLesson(level, item.id, lang).then((cached) => {
       if (selectionTokenRef.current !== token || !cached) return
       setLesson(cached)
     })
     // player.reset intentionally omitted from deps — it's stable enough for this handler's purpose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [lang])
+
+  // Lessons are written in the UI language, so switching it swaps in (or clears) the lesson for the same item.
+  useEffect(() => {
+    if (selected) handleSelectItem(selected.level, selected.item)
+    // Only a language change should re-select the current item.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang])
 
   const handlePlay = useCallback(async () => {
     if (!selected) return
@@ -61,7 +71,7 @@ export default function GrammarCoachPage() {
     pendingAutoPlayRef.current = true
     setIsGenerating(true)
     try {
-      const generated = await requestGrammarLesson(selected.level, selected.item.id)
+      const generated = await requestGrammarLesson(selected.level, selected.item.id, lang)
       if (selectionTokenRef.current !== token) return
       setLesson(generated)
     } catch (err) {
@@ -119,7 +129,7 @@ export default function GrammarCoachPage() {
             </div>
           </div>
 
-          <ChalkBoard status={boardStatus} theme={theme} title={selected?.item.title} titleHu={selected?.item.titleHu}>
+          <ChalkBoard status={boardStatus} theme={theme} title={selected?.item.title} titleGloss={lang === 'hu' ? selected?.item.titleHu : undefined}>
             {currentSegment && <GrammarWidgetView widget={currentSegment.widget} theme={t} />}
           </ChalkBoard>
 
@@ -140,7 +150,7 @@ export default function GrammarCoachPage() {
           {player.isFinished && lesson && <PracticeCheck practice={lesson.practice} />}
 
           {!selected && (
-            <p className="text-center text-sm text-slate-400">Pick a grammar point from the list to get started.</p>
+            <p className="text-center text-sm text-slate-400">{tr('pickGrammarPoint')}</p>
           )}
         </div>
       </div>
