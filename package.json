@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/count-api-functions.mjs",
     "build": "tsc -b && vite build",
     "lint": "tsc -b --noEmit",
     "check:grammar": "node scripts/check-grammar-points.ts",

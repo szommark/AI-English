@@ -1,14 +1,51 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from '../_lib/supabaseAdmin.js'
 import { getUserRole } from '../_lib/roles.js'
+import { buildUsageSnapshot } from '../_lib/usageSnapshot.js'
+import { isManualMeterId } from '../../src/lib/usageLimits.js'
+
+// Multiplexed by ?resource= (default: connections overview) to stay under Vercel Hobby's
+// 12-serverless-function cap — do not add new files directly under api/.
 
 async function resolveEmail(userId: string): Promise<string> {
   const { data } = await supabaseAdmin.auth.admin.getUserById(userId)
   return data.user?.email ?? 'unknown'
 }
 
+async function handleUsage(res: VercelResponse) {
+  try {
+    res.status(200).json(await buildUsageSnapshot())
+  } catch (err) {
+    console.error('Failed to build usage snapshot', err)
+    res.status(500).json({ error: 'Failed to load usage' })
+  }
+}
+
+async function handleUsageManual(req: VercelRequest, res: VercelResponse, userId: string) {
+  const { meterId, value } = (req.body ?? {}) as { meterId?: unknown; value?: unknown }
+  if (!isManualMeterId(meterId)) {
+    res.status(400).json({ error: 'Unknown meter' })
+    return
+  }
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    res.status(400).json({ error: 'Value must be a non-negative number' })
+    return
+  }
+  const { error } = await supabaseAdmin
+    .from('usage_manual_entries')
+    .upsert({ meter_id: meterId, value, updated_at: new Date().toISOString(), updated_by: userId })
+  if (error) {
+    console.error('Failed to save manual meter', error)
+    res.status(500).json({ error: 'Failed to save value' })
+    return
+  }
+  res.status(200).json({ ok: true })
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'GET') {
+  const resource = req.query.resource
+  const expectedMethod = resource === 'usage-manual' ? 'PUT' : 'GET'
+  if (req.method !== expectedMethod) {
     res.status(405).json({ error: 'Method not allowed' })
     return
   }
@@ -24,6 +61,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(403).json({ error: 'Forbidden' })
     return
   }
+
+  if (resource === 'usage') return handleUsage(res)
+  if (resource === 'usage-manual') return handleUsageManual(req, res, user.id)
 
   const [{ data: links }, { data: attempts }] = await Promise.all([
     supabaseAdmin

@@ -3,6 +3,7 @@ import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { parseGrammarLessonJson } from './_lib/groq.js'
 import { buildGrammarLessonPrompt } from './_lib/prompts.js'
 import { callModel } from './_lib/modelRouter.js'
+import { logModelUsage } from './_lib/usageLog.js'
 import { getModelForFeature } from './_lib/modelSettings.js'
 import type { ModelId } from '../src/lib/models.js'
 import { getGrammarItem } from '../src/data/grammarCurriculum.js'
@@ -32,22 +33,6 @@ async function readCachedLesson(
     return null
   }
   return (data?.content as GrammarLesson | undefined) ?? null
-}
-
-async function logUsage(userId: string, grammarItemId: string, usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null) {
-  try {
-    const { error } = await supabaseAdmin.from('groq_usage_log').insert({
-      user_id: userId,
-      scenario_id: grammarItemId,
-      call_type: 'grammar_lesson',
-      prompt_tokens: usage?.prompt_tokens ?? null,
-      completion_tokens: usage?.completion_tokens ?? null,
-      total_tokens: usage?.total_tokens ?? null,
-    })
-    if (error) throw error
-  } catch (err) {
-    console.error('Failed to log grammar lesson usage', err)
-  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -97,7 +82,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { systemPrompt, messages } = buildGrammarLessonPrompt(curriculumEntry.item, curriculumEntry.level, lang)
       const result = await callModel(modelId, systemPrompt, messages)
       lesson = parseGrammarLessonJson(result.content, lang)
-      await logUsage(user.id, curriculumEntry.item.id, result.usage)
+      await logModelUsage({
+        userId: user.id,
+        scenarioId: curriculumEntry.item.id,
+        callType: 'grammar_lesson',
+        modelId,
+        usage: result.usage,
+      })
       break
     } catch (err) {
       lastError = err

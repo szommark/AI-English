@@ -38,6 +38,7 @@ const messages = {
   crumbTest: { hu: 'Teszt mód', en: 'Test mode', de: 'Testmodus' },
   crumbStudent: { hu: 'Diák', en: 'Student', de: 'Schüler' },
   crumbPersonas: { hu: 'Tutor Bot személyiségek', en: 'Tutor Bot personas', de: 'Tutor-Bot-Personas' },
+  crumbUsage: { hu: 'API-használat', en: 'API usage', de: 'API-Nutzung' },
   comingSoonTitle: { hu: 'Fejlesztés alatt', en: 'Under construction', de: 'In Entwicklung' },
   comingSoonBody: {
     hu: 'Ezen a funkción még dolgozunk — nézz vissza hamarosan!',

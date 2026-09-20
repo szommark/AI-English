@@ -4,6 +4,7 @@ import { parseFeedbackJson } from './_lib/groq.js'
 import { buildFeedbackPrompt } from './_lib/prompts.js'
 import { callModel } from './_lib/modelRouter.js'
 import { getModelForFeature } from './_lib/modelSettings.js'
+import { logModelUsage } from './_lib/usageLog.js'
 import { recordFeedbackToPersonalization } from './_lib/personalization.js'
 import { getScenario } from '../src/data/scenarios.js'
 import type { ChatMessage } from '../src/lib/types.js'
@@ -53,19 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  try {
-    const { error } = await supabaseAdmin.from('groq_usage_log').insert({
-      user_id: user.id,
-      scenario_id: scenario.id,
-      call_type: 'chat',
-      prompt_tokens: chatResult.usage?.prompt_tokens ?? null,
-      completion_tokens: chatResult.usage?.completion_tokens ?? null,
-      total_tokens: chatResult.usage?.total_tokens ?? null,
-    })
-    if (error) throw error
-  } catch (err) {
-    console.error('Failed to log chat usage', err)
-  }
+  await logModelUsage({ userId: user.id, scenarioId: scenario.id, callType: 'chat', modelId, usage: chatResult.usage })
 
   const done = body.turnIndex >= MAX_USER_TURNS - 1
 
@@ -85,19 +74,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const feedbackResult = await callModel(modelId, systemPrompt, messages)
     feedback = parseFeedbackJson(feedbackResult.content)
 
-    try {
-      const { error } = await supabaseAdmin.from('groq_usage_log').insert({
-        user_id: user.id,
-        scenario_id: scenario.id,
-        call_type: 'feedback',
-        prompt_tokens: feedbackResult.usage?.prompt_tokens ?? null,
-        completion_tokens: feedbackResult.usage?.completion_tokens ?? null,
-        total_tokens: feedbackResult.usage?.total_tokens ?? null,
-      })
-      if (error) throw error
-    } catch (err) {
-      console.error('Failed to log feedback usage', err)
-    }
+    await logModelUsage({
+      userId: user.id,
+      scenarioId: scenario.id,
+      callType: 'feedback',
+      modelId,
+      usage: feedbackResult.usage,
+    })
   } catch {
     feedback = { strengths: [], corrections: [] }
   }

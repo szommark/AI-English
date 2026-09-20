@@ -20,6 +20,7 @@ import TeacherDashboardPage from './pages/TeacherDashboardPage'
 import StudentProgressPage from './pages/StudentProgressPage'
 import AdminOverviewPage from './pages/AdminOverviewPage'
 import AdminPersonasPage from './pages/AdminPersonasPage'
+import AdminUsagePage from './pages/AdminUsagePage'
 import MouthCalibratorPage from './pages/dev/MouthCalibratorPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -179,6 +180,14 @@ function AppRoutes() {
         element={
           <RoleProtectedRoute role="admin">
             <AdminPersonasPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/usage"
+        element={
+          <RoleProtectedRoute role="admin">
+            <AdminUsagePage />
           </RoleProtectedRoute>
         }
       />

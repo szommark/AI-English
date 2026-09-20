@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
+import { getUserFromRequest } from './_lib/supabaseAdmin.js'
 import { callModel } from './_lib/modelRouter.js'
+import { logModelUsage } from './_lib/usageLog.js'
 import { getModelForFeature } from './_lib/modelSettings.js'
 import { getUserRole } from './_lib/roles.js'
 import { getPersonaForRole, applyPersonaTokens } from './_lib/personas.js'
@@ -46,26 +47,6 @@ async function buildSystemPrompt(
   return buildTutorSystemPrompt({ ...profile, openingGuidance, personaBlock: resolvedPersonaBlock })
 }
 
-async function logUsage(
-  userId: string,
-  usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null,
-) {
-  try {
-    const { error } = await supabaseAdmin.from('groq_usage_log').insert({
-      user_id: userId,
-      scenario_id: 'tutor-bot',
-      call_type: 'tutor_chat',
-      prompt_tokens: usage?.prompt_tokens ?? null,
-      completion_tokens: usage?.completion_tokens ?? null,
-      total_tokens: usage?.total_tokens ?? null,
-    })
-    if (error) throw error
-  } catch (err) {
-    // A logging failure must never fail the learner's actual reply.
-    console.error('Failed to log tutor chat usage', err)
-  }
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
@@ -108,7 +89,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  await logUsage(user.id, chatResult.usage)
+  await logModelUsage({
+    userId: user.id,
+    scenarioId: 'tutor-bot',
+    callType: 'tutor_chat',
+    modelId,
+    usage: chatResult.usage,
+  })
 
   res.status(200).json({ reply: chatResult.content, turnIndex: body.turnIndex, ended: false })
 }

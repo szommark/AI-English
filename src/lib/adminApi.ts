@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import type { ModelFeature, ModelId } from './models'
+import type { AdminUsageSnapshot, ManualMeterId } from './usageLimits'
 
 async function authHeader(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession()
@@ -114,4 +115,24 @@ export async function updateModelSettings(settings: Partial<ModelSettings>): Pro
     body: JSON.stringify(settings),
   })
   if (!res.ok) throw new Error('Failed to save model settings')
+}
+
+// Usage snapshot and manual meter values are served from /api/admin/overview?resource=…
+// (multiplexed there to stay under Vercel Hobby's function cap).
+
+export async function fetchAdminUsage(): Promise<AdminUsageSnapshot> {
+  const headers = await authHeader()
+  const res = await fetch('/api/admin/overview?resource=usage', { headers })
+  if (!res.ok) throw new Error('Failed to load usage')
+  return res.json()
+}
+
+export async function saveManualMeter(meterId: ManualMeterId, value: number): Promise<void> {
+  const headers = await authHeader()
+  const res = await fetch('/api/admin/overview?resource=usage-manual', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({ meterId, value }),
+  })
+  if (!res.ok) throw new Error('Failed to save value')
 }

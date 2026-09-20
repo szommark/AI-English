@@ -4,6 +4,7 @@ import { parseFeedbackJson } from './_lib/groq.js'
 import { buildTutorFeedbackPrompt } from './_lib/prompts.js'
 import { callModel } from './_lib/modelRouter.js'
 import { getModelForFeature } from './_lib/modelSettings.js'
+import { logModelUsage } from './_lib/usageLog.js'
 import { recordFeedbackToPersonalization } from './_lib/personalization.js'
 import type { ChatMessage, FeedbackResult } from '../src/lib/types.js'
 
@@ -33,19 +34,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const feedbackResult = await callModel(modelId, systemPrompt, messages)
     feedback = parseFeedbackJson(feedbackResult.content)
 
-    try {
-      const { error } = await supabaseAdmin.from('groq_usage_log').insert({
-        user_id: user.id,
-        scenario_id: 'tutor-bot',
-        call_type: 'feedback',
-        prompt_tokens: feedbackResult.usage?.prompt_tokens ?? null,
-        completion_tokens: feedbackResult.usage?.completion_tokens ?? null,
-        total_tokens: feedbackResult.usage?.total_tokens ?? null,
-      })
-      if (error) throw error
-    } catch (err) {
-      console.error('Failed to log tutor feedback usage', err)
-    }
+    await logModelUsage({
+      userId: user.id,
+      scenarioId: 'tutor-bot',
+      callType: 'feedback',
+      modelId,
+      usage: feedbackResult.usage,
+    })
   } catch {
     feedback = { strengths: [], corrections: [] }
   }

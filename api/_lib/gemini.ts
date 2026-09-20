@@ -78,7 +78,9 @@ export async function callGeminiChat(systemPrompt: string, recentHistory: ChatMe
     const usage: GeminiUsage | null = usageMetadata
       ? {
           prompt_tokens: usageMetadata.promptTokenCount,
-          completion_tokens: usageMetadata.candidatesTokenCount,
+          // Gemini bills "thinking" tokens as output but reports them separately
+          // (thoughtsTokenCount); fold them in so prompt + completion matches the total.
+          completion_tokens: (usageMetadata.candidatesTokenCount ?? 0) + (usageMetadata.thoughtsTokenCount ?? 0),
           total_tokens: usageMetadata.totalTokenCount,
         }
       : null
