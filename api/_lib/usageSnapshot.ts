@@ -8,6 +8,7 @@ import {
   GROQ_FREE_REQUESTS_PER_DAY,
   GROQ_FREE_TOKENS_PER_DAY,
   GROQ_FREE_TOKENS_PER_MINUTE,
+  RATE_LIMIT_MINUTE_STALE_MS,
   SUPABASE_FREE_ACTIVE_PROJECTS,
   SUPABASE_FREE_DB_BYTES,
   SUPABASE_FREE_EGRESS_BYTES,
@@ -120,7 +121,7 @@ export async function buildUsageSnapshot(): Promise<AdminUsageSnapshot> {
   if (pacificRes.error) throw pacificRes.error
   const pacificStart = new Date(pacificRes.data as string)
 
-  const [azureRes, checksRes, dbRes, manualRes, dayRows, pacificRows, minuteRows, geminiModels] = await Promise.all([
+  const [azureRes, checksRes, dbRes, manualRes, groqLimitRes, dayRows, pacificRows, minuteRows, geminiModels] = await Promise.all([
     supabaseAdmin.from('azure_usage_monthly').select('total_seconds').eq('utc_month', utcMonth).maybeSingle(),
     supabaseAdmin
       .from('pronunciation_checks')
@@ -129,6 +130,8 @@ export async function buildUsageSnapshot(): Promise<AdminUsageSnapshot> {
       .limit(PRONUNCIATION_CHECKS_ROW_LIMIT),
     supabaseAdmin.rpc('admin_usage_snapshot'),
     supabaseAdmin.from('usage_manual_entries').select('meter_id, value, updated_at'),
+    // Missing table/row (migration not applied yet, or no Groq call seen) just means "keep measured".
+    supabaseAdmin.from('provider_rate_limit_snapshot').select('*').eq('provider', 'groq').maybeSingle(),
     llmUsageSince(utcDayStart),
     llmUsageSince(pacificStart),
     llmUsageSince(minuteAgo),
@@ -175,6 +178,38 @@ export async function buildUsageSnapshot(): Promise<AdminUsageSnapshot> {
       note: "This app's usage in the last 60 s.",
     },
   )
+
+  // Groq live allowance from response headers (org-wide). Overrides the measured
+  // requests/day and tokens/minute meters when a snapshot exists.
+  const groqSnap = groqLimitRes.data as {
+    limit_requests: number | null
+    remaining_requests: number | null
+    limit_tokens: number | null
+    remaining_tokens: number | null
+    seen_at: string
+  } | null
+  if (groqSnap) {
+    const seenAt = new Date(groqSnap.seen_at).toISOString()
+    const replace = (id: string, patch: Partial<UsageMeter>) => {
+      const i = meters.findIndex((m) => m.id === id)
+      if (i >= 0) meters[i] = { ...meters[i], ...patch, source: 'vendor_api', asOf: seenAt }
+    }
+    if (groqSnap.limit_requests !== null && groqSnap.remaining_requests !== null) {
+      replace('groq.requests_day', {
+        used: groqSnap.limit_requests - groqSnap.remaining_requests,
+        note: 'Live from Groq response headers, for the whole organisation (includes any other app on the same Groq account).',
+      })
+    }
+    if (groqSnap.limit_tokens !== null && groqSnap.remaining_tokens !== null) {
+      const stale = now.getTime() - new Date(groqSnap.seen_at).getTime() > RATE_LIMIT_MINUTE_STALE_MS
+      replace('groq.tokens_minute', {
+        used: groqSnap.limit_tokens - groqSnap.remaining_tokens,
+        note: stale
+          ? 'Last reading is more than 2 minutes old, so the minute window has since reset.'
+          : 'Live from Groq response headers, for the whole organisation.',
+      })
+    }
+  }
 
   // Gemini: three rows per selected model. The day boundary is Pacific midnight, not UTC.
   // resetsAt adds a flat 24 h, which is an hour off on the two DST-change days a year.

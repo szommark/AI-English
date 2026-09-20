@@ -4,6 +4,7 @@ import PageHeading from '../components/PageHeading'
 import { fetchAdminUsage, saveManualMeter } from '../lib/adminApi'
 import {
   MANUAL_STALE_DAYS,
+  RATE_LIMIT_MINUTE_STALE_MS,
   USAGE_CRITICAL_AT,
   USAGE_WATCH_AT,
   isManualMeterId,
@@ -159,6 +160,15 @@ function SourcePill({ meter, now }: { meter: UsageMeter; now: number }) {
       )
     }
     return <span className={`${base} border-border text-muted-foreground`}>Manual · updated {formatDate(meter.asOf)}</span>
+  }
+  if (meter.source === 'vendor_api') {
+    const seenAgo = formatAgo(meter.asOf, now)
+    const old = meter.period === 'minute' && now - new Date(meter.asOf).getTime() > RATE_LIMIT_MINUTE_STALE_MS
+    return (
+      <span className={`${base} border-border text-muted-foreground`}>
+        {old ? `Vendor API · last seen ${seenAgo}` : `Vendor API · seen ${seenAgo}`}
+      </span>
+    )
   }
   const text = { measured: 'Measured', vendor_api: 'Vendor API', build_time: 'Build time', manual: 'Manual' }[meter.source]
   return <span className={`${base} border-border text-muted-foreground`}>{text}</span>
