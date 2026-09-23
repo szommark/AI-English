@@ -137,6 +137,23 @@ const messages = {
     en: 'Pick a grammar point from the list to get started.',
     de: 'Wähle ein Grammatikthema aus der Liste, um zu beginnen.',
   },
+  grammarSearchPlaceholder: {
+    hu: 'Keresés a nyelvtani témák között…',
+    en: 'Search grammar topics…',
+    de: 'Grammatikthemen durchsuchen…',
+  },
+  grammarSearchLabel: { hu: 'Nyelvtani témák keresése', en: 'Search grammar topics', de: 'Grammatikthemen suchen' },
+  grammarSearchClear: { hu: 'Keresés törlése', en: 'Clear search', de: 'Suche löschen' },
+  grammarSearchNoResults: {
+    hu: 'Nincs találat erre: „{q}”',
+    en: 'No grammar topic matches “{q}”',
+    de: 'Kein Grammatikthema passt zu „{q}“',
+  },
+  grammarSearchResultCount: {
+    hu: '{n} találat',
+    en: '{n} result(s)',
+    de: '{n} Treffer',
+  },
   tutorPersonas: { hu: 'Tutor Bot személyiségek', en: 'Tutor Bot personas', de: 'Tutor-Bot-Personas' },
 } as const satisfies Record<string, Record<Lang, string>>
 
