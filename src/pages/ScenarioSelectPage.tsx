@@ -1,10 +1,6 @@
-import { useEffect, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { scenarios } from '../data/scenarios'
 import { categories } from '../data/categories'
-import { fetchCapStatus } from '../lib/api'
-import type { CapStatus } from '../lib/types'
-import DailyCapBanner from '../components/DailyCapBanner'
 import ScenarioCard from '../components/ScenarioCard'
 import PageHeading from '../components/PageHeading'
 import { localizeSubcategory, useLanguage } from '../lib/i18n'
@@ -12,13 +8,6 @@ import { localizeSubcategory, useLanguage } from '../lib/i18n'
 export default function ScenarioSelectPage() {
   const { lang, t } = useLanguage()
   const { categoryId, subcategoryId } = useParams()
-  const [cap, setCap] = useState<CapStatus | null>(null)
-
-  useEffect(() => {
-    fetchCapStatus()
-      .then(setCap)
-      .catch(() => setCap(null))
-  }, [])
 
   const category = categories.find((c) => c.id === categoryId)
   const subcategory = category?.subcategories.find((s) => s.id === subcategoryId)
@@ -30,11 +19,6 @@ export default function ScenarioSelectPage() {
   return (
     <div className="space-y-6">
       <PageHeading title={localizeSubcategory(lang, subcategory)} subtitle={t('pickScenario')} />
-
-      {cap && !cap.allowed && <DailyCapBanner resetAt={cap.resetAt} />}
-      {cap && cap.allowed && (
-        <p className="text-sm text-muted-foreground">{t('sessionsLeft', { n: cap.remaining })}</p>
-      )}
 
       <div className="grid gap-6 sm:grid-cols-2">
         {filteredScenarios.map((s) => (

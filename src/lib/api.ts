@@ -1,17 +1,10 @@
 import { supabase } from './supabase'
-import type { CapStatus, ChatMessage, ChatTurnResponse } from './types'
+import type { ChatMessage, ChatTurnResponse } from './types'
 
 async function authHeader(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
   return token ? { Authorization: `Bearer ${token}` } : {}
-}
-
-export async function fetchCapStatus(): Promise<CapStatus> {
-  const headers = await authHeader()
-  const res = await fetch('/api/cap-status', { headers })
-  if (!res.ok) throw new Error('Failed to load session cap status')
-  return res.json()
 }
 
 export async function sendChatTurn(params: {
