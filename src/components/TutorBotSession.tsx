@@ -6,6 +6,8 @@ import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { sendTutorTurn, sendTutorEnd } from '../lib/tutorBotApi'
 import UnsupportedBrowserNotice from './UnsupportedBrowserNotice'
 import FeedbackCard from './FeedbackCard'
+import AddedWordsCard from './Vocabulary/AddedWordsCard'
+import type { AddedTutorWord } from '../lib/vocab'
 import MouthBubbleLayer from './SpeechBubble/MouthBubbleLayer'
 import TranscriptLines from './SpeechBubble/TranscriptLines'
 import TutorAvatar, { TUTOR_MOUTH_ANCHOR, TUTOR_VOICE_GENDER } from './TutorBot/TutorAvatar'
@@ -69,6 +71,7 @@ export default function TutorBotSession({ personaId }: { personaId: string }) {
   const [typingFocused, setTypingFocused] = useState(false)
   const [autoMuted, setAutoMuted] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackResult | null>(null)
+  const [addedWords, setAddedWords] = useState<AddedTutorWord[]>([])
   const [feedbackLoading, setFeedbackLoading] = useState(false)
 
   const statusRef = useRef(status)
@@ -203,7 +206,10 @@ export default function TutorBotSession({ personaId }: { personaId: string }) {
     endCalledRef.current = true
     setFeedbackLoading(true)
     sendTutorEnd({ fullTranscript: messages })
-      .then((response) => setFeedback(response.feedback))
+      .then((response) => {
+        setFeedback(response.feedback)
+        setAddedWords(response.addedWords ?? [])
+      })
       .catch((err) => console.error('Failed to end tutor session', err))
       .finally(() => setFeedbackLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -284,6 +290,8 @@ export default function TutorBotSession({ personaId }: { personaId: string }) {
         {feedbackLoading && <p className="text-sm text-slate-500">Preparing your feedback...</p>}
 
         {feedback && <FeedbackCard feedback={feedback} />}
+
+        <AddedWordsCard words={addedWords} />
 
         {messages.length > 0 ? (
           <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">

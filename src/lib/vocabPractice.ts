@@ -85,13 +85,21 @@ export function gapSentence(sentence: string | null, term: string): GapSentence 
 }
 
 /**
+ * The sentence for the gap-fill and listening steps: a Tutor Bot card's own corrected
+ * line when it contains the term (design §7), else the item's example sentence.
+ */
+export function practiceSentence(card: Pick<PracticeCard, 'term' | 'contextCorrected' | 'exampleEn'>): string | null {
+  return [card.contextCorrected, card.exampleEn].find((s) => gapSentence(s, card.term) !== null) ?? null
+}
+
+/**
  * The exercise for a card's ladder step (design §7), stepping down when this one can't
- * run: no distractors → recall; no usable example sentence → recall; no speech
- * synthesis → context (or recall). A card without a Hungarian meaning can't be shown as
- * recognition or recall, so it goes to context, or listening as a last resort.
+ * run: no distractors → recall; no usable sentence → recall; no speech synthesis →
+ * context (or recall). A card without a Hungarian meaning can't be shown as recognition
+ * or recall, so it goes to context, or listening as a last resort.
  */
 export function chooseExercise(card: PracticeCard, speechSupported: boolean): PracticeExercise {
-  const hasGap = gapSentence(card.exampleEn, card.term) !== null
+  const hasGap = practiceSentence(card) !== null
   const hasMeaning = Boolean(card.meaningHu)
   const fallback: PracticeExercise = hasMeaning ? 'recall' : hasGap ? 'context' : 'listening'
 

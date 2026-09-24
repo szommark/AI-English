@@ -201,6 +201,8 @@ export interface PracticeCard {
   meaningHu: string | null
   definitionEn: string | null
   exampleEn: string | null
+  /** Tutor Bot cards: the learner's own line, said better — preferred for gap-fills (§7). */
+  contextCorrected: string | null
   /** 1 = recognition … 4 = listening; the client may step down when an exercise can't run. */
   ladderStep: number
   /** FSRS state: 0 = New. */
@@ -258,4 +260,32 @@ export interface StudentListProgress extends VocabListProgress {
   teacherEmail: string
   assignedAt: string
   completedAt: string | null
+}
+
+// --- Tutor Bot words and "My words" (Phase 4, design §5.2) ------------------------------
+
+/** One word the Tutor Bot session added to the deck (POST /api/tutor?action=end). */
+export interface AddedTutorWord {
+  cardId: string
+  term: string
+  meaningHu: string | null
+  reason: 'switched' | 'asked' | 'lacked'
+}
+
+/** Where a card is on its way to "learned", for the My words list. */
+export type CardStage = 'new' | 'learning' | 'learned'
+
+/** One entry of GET /api/vocab?action=cards. */
+export interface MyWord {
+  cardId: string
+  term: string
+  meaningHu: string | null
+  exampleEn: string | null
+  origin: VocabOrigin
+  stage: CardStage
+  suspended: boolean
+  contextOriginal: string | null
+  contextCorrected: string | null
+  due: string
+  createdAt: string
 }

@@ -1,7 +1,24 @@
-import type { ChatMessage, FeedbackResult, GrammarLesson, GrammarWidget, LessonLanguage } from '../../src/lib/types.js'
+import type {
+  ChatMessage,
+  FeedbackResult,
+  GrammarLesson,
+  GrammarWidget,
+  LessonLanguage,
+  VocabularyNote,
+  VocabularyReason,
+} from '../../src/lib/types.js'
 import { MISTAKE_CATEGORIES, type CefrLevel } from './prompts.js'
 import { recordGroqRateLimits } from './groqRateLimit.js'
-import { normalizeTerm, termKind, VOCAB_POS, type VocabKind, type VocabPos } from '../../src/lib/vocab.js'
+import {
+  ITEM_FIELD_MAX_LENGTH,
+  MAX_TUTOR_ITEMS_PER_SESSION,
+  TERM_MAX_LENGTH,
+  normalizeTerm,
+  termKind,
+  VOCAB_POS,
+  type VocabKind,
+  type VocabPos,
+} from '../../src/lib/vocab.js'
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
@@ -82,10 +99,47 @@ export function parseFeedbackJson(raw: string): FeedbackResult {
       note: typeof c?.note === 'string' ? c.note : '',
       category: typeof c?.category === 'string' && MISTAKE_CATEGORY_SET.has(c.category) ? c.category : 'other',
     })),
-    vocabularyNoted: Array.isArray(parsed.vocabularyNoted)
-      ? parsed.vocabularyNoted.filter((w: unknown): w is string => typeof w === 'string')
-      : [],
+    vocabulary: parseVocabularyNotes(parsed.vocabulary),
   }
+}
+
+const VOCABULARY_REASONS = new Set<string>(['switched', 'asked', 'lacked'])
+/** Defensive cap: the prompt asks for at most MAX_TUTOR_ITEMS_PER_SESSION. */
+const MAX_VOCABULARY_NOTES = MAX_TUTOR_ITEMS_PER_SESSION * 2
+
+function optionalLine(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const s = v.trim().replace(/\s+/g, ' ')
+  return s && s.length <= ITEM_FIELD_MAX_LENGTH ? s : null
+}
+
+/**
+ * Validates the feedback's "vocabulary" list: drops entries without a usable term,
+ * dedupes on the normalized term, derives `kind` from the term rather than trusting the
+ * model, and defaults an unknown reason to "lacked".
+ */
+export function parseVocabularyNotes(raw: unknown): VocabularyNote[] {
+  if (!Array.isArray(raw)) return []
+  const seen = new Set<string>()
+  const notes: VocabularyNote[] = []
+  for (const entry of raw) {
+    if (typeof entry !== 'object' || entry === null) continue
+    const e = entry as Record<string, unknown>
+    if (typeof e.term !== 'string') continue
+    const term = e.term.trim().replace(/\s+/g, ' ')
+    const norm = normalizeTerm(term)
+    if (!norm || term.length > TERM_MAX_LENGTH || seen.has(norm)) continue
+    seen.add(norm)
+    notes.push({
+      term,
+      kind: termKind(norm),
+      learnerSaid: optionalLine(e.learnerSaid),
+      betterVersion: optionalLine(e.betterVersion),
+      reason: (typeof e.reason === 'string' && VOCABULARY_REASONS.has(e.reason) ? e.reason : 'lacked') as VocabularyReason,
+    })
+    if (notes.length >= MAX_VOCABULARY_NOTES) break
+  }
+  return notes
 }
 
 export interface PersonalizationUpdateResult {

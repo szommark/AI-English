@@ -1,5 +1,6 @@
 import type { ChatMessage, LessonLanguage } from '../../src/lib/types.js'
 import type { GrammarItem } from '../../src/data/grammarCurriculum.js'
+import { MAX_TUTOR_ITEMS_PER_SESSION } from '../../src/lib/vocab.js'
 
 export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
 
@@ -81,6 +82,16 @@ export interface PromptWithMessages {
 }
 
 /**
+ * The "vocabulary" part of both feedback prompts (docs/vocabulary-builder-design.md §5.2):
+ * only words the learner didn't have — never ones they already used correctly.
+ */
+const VOCABULARY_INSTRUCTIONS = `For "vocabulary", list 0-${MAX_TUTOR_ITEMS_PER_SESSION} English words or short phrases the learner should study, and ONLY ones they did not have:
+- "switched": they used a Hungarian word in an English sentence; "term" is the English equivalent.
+- "asked": they asked how to say something; "term" is the answer.
+- "lacked": they reached for a word or phrase and got it wrong or had to talk around it; "term" is what they needed.
+Never include words the learner already used correctly. "term" is the English dictionary form ("book a table", not "booked a table"); "kind" is "word" or "phrase"; "learnerSaid" is the learner's own line, quoted briefly; "betterVersion" is that line said naturally with the term in it. An empty list is fine.`
+
+/**
  * Pure prompt builder — no network call — so the same prompt can be sent to whichever
  * provider the learner picked for Rehearsal/Test Mode (see api/_lib/modelRouter.ts).
  */
@@ -90,8 +101,8 @@ export function buildFeedbackPrompt(scenarioTitle: string, aiRole: string, trans
     .join('\n')
 
   const systemPrompt = `You are an English teacher reviewing a Hungarian learner's roleplay practice for the scenario "${scenarioTitle}". Review the transcript below and respond with ONLY valid JSON (no markdown, no code fences) matching exactly this shape:
-{"strengths": ["...", "..."], "corrections": [{"original": "...", "corrected": "...", "note": "...", "category": "prepositions"}], "vocabularyNoted": ["word1", "word2"]}
-Give 2-3 strengths and 2-3 corrections. Each correction must reference an actual line the learner said, with a corrected version and a short note explaining the fix (grammar, vocabulary, or phrasing), and a "category" set to exactly one of: ${MISTAKE_CATEGORIES.join(', ')}. For "vocabularyNoted", list 0-5 individual English words or short phrases the learner used that were either new/notable for their level or that they visibly struggled with — just the words themselves, no extra structure. Be encouraging but specific.`
+{"strengths": ["...", "..."], "corrections": [{"original": "...", "corrected": "...", "note": "...", "category": "prepositions"}], "vocabulary": [{"term": "book a table", "kind": "phrase", "learnerSaid": "...", "betterVersion": "...", "reason": "lacked"}]}
+Give 2-3 strengths and 2-3 corrections. Each correction must reference an actual line the learner said, with a corrected version and a short note explaining the fix (grammar, vocabulary, or phrasing), and a "category" set to exactly one of: ${MISTAKE_CATEGORIES.join(', ')}. ${VOCABULARY_INSTRUCTIONS} Be encouraging but specific.`
 
   return { systemPrompt, messages: [{ role: 'user', content: transcriptText }] }
 }
@@ -106,8 +117,8 @@ export function buildTutorFeedbackPrompt(transcript: ChatMessage[]): PromptWithM
     .join('\n')
 
   const systemPrompt = `You are an English teacher reviewing a Hungarian learner's free-form conversation practice with an AI tutor. Review the transcript below and respond with ONLY valid JSON (no markdown, no code fences) matching exactly this shape:
-{"strengths": ["...", "..."], "corrections": [{"original": "...", "corrected": "...", "note": "...", "category": "prepositions"}], "vocabularyNoted": ["word1", "word2"]}
-Give 2-3 strengths and 2-3 corrections. Each correction must reference an actual line the learner said, with a corrected version and a short note explaining the fix (grammar, vocabulary, or phrasing), and a "category" set to exactly one of: ${MISTAKE_CATEGORIES.join(', ')}. For "vocabularyNoted", list 0-5 individual English words or short phrases the learner used that were either new/notable for their level or that they visibly struggled with — just the words themselves, no extra structure. Be encouraging but specific.`
+{"strengths": ["...", "..."], "corrections": [{"original": "...", "corrected": "...", "note": "...", "category": "prepositions"}], "vocabulary": [{"term": "book a table", "kind": "phrase", "learnerSaid": "...", "betterVersion": "...", "reason": "lacked"}]}
+Give 2-3 strengths and 2-3 corrections. Each correction must reference an actual line the learner said, with a corrected version and a short note explaining the fix (grammar, vocabulary, or phrasing), and a "category" set to exactly one of: ${MISTAKE_CATEGORIES.join(', ')}. ${VOCABULARY_INSTRUCTIONS} Be encouraging but specific.`
 
   return { systemPrompt, messages: [{ role: 'user', content: transcriptText }] }
 }

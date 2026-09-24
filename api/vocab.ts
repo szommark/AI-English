@@ -19,7 +19,9 @@ import {
   PRACTICE_EXERCISES,
   normalizeTerm,
   type PracticeExercise,
+  type MyWord,
   type StudentListProgress,
+  type VocabOrigin,
   type VocabAssignResult,
   type VocabCardCounts,
   type VocabList,
@@ -51,7 +53,12 @@ import {
 //   GET    session                      the cards for one practice session
 //   POST   review                       { cardId, exercise, correct, usedHint, responseMs }
 //   GET    my-lists                     teacher lists assigned to the caller, with progress
-// Planned: cards, remove (Phase 4).
+// Phase 4 (own cards only):
+//   GET    cards                        every card in the caller's deck ("My words")
+//   POST   remove                       { cardId } — deletes a Tutor Bot / catalog card
+//   POST   suspend                      { cardId, suspended } — teacher-origin cards are
+//                                        suspended instead of removed, so list progress
+//                                        stays honest (design §5.2)
 
 const CEFR_SET = new Set<string>(CEFR_LEVELS)
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -653,6 +660,98 @@ async function handleMyLists(req: VercelRequest, res: VercelResponse, userId: st
   res.status(200).json({ lists })
 }
 
+// --- My words (Phase 4) --------------------------------------------------------------------
+
+interface MyWordRow {
+  id: string
+  origin: VocabOrigin
+  state: number
+  first_learned_at: string | null
+  suspended: boolean
+  context_original: string | null
+  context_corrected: string | null
+  due: string
+  created_at: string
+  vocab_items: { term: string; meaning_hu: string | null; example_en: string | null } | null
+}
+
+async function handleCards(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'GET') throw new HttpError(405, { error: 'Method not allowed' })
+
+  const rows = await fetchAllPages<MyWordRow>((from, to) =>
+    supabaseAdmin
+      .from('vocab_cards')
+      .select(
+        'id, origin, state, first_learned_at, suspended, context_original, context_corrected, due, created_at, vocab_items(term, meaning_hu, example_en)',
+      )
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, to) as unknown as PromiseLike<{ data: MyWordRow[] | null; error: unknown }>,
+  )
+
+  const cards: MyWord[] = rows
+    .filter((r) => r.vocab_items)
+    .map((r) => ({
+      cardId: r.id,
+      term: r.vocab_items!.term,
+      meaningHu: r.vocab_items!.meaning_hu,
+      exampleEn: r.vocab_items!.example_en,
+      origin: r.origin,
+      stage: r.first_learned_at ? 'learned' : r.state === 0 ? 'new' : 'learning',
+      suspended: r.suspended,
+      contextOriginal: r.context_original,
+      contextCorrected: r.context_corrected,
+      due: r.due,
+      createdAt: r.created_at,
+    }))
+  res.status(200).json({ cards })
+}
+
+function cardIdFrom(body: Record<string, unknown>): string {
+  if (typeof body.cardId !== 'string' || !UUID_RE.test(body.cardId)) throw notFound()
+  return body.cardId
+}
+
+async function handleRemove(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const cardId = cardIdFrom((req.body ?? {}) as Record<string, unknown>)
+
+  const { data: card, error } = await supabaseAdmin
+    .from('vocab_cards')
+    .select('id, origin')
+    .eq('id', cardId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) throw error
+  if (!card) throw notFound()
+  if (card.origin === 'teacher') {
+    throw new HttpError(400, { error: 'Words from a teacher list can be suspended, not removed' })
+  }
+
+  // Hard delete; its vocab_reviews rows cascade.
+  const { error: deleteError } = await supabaseAdmin.from('vocab_cards').delete().eq('id', cardId).eq('user_id', userId)
+  if (deleteError) throw deleteError
+  res.status(200).json({ ok: true })
+}
+
+async function handleSuspend(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const body = (req.body ?? {}) as Record<string, unknown>
+  const cardId = cardIdFrom(body)
+  if (typeof body.suspended !== 'boolean') throw new HttpError(400, { error: 'suspended must be a boolean' })
+
+  const { data, error } = await supabaseAdmin
+    .from('vocab_cards')
+    .update({ suspended: body.suspended, updated_at: new Date().toISOString() })
+    .eq('id', cardId)
+    .eq('user_id', userId)
+    .select('id')
+  if (error) throw error
+  if (!data || data.length === 0) throw notFound()
+  res.status(200).json({ suspended: body.suspended })
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await getUserFromRequest(req)
   if (!user) {
@@ -688,6 +787,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'my-lists':
         await handleMyLists(req, res, user.id)
+        return
+      case 'cards':
+        await handleCards(req, res, user.id)
+        return
+      case 'remove':
+        await handleRemove(req, res, user.id)
+        return
+      case 'suspend':
+        await handleSuspend(req, res, user.id)
         return
       default:
         res.status(404).json({ error: 'Not found' })

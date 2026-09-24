@@ -1,7 +1,10 @@
 import { supabaseAdmin } from './supabaseAdmin.js'
 import { applyReview, ratingFromResult, type VocabCardScheduleRow } from './vocabScheduler.js'
 import { computeListProgress, isComplete, loadListTerms, loadProgressCards, recordCompletions } from './vocabListProgress.js'
+import { enrichTerms } from './vocabEnrichment.js'
+import type { CefrLevel } from './prompts.js'
 import {
+  ENRICH_BATCH_SIZE,
   MAX_REVIEWS_PER_SESSION,
   NEW_CARDS_PER_DAY,
   RECOGNITION_DISTRACTORS,
@@ -11,6 +14,7 @@ import {
   type ReviewResult,
   type VocabKind,
   type VocabOverview,
+  type VocabPos,
 } from '../../src/lib/vocab.js'
 
 // Student practice (design §6–§7): which cards a session contains, and scheduling a
@@ -26,10 +30,13 @@ const STATE_NEW = 0
 interface ItemContent {
   term: string
   kind: VocabKind
+  pos: VocabPos | null
   meaning_hu: string | null
   definition_en: string | null
   example_en: string | null
   cefr_level: string | null
+  enrichment_status: string
+  owner_teacher_id: string | null
 }
 
 interface SessionCardRow {
@@ -38,11 +45,13 @@ interface SessionCardRow {
   origin: string
   state: number
   ladder_step: number
+  context_corrected: string | null
   vocab_items: ItemContent | null
 }
 
 const SESSION_CARD_COLUMNS =
-  'id, term_normalized, origin, state, ladder_step, vocab_items(term, kind, meaning_hu, definition_en, example_en, cefr_level)'
+  'id, term_normalized, origin, state, ladder_step, context_corrected, ' +
+  'vocab_items(term, kind, pos, meaning_hu, definition_en, example_en, cefr_level, enrichment_status, owner_teacher_id)'
 
 /** "New cards per day" counts from UTC midnight — the same day boundary as the usage meters. */
 export function utcDayStart(now: Date): Date {
@@ -129,9 +138,45 @@ function toPracticeCard(row: SessionCardRow, pool: string[]): PracticeCard | nul
     meaningHu: item.meaning_hu,
     definitionEn: item.definition_en,
     exampleEn: item.example_en,
+    contextCorrected: row.context_corrected,
     ladderStep: row.ladder_step,
     state: row.state,
     distractors: row.ladder_step === 1 ? pickDistractors(item.meaning_hu, pool, RECOGNITION_DISTRACTORS) : [],
+  }
+}
+
+/**
+ * Tutor Bot words whose enrichment failed (or legacy words migrated from
+ * vocabulary_mastery) sit on a global item still 'pending'. Enrich this session's
+ * pending items — one batch at most, so starting a session stays quick — and patch the
+ * rows in place. enrichTerms writes the result into the same global row, so this happens
+ * once per term, not once per student. Failures leave the rows as they are: the exercise
+ * choice copes with a missing meaning, and the next session retries.
+ */
+async function fillPendingItems(userId: string, rows: SessionCardRow[]): Promise<void> {
+  const pending = rows.filter((r) => r.vocab_items && r.vocab_items.enrichment_status !== 'done' && !r.vocab_items.owner_teacher_id)
+  const terms = [...new Set(pending.map((r) => r.vocab_items!.term))].slice(0, ENRICH_BATCH_SIZE)
+  if (terms.length === 0) return
+
+  const { data: profile } = await supabaseAdmin.from('learner_profiles').select('cefr_level').eq('user_id', userId).maybeSingle()
+  const results = await enrichTerms(terms, {
+    userId,
+    origin: 'tutor',
+    cefrHint: (profile?.cefr_level as CefrLevel | null) ?? undefined,
+  })
+  const byTerm = new Map(results.filter((r) => r.status === 'done').map((r) => [r.termNormalized, r]))
+  for (const row of pending) {
+    const r = byTerm.get(row.term_normalized)
+    if (!r || !row.vocab_items) continue
+    row.vocab_items = {
+      ...row.vocab_items,
+      pos: r.pos,
+      cefr_level: r.cefrLevel,
+      meaning_hu: r.meaningHu,
+      definition_en: r.definitionEn,
+      example_en: r.exampleEn,
+      enrichment_status: 'done',
+    }
   }
 }
 
@@ -174,6 +219,7 @@ export async function buildSession(userId: string, now = new Date()): Promise<Pr
   }
 
   const rows = [...((due ?? []) as unknown as SessionCardRow[]), ...newCards]
+  await fillPendingItems(userId, rows)
   const pool = rows.some((r) => r.ladder_step === 1) ? await distractorPool(userId, rows) : []
   const cards = rows.map((r) => toPracticeCard(r, pool)).filter((c): c is PracticeCard => c !== null)
 

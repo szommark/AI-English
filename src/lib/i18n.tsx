@@ -383,9 +383,9 @@ const messages = {
   },
   vcNextDue: { hu: 'Következő ismétlés {when}.', en: 'Next review {when}.', de: 'Nächste Wiederholung {when}.' },
   vcNoCards: {
-    hu: 'Még nincsenek szavaid. Ha a tanárod kioszt neked egy szólistát, itt tudod gyakorolni.',
-    en: 'You have no words yet. When your teacher assigns you a word list, you can practise it here.',
-    de: 'Du hast noch keine Wörter. Sobald deine Lehrkraft dir eine Wortliste zuweist, kannst du sie hier üben.',
+    hu: 'Még nincsenek szavaid. A tanárodtól kapott szólisták és az Oktató bottal folytatott beszélgetéseid szavai itt jelennek meg.',
+    en: "You have no words yet. Words from your teacher's lists and your Tutor Bot conversations show up here.",
+    de: 'Du hast noch keine Wörter. Wörter aus den Listen deiner Lehrkraft und aus deinen Tutor-Bot-Gesprächen erscheinen hier.',
   },
   vcLoadFailed: {
     hu: 'Nem sikerült betölteni a szavaidat. Próbáld újra.',
@@ -445,6 +445,50 @@ const messages = {
     de: 'Deine Lehrkraft hat dir noch keine Wortlisten zugewiesen.',
   },
   vcFromTeacherBy: { hu: 'Tanár: {email}', en: 'From {email}', de: 'Von {email}' },
+
+  // Tutor Bot words and "My words" (Vocabulary Builder Phase 4)
+  vcTabMyWords: { hu: 'Szavaim', en: 'My words', de: 'Meine Wörter' },
+  vcFilterAll: { hu: 'Mind', en: 'All', de: 'Alle' },
+  vcFilterTeacher: { hu: 'Tanártól', en: 'From my teacher', de: 'Von der Lehrkraft' },
+  vcFilterTutor: { hu: 'Beszélgetésből', en: 'From conversations', de: 'Aus Gesprächen' },
+  vcFilterEmpty: { hu: 'Itt nincs szó.', en: 'No words here.', de: 'Hier gibt es keine Wörter.' },
+  vcStageNew: { hu: 'új', en: 'new', de: 'neu' },
+  vcStageLearning: { hu: 'tanulás alatt', en: 'learning', de: 'wird gelernt' },
+  vcStageLearned: { hu: 'megtanulva', en: 'learned', de: 'gelernt' },
+  vcPausedTag: { hu: 'szüneteltetve', en: 'paused', de: 'pausiert' },
+  vcRemoveWord: { hu: 'Eltávolítás', en: 'Remove', de: 'Entfernen' },
+  vcPauseWord: { hu: 'Szüneteltetés', en: 'Pause', de: 'Pausieren' },
+  vcResumeWord: { hu: 'Folytatás', en: 'Resume', de: 'Fortsetzen' },
+  vcConfirmRemove: {
+    hu: 'Eltávolítod ezt a szót: „{term}”? Az eddigi gyakorlásod is törlődik.',
+    en: 'Remove “{term}”? Your practice history for it is deleted too.',
+    de: '„{term}“ entfernen? Dein Übungsverlauf dazu wird ebenfalls gelöscht.',
+  },
+  vcPauseHint: {
+    hu: 'A tanártól kapott szavakat szüneteltetheted, de nem törölheted.',
+    en: 'Words from your teacher can be paused, not removed.',
+    de: 'Wörter von deiner Lehrkraft kannst du pausieren, aber nicht entfernen.',
+  },
+  vcMeaningPending: { hu: 'a jelentés hamarosan elkészül', en: 'meaning on its way', de: 'Bedeutung folgt' },
+  vcActionFailed: {
+    hu: 'Nem sikerült. Próbáld újra.',
+    en: "That didn't work. Please try again.",
+    de: 'Das hat nicht geklappt. Bitte versuche es erneut.',
+  },
+  vcYouSaid: { hu: 'Te:', en: 'You said:', de: 'Du:' },
+  vcBetter: { hu: 'Jobban:', en: 'Better:', de: 'Besser:' },
+  vcAddedTitle: { hu: 'Új szavak a Szótanulóban', en: 'Added to your words', de: 'Zu deinen Wörtern hinzugefügt' },
+  vcAddedHint: {
+    hu: 'Ezeket a beszélgetésből gyűjtöttük; a Szótanulóban gyakorolhatod őket.',
+    en: 'Picked from this conversation — practise them in Vocabulary.',
+    de: 'Aus diesem Gespräch gesammelt — übe sie im Vokabeltrainer.',
+  },
+  vcUndo: { hu: 'Visszavonás', en: 'Undo', de: 'Rückgängig' },
+  vcUndone: { hu: 'eltávolítva', en: 'removed', de: 'entfernt' },
+  vcOpenVocabulary: { hu: 'Szótanuló megnyitása →', en: 'Open Vocabulary →', de: 'Vokabeltrainer öffnen →' },
+  vcReasonSwitched: { hu: 'magyarul mondtad', en: 'you said it in Hungarian', de: 'du hast es auf Ungarisch gesagt' },
+  vcReasonAsked: { hu: 'rákérdeztél', en: 'you asked for it', de: 'du hast danach gefragt' },
+  vcReasonLacked: { hu: 'nem jutott eszedbe', en: 'you were looking for it', de: 'es hat dir gefehlt' },
 } as const satisfies Record<string, Record<Lang, string>>
 
 export type MessageKey = keyof typeof messages
