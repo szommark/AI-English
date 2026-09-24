@@ -22,6 +22,8 @@
 | 3 | Hungarian meanings, definitions and examples are **Groq-generated**, cached globally | Teachers can edit in the upload preview; catalog items get a review pass by Mark before going live. |
 | 4 | **Teacher lists ship first** | Phase order in §9. |
 | 5 | Teacher lists have **completion tracking**, no due dates for now | `completed_at` on the assignment (§6). A `due_at` column can be added later without breaking anything. |
+| 6 | Vocabulary is its **own feature**, the **sixth landing tile**, route `/vocabulary` | Same pattern as Grammar Coach and Pronunciation: an entry in `src/data/features.ts`. The tile shows a "N due" badge when reviews are waiting. Accent: the app's teal (needs a new `FeatureAccent`). |
+| 7 | Name: **Vocabulary** in English, **Szótanuló** in Hungarian | Tile title and page heading, through the existing i18n. |
 
 ## 3. Core model: one deck, three sources
 
@@ -70,7 +72,7 @@ When a card already exists and a new source brings the same term:
 On the teacher dashboard, a new **Word lists** section:
 
 1. **Create list** — title, optional description and CEFR level.
-2. **Add terms** — paste (one per line, optional `term ; Hungarian meaning ; example` columns) or upload CSV/XLSX, parsed in the browser. Max `LIST_MAX_ITEMS` per list.
+2. **Add terms** — three ways, all feeding the same preview table: paste (one per line, optional `term ; Hungarian meaning ; example` columns), upload CSV/XLSX (parsed in the browser), or an **"Add word" button** that adds a single term (with optional meaning and example) to the list. "Add word" also works on a saved list, where it follows the "editing a list after assignment" rule below. Max `LIST_MAX_ITEMS` per list.
 3. **Preview & edit** — blanks are enriched server-side; the teacher sees a table (term, meaning, example, level) and can edit any cell or delete a row before saving. Failed enrichments are highlighted for manual entry.
 4. **Assign** — to selected connected students, or "all current students" (a convenience that creates one assignment row per active link at that moment; students who connect later are not auto-assigned).
 5. On assignment, a card (`origin = 'teacher'`, FSRS `New`, due now) is created or upgraded for each term, per student.
