@@ -40,7 +40,7 @@ export async function getLearnerProfile(userId: string, userEmail: string | unde
  * Upserts one mistake_log row: bumps occurrences if the same category was already
  * logged in the last 30 days, otherwise inserts a fresh row. Shared by grammar/vocab
  * corrections (upsertMistakes below) and the Pronunciation Chart's production-stage
- * write-back (api/pronunciation-progress.ts) — same pattern, different callers.
+ * write-back (api/pronunciation.ts, ?action=progress) — same pattern, different callers.
  */
 export async function upsertMistakeEntry(
   userId: string,
@@ -163,7 +163,7 @@ async function maybeUpdateSummaryAndCefr(userId: string, modelId: ModelId) {
 }
 
 // Call this after any successful feedback call — from both api/chat.ts's existing
-// end-of-session branch and api/tutor-end.ts. A failure anywhere in here must never
+// end-of-session branch and api/tutor.ts's end action. A failure anywhere in here must never
 // surface to the learner as a broken response — callers should await this after
 // they've already computed the feedback they're about to return, so it can't delay
 // or break that response even if every write inside fails.

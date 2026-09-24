@@ -27,7 +27,7 @@ phrasing corrections with original vs. corrected lines.
 
 ```
 src/            React app (pages, components, hooks, Supabase client, scenario data)
-api/            Vercel serverless functions (Groq calls, cap check) — server-only
+api/            Vercel serverless functions (Groq/Gemini calls, Azure tokens) — server-only
 api/_lib/       Shared server helpers (not deployed as routes — Vercel ignores `_`-prefixed files)
 supabase/       SQL migrations for this app's dedicated Supabase project
 ```
@@ -36,7 +36,7 @@ supabase/       SQL migrations for this app's dedicated Supabase project
 
 1. `npm install`
 2. Copy `.env.example` to `.env` and fill in the values (see below).
-3. To exercise the full app, including `/api` (Groq calls, cap check), run two processes:
+3. To exercise the full app, including `/api` (Groq/Gemini calls, Azure tokens), run two processes:
    - `npx vercel dev` — serves the serverless functions on `http://localhost:3000`
      (first run will prompt you to link the local folder to a Vercel project)
    - `npm run dev` — the Vite dev server on `http://localhost:5173`, which proxies
@@ -66,7 +66,8 @@ supabase/       SQL migrations for this app's dedicated Supabase project
 - `daily_session_counts` / `increment_daily_session_count(user_id, max)` — the daily
   session cap's storage and enforcement function. **Unused as of the cap removal below**
   (kept in place so the cap can be reinstated by calling the RPC again — see git history
-  for `api/chat.ts` and `api/cap-status.ts`).
+  for `api/chat.ts` and the former `api/cap-status.ts`, removed in the API function
+  consolidation).
 - `groq_usage_log` — token usage (prompt/completion/total) for every Groq/Gemini call,
   tagged by call type (`chat`, `feedback`, or `tutor_chat`), so real consumption can be
   checked against estimates.
@@ -81,9 +82,10 @@ supabase db push
 ## Cost controls (Groq/Gemini free tiers)
 
 - The daily session cap is **removed for now** while the user base is small (a handful
-  of users) — `api/chat.ts` and `api/cap-status.ts` no longer enforce it. See git
-  history for those files to reinstate it.
-- Tutor Bot (`api/tutor-chat.ts`) has one soft anti-runaway guard instead of a cap: past
+  of users) — `api/chat.ts` no longer enforces it, and the no-op `api/cap-status.ts`
+  endpoint was removed in the API function consolidation. See git history for those
+  files (`git log -p -- api/chat.ts api/cap-status.ts`) to reinstate it.
+- Tutor Bot (`api/tutor.ts`, `?action=chat`) has one soft anti-runaway guard instead of a cap: past
   `turnIndex` 40 it returns a wrap-up reply instead of calling Gemini again — a safety
   net against a stuck client, not a business rule.
 - Every Groq/Gemini call retries on rate-limit/overload responses with exponential

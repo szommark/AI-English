@@ -14,7 +14,7 @@ import LiveCaptions from './TutorBot/LiveCaptions'
 import BottomBar from './TutorBot/BottomBar'
 
 // Cheap client-side "have they used Tutor Bot before" signal for isFirstSession —
-// no per-learner backend profile is wired up yet (see api/tutor-chat.ts).
+// no per-learner backend profile is wired up yet (see api/tutor.ts).
 const VISITED_KEY = 'tutorBot:hasStarted'
 
 const REPROMPT_LINES = [

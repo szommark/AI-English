@@ -67,12 +67,6 @@ export interface ChatTurnResponse {
   feedback?: FeedbackResult
 }
 
-export interface CapStatus {
-  allowed: boolean
-  remaining: number
-  resetAt: string
-}
-
 export interface PronunciationScores {
   accuracy: number
   fluency: number

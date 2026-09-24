@@ -1,13 +1,18 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getUserFromRequest } from './_lib/supabaseAdmin.js'
+import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
+import { parseFeedbackJson } from './_lib/groq.js'
 import { callModel } from './_lib/modelRouter.js'
 import { logModelUsage } from './_lib/usageLog.js'
 import { getModelForFeature } from './_lib/modelSettings.js'
 import { getUserRole } from './_lib/roles.js'
 import { getPersonaForRole, applyPersonaTokens } from './_lib/personas.js'
-import { buildTutorSystemPrompt } from './_lib/prompts.js'
-import { getLearnerProfile } from './_lib/personalization.js'
-import type { ChatMessage } from '../src/lib/types.js'
+import { buildTutorSystemPrompt, buildTutorFeedbackPrompt } from './_lib/prompts.js'
+import { getLearnerProfile, recordFeedbackToPersonalization } from './_lib/personalization.js'
+import type { ChatMessage, FeedbackResult } from '../src/lib/types.js'
+
+// Single Vercel function for the whole /api/tutor surface (conversation turn,
+// end-of-session feedback), multiplexed by ?action= to stay under Vercel Hobby's
+// 12-serverless-function cap — do not add new files directly under api/.
 
 const HISTORY_WINDOW = 4
 
@@ -47,21 +52,15 @@ async function buildSystemPrompt(
   return buildTutorSystemPrompt({ ...profile, openingGuidance, personaBlock: resolvedPersonaBlock })
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function handleChat(req: VercelRequest, res: VercelResponse, userId: string, userEmail: string | undefined) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return
   }
 
-  const user = await getUserFromRequest(req)
-  if (!user) {
-    res.status(401).json({ error: 'Unauthorized' })
-    return
-  }
-
   const body = req.body as TutorChatRequestBody
 
-  const role = await getUserRole(user.id)
+  const role = await getUserRole(userId)
   const persona = await getPersonaForRole(body.personaId, role)
   if (!persona) {
     res.status(400).json({ error: 'Unknown persona' })
@@ -78,7 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // history yet) needs a synthetic kickoff turn to prompt the opening line. Harmless
   // to include for Groq too, which has no such restriction.
   const historyForModel = recentHistory.length > 0 ? recentHistory : [KICKOFF_MESSAGE]
-  const systemPrompt = await buildSystemPrompt(user.id, user.email, Boolean(body.isFirstSession), persona.promptText)
+  const systemPrompt = await buildSystemPrompt(userId, userEmail, Boolean(body.isFirstSession), persona.promptText)
   const modelId = await getModelForFeature('tutorBot')
 
   let chatResult
@@ -90,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   await logModelUsage({
-    userId: user.id,
+    userId,
     scenarioId: 'tutor-bot',
     callType: 'tutor_chat',
     modelId,
@@ -98,4 +97,74 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   })
 
   res.status(200).json({ reply: chatResult.content, turnIndex: body.turnIndex, ended: false })
+}
+
+interface TutorEndRequestBody {
+  fullTranscript: ChatMessage[]
+}
+
+async function handleEnd(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+
+  const body = req.body as TutorEndRequestBody
+  const modelId = await getModelForFeature('tutorBot')
+  const fullTranscript = Array.isArray(body.fullTranscript) ? body.fullTranscript : []
+
+  let feedback: FeedbackResult
+  try {
+    const { systemPrompt, messages } = buildTutorFeedbackPrompt(fullTranscript)
+    const feedbackResult = await callModel(modelId, systemPrompt, messages)
+    feedback = parseFeedbackJson(feedbackResult.content)
+
+    await logModelUsage({
+      userId,
+      scenarioId: 'tutor-bot',
+      callType: 'feedback',
+      modelId,
+      usage: feedbackResult.usage,
+    })
+  } catch {
+    feedback = { strengths: [], corrections: [] }
+  }
+
+  try {
+    const { error } = await supabaseAdmin.from('sessions').insert({
+      user_id: userId,
+      scenario_id: null,
+      mode: 'tutor',
+      transcript: fullTranscript,
+      feedback,
+    })
+    if (error) throw error
+  } catch (err) {
+    console.error('Failed to save tutor session', err)
+  }
+
+  await recordFeedbackToPersonalization(userId, feedback, modelId)
+
+  res.status(200).json({ feedback })
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const user = await getUserFromRequest(req)
+  if (!user) {
+    res.status(401).json({ error: 'Unauthorized' })
+    return
+  }
+
+  const action = req.query.action
+
+  switch (action) {
+    case 'chat':
+      await handleChat(req, res, user.id, user.email)
+      return
+    case 'end':
+      await handleEnd(req, res, user.id)
+      return
+    default:
+      res.status(404).json({ error: 'Not found' })
+  }
 }

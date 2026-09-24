@@ -17,7 +17,7 @@ async function authHeader(): Promise<Record<string, string>> {
 /** Fails soft (empty list) — a progress-fetch failure shouldn't block browsing the curriculum. */
 export async function fetchPronunciationProgress(): Promise<PronunciationProgressEntry[]> {
   const headers = await authHeader()
-  const res = await fetch('/api/pronunciation-progress', { headers })
+  const res = await fetch('/api/pronunciation?action=progress', { headers })
   if (!res.ok) return []
   const body = await res.json()
   return body.progress ?? []
@@ -28,7 +28,7 @@ export async function recordPronunciationAttempt(
   scores: { perceptionScore?: number; productionScore?: number; flaggedWords?: string[] },
 ): Promise<void> {
   const headers = await authHeader()
-  const res = await fetch('/api/pronunciation-progress', {
+  const res = await fetch('/api/pronunciation?action=progress', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify({ soundItemId, ...scores }),
