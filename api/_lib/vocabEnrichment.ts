@@ -111,9 +111,10 @@ async function writeToCache(entries: VocabEnrichmentEntry[], modelId: ModelId, o
   if (error) console.error('Failed to write vocab enrichment cache', error)
 }
 
+/** `origin` is stored on new global cache rows; 'catalog' is reserved for reviewed catalog items (design decision 9). */
 export async function enrichTerms(
   terms: string[],
-  opts: { userId: string; cefrHint?: CefrLevel; origin?: VocabOrigin },
+  opts: { userId: string; origin: VocabOrigin; cefrHint?: CefrLevel },
 ): Promise<EnrichResult[]> {
   const unique = uniqueTerms(terms)
   const cached = await loadCachedItems(unique.map((t) => t.termNormalized))
@@ -125,7 +126,7 @@ export async function enrichTerms(
     // Sequential on purpose: Groq's per-minute token limit is the binding constraint.
     for (let i = 0; i < misses.length; i += ENRICH_BATCH_SIZE) {
       const entries = await enrichBatch(misses.slice(i, i + ENRICH_BATCH_SIZE), modelId, opts.userId, opts.cefrHint)
-      await writeToCache([...entries.values()], modelId, opts.origin ?? 'catalog')
+      await writeToCache([...entries.values()], modelId, opts.origin)
       for (const [key, entry] of entries) enriched.set(key, entry)
     }
   }

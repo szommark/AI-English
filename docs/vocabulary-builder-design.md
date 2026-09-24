@@ -24,6 +24,10 @@
 | 5 | Teacher lists have **completion tracking**, no due dates for now | `completed_at` on the assignment (§6). A `due_at` column can be added later without breaking anything. |
 | 6 | Vocabulary is its **own feature**, the **sixth landing tile**, route `/vocabulary` | Same pattern as Grammar Coach and Pronunciation: an entry in `src/data/features.ts`. The tile shows a "N due" badge when reviews are waiting. Accent: the app's teal (needs a new `FeatureAccent`). |
 | 7 | Name: **Vocabulary** in English, **Szótanuló** in Hungarian | Tile title and page heading, through the existing i18n. |
+| 8 | Every teacher list item **must have a Hungarian meaning** before the list can be saved | Recognition (step 1, §7) needs one. The editor highlights rows still missing a meaning after enrichment and blocks Save; the API returns 400 naming those terms. |
+| 9 | Global cache rows created from teacher uploads get **`origin = 'teacher'`**, not `'catalog'` | `origin = 'catalog'` on a global row means the item passed Mark's review (§5.3). Teacher-sourced cache rows stay distinguishable as unreviewed, and Phase 5 only publishes reviewed ones. |
+| 10 | Teacher lists can be **archived, not deleted** (for now) | `archived_at` hides a list from the teacher's default view; assignments, cards and progress stay. Hard delete is deferred (§12). |
+| 11 | The teacher section is called **Szólisták / Word lists / Wortlisten** | All new UI strings go through `src/lib/i18n.tsx` in hu, en and de. |
 
 ## 3. Core model: one deck, three sources
 
@@ -52,7 +56,7 @@ Any missing field (Hungarian meaning, simple English definition, example sentenc
 1. Normalize terms (trim, lowercase, collapse whitespace, strip surrounding punctuation).
 2. Look up global items for each normalized term — reuse what exists (a teacher item with blanks copies from the global row).
 3. Send only the misses to Groq in batches (`ENRICH_BATCH_SIZE`), strict JSON out, validated like `parseFeedbackJson`. Unparseable/invalid entries are marked `enrichment_status = 'failed'` rather than guessed.
-4. Write successful results to the global cache as well, so every later use of that term is free.
+4. Write successful results to the global cache as well, so every later use of that term is free. The row's `origin` records where the term came from (decision 9): `'teacher'` for teacher uploads, `'tutor'` for Tutor Bot sessions, and `'catalog'` only for reviewed catalog items.
 5. Log each call to `groq_usage_log` with `call_type = 'vocab_enrich'`.
 
 **Model quality note.** Hungarian output from an 8B model is noticeably weaker than English output. Enrichment gets its own admin-selectable feature key (`vocabulary`) in `model_settings`, defaulting to the larger model the Grammar Coach already uses — not the Tutor Bot's chat model.
@@ -73,7 +77,7 @@ On the teacher dashboard, a new **Word lists** section:
 
 1. **Create list** — title, optional description and CEFR level.
 2. **Add terms** — three ways, all feeding the same preview table: paste (one per line, optional `term ; Hungarian meaning ; example` columns), upload CSV/XLSX (parsed in the browser), or an **"Add word" button** that adds a single term (with optional meaning and example) to the list. "Add word" also works on a saved list, where it follows the "editing a list after assignment" rule below. Max `LIST_MAX_ITEMS` per list.
-3. **Preview & edit** — blanks are enriched server-side; the teacher sees a table (term, meaning, example, level) and can edit any cell or delete a row before saving. Failed enrichments are highlighted for manual entry.
+3. **Preview & edit** — blanks are enriched server-side; the teacher sees a table (term, meaning, example, level) and can edit any cell or delete a row before saving. Failed enrichments are highlighted for manual entry, and Save stays blocked until every row has a Hungarian meaning (decision 8). The browser sends terms to `enrich` in chunks of `ENRICH_BATCH_SIZE`, one after another, and fills rows as each chunk returns: no single request runs long enough to risk the function time limit, and the teacher sees progress. CSV/XLSX parsing is loaded on demand with a dynamic `import()`, and must not use the unmaintained `xlsx` package from the npm registry (known advisories CVE-2023-30533 and CVE-2024-22363).
 4. **Assign** — to selected connected students, or "all current students" (a convenience that creates one assignment row per active link at that moment; students who connect later are not auto-assigned).
 5. On assignment, a card (`origin = 'teacher'`, FSRS `New`, due now) is created or upgraded for each term, per student.
 
@@ -207,3 +211,4 @@ One phase per fresh Claude Code session, PR per phase, migration run manually be
 - Multiple senses per global term (current: one default sense; teacher items and tutor context cover the common cases).
 - Azure pronunciation check on vocabulary items (would count against the existing daily Deep Check cap).
 - Teacher-visible review of tutor-added words.
+- Hard delete of teacher lists (decision 10), including what happens to assignments and to cards created from the list.
