@@ -204,7 +204,7 @@ function UploadForm({ onImport, onError }: { onImport: (rows: ImportedRow[]) => 
         <input
           ref={inputRef}
           type="file"
-          accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
           disabled={reading}
           onChange={(e) => handleFile(e.target.files?.[0])}
           className="sr-only"

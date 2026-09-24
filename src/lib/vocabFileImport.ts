@@ -1,9 +1,12 @@
 import { rowsFromTable, type ImportedRow } from './vocabImport'
 
-// Loaded on demand (dynamic import) by the word-list editor. XLSX reading uses
-// read-excel-file, itself imported dynamically so a CSV upload never downloads it.
-// Not the `xlsx` package from npm: that SheetJS release (0.18.5) is abandoned there and
-// has known advisories (CVE-2023-30533, CVE-2024-22363).
+// Loaded on demand (dynamic import) by the word-list editor. Each spreadsheet reader is
+// itself imported dynamically, so an upload only downloads the one it needs:
+//   .xlsx -> read-excel-file (small, maintained)
+//   .xls  -> SheetJS 0.20.3 (the legacy binary format needs a full parser), installed from
+//            SheetJS's own CDN tarball. Not the `xlsx` package on the npm registry: that
+//            release (0.18.5) is abandoned there and has known advisories (CVE-2023-30533,
+//            CVE-2024-22363), both fixed by 0.20.3.
 
 export class UnsupportedFileError extends Error {}
 
@@ -68,6 +71,16 @@ export async function parseVocabFile(file: File): Promise<ImportedRow[]> {
     const { readSheet } = await import('read-excel-file/browser')
     const sheet = await readSheet(file)
     return rowsFromTable(sheet.map((cells) => cells.map((c) => (c === null || c === undefined ? '' : String(c)))))
+  }
+
+  if (name.endsWith('.xls')) {
+    const { read, utils } = await import('xlsx')
+    const workbook = read(await file.arrayBuffer(), { type: 'array' })
+    const first = workbook.SheetNames[0]
+    if (!first) return []
+    // raw: false gives the cells' displayed text (dates and numbers as the teacher sees them).
+    const table = utils.sheet_to_json<unknown[]>(workbook.Sheets[first], { header: 1, raw: false, defval: '' })
+    return rowsFromTable(table.map((cells) => cells.map((c) => (c === null || c === undefined ? '' : String(c)))))
   }
 
   throw new UnsupportedFileError(file.name)
