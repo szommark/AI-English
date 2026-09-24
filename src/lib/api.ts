@@ -39,7 +39,7 @@ export interface DeepCheckLimitError extends Error {
 
 export async function requestDeepCheckToken(scenarioId: string): Promise<{ token: string; region: string }> {
   const headers = await authHeader()
-  const res = await fetch('/api/pronunciation-token', {
+  const res = await fetch('/api/pronunciation?action=token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify({ scenarioId }),
@@ -66,7 +66,7 @@ export async function logDeepCheck(params: {
   audioSeconds: number
 }): Promise<void> {
   const headers = await authHeader()
-  const res = await fetch('/api/pronunciation-log', {
+  const res = await fetch('/api/pronunciation?action=log', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(params),

@@ -40,7 +40,7 @@ export async function getLearnerProfile(userId: string, userEmail: string | unde
  * Upserts one mistake_log row: bumps occurrences if the same category was already
  * logged in the last 30 days, otherwise inserts a fresh row. Shared by grammar/vocab
  * corrections (upsertMistakes below) and the Pronunciation Chart's production-stage
- * write-back (api/pronunciation-progress.ts) — same pattern, different callers.
+ * write-back (api/pronunciation.ts, ?action=progress) — same pattern, different callers.
  */
 export async function upsertMistakeEntry(
   userId: string,
