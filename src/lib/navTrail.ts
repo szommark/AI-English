@@ -105,6 +105,8 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
   const teacher: Crumb = { label: t('teacherDashboard'), to: '/teacher' }
   if (at('/teacher')) return finish([teacher])
   if (at('/teacher/students/:studentId')) return finish([teacher, { label: t('crumbStudent') }])
+  if (at('/teacher/lists/new')) return finish([teacher, { label: t('vlCrumbNew') }])
+  if (at('/teacher/lists/:listId')) return finish([teacher, { label: t('vlCrumbList') }])
 
   const admin: Crumb = { label: t('admin'), to: '/admin' }
   if (at('/admin')) return finish([admin])

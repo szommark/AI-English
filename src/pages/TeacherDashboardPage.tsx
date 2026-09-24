@@ -3,6 +3,7 @@ import PageHeading from '../components/PageHeading'
 import { useLanguage } from '../lib/i18n'
 import { Link } from 'react-router-dom'
 import { fetchInviteCode, regenerateInviteCode, fetchTeacherRoster, type RosterEntry } from '../lib/teacherApi'
+import WordListsSection from '../components/VocabLists/WordListsSection'
 
 export default function TeacherDashboardPage() {
   const { t } = useLanguage()
@@ -85,6 +86,8 @@ export default function TeacherDashboardPage() {
                 </div>
               )}
             </div>
+
+            <WordListsSection />
           </>
         )}
     </div>
