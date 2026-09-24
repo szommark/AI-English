@@ -114,11 +114,14 @@ export async function loadListTerms(listIds: string[]): Promise<Map<string, stri
 
 /**
  * Sets completed_at (once) on the given assignments whose progress is complete.
- * Returns the student ids that were newly completed.
+ * Returns the newly completed student ids with their stored completed_at.
  */
-export async function recordCompletions(listId: string, progress: Map<string, VocabListProgress>): Promise<string[]> {
+export async function recordCompletions(
+  listId: string,
+  progress: Map<string, VocabListProgress>,
+): Promise<Map<string, string>> {
   const completed = [...progress].filter(([, p]) => isComplete(p)).map(([id]) => id)
-  if (completed.length === 0) return []
+  if (completed.length === 0) return new Map()
 
   const { data, error } = await supabaseAdmin
     .from('vocab_list_assignments')
@@ -126,9 +129,9 @@ export async function recordCompletions(listId: string, progress: Map<string, Vo
     .eq('list_id', listId)
     .in('student_id', completed)
     .is('completed_at', null)
-    .select('student_id')
+    .select('student_id, completed_at')
   if (error) throw error
-  return (data ?? []).map((r) => r.student_id as string)
+  return new Map((data ?? []).map((r) => [r.student_id as string, r.completed_at as string]))
 }
 
 /**

@@ -69,7 +69,7 @@ export default function TeacherDashboardPage() {
                     <Link
                       key={s.studentId}
                       to={`/teacher/students/${s.studentId}`}
-                      className="block rounded-lg border border-border bg-card px-4 py-3 hover:border-[var(--teal-accent)]/40"
+                      className="block rounded-lg border border-border bg-card px-4 py-3 hover:border-[var(--teal-accent-border)]"
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-foreground">{s.email}</span>

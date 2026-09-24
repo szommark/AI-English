@@ -1,5 +1,5 @@
 export type FeatureStatus = 'active' | 'coming-soon'
-export type FeatureAccent = 'indigo' | 'violet' | 'amber' | 'emerald' | 'rose'
+export type FeatureAccent = 'indigo' | 'violet' | 'amber' | 'emerald' | 'rose' | 'teal'
 
 export interface Feature {
   id: string
@@ -68,6 +68,17 @@ export const features: Feature[] = [
     accent: 'rose',
     status: 'active',
     route: '/pronunciation',
+  },
+  {
+    id: 'vocabulary',
+    title: 'Vocabulary',
+    titleHu: 'Szótanuló',
+    description: 'Short daily practice with the words and phrases your teacher gives you.',
+    descriptionHu: 'Rövid napi gyakorlás a tanárodtól kapott szavakkal és kifejezésekkel.',
+    icon: 'Languages',
+    accent: 'teal',
+    status: 'active',
+    route: '/vocabulary',
   },
 ]
 

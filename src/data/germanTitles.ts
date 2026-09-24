@@ -22,6 +22,10 @@ export const featureDe: Record<string, { title: string; description: string }> =
     title: 'Aussprache-Training',
     description: 'Eigenständiges Aussprachetraining mit detailliertem Genauigkeits-Feedback.',
   },
+  vocabulary: {
+    title: 'Vokabeltrainer',
+    description: 'Kurze tägliche Übungen mit den Wörtern und Ausdrücken von deiner Lehrkraft.',
+  },
 }
 
 export const categoryDe: Record<string, string> = {
