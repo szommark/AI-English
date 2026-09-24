@@ -6,14 +6,20 @@ import { CEFR_LEVELS, prepareListItems, prepareListMeta, type PreparedListItem }
 import {
   computeListProgress,
   fetchAllPages,
+  isComplete,
   loadListTerms,
   loadProgressCards,
+  recordCompletions,
   refreshListCompletion,
 } from './_lib/vocabListProgress.js'
+import { ReviewError, buildSession, loadOverview, recordReview } from './_lib/vocabPractice.js'
 import type { CefrLevel } from './_lib/prompts.js'
 import {
   LIST_MAX_ITEMS,
+  PRACTICE_EXERCISES,
   normalizeTerm,
+  type PracticeExercise,
+  type StudentListProgress,
   type VocabAssignResult,
   type VocabCardCounts,
   type VocabList,
@@ -40,7 +46,12 @@ import {
 //   GET    student-lists&studentId=     this teacher's lists assigned to one connected student
 // A list that doesn't exist and one that belongs to another teacher both return the same
 // 404, like handleStudentDetail in api/connect.ts.
-// Planned: session, review, cards, remove (student, Phase 3+).
+// Phase 3 (any signed-in user, on their own cards only):
+//   GET    overview                     due / new-today counts (also the landing tile badge)
+//   GET    session                      the cards for one practice session
+//   POST   review                       { cardId, exercise, correct, usedHint, responseMs }
+//   GET    my-lists                     teacher lists assigned to the caller, with progress
+// Planned: cards, remove (Phase 4).
 
 const CEFR_SET = new Set<string>(CEFR_LEVELS)
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -248,6 +259,11 @@ async function loadListDetail(list: ListRow): Promise<VocabListDetail> {
   const terms = items.map((i) => i.termNormalized)
   const [cards, emails] = await Promise.all([loadProgressCards(studentIds, terms), emailsFor(studentIds)])
   const progress = computeListProgress(terms, studentIds, cards)
+  // Catch up any completion a review failed to record (set once, never cleared).
+  const catchUp = new Map(
+    [...progress].filter(([id, p]) => isComplete(p) && !assignments.find((a) => a.student_id === id)?.completed_at),
+  )
+  const completedNow = catchUp.size > 0 ? await recordCompletions(list.id, catchUp) : new Map<string, string>()
 
   return {
     list: toList(list),
@@ -256,7 +272,7 @@ async function loadListDetail(list: ListRow): Promise<VocabListDetail> {
       studentId: a.student_id,
       email: emails.get(a.student_id) ?? 'unknown',
       assignedAt: a.assigned_at,
-      completedAt: a.completed_at,
+      completedAt: a.completed_at ?? completedNow.get(a.student_id) ?? null,
       connected: active.has(a.student_id),
       ...progress.get(a.student_id)!,
     })),
@@ -549,6 +565,94 @@ async function handleStudentLists(req: VercelRequest, res: VercelResponse, userI
   res.status(200).json({ lists })
 }
 
+// --- Student practice (Phase 3) ----------------------------------------------------------
+
+async function handleOverview(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'GET') throw new HttpError(405, { error: 'Method not allowed' })
+  res.status(200).json(await loadOverview(userId))
+}
+
+async function handleSession(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'GET') throw new HttpError(405, { error: 'Method not allowed' })
+  res.status(200).json(await buildSession(userId))
+}
+
+/** A generous upper bound; anything longer is an abandoned tab, not a response time. */
+const MAX_RESPONSE_MS = 10 * 60 * 1000
+
+async function handleReview(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const body = (req.body ?? {}) as Record<string, unknown>
+
+  if (typeof body.cardId !== 'string' || !UUID_RE.test(body.cardId)) throw notFound()
+  if (!(PRACTICE_EXERCISES as readonly unknown[]).includes(body.exercise)) {
+    throw new HttpError(400, { error: 'Invalid exercise' })
+  }
+  if (typeof body.correct !== 'boolean' || typeof body.usedHint !== 'boolean') {
+    throw new HttpError(400, { error: 'correct and usedHint must be booleans' })
+  }
+  const ms = body.responseMs
+  const responseMs = typeof ms === 'number' && Number.isFinite(ms) && ms >= 0 ? Math.min(Math.round(ms), MAX_RESPONSE_MS) : null
+
+  try {
+    const result = await recordReview(userId, {
+      cardId: body.cardId,
+      exercise: body.exercise as PracticeExercise,
+      correct: body.correct,
+      usedHint: body.usedHint,
+      responseMs,
+    })
+    res.status(200).json(result)
+  } catch (err) {
+    if (err instanceof ReviewError) throw new HttpError(err.status, { error: err.message })
+    throw err
+  }
+}
+
+async function handleMyLists(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'GET') throw new HttpError(405, { error: 'Method not allowed' })
+
+  const { data, error } = await supabaseAdmin
+    .from('vocab_list_assignments')
+    .select('list_id, assigned_at, completed_at, vocab_lists(id, teacher_id, title, description, cefr_level)')
+    .eq('student_id', userId)
+    .order('assigned_at', { ascending: false })
+  if (error) throw error
+  const rows = (data ?? []) as unknown as (AssignmentRow & {
+    vocab_lists: Pick<ListRow, 'id' | 'teacher_id' | 'title' | 'description' | 'cefr_level'> | null
+  })[]
+  const assignments = rows.filter((r) => r.vocab_lists)
+
+  const listIds = assignments.map((a) => a.list_id)
+  const [termsByList, emails] = await Promise.all([
+    loadListTerms(listIds),
+    emailsFor([...new Set(assignments.map((a) => a.vocab_lists!.teacher_id))]),
+  ])
+  const cards = await loadProgressCards([userId], [...termsByList.values()].flat())
+
+  const lists: StudentListProgress[] = []
+  for (const a of assignments) {
+    const l = a.vocab_lists!
+    const progress = computeListProgress(termsByList.get(a.list_id) ?? [], [userId], cards)
+    let completedAt = a.completed_at
+    // Catch up a completion a review failed to record (set once, never cleared).
+    if (!completedAt && isComplete(progress.get(userId)!)) {
+      completedAt = (await recordCompletions(a.list_id, progress)).get(userId) ?? null
+    }
+    lists.push({
+      listId: l.id,
+      title: l.title,
+      description: l.description,
+      cefrLevel: l.cefr_level,
+      teacherEmail: emails.get(l.teacher_id) ?? 'unknown',
+      assignedAt: a.assigned_at,
+      completedAt,
+      ...progress.get(userId)!,
+    })
+  }
+  res.status(200).json({ lists })
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await getUserFromRequest(req)
   if (!user) {
@@ -572,6 +676,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'student-lists':
         await handleStudentLists(req, res, user.id)
+        return
+      case 'overview':
+        await handleOverview(req, res, user.id)
+        return
+      case 'session':
+        await handleSession(req, res, user.id)
+        return
+      case 'review':
+        await handleReview(req, res, user.id)
+        return
+      case 'my-lists':
+        await handleMyLists(req, res, user.id)
         return
       default:
         res.status(404).json({ error: 'Not found' })

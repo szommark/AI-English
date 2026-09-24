@@ -1,16 +1,34 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { features, type Feature } from '../data/features'
 import FeatureTile from '../components/FeatureTile'
 import { useAuthPrompt } from '../components/AppLayout'
 import { useAuth } from '../lib/AuthContext'
 import { useLanguage } from '../lib/i18n'
+import { fetchVocabOverview } from '../lib/vocabPracticeApi'
 
 export default function LandingPage() {
   const { user } = useAuth()
   const { t } = useLanguage()
   const { promptSignIn } = useAuthPrompt()
   const location = useLocation() as { state?: { from?: string } }
+  /** Reviews due plus new words available today, for the Vocabulary tile's badge. */
+  const [vocabToPractise, setVocabToPractise] = useState(0)
+
+  useEffect(() => {
+    if (!user) {
+      setVocabToPractise(0)
+      return
+    }
+    let cancelled = false
+    fetchVocabOverview()
+      .then((o) => !cancelled && setVocabToPractise(o.dueCount + o.newAvailable))
+      // A badge is a nicety; the tile works without it.
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   // A protected route bounced an unauthenticated visitor here — ask them to sign in, then send them back.
   useEffect(() => {
@@ -39,7 +57,12 @@ export default function LandingPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
         {features.map((f) => (
-          <FeatureTile key={f.id} feature={f} onClick={handleTileClickFor(f)} />
+          <FeatureTile
+            key={f.id}
+            feature={f}
+            onClick={handleTileClickFor(f)}
+            badge={f.id === 'vocabulary' && vocabToPractise > 0 ? t('vcDueBadge', { n: vocabToPractise }) : undefined}
+          />
         ))}
       </div>
     </div>

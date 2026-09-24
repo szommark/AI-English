@@ -91,6 +91,7 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
 
   if (at('/tutor-bot')) return finish([{ label: localizeFeatureById('tutor-bot', lang) }])
   if (at('/grammar-coach')) return finish([{ label: localizeFeatureById('grammar-coach', lang) }])
+  if (at('/vocabulary')) return finish([{ label: localizeFeatureById('vocabulary', lang) }])
 
   const pronunciationRoot: Crumb = { label: t('crumbPronunciation'), to: '/pronunciation' }
   if (at('/pronunciation')) return finish([pronunciationRoot])

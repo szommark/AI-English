@@ -26,6 +26,7 @@ import MouthCalibratorPage from './pages/dev/MouthCalibratorPage'
 
 // Teacher-only and sizeable: loaded on demand so it doesn't grow the main bundle.
 const TeacherVocabListPage = lazy(() => import('./pages/TeacherVocabListPage'))
+const VocabularyPage = lazy(() => import('./pages/VocabularyPage'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -120,6 +121,16 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <GrammarCoachPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/vocabulary"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <VocabularyPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />

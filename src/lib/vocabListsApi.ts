@@ -32,7 +32,8 @@ export class VocabValidationError extends Error {
   }
 }
 
-async function request<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+/** Shared by vocabPracticeApi.ts. */
+export async function request<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
   const headers: Record<string, string> = { ...(await authHeader()) }
   if (init.body !== undefined) headers['Content-Type'] = 'application/json'
   const res = await fetch(`/api/vocab?${path}`, {

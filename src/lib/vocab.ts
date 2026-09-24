@@ -182,3 +182,80 @@ export interface VocabStudentListProgress extends VocabListProgress {
   assignedAt: string
   completedAt: string | null
 }
+
+// --- Student practice (Phase 3, design §6–§7) --------------------------------------------
+
+/** Exercises a student can report from the practice session (steps 1–4). */
+export const PRACTICE_EXERCISES = ['recognition', 'recall', 'context', 'listening'] as const
+export type PracticeExercise = (typeof PRACTICE_EXERCISES)[number]
+
+/** Wrong options shown next to the right meaning in a recognition exercise. */
+export const RECOGNITION_DISTRACTORS = 3
+
+/** One card of GET /api/vocab?action=session, with the content its exercises need. */
+export interface PracticeCard {
+  cardId: string
+  term: string
+  termNormalized: string
+  kind: VocabKind
+  meaningHu: string | null
+  definitionEn: string | null
+  exampleEn: string | null
+  /** 1 = recognition … 4 = listening; the client may step down when an exercise can't run. */
+  ladderStep: number
+  /** FSRS state: 0 = New. */
+  state: number
+  /** Hungarian meanings of other items, for the recognition exercise. */
+  distractors: string[]
+}
+
+export interface PracticeSession {
+  cards: PracticeCard[]
+  dueCount: number
+  newCount: number
+}
+
+/** Body of POST /api/vocab?action=review. */
+export interface ReviewInput {
+  cardId: string
+  exercise: PracticeExercise
+  correct: boolean
+  /** A hint, a second attempt or a one-letter typo: right, but rated Hard. */
+  usedHint: boolean
+  responseMs: number | null
+}
+
+export interface ReviewResult {
+  /** 1 Again, 2 Hard, 3 Good, 4 Easy. */
+  rating: number
+  due: string
+  state: number
+  ladderStep: number
+  /** True when this review graduated the card for the first time (design §6.2). */
+  learnedNow: boolean
+  /** Titles of teacher lists this review completed. */
+  completedLists: string[]
+}
+
+/** GET /api/vocab?action=overview — also feeds the landing tile's badge. */
+export interface VocabOverview {
+  /** Reviews due now. */
+  dueCount: number
+  /** New cards the student can still start today (NEW_CARDS_PER_DAY minus today's). */
+  newAvailable: number
+  totalCards: number
+  learnedCards: number
+  /** Earliest future due date among non-new cards, when nothing is due now. */
+  nextDue: string | null
+}
+
+/** One entry of GET /api/vocab?action=my-lists. */
+export interface StudentListProgress extends VocabListProgress {
+  listId: string
+  title: string
+  description: string | null
+  cefrLevel: CefrLevel | null
+  teacherEmail: string
+  assignedAt: string
+  completedAt: string | null
+}

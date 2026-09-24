@@ -20,6 +20,7 @@ const accentClasses: Record<FeatureAccent, string> = {
   amber: 'bg-amber-100 text-amber-600',
   emerald: 'bg-emerald-100 text-emerald-600',
   rose: 'bg-rose-100 text-rose-600',
+  teal: 'bg-[var(--teal-accent-soft)] text-[var(--teal-accent-strong)]',
 }
 
 export default function ComingSoonPage() {

@@ -69,7 +69,7 @@ export default function WordListsSection() {
               <Link
                 key={l.id}
                 to={`/teacher/lists/${l.id}`}
-                className="block space-y-2 rounded-2xl border border-border bg-card px-4 py-3 hover:border-[var(--teal-accent)]/40"
+                className="block space-y-2 rounded-2xl border border-border bg-card px-4 py-3 hover:border-[var(--teal-accent-border)]"
               >
                 <div className="flex items-start justify-between gap-2">
                   <span className="min-w-0 break-words font-medium text-foreground">{l.title}</span>

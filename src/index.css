@@ -23,6 +23,10 @@
   /* Custom, non-shadcn-standard tokens (matched to tobbmintangol.hu) */
   --teal-accent: oklch(0.72 0.13 195);
   --teal-accent-strong: oklch(0.64 0.14 195);
+  /* Translucent teal. Tailwind can't add an opacity modifier to an arbitrary var() colour
+     (`border-[var(--teal-accent)]/40` compiles to nothing), so these are tokens. */
+  --teal-accent-soft: oklch(0.72 0.13 195 / 0.15);
+  --teal-accent-border: oklch(0.72 0.13 195 / 0.4);
   --gradient-hero: linear-gradient(135deg, oklch(0.22 0.06 255) 0%, oklch(0.30 0.07 240) 60%, oklch(0.38 0.10 215) 100%);
   --shadow-elegant: 0 20px 60px -25px oklch(0.24 0.07 255 / 0.35);
   --shadow-card: 0 8px 30px -12px oklch(0.24 0.07 255 / 0.18);
