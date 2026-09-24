@@ -8,7 +8,7 @@ import { DEFAULT_MODEL_BY_FEATURE, isModelId, type ModelFeature } from '../src/l
 // to stay under Vercel Hobby's 12-serverless-function-per-deployment cap — see git
 // history for the split-file version this replaced.
 
-const MODEL_FEATURES: ModelFeature[] = ['rehearsal', 'grammarCoach', 'tutorBot']
+const MODEL_FEATURES: ModelFeature[] = ['rehearsal', 'grammarCoach', 'tutorBot', 'vocabulary']
 
 interface CreatePersonaBody {
   displayName: string

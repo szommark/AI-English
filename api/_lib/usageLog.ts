@@ -1,7 +1,7 @@
 import { supabaseAdmin } from './supabaseAdmin.js'
 import { getModelEntry, type ModelId } from '../../src/lib/models.js'
 
-export type LlmCallType = 'chat' | 'feedback' | 'tutor_chat' | 'grammar_lesson'
+export type LlmCallType = 'chat' | 'feedback' | 'tutor_chat' | 'grammar_lesson' | 'vocab_enrich'
 
 /**
  * Records one LLM call in groq_usage_log (name is historical — it holds Groq and Gemini),
