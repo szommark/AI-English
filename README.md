@@ -85,7 +85,7 @@ supabase db push
   of users) — `api/chat.ts` no longer enforces it, and the no-op `api/cap-status.ts`
   endpoint was removed in the API function consolidation. See git history for those
   files (`git log -p -- api/chat.ts api/cap-status.ts`) to reinstate it.
-- Tutor Bot (`api/tutor-chat.ts`) has one soft anti-runaway guard instead of a cap: past
+- Tutor Bot (`api/tutor.ts`, `?action=chat`) has one soft anti-runaway guard instead of a cap: past
   `turnIndex` 40 it returns a wrap-up reply instead of calling Gemini again — a safety
   net against a stuck client, not a business rule.
 - Every Groq/Gemini call retries on rate-limit/overload responses with exponential

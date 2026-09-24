@@ -39,7 +39,7 @@ export async function sendTutorTurn(params: {
   personaId: string
 }): Promise<TutorChatResponse> {
   const headers = await authHeader()
-  const res = await fetch('/api/tutor-chat', {
+  const res = await fetch('/api/tutor?action=chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(params),
@@ -51,7 +51,7 @@ export async function sendTutorTurn(params: {
 
 export async function sendTutorEnd(params: { fullTranscript: ChatMessage[] }): Promise<TutorEndResponse> {
   const headers = await authHeader()
-  const res = await fetch('/api/tutor-end', {
+  const res = await fetch('/api/tutor?action=end', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(params),

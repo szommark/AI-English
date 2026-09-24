@@ -163,7 +163,7 @@ async function maybeUpdateSummaryAndCefr(userId: string, modelId: ModelId) {
 }
 
 // Call this after any successful feedback call — from both api/chat.ts's existing
-// end-of-session branch and api/tutor-end.ts. A failure anywhere in here must never
+// end-of-session branch and api/tutor.ts's end action. A failure anywhere in here must never
 // surface to the learner as a broken response — callers should await this after
 // they've already computed the feedback they're about to return, so it can't delay
 // or break that response even if every write inside fails.
