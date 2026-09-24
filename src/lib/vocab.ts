@@ -75,3 +75,110 @@ export function normalizeTerm(raw: string): string {
 export function termKind(term: string): VocabKind {
   return normalizeTerm(term).includes(' ') ? 'phrase' : 'word'
 }
+
+// --- Teacher word lists (Phase 2, design §5.1) -------------------------------------------
+
+export const LIST_TITLE_MAX_LENGTH = 120
+export const LIST_DESCRIPTION_MAX_LENGTH = 1000
+export const TERM_MAX_LENGTH = 100
+/** Meaning, definition and example sentence. */
+export const ITEM_FIELD_MAX_LENGTH = 500
+
+/** One row of the list editor, as sent to POST/PUT /api/vocab?action=list. */
+export interface VocabListItemInput {
+  term: string
+  meaningHu: string
+  definitionEn?: string | null
+  exampleEn?: string | null
+  pos?: VocabPos | null
+  cefrLevel?: CefrLevel | null
+}
+
+/** Body of POST /api/vocab?action=list (create) and PUT ...&id= (update). */
+export interface VocabListInput {
+  title: string
+  description?: string | null
+  cefrLevel?: CefrLevel | null
+  items: VocabListItemInput[]
+}
+
+export interface VocabList {
+  id: string
+  title: string
+  description: string | null
+  cefrLevel: CefrLevel | null
+  archivedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** One entry of GET /api/vocab?action=lists. */
+export interface VocabListSummary extends VocabList {
+  termCount: number
+  assignedCount: number
+  completedCount: number
+  /** Learned cards summed over assigned students; out of termCount × assignedCount. */
+  learned: number
+}
+
+export interface VocabListItemRow {
+  itemId: string
+  term: string
+  termNormalized: string
+  meaningHu: string | null
+  definitionEn: string | null
+  exampleEn: string | null
+  pos: VocabPos | null
+  cefrLevel: CefrLevel | null
+  position: number
+}
+
+/** Per student per list (design §6.2): matched on term_normalized, not item_id. */
+export interface VocabListProgress {
+  learned: number
+  started: number
+  total: number
+}
+
+export interface VocabListAssignment extends VocabListProgress {
+  studentId: string
+  email: string
+  assignedAt: string
+  completedAt: string | null
+  /** false once the student disconnected; the assignment and progress stay. */
+  connected: boolean
+}
+
+/** GET /api/vocab?action=list&id= (also returned by create/update). */
+export interface VocabListDetail {
+  list: VocabList
+  items: VocabListItemRow[]
+  assignments: VocabListAssignment[]
+}
+
+export interface VocabCardCounts {
+  cardsCreated: number
+  cardsUpgraded: number
+  cardsUnchanged: number
+}
+
+/** POST /api/vocab?action=assign. */
+export interface VocabAssignResult extends VocabCardCounts {
+  studentCount: number
+  assignmentsCreated: number
+}
+
+/** PUT /api/vocab?action=list&id=: cards created for terms added to an assigned list. */
+export interface VocabListUpdateResult extends VocabListDetail {
+  addedTermCards: VocabCardCounts | null
+}
+
+/** One entry of GET /api/vocab?action=student-lists&studentId=. */
+export interface VocabStudentListProgress extends VocabListProgress {
+  listId: string
+  title: string
+  cefrLevel: CefrLevel | null
+  archivedAt: string | null
+  assignedAt: string
+  completedAt: string | null
+}

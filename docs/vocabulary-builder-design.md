@@ -185,7 +185,7 @@ All writes go through API routes with the service role (repo convention). RLS is
 - **`vocab_list_items`** — `list_id`, `item_id`, `position`; pk `(list_id, item_id)`.
 - **`vocab_list_assignments`** — `list_id`, `student_id`, `assigned_at`, `completed_at`; pk `(list_id, student_id)`.
 
-API surface (one action-routed function to stay inside the Vercel function limit, same pattern as `api/teacher.ts` / `api/connect.ts`): `api/vocab.ts?action=` `enrich | lists | list | assign | session | review | cards | remove`, with teacher-only actions role-checked like `handleStudentDetail`.
+API surface (one action-routed function to stay inside the Vercel function limit, same pattern as `api/teacher.ts` / `api/connect.ts`): `api/vocab.ts?action=` `enrich | lists | list | assign | student-lists | session | review | cards | remove`, with teacher-only actions role-checked like `handleStudentDetail`. (`student-lists` feeds the student detail page's Word lists box; `list` takes GET/POST/PUT, and PATCH for archiving.)
 
 ## 10. Phases
 

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth, type UserRole } from './lib/AuthContext'
 import { LanguageProvider } from './lib/i18n'
@@ -22,6 +23,9 @@ import AdminOverviewPage from './pages/AdminOverviewPage'
 import AdminPersonasPage from './pages/AdminPersonasPage'
 import AdminUsagePage from './pages/AdminUsagePage'
 import MouthCalibratorPage from './pages/dev/MouthCalibratorPage'
+
+// Teacher-only and sizeable: loaded on demand so it doesn't grow the main bundle.
+const TeacherVocabListPage = lazy(() => import('./pages/TeacherVocabListPage'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -164,6 +168,26 @@ function AppRoutes() {
         element={
           <RoleProtectedRoute role="teacher">
             <StudentProgressPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/lists/new"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <TeacherVocabListPage />
+            </Suspense>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/lists/:listId"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <TeacherVocabListPage />
+            </Suspense>
           </RoleProtectedRoute>
         }
       />

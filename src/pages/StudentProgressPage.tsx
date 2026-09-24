@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { fetchStudentDetail, StudentDetailAccessError, type StudentDetail } from '../lib/teacherApi'
 import { getScenario } from '../data/scenarios'
 import FeedbackCard from '../components/FeedbackCard'
+import StudentWordListsBox from '../components/VocabLists/StudentWordListsBox'
 
 const MODE_LABELS: Record<string, string> = {
   rehearsal: 'Rehearsal',
@@ -91,6 +92,8 @@ export default function StudentProgressPage() {
                 </div>
               </div>
             </div>
+
+            {studentId && <StudentWordListsBox studentId={studentId} />}
 
             <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
               <h2 className="text-sm font-medium text-slate-700">CEFR history</h2>
