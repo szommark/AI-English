@@ -1,6 +1,7 @@
 import type { ChatMessage, FeedbackResult, GrammarLesson, GrammarWidget, LessonLanguage } from '../../src/lib/types.js'
 import { MISTAKE_CATEGORIES, type CefrLevel } from './prompts.js'
 import { recordGroqRateLimits } from './groqRateLimit.js'
+import { normalizeTerm, termKind, VOCAB_POS, type VocabKind, type VocabPos } from '../../src/lib/vocab.js'
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
@@ -113,7 +114,76 @@ export function parsePersonalizationUpdateJson(raw: string, currentCefr: CefrLev
   }
 }
 
-const WIDGET_ALLOWLIST = new Set(['rule-box', 'example-sentence', 'comparison-table', 'sentence-structure-diagram', 'bullet-list'])
+const VOCAB_POS_SET = new Set<string>(VOCAB_POS)
+
+export interface VocabEnrichmentEntry {
+  term: string
+  termNormalized: string
+  kind: VocabKind
+  pos: VocabPos | null
+  cefrLevel: CefrLevel | null
+  meaningHu: string
+  definitionEn: string
+  exampleEn: string
+}
+
+export interface VocabEnrichmentParseResult {
+  /** Keyed by normalizeTerm(input term). */
+  entries: Map<string, VocabEnrichmentEntry>
+  /** Input terms (as given) with no valid result. */
+  failed: string[]
+}
+
+/**
+ * Same defensive pattern as parseFeedbackJson, for buildVocabEnrichmentPrompt's reply.
+ * Results are matched back to `inputTerms` by normalizeTerm(term), never by array index,
+ * so a reordered or partial reply still lands on the right terms. An entry missing
+ * meaningHu, definitionEn or exampleEn is dropped (its input is reported as failed);
+ * an invalid pos or cefrLevel is only nulled. `kind` is derived from the input term
+ * rather than trusted from the model, so it always agrees with the cache key. Throws
+ * only when the reply isn't JSON at all.
+ */
+export function parseVocabEnrichmentJson(raw: string, inputTerms: string[]): VocabEnrichmentParseResult {
+  const cleaned = raw.trim().replace(/^```(json)?/i, '').replace(/```$/, '').trim()
+  const parsed: unknown = JSON.parse(cleaned)
+
+  // Tolerate a wrapper object like {"items": [...]} around the array we asked for.
+  const list: unknown[] = Array.isArray(parsed)
+    ? parsed
+    : typeof parsed === 'object' && parsed !== null
+      ? ((Object.values(parsed).find(Array.isArray) as unknown[] | undefined) ?? [])
+      : []
+
+  const wanted = new Map(inputTerms.map((t) => [normalizeTerm(t), t]))
+  const entries = new Map<string, VocabEnrichmentEntry>()
+
+  for (const item of list) {
+    if (typeof item !== 'object' || item === null) continue
+    const e = item as Record<string, unknown>
+    if (typeof e.term !== 'string') continue
+
+    const termNormalized = normalizeTerm(e.term)
+    const inputTerm = wanted.get(termNormalized)
+    if (inputTerm === undefined || entries.has(termNormalized)) continue
+    if (!isNonEmptyString(e.meaningHu) || !isNonEmptyString(e.definitionEn) || !isNonEmptyString(e.exampleEn)) continue
+
+    entries.set(termNormalized, {
+      term: inputTerm,
+      termNormalized,
+      kind: termKind(inputTerm),
+      pos: typeof e.pos === 'string' && VOCAB_POS_SET.has(e.pos) ? (e.pos as VocabPos) : null,
+      cefrLevel: typeof e.cefrLevel === 'string' && VALID_CEFR_LEVELS.has(e.cefrLevel) ? (e.cefrLevel as CefrLevel) : null,
+      meaningHu: e.meaningHu.trim(),
+      definitionEn: e.definitionEn.trim(),
+      exampleEn: e.exampleEn.trim(),
+    })
+  }
+
+  const failed = [...wanted].filter(([normalized]) => !entries.has(normalized)).map(([, term]) => term)
+  return { entries, failed }
+}
+
+const WIDGET_ALLOWLIST =new Set(['rule-box', 'example-sentence', 'comparison-table', 'sentence-structure-diagram', 'bullet-list'])
 
 function isNonEmptyString(v: unknown): v is string {
   return typeof v === 'string' && v.trim().length > 0

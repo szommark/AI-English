@@ -14,6 +14,7 @@ const FEATURE_LABELS: Record<ModelFeature, string> = {
   rehearsal: 'Rehearsal',
   grammarCoach: 'Grammar Coach',
   tutorBot: 'Tutor Bot',
+  vocabulary: 'Vocabulary (enrichment)',
 }
 
 function PersonaRow({ persona, onSaved }: { persona: AdminPersona; onSaved: (updated: AdminPersona) => void }) {

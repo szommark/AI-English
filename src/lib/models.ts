@@ -37,11 +37,13 @@ export function getModelEntry(id: ModelId): ModelRegistryEntry {
   return entry
 }
 
-export type ModelFeature = 'rehearsal' | 'grammarCoach' | 'tutorBot'
+export type ModelFeature = 'rehearsal' | 'grammarCoach' | 'tutorBot' | 'vocabulary'
 
 /** Same provider as each feature's old hardcoded model, to keep behavior close. */
 export const DEFAULT_MODEL_BY_FEATURE: Record<ModelFeature, ModelId> = {
   rehearsal: 'groq-gpt-oss-120b',
   grammarCoach: 'groq-gpt-oss-120b',
   tutorBot: 'gemini-3.1-flash-lite',
+  // Vocabulary enrichment writes Hungarian; follow Grammar Coach's larger model, not Tutor Bot's.
+  vocabulary: 'groq-gpt-oss-120b',
 }
