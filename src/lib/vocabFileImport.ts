@@ -58,6 +58,13 @@ export function parseCsv(text: string, delimiter = detectDelimiter(text)): strin
   return rows
 }
 
+/** Every Excel 97+ .xls is an OLE compound file, which starts with this signature. */
+const COMPOUND_FILE_SIGNATURE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]
+
+function isCompoundFile(bytes: Uint8Array): boolean {
+  return COMPOUND_FILE_SIGNATURE.every((b, i) => bytes[i] === b)
+}
+
 export async function parseVocabFile(file: File): Promise<ImportedRow[]> {
   const name = file.name.toLowerCase()
 
@@ -74,8 +81,12 @@ export async function parseVocabFile(file: File): Promise<ImportedRow[]> {
   }
 
   if (name.endsWith('.xls')) {
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    // Checked before loading SheetJS, which would otherwise read a renamed text/HTML file
+    // as a table (as Excel does) instead of rejecting it.
+    if (!isCompoundFile(bytes)) throw new UnsupportedFileError(file.name)
     const { read, utils } = await import('xlsx')
-    const workbook = read(await file.arrayBuffer(), { type: 'array' })
+    const workbook = read(bytes, { type: 'array' })
     const first = workbook.SheetNames[0]
     if (!first) return []
     // raw: false gives the cells' displayed text (dates and numbers as the teacher sees them).
