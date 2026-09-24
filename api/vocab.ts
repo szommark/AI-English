@@ -53,6 +53,7 @@ async function handleEnrich(req: VercelRequest, res: VercelResponse, userId: str
   // 200 even when some or all items failed — each item carries its own status.
   const items = await enrichTerms(body.terms, {
     userId,
+    origin: 'teacher',
     cefrHint: body.cefrHint as CefrLevel | undefined,
   })
   res.status(200).json({ items })
