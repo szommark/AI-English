@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLanguage } from '../../lib/i18n'
 import { assignVocabList } from '../../lib/vocabListsApi'
 import type { RosterEntry } from '../../lib/teacherApi'
@@ -28,6 +28,15 @@ export default function AssignPanel({
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<VocabAssignResult | null>(null)
   const [error, setError] = useState(false)
+
+  // The outcome describes the list as it was assigned; once the teacher edits it, a later
+  // save reports its own result, so drop the old one rather than show both.
+  const blocked = blockedReason !== null
+  useEffect(() => {
+    if (!blocked) return
+    setResult(null)
+    setError(false)
+  }, [blocked])
 
   function toggle(id: string) {
     setSelected((s) => {
