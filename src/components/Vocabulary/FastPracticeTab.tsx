@@ -16,6 +16,8 @@ import {
 import { KindBadge, TOPIC_LABEL, useListTitle, useTopicLabel } from './wordlistLabels'
 
 const OTHER_TOPIC = 'other'
+const WORD_BANK_SOURCE_URL = 'https://www.cefr-j.org/download.html'
+const CC_BY_SA_URL = 'https://creativecommons.org/licenses/by-sa/4.0/'
 const DEFAULT_COUNT = 5
 
 const fieldClass =
@@ -174,6 +176,18 @@ function CompileForm({ data, onCompiled }: { data: WordlistsResponse; onCompiled
         </button>
         <span className="text-xs text-muted-foreground">{t('vcCompilesLeft', { n: left, max: COMPILES_PER_DAY })}</span>
       </div>
+
+      {/* Required by the word bank's terms of use (design §5.3). */}
+      <p className="border-t border-border pt-3 text-xs text-muted-foreground">
+        {t('vcWordBankCredit')}{' '}
+        <a href={WORD_BANK_SOURCE_URL} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+          CEFR-J
+        </a>
+        {' · '}
+        <a href={CC_BY_SA_URL} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+          CC BY-SA 4.0
+        </a>
+      </p>
     </form>
   )
 }

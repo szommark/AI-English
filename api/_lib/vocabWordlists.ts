@@ -151,13 +151,12 @@ async function learnerLevel(userId: string): Promise<CefrLevel> {
   return (data?.cefr_level as CefrLevel | null) ?? DEFAULT_LEVEL
 }
 
-/** Compiles and regenerations since UTC midnight: one 'vocab_generate' log row each. */
+/** Compiles and regenerations since UTC midnight: one vocab_compiles row each. */
 export async function compilesToday(userId: string, now = new Date()): Promise<number> {
   const { count, error } = await supabaseAdmin
-    .from('groq_usage_log')
+    .from('vocab_compiles')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .eq('call_type', 'vocab_generate')
     .gte('created_at', utcDayStart(now).toISOString())
   if (error) throw error
   return count ?? 0
@@ -422,17 +421,34 @@ async function termsToAvoid(userId: string): Promise<Set<string>> {
   return new Set([...listTerms, ...deck.map((c) => c.term_normalized)])
 }
 
-/**
- * Picks `count` new terms for a topic and level (one model call, logged as
- * 'vocab_generate' — which is what the daily limit counts), enriches them through the
- * shared cache and returns their global item ids in pick order.
- */
-async function pickItems(userId: string, topic: string, level: CefrLevel, count: number): Promise<string[]> {
-  if ((await compilesToday(userId)) >= COMPILES_PER_DAY) {
-    throw new VocabApiError(429, `At most ${COMPILES_PER_DAY} new word lists per day`)
-  }
+interface PickedWords {
+  itemIds: string[]
+  bankWords: number
+  aiWords: number
+}
 
-  const avoid = await termsToAvoid(userId)
+/**
+ * Up to `count` random word-bank terms (§5.3) for a fixed topic at this level, none of
+ * which the student already has. Custom topics have no bank words. Never throws: on a
+ * failure the model picks every word instead.
+ */
+async function pickFromBank(topic: string, level: CefrLevel, count: number, avoid: Set<string>): Promise<string[]> {
+  if (!isVocabTopicId(topic) || count <= 0) return []
+  const { data, error } = await supabaseAdmin.rpc('pick_word_bank_terms', {
+    p_topic: topic,
+    p_level: level,
+    p_count: count,
+    p_exclude: [...avoid],
+  })
+  if (error) {
+    console.error('Word bank pick failed', { topic, level, error })
+    return []
+  }
+  return ((data ?? []) as { term: string }[]).map((r) => r.term)
+}
+
+/** Up to `count` model-picked terms (one call, logged as 'vocab_generate'). Never throws. */
+async function pickFromModel(userId: string, topic: string, level: CefrLevel, count: number, avoid: Set<string>): Promise<string[]> {
   const modelId = await getModelForFeature('vocabulary')
   const { systemPrompt, messages } = buildVocabWordPickPrompt(
     topicForPrompt(topic),
@@ -440,35 +456,66 @@ async function pickItems(userId: string, topic: string, level: CefrLevel, count:
     count + PICK_SLACK,
     [...avoid].slice(0, AVOID_TERMS_MAX),
   )
-
-  let picked: string[] = []
   try {
     const result = await callModel(modelId, systemPrompt, messages)
-    // Logged before parsing: the tokens were spent (and the day's allowance used) either way.
+    // Logged before parsing: the tokens were spent either way.
     await logModelUsage({ userId, scenarioId: 'vocabulary', callType: 'vocab_generate', modelId, usage: result.usage })
-    picked = parseWordPickJson(result.content)
+    return parseWordPickJson(result.content)
+      .filter((t) => !avoid.has(normalizeTerm(t)))
+      .slice(0, count)
   } catch (err) {
     console.error('Vocab word pick failed', { topic, level, error: err })
+    return []
   }
-  const terms = picked.filter((t) => !avoid.has(normalizeTerm(t))).slice(0, count)
-  if (terms.length === 0) throw new VocabApiError(502, "Couldn't pick words for this topic; please try again")
+}
+
+/**
+ * The words for a new or regenerated list (§7.2): word-bank terms first, then the model
+ * fills whatever the bank can't (thin topics, C1/C2, custom topics). Checks the daily
+ * limit first. Terms are enriched through the shared cache and returned as global item
+ * ids, bank words first. Bank words create 'catalog' items, model words 'student' ones —
+ * the origin only labels cache rows created now (decision 9).
+ */
+async function pickWords(userId: string, topic: string, level: CefrLevel, count: number): Promise<PickedWords> {
+  if ((await compilesToday(userId)) >= COMPILES_PER_DAY) {
+    throw new VocabApiError(429, `At most ${COMPILES_PER_DAY} new word lists per day`)
+  }
+
+  const avoid = await termsToAvoid(userId)
+  const bank = await pickFromBank(topic, level, count, avoid)
+  for (const t of bank) avoid.add(normalizeTerm(t))
+  const ai = bank.length < count ? await pickFromModel(userId, topic, level, count - bank.length, avoid) : []
+  if (bank.length + ai.length === 0) throw new VocabApiError(502, "Couldn't pick words for this topic; please try again")
 
   // Never throws on model failure: terms that fail stay 'pending' and are filled in when practised.
-  await enrichTerms(terms, { userId, origin: 'student', cefrHint: level })
-  return ensureItems(terms)
+  if (bank.length > 0) await enrichTerms(bank, { userId, origin: 'catalog', cefrHint: level })
+  if (ai.length > 0) await enrichTerms(ai, { userId, origin: 'student', cefrHint: level })
+  const itemIds = await ensureItems([
+    ...bank.map((term) => ({ term, origin: 'catalog' as const })),
+    ...ai.map((term) => ({ term, origin: 'student' as const })),
+  ])
+  return { itemIds, bankWords: bank.length, aiWords: ai.length }
+}
+
+/** Counts towards the daily limit. Not fatal: the student's list is already saved. */
+async function recordCompile(userId: string, listId: string, picked: PickedWords): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('vocab_compiles')
+    .insert({ user_id: userId, list_id: listId, bank_words: picked.bankWords, ai_words: picked.aiWords })
+  if (error) console.error('Failed to record vocab compile', error)
 }
 
 /** Global items for these terms (find-or-create), in the given order. */
-async function ensureItems(terms: string[]): Promise<string[]> {
+async function ensureItems(terms: { term: string; origin: VocabOrigin }[]): Promise<string[]> {
   const { data, error } = await supabaseAdmin.rpc('ensure_global_vocab_items', {
-    p_items: terms.map((term) => {
+    p_items: terms.map(({ term, origin }) => {
       const termNormalized = normalizeTerm(term)
-      return { term, term_normalized: termNormalized, kind: termKind(termNormalized), origin: 'student' }
+      return { term, term_normalized: termNormalized, kind: termKind(termNormalized), origin }
     }),
   })
   if (error) throw error
   const byTerm = new Map(((data ?? []) as { id: string; term_normalized: string }[]).map((i) => [i.term_normalized, i.id]))
-  return [...new Set(terms.flatMap((t) => byTerm.get(normalizeTerm(t)) ?? []))]
+  return [...new Set(terms.flatMap(({ term }) => byTerm.get(normalizeTerm(term)) ?? []))]
 }
 
 async function insertListItems(listId: string, itemIds: string[], firstPosition: number): Promise<void> {
@@ -486,7 +533,7 @@ async function touchList(listId: string): Promise<void> {
 
 /** POST wordlist-compile: picks the words and saves the list (input already validated). */
 export async function compileWordlist(userId: string, input: CompileInput): Promise<WordlistDetail> {
-  const itemIds = await pickItems(userId, input.topic, input.cefrLevel, input.count)
+  const picked = await pickWords(userId, input.topic, input.cefrLevel, input.count)
 
   const { data: list, error } = await supabaseAdmin
     .from('vocab_student_lists')
@@ -494,7 +541,8 @@ export async function compileWordlist(userId: string, input: CompileInput): Prom
     .select('id')
     .single()
   if (error) throw error
-  await insertListItems(list.id as string, itemIds, 0)
+  await insertListItems(list.id as string, picked.itemIds, 0)
+  await recordCompile(userId, list.id as string, picked)
   return loadWordlistDetail(userId, { kind: 'custom', id: list.id as string })
 }
 
@@ -504,11 +552,12 @@ export async function regenerateWordlist(userId: string, listId: string): Promis
   const current = await customListItems(listId)
   const count = Math.min(COMPILE_MAX_WORDS, Math.max(COMPILE_MIN_WORDS, current.length || COMPILE_MAX_WORDS))
   // The current words are in the avoid set too (they're list terms), so the set is fresh.
-  const itemIds = await pickItems(userId, list.topic, list.cefr_level, count)
+  const picked = await pickWords(userId, list.topic, list.cefr_level, count)
 
   const { error } = await supabaseAdmin.from('vocab_student_list_items').delete().eq('list_id', listId)
   if (error) throw error
-  await insertListItems(listId, itemIds, 0)
+  await insertListItems(listId, picked.itemIds, 0)
+  await recordCompile(userId, listId, picked)
   await touchList(listId)
   return loadWordlistDetail(userId, { kind: 'custom', id: listId })
 }
@@ -545,7 +594,7 @@ export async function addWordToList(userId: string, listId: string, term: string
   }
 
   await enrichTerms([term], { userId, origin: 'student', cefrHint: list.cefr_level })
-  const [itemId] = await ensureItems([term])
+  const [itemId] = await ensureItems([{ term, origin: 'student' }])
   if (!itemId) throw new Error(`No item for "${term}"`)
 
   const { data: last, error } = await supabaseAdmin

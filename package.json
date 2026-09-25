@@ -9,7 +9,9 @@
     "build": "tsc -b && vite build",
     "lint": "tsc -b --noEmit",
     "check:grammar": "node scripts/check-grammar-points.ts",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "wordbank:check": "node scripts/import-word-bank.ts --dry-run",
+    "wordbank:import": "node --env-file=.env scripts/import-word-bank.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
