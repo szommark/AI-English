@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLanguage } from '../../lib/i18n'
 import { answerHint, checkTypedAnswer, gapSentence, practiceSentence, shuffle, type AnswerCheck } from '../../lib/vocabPractice'
-import type { PracticeCard, PracticeExercise } from '../../lib/vocab'
+import type { ExerciseContent, PracticeExercise } from '../../lib/vocab'
 import { SpeakerIcon } from '../icons/AudioIcons'
 
 export interface ExerciseOutcome {
@@ -43,7 +43,7 @@ export default function Exercise({
   speech,
   onDone,
 }: {
-  card: PracticeCard
+  card: ExerciseContent
   exercise: PracticeExercise
   speech: Speech
   onDone: (outcome: ExerciseOutcome) => void
@@ -55,7 +55,7 @@ export default function Exercise({
   )
 }
 
-function Recognition({ card, speech, onDone }: { card: PracticeCard; speech: Speech; onDone: (o: ExerciseOutcome) => void }) {
+function Recognition({ card, speech, onDone }: { card: ExerciseContent; speech: Speech; onDone: (o: ExerciseOutcome) => void }) {
   const { t } = useLanguage()
   const started = useRef(performance.now())
   const options = useMemo(() => shuffle([card.meaningHu!, ...card.distractors]), [card])
@@ -97,7 +97,7 @@ function Typed({
   speech,
   onDone,
 }: {
-  card: PracticeCard
+  card: ExerciseContent
   exercise: Exclude<PracticeExercise, 'recognition'>
   speech: Speech
   onDone: (o: ExerciseOutcome) => void

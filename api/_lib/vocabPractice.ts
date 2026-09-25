@@ -27,7 +27,7 @@ const GLOBAL_DISTRACTOR_POOL = 100
 
 const STATE_NEW = 0
 
-interface ItemContent {
+export interface ItemContent {
   term: string
   kind: VocabKind
   pos: VocabPos | null
@@ -39,7 +39,7 @@ interface ItemContent {
   owner_teacher_id: string | null
 }
 
-export interface SessionCardRow {
+interface SessionCardRow {
   id: string
   term_normalized: string
   origin: string
@@ -49,7 +49,7 @@ export interface SessionCardRow {
   vocab_items: ItemContent | null
 }
 
-export const SESSION_CARD_COLUMNS =
+const SESSION_CARD_COLUMNS =
   'id, term_normalized, origin, state, ladder_step, context_corrected, ' +
   'vocab_items(term, kind, pos, meaning_hu, definition_en, example_en, cefr_level, enrichment_status, owner_teacher_id)'
 
@@ -99,7 +99,10 @@ export function pickDistractors(
   return candidates.slice(0, n)
 }
 
-export async function distractorPool(userId: string, cards: SessionCardRow[]): Promise<string[]> {
+/** Rows that carry item content: session cards, and the words of a Fast practice list. */
+export type ItemContentRow = Pick<SessionCardRow, 'term_normalized' | 'vocab_items'>
+
+export async function distractorPool(userId: string, cards: ItemContentRow[]): Promise<string[]> {
   const { data, error } = await supabaseAdmin
     .from('vocab_cards')
     .select('vocab_items(meaning_hu)')
@@ -127,11 +130,7 @@ export async function distractorPool(userId: string, cards: SessionCardRow[]): P
   return [...pool]
 }
 
-/**
- * A session row as sent to the client. Recognition distractors go to cards on ladder step 1,
- * or to every card when `allDistractors` is set (Full practice runs every exercise).
- */
-export function toPracticeCard(row: SessionCardRow, pool: string[], allDistractors = false): PracticeCard | null {
+function toPracticeCard(row: SessionCardRow, pool: string[]): PracticeCard | null {
   const item = row.vocab_items
   if (!item) return null
   return {
@@ -145,7 +144,7 @@ export function toPracticeCard(row: SessionCardRow, pool: string[], allDistracto
     contextCorrected: row.context_corrected,
     ladderStep: row.ladder_step,
     state: row.state,
-    distractors: allDistractors || row.ladder_step === 1 ? pickDistractors(item.meaning_hu, pool, RECOGNITION_DISTRACTORS) : [],
+    distractors: row.ladder_step === 1 ? pickDistractors(item.meaning_hu, pool, RECOGNITION_DISTRACTORS) : [],
   }
 }
 
@@ -157,7 +156,7 @@ export function toPracticeCard(row: SessionCardRow, pool: string[], allDistracto
  * once per term, not once per student. Failures leave the rows as they are: the exercise
  * choice copes with a missing meaning, and the next session retries.
  */
-export async function fillPendingItems(userId: string, rows: SessionCardRow[]): Promise<void> {
+export async function fillPendingItems(userId: string, rows: ItemContentRow[]): Promise<void> {
   const pending = rows.filter((r) => r.vocab_items && r.vocab_items.enrichment_status !== 'done' && !r.vocab_items.owner_teacher_id)
   const terms = [...new Set(pending.map((r) => r.vocab_items!.term))].slice(0, ENRICH_BATCH_SIZE)
   if (terms.length === 0) return

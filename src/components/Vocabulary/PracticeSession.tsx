@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLanguage } from '../../lib/i18n'
 import { submitReview } from '../../lib/vocabPracticeApi'
 import { chooseExercise } from '../../lib/vocabPractice'
-import type { PracticeCard } from '../../lib/vocab'
+import type { ExerciseContent, PracticeCard } from '../../lib/vocab'
 import Exercise, { type ExerciseOutcome, type Speech } from './Exercise'
 import ProgressBar from '../VocabLists/ProgressBar'
 import { SpeakerIcon } from '../icons/AudioIcons'
@@ -144,7 +144,7 @@ export default function PracticeSession({
 }
 
 /** The right answer after an exercise, with how it went and whether it was saved. */
-export function FeedbackPanel({ card, feedback, speech }: { card: PracticeCard; feedback: Feedback; speech: Speech }) {
+export function FeedbackPanel({ card, feedback, speech }: { card: ExerciseContent; feedback: Feedback; speech: Speech }) {
   const { t } = useLanguage()
   const { check } = feedback.outcome
   const tone =

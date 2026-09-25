@@ -16,8 +16,8 @@ export const TUTOR_TARGET_WORDS = 4
 export type VocabKind = 'word' | 'phrase'
 
 // Must match the `origin` check constraints in
-// supabase/migrations/20260924120000_vocabulary_builder.sql exactly.
-export type VocabOrigin = 'catalog' | 'teacher' | 'tutor'
+// supabase/migrations/20260926120000_vocabulary_student_lists.sql exactly.
+export type VocabOrigin = 'catalog' | 'teacher' | 'tutor' | 'student'
 
 // Must match the `vocab_reviews.exercise` check constraint exactly.
 export type VocabExercise = 'recognition' | 'recall' | 'context' | 'listening' | 'production' | 'conversation'
@@ -192,23 +192,27 @@ export type PracticeExercise = (typeof PRACTICE_EXERCISES)[number]
 /** Wrong options shown next to the right meaning in a recognition exercise. */
 export const RECOGNITION_DISTRACTORS = 3
 
-/** One card of GET /api/vocab?action=session, with the content its exercises need. */
-export interface PracticeCard {
-  cardId: string
+/** What an exercise needs to show a word (design §7). */
+export interface ExerciseContent {
   term: string
-  termNormalized: string
   kind: VocabKind
   meaningHu: string | null
   definitionEn: string | null
   exampleEn: string | null
   /** Tutor Bot cards: the learner's own line, said better — preferred for gap-fills (§7). */
   contextCorrected: string | null
+  /** Hungarian meanings of other items, for the recognition exercise. */
+  distractors: string[]
+}
+
+/** One card of GET /api/vocab?action=session, with the content its exercises need. */
+export interface PracticeCard extends ExerciseContent {
+  cardId: string
+  termNormalized: string
   /** 1 = recognition … 4 = listening; the client may step down when an exercise can't run. */
   ladderStep: number
   /** FSRS state: 0 = New. */
   state: number
-  /** Hungarian meanings of other items, for the recognition exercise. */
-  distractors: string[]
 }
 
 export interface PracticeSession {
@@ -251,18 +255,7 @@ export interface VocabOverview {
   nextDue: string | null
 }
 
-/** One entry of GET /api/vocab?action=my-lists. */
-export interface StudentListProgress extends VocabListProgress {
-  listId: string
-  title: string
-  description: string | null
-  cefrLevel: CefrLevel | null
-  teacherEmail: string
-  assignedAt: string
-  completedAt: string | null
-}
-
-// --- Tutor Bot words and "My words" (Phase 4, design §5.2) ------------------------------
+// --- Tutor Bot words (Phase 4, design §5.2) ------------------------------------------------
 
 /** One word the Tutor Bot session added to the deck (POST /api/tutor?action=end). */
 export interface AddedTutorWord {
@@ -272,7 +265,7 @@ export interface AddedTutorWord {
   reason: 'switched' | 'asked' | 'lacked'
 }
 
-/** Where a card is on its way to "learned", for the My words list. */
+/** Where a card is on its way to "learned". */
 export type CardStage = 'new' | 'learning' | 'learned'
 
 /** Learned once graduated (sticky, design §6.2); New while FSRS state is 0. */
@@ -280,61 +273,145 @@ export function cardStage(card: { state: number; first_learned_at: string | null
   return card.first_learned_at ? 'learned' : card.state === 0 ? 'new' : 'learning'
 }
 
-// --- Full practice (design §7.1) ----------------------------------------------------------
+// --- Fast practice and My wordlists (design §7.1–§7.2) ------------------------------------
 
-/** Words per Full practice run; a whole teacher list always fits. */
+/** Words per Fast practice run; a whole teacher list always fits. */
 export const DRILL_MAX_WORDS = LIST_MAX_ITEMS
 
-/** One word the student can pick for Full practice (active cards only). */
-export interface DrillWord {
+/** Topics offered when compiling a list; the student can also type their own. */
+export const VOCAB_TOPICS = [
+  'travel',
+  'food',
+  'work',
+  'shopping',
+  'health',
+  'home',
+  'free-time',
+  'education',
+  'nature',
+  'people',
+] as const
+export type VocabTopicId = (typeof VOCAB_TOPICS)[number]
+
+/** English topic names for the word-picking prompt (UI labels live in i18n). */
+export const VOCAB_TOPIC_PROMPT: Record<VocabTopicId, string> = {
+  travel: 'travel and holidays',
+  food: 'food and drink',
+  work: 'work and the office',
+  shopping: 'shopping',
+  health: 'health and the body',
+  home: 'home and family',
+  'free-time': 'free time and hobbies',
+  education: 'school and education',
+  nature: 'nature and weather',
+  people: 'feelings and describing people',
+}
+
+export function isVocabTopicId(topic: string): topic is VocabTopicId {
+  return (VOCAB_TOPICS as readonly string[]).includes(topic)
+}
+
+export const COMPILE_MIN_WORDS = 1
+export const COMPILE_MAX_WORDS = 10
+/** New or regenerated lists per student per UTC day (each costs model calls). */
+export const COMPILES_PER_DAY = 5
+export const CUSTOM_TOPIC_MAX_LENGTH = 60
+/** Words a student list can grow to by adding typed words. */
+export const STUDENT_LIST_MAX_ITEMS = LIST_MAX_ITEMS
+
+/** custom = made by the student; conversations = the Tutor Bot words (a virtual list). */
+export type WordlistKind = 'custom' | 'teacher' | 'conversations'
+
+/** Identifies a list in API calls; `id` is null for the conversations list. */
+export interface WordlistRef {
+  kind: WordlistKind
+  id: string | null
+}
+
+/** One entry of GET /api/vocab?action=wordlists. */
+export interface WordlistSummary extends WordlistRef {
+  title: string
+  cefrLevel: CefrLevel | null
+  /** Custom lists: a VOCAB_TOPICS id or the student's own topic. */
+  topic: string | null
+  wordCount: number
+  /** Words of the list that are in spaced repetition (paused ones included). */
+  inSrs: number
+  createdAt: string
+  /** Teacher lists only. */
+  teacher: {
+    email: string
+    description: string | null
+    progress: VocabListProgress
+    completedAt: string | null
+  } | null
+}
+
+export interface WordlistsResponse {
+  lists: WordlistSummary[]
+  /** Default level for compiling a list. */
+  learnerLevel: CefrLevel
+  /** Lists compiled or regenerated today, out of COMPILES_PER_DAY. */
+  compiledToday: number
+}
+
+/** A word's spaced-repetition card, if it has one. */
+export interface WordCard {
   cardId: string
+  stage: CardStage
+  suspended: boolean
+  origin: VocabOrigin
+}
+
+export interface WordlistWord {
+  itemId: string
   term: string
   meaningHu: string | null
-  origin: VocabOrigin
-  stage: CardStage
+  exampleEn: string | null
+  /** Tutor Bot words: what the learner said, and the better version. */
+  contextOriginal: string | null
+  contextCorrected: string | null
+  card: WordCard | null
 }
 
-/** A teacher list assigned to the student, as a Full practice starting selection. */
-export interface DrillListOption {
-  listId: string
+/** GET /api/vocab?action=wordlist&kind=&id= (also returned by the list edits). */
+export interface WordlistDetail {
+  list: WordlistSummary
+  words: WordlistWord[]
+}
+
+/** Body of POST /api/vocab?action=wordlist-compile. */
+export interface CompileInput {
+  topic: string
+  cefrLevel: CefrLevel
+  count: number
   title: string
-  /** The student's active cards for the list's terms. */
-  cardIds: string[]
 }
 
-/** GET /api/vocab?action=drill-setup. */
-export interface DrillSetup {
-  words: DrillWord[]
-  lists: DrillListOption[]
+/** POST /api/vocab?action=wordlist-srs: the list's words added to spaced repetition. */
+export interface AddToSrsResult {
+  cardsCreated: number
+  alreadyInSrs: number
+  detail: WordlistDetail
 }
 
-/** POST /api/vocab?action=drill-start: the run and every chosen card, distractors included. */
+/** One word of a Fast practice run, with what its exercises need. */
+export interface DrillCard extends ExerciseContent {
+  itemId: string
+}
+
+/** POST /api/vocab?action=drill-start { list, itemIds }. */
 export interface DrillRun {
   runId: string
-  cards: PracticeCard[]
+  cards: DrillCard[]
 }
 
 /** Body of POST /api/vocab?action=drill-answer. Recorded apart from reviews; never rescheduled. */
 export interface DrillAnswerInput {
   runId: string
-  cardId: string
+  itemId: string
   exercise: PracticeExercise
   correct: boolean
   usedHint: boolean
   responseMs: number | null
-}
-
-/** One entry of GET /api/vocab?action=cards. */
-export interface MyWord {
-  cardId: string
-  term: string
-  meaningHu: string | null
-  exampleEn: string | null
-  origin: VocabOrigin
-  stage: CardStage
-  suspended: boolean
-  contextOriginal: string | null
-  contextCorrected: string | null
-  due: string
-  createdAt: string
 }
