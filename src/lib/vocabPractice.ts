@@ -116,6 +116,47 @@ export function chooseExercise(card: PracticeCard, speechSupported: boolean): Pr
   }
 }
 
+/** Full practice rounds, easiest first (design §7.1). */
+export const DRILL_ROUNDS: readonly PracticeExercise[] = ['recognition', 'recall', 'context', 'listening']
+
+/**
+ * Whether an exercise can run for a card at all. Full practice skips what can't run
+ * instead of stepping down, so no card gets the same exercise twice.
+ */
+export function canRunExercise(card: PracticeCard, exercise: PracticeExercise, speechSupported: boolean): boolean {
+  switch (exercise) {
+    case 'recognition':
+      return Boolean(card.meaningHu) && card.distractors.length > 0
+    case 'recall':
+      return Boolean(card.meaningHu)
+    case 'context':
+      return practiceSentence(card) !== null
+    case 'listening':
+      return speechSupported
+  }
+}
+
+export interface DrillStep {
+  card: PracticeCard
+  exercise: PracticeExercise
+  /** 0-based index into DRILL_ROUNDS. */
+  round: number
+}
+
+/**
+ * The Full practice queue: round by round (every card's recognition, then every card's
+ * recall, …), cards shuffled within each round so the order gives nothing away. Rounds
+ * no card can run are left out.
+ */
+export function drillQueue(cards: readonly PracticeCard[], speechSupported: boolean, random: () => number = Math.random): DrillStep[] {
+  return DRILL_ROUNDS.flatMap((exercise, round) =>
+    shuffle(
+      cards.filter((card) => canRunExercise(card, exercise, speechSupported)),
+      random,
+    ).map((card) => ({ card, exercise, round })),
+  )
+}
+
 /** Fisher–Yates; `random` is injectable for checks. */
 export function shuffle<T>(items: readonly T[], random: () => number = Math.random): T[] {
   const out = [...items]

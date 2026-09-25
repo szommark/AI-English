@@ -169,6 +169,17 @@ Steps 1–4 are fully deterministic and client-rendered; only the result is POST
 
 **Student Vocabulary page:** tabs "Practice", "From my teacher" (one section per assigned list with its progress bar), "My words" (all cards, filter by origin, remove/suspend), and later "Explore" (catalog).
 
+### 7.1 Full practice (Teljes gyakorlás / Komplettübung)
+
+The Practice tab offers two modes: **Daily review** (the spaced-repetition session above) and **Full practice**, which runs every exercise over words the student picks, whenever they like.
+
+- **Choosing words:** start from "All my words" or one assigned teacher list (matched on `term_normalized`, like list progress), then tick or untick single words to add or remove them. Paused cards are not offered. At most `DRILL_MAX_WORDS` (= `LIST_MAX_ITEMS`, so a whole list fits) per run.
+- **Order:** round by round, easiest first: recognition for every word, then recall, gap-fill, listening. Words are shuffled within each round. An exercise that can't run for a word (no Hungarian meaning, no sentence containing the term, no speech synthesis) is skipped, not stepped down, so no word gets the same exercise twice.
+- **Recorded apart from scheduling:** answers go to `vocab_drill_answers` (one row per run, card and exercise), grouped by `vocab_drill_runs` (optional `list_id`, `word_count`, `started_at`, `finished_at`). They never touch FSRS state, `ladder_step` or `vocab_reviews`. So Full practice doesn't reschedule cards, doesn't use up `NEW_CARDS_PER_DAY` and doesn't move teacher-list progress or completion. Cramming would distort FSRS intervals.
+- **Summary:** correct/total per round; "Again with these words" restarts with the same selection, and "Change words" reopens the picker with it.
+- **API:** `drill-setup` (GET), `drill-start` `{ cardIds, listId? }`, `drill-answer` `{ runId, cardId, exercise, correct, usedHint, responseMs }`, `drill-finish` `{ runId }`. Content comes back like `session`, but every card gets recognition distractors.
+- **Not yet:** teacher-visible Full practice history.
+
 ## 8. Closing the loop with the Tutor Bot (Phase 6)
 
 - At Tutor session start, up to `TUTOR_TARGET_WORDS` (3–5) cards in Learning/Relearning or due soon are injected into the system prompt: create natural chances for the learner to use them; never quiz.

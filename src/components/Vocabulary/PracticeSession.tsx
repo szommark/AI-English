@@ -16,7 +16,7 @@ export interface SessionSummary {
   saveFailures: number
 }
 
-interface Feedback {
+export interface Feedback {
   outcome: ExerciseOutcome
   saving: boolean
   saveFailed: boolean
@@ -143,7 +143,8 @@ export default function PracticeSession({
   )
 }
 
-function FeedbackPanel({ card, feedback, speech }: { card: PracticeCard; feedback: Feedback; speech: Speech }) {
+/** The right answer after an exercise, with how it went and whether it was saved. */
+export function FeedbackPanel({ card, feedback, speech }: { card: PracticeCard; feedback: Feedback; speech: Speech }) {
   const { t } = useLanguage()
   const { check } = feedback.outcome
   const tone =

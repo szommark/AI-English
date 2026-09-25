@@ -39,7 +39,7 @@ interface ItemContent {
   owner_teacher_id: string | null
 }
 
-interface SessionCardRow {
+export interface SessionCardRow {
   id: string
   term_normalized: string
   origin: string
@@ -49,7 +49,7 @@ interface SessionCardRow {
   vocab_items: ItemContent | null
 }
 
-const SESSION_CARD_COLUMNS =
+export const SESSION_CARD_COLUMNS =
   'id, term_normalized, origin, state, ladder_step, context_corrected, ' +
   'vocab_items(term, kind, pos, meaning_hu, definition_en, example_en, cefr_level, enrichment_status, owner_teacher_id)'
 
@@ -99,7 +99,7 @@ export function pickDistractors(
   return candidates.slice(0, n)
 }
 
-async function distractorPool(userId: string, cards: SessionCardRow[]): Promise<string[]> {
+export async function distractorPool(userId: string, cards: SessionCardRow[]): Promise<string[]> {
   const { data, error } = await supabaseAdmin
     .from('vocab_cards')
     .select('vocab_items(meaning_hu)')
@@ -127,7 +127,11 @@ async function distractorPool(userId: string, cards: SessionCardRow[]): Promise<
   return [...pool]
 }
 
-function toPracticeCard(row: SessionCardRow, pool: string[]): PracticeCard | null {
+/**
+ * A session row as sent to the client. Recognition distractors go to cards on ladder step 1,
+ * or to every card when `allDistractors` is set (Full practice runs every exercise).
+ */
+export function toPracticeCard(row: SessionCardRow, pool: string[], allDistractors = false): PracticeCard | null {
   const item = row.vocab_items
   if (!item) return null
   return {
@@ -141,7 +145,7 @@ function toPracticeCard(row: SessionCardRow, pool: string[]): PracticeCard | nul
     contextCorrected: row.context_corrected,
     ladderStep: row.ladder_step,
     state: row.state,
-    distractors: row.ladder_step === 1 ? pickDistractors(item.meaning_hu, pool, RECOGNITION_DISTRACTORS) : [],
+    distractors: allDistractors || row.ladder_step === 1 ? pickDistractors(item.meaning_hu, pool, RECOGNITION_DISTRACTORS) : [],
   }
 }
 
@@ -153,7 +157,7 @@ function toPracticeCard(row: SessionCardRow, pool: string[]): PracticeCard | nul
  * once per term, not once per student. Failures leave the rows as they are: the exercise
  * choice copes with a missing meaning, and the next session retries.
  */
-async function fillPendingItems(userId: string, rows: SessionCardRow[]): Promise<void> {
+export async function fillPendingItems(userId: string, rows: SessionCardRow[]): Promise<void> {
   const pending = rows.filter((r) => r.vocab_items && r.vocab_items.enrichment_status !== 'done' && !r.vocab_items.owner_teacher_id)
   const terms = [...new Set(pending.map((r) => r.vocab_items!.term))].slice(0, ENRICH_BATCH_SIZE)
   if (terms.length === 0) return
