@@ -1,4 +1,4 @@
-import type { PracticeCard, PracticeExercise } from './vocab'
+import type { ExerciseContent, PracticeCard, PracticeExercise } from './vocab'
 
 // Pure helpers for the student practice session (design §7). Steps 1–4 are rendered and
 // checked in the browser; only the result goes to the server for scheduling.
@@ -88,7 +88,7 @@ export function gapSentence(sentence: string | null, term: string): GapSentence 
  * The sentence for the gap-fill and listening steps: a Tutor Bot card's own corrected
  * line when it contains the term (design §7), else the item's example sentence.
  */
-export function practiceSentence(card: Pick<PracticeCard, 'term' | 'contextCorrected' | 'exampleEn'>): string | null {
+export function practiceSentence(card: Pick<ExerciseContent, 'term' | 'contextCorrected' | 'exampleEn'>): string | null {
   return [card.contextCorrected, card.exampleEn].find((s) => gapSentence(s, card.term) !== null) ?? null
 }
 
@@ -116,14 +116,14 @@ export function chooseExercise(card: PracticeCard, speechSupported: boolean): Pr
   }
 }
 
-/** Full practice rounds, easiest first (design §7.1). */
+/** Fast practice rounds, easiest first (design §7.1). */
 export const DRILL_ROUNDS: readonly PracticeExercise[] = ['recognition', 'recall', 'context', 'listening']
 
 /**
- * Whether an exercise can run for a card at all. Full practice skips what can't run
+ * Whether an exercise can run for a card at all. Fast practice skips what can't run
  * instead of stepping down, so no card gets the same exercise twice.
  */
-export function canRunExercise(card: PracticeCard, exercise: PracticeExercise, speechSupported: boolean): boolean {
+export function canRunExercise(card: ExerciseContent, exercise: PracticeExercise, speechSupported: boolean): boolean {
   switch (exercise) {
     case 'recognition':
       return Boolean(card.meaningHu) && card.distractors.length > 0
@@ -136,19 +136,23 @@ export function canRunExercise(card: PracticeCard, exercise: PracticeExercise, s
   }
 }
 
-export interface DrillStep {
-  card: PracticeCard
+export interface DrillStep<T extends ExerciseContent = ExerciseContent> {
+  card: T
   exercise: PracticeExercise
   /** 0-based index into DRILL_ROUNDS. */
   round: number
 }
 
 /**
- * The Full practice queue: round by round (every card's recognition, then every card's
+ * The Fast practice queue: round by round (every card's recognition, then every card's
  * recall, …), cards shuffled within each round so the order gives nothing away. Rounds
  * no card can run are left out.
  */
-export function drillQueue(cards: readonly PracticeCard[], speechSupported: boolean, random: () => number = Math.random): DrillStep[] {
+export function drillQueue<T extends ExerciseContent>(
+  cards: readonly T[],
+  speechSupported: boolean,
+  random: () => number = Math.random,
+): DrillStep<T>[] {
   return DRILL_ROUNDS.flatMap((exercise, round) =>
     shuffle(
       cards.filter((card) => canRunExercise(card, exercise, speechSupported)),

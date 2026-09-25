@@ -167,18 +167,35 @@ Steps 1–4 are fully deterministic and client-rendered; only the result is POST
 
 **Session composition:** all due cards first (oldest due first, max `MAX_REVIEWS_PER_SESSION`), then up to `NEW_CARDS_PER_DAY` new cards, teacher-origin new cards before others. A session ends at the cap or when nothing is due; the summary shows reviewed / new / next due.
 
-**Student Vocabulary page:** tabs "Practice", "From my teacher" (one section per assigned list with its progress bar), "My words" (all cards, filter by origin, remove/suspend), and later "Explore" (catalog).
+**Student Vocabulary page:** three tabs — **Fast practice** (§7.1), **My wordlists** (§7.2) and **Spaced repetition** (the Daily review session above, with its stats). The earlier "From my teacher" and "My words" tabs are folded into My wordlists. "Explore" (catalog, Phase 5) comes later.
 
-### 7.1 Full practice (Teljes gyakorlás / Komplettübung)
+### 7.1 Fast practice (Gyors gyakorlás / Schnellübung)
 
-The Practice tab offers two modes: **Daily review** (the spaced-repetition session above) and **Full practice**, which runs every exercise over words the student picks, whenever they like.
+Every exercise, over any list, any time — whether or not its words are learned or in spaced repetition.
 
-- **Choosing words:** start from "All my words" or one assigned teacher list (matched on `term_normalized`, like list progress), then tick or untick single words to add or remove them. Paused cards are not offered. At most `DRILL_MAX_WORDS` (= `LIST_MAX_ITEMS`, so a whole list fits) per run.
+- **Starting a run:** pick a list (from the Fast practice tab or from a list's page), then untick any words to leave out. At most `DRILL_MAX_WORDS` (= `LIST_MAX_ITEMS`, so a whole list fits) per run.
 - **Order:** round by round, easiest first: recognition for every word, then recall, gap-fill, listening. Words are shuffled within each round. An exercise that can't run for a word (no Hungarian meaning, no sentence containing the term, no speech synthesis) is skipped, not stepped down, so no word gets the same exercise twice.
-- **Recorded apart from scheduling:** answers go to `vocab_drill_answers` (one row per run, card and exercise), grouped by `vocab_drill_runs` (optional `list_id`, `word_count`, `started_at`, `finished_at`). They never touch FSRS state, `ladder_step` or `vocab_reviews`. So Full practice doesn't reschedule cards, doesn't use up `NEW_CARDS_PER_DAY` and doesn't move teacher-list progress or completion. Cramming would distort FSRS intervals.
-- **Summary:** correct/total per round; "Again with these words" restarts with the same selection, and "Change words" reopens the picker with it.
-- **API:** `drill-setup` (GET), `drill-start` `{ cardIds, listId? }`, `drill-answer` `{ runId, cardId, exercise, correct, usedHint, responseMs }`, `drill-finish` `{ runId }`. Content comes back like `session`, but every card gets recognition distractors.
-- **Not yet:** teacher-visible Full practice history.
+- **Recorded apart from scheduling:** answers go to `vocab_drill_answers` (one row per run, **item** and exercise — words need no card), grouped by `vocab_drill_runs` (`source` custom/teacher/conversations, the list id, `item_ids`, `word_count`, `started_at`, `finished_at`). An answer must be for one of the run's `item_ids`. Runs never touch FSRS state, `ladder_step` or `vocab_reviews`, so they don't reschedule cards, use up `NEW_CARDS_PER_DAY` or move teacher-list progress. Cramming would distort FSRS intervals.
+- **Summary:** correct/total per round; "Again with these words", "Change words", "Close" (back to where the run started).
+- **API:** `drill-start` `{ list: { kind, id }, itemIds }`, `drill-answer` `{ runId, itemId, exercise, correct, usedHint, responseMs }`, `drill-finish` `{ runId }`. Every word gets recognition distractors.
+- **Not yet:** teacher-visible Fast practice history.
+
+### 7.2 My wordlists (Szólistáim / Meine Wortlisten)
+
+All of a student's lists, filterable by where they come from:
+
+| Kind | What | Spaced repetition |
+|---|---|---|
+| **custom** (made by me) | Compiled by the student (below); `vocab_student_lists` + `vocab_student_list_items` | Only when the student presses "Add to spaced repetition": cards with `origin = 'student'`, FSRS New; words that already have a card keep it (§4.3) |
+| **teacher** | Lists assigned by a teacher (§5.1), with progress | Automatic on assignment, as before |
+| **conversations** | The Tutor Bot words (§5.2) — a virtual list over `origin = 'tutor'` cards | Automatic, as before |
+
+- **Compiling a list:** topic (one of 10 fixed topics — travel, food & drink, work, shopping, health, home & family, free time, education, nature & weather, feelings & people — or the student's own, up to `CUSTOM_TOPIC_MAX_LENGTH`), CEFR level (default: the learner's level) and `COMPILE_MIN_WORDS`–`COMPILE_MAX_WORDS` (1–10) words. One model call picks the terms (`buildVocabWordPickPrompt`, logged as `vocab_generate`), avoiding terms the student already has in their deck or lists; the terms then go through the cached enrichment pipeline (§4.2) as global items with `origin = 'student'`. `origin = 'student'` items are unreviewed, like `'teacher'` and `'tutor'` ones (decision 9).
+- **Daily limit:** `COMPILES_PER_DAY` = 5 compiles + regenerations per student per UTC day, counted from `vocab_generate` rows in `groq_usage_log` (429 once reached).
+- **Editing custom lists:** rename, remove a word, add a typed word (enriched through the cache), "New set of words" (regenerate: same topic, level and size; counts towards the daily limit), delete. Deleting a list or removing a word never touches the student's cards — learning progress stays.
+- **Per word:** its spaced-repetition state (not in review / new / learning / learned / paused). Any word with a card can be paused or resumed; conversation words can also be removed (hard delete, as before); teacher words can only be paused.
+- **Word bank (later):** compiling will prefer a reviewed word bank (CEFR-J, §5.3) once it exists, topping up with AI-picked words when a topic or level has too few.
+- **API:** `wordlists` (GET), `wordlist` (GET `&kind=&id=`, PATCH rename, DELETE), `wordlist-compile` (POST `{ topic, cefrLevel, count, title }`), `wordlist-regenerate`, `wordlist-word` (POST add / DELETE `&itemId=`), `wordlist-srs` (POST).
 
 ## 8. Closing the loop with the Tutor Bot (Phase 6)
 

@@ -5,6 +5,7 @@ import { enrichTerms } from './_lib/vocabEnrichment.js'
 import { CEFR_LEVELS, prepareListItems, prepareListMeta, type PreparedListItem } from './_lib/vocabListInput.js'
 import {
   computeListProgress,
+  emailsFor,
   fetchAllPages,
   isComplete,
   loadListTerms,
@@ -13,18 +14,35 @@ import {
   refreshListCompletion,
 } from './_lib/vocabListProgress.js'
 import { ReviewError, buildSession, loadOverview, recordReview } from './_lib/vocabPractice.js'
-import { DrillError, finishDrill, loadDrillSetup, recordDrillAnswer, startDrill } from './_lib/vocabDrill.js'
+import { finishDrill, recordDrillAnswer, startDrill } from './_lib/vocabDrill.js'
+import {
+  VocabApiError,
+  addListToSrs,
+  addWordToList,
+  compileWordlist,
+  deleteWordlist,
+  loadWordlistDetail,
+  loadWordlists,
+  regenerateWordlist,
+  removeWordFromList,
+  renameWordlist,
+} from './_lib/vocabWordlists.js'
 import type { CefrLevel } from './_lib/prompts.js'
 import {
+  COMPILE_MAX_WORDS,
+  COMPILE_MIN_WORDS,
+  CUSTOM_TOPIC_MAX_LENGTH,
   DRILL_MAX_WORDS,
   LIST_MAX_ITEMS,
+  LIST_TITLE_MAX_LENGTH,
   PRACTICE_EXERCISES,
-  cardStage,
+  TERM_MAX_LENGTH,
+  isVocabTopicId,
   normalizeTerm,
+  type CompileInput,
   type PracticeExercise,
-  type MyWord,
-  type StudentListProgress,
-  type VocabOrigin,
+  type WordlistKind,
+  type WordlistRef,
   type VocabAssignResult,
   type VocabCardCounts,
   type VocabList,
@@ -55,17 +73,26 @@ import {
 //   GET    overview                     due / new-today counts (also the landing tile badge)
 //   GET    session                      the cards for one practice session
 //   POST   review                       { cardId, exercise, correct, usedHint, responseMs }
-//   GET    my-lists                     teacher lists assigned to the caller, with progress
 // Phase 4 (own cards only):
-//   GET    cards                        every card in the caller's deck ("My words")
-//   POST   remove                       { cardId } — deletes a Tutor Bot / catalog card
+//   POST   remove                       { cardId } — deletes a Tutor Bot / student / catalog card
 //   POST   suspend                      { cardId, suspended } — teacher-origin cards are
 //                                        suspended instead of removed, so list progress
 //                                        stays honest (design §5.2)
-// Full practice (own cards only, design §7.1; recorded apart from reviews, never rescheduled):
-//   GET    drill-setup                  active words + assigned lists as starting selections
-//   POST   drill-start                  { cardIds, listId? } — the run with every card's content
-//   POST   drill-answer                 { runId, cardId, exercise, correct, usedHint, responseMs }
+// My wordlists (design §7.2; own lists, assigned teacher lists and the Tutor Bot words):
+//   GET    wordlists                    every list, plus the learner level and today's compiles
+//   GET    wordlist&kind=&id=           one list with its words and their cards
+//                                        (kind: custom | teacher | conversations; no id for conversations)
+//   PATCH  wordlist&id=                 rename a custom list { title }
+//   DELETE wordlist&id=                 delete a custom list — its words' cards stay
+//   POST   wordlist-compile             { topic, cefrLevel, count, title } — AI-picked words, at most
+//                                        COMPILES_PER_DAY compiles + regenerations per UTC day (429)
+//   POST   wordlist-regenerate&id=      a fresh set of words for a custom list (counts as a compile)
+//   POST   wordlist-word&id=            { term } — add a typed word to a custom list
+//   DELETE wordlist-word&id=&itemId=    take a word off a custom list
+//   POST   wordlist-srs&id=             add a custom list's words to spaced repetition
+// Fast practice (design §7.1; recorded apart from reviews, never rescheduled):
+//   POST   drill-start                  { list: { kind, id }, itemIds } — the run with every word's content
+//   POST   drill-answer                 { runId, itemId, exercise, correct, usedHint, responseMs }
 //   POST   drill-finish                 { runId }
 
 const CEFR_SET = new Set<string>(CEFR_LEVELS)
@@ -205,17 +232,6 @@ async function activeStudentIds(teacherId: string): Promise<Set<string>> {
     .eq('status', 'active')
   if (error) throw error
   return new Set((data ?? []).map((l) => l.student_id as string))
-}
-
-/** A teacher's roster is small at this app's scale — same per-user lookup as api/connect.ts. */
-async function emailsFor(studentIds: string[]): Promise<Map<string, string>> {
-  const entries = await Promise.all(
-    studentIds.map(async (id) => {
-      const { data } = await supabaseAdmin.auth.admin.getUserById(id)
-      return [id, data.user?.email ?? 'unknown'] as const
-    }),
-  )
-  return new Map(entries)
 }
 
 function toCardCounts(row: AssignRpcRow): VocabCardCounts {
@@ -595,9 +611,8 @@ async function handleSession(req: VercelRequest, res: VercelResponse, userId: st
 /** A generous upper bound; anything longer is an abandoned tab, not a response time. */
 const MAX_RESPONSE_MS = 10 * 60 * 1000
 
-/** The answer fields shared by review and drill-answer: { cardId, exercise, correct, usedHint, responseMs }. */
+/** The answer fields shared by review and drill-answer: { exercise, correct, usedHint, responseMs }. */
 function parseAnswer(body: Record<string, unknown>) {
-  if (typeof body.cardId !== 'string' || !UUID_RE.test(body.cardId)) throw notFound()
   if (!(PRACTICE_EXERCISES as readonly unknown[]).includes(body.exercise)) {
     throw new HttpError(400, { error: 'Invalid exercise' })
   }
@@ -607,7 +622,6 @@ function parseAnswer(body: Record<string, unknown>) {
   const ms = body.responseMs
   const responseMs = typeof ms === 'number' && Number.isFinite(ms) && ms >= 0 ? Math.min(Math.round(ms), MAX_RESPONSE_MS) : null
   return {
-    cardId: body.cardId,
     exercise: body.exercise as PracticeExercise,
     correct: body.correct,
     usedHint: body.usedHint,
@@ -617,10 +631,12 @@ function parseAnswer(body: Record<string, unknown>) {
 
 async function handleReview(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
-  const answer = parseAnswer((req.body ?? {}) as Record<string, unknown>)
+  const body = (req.body ?? {}) as Record<string, unknown>
+  const cardId = cardIdFrom(body)
+  const answer = parseAnswer(body)
 
   try {
-    const result = await recordReview(userId, answer)
+    const result = await recordReview(userId, { cardId, ...answer })
     res.status(200).json(result)
   } catch (err) {
     if (err instanceof ReviewError) throw new HttpError(err.status, { error: err.message })
@@ -628,99 +644,165 @@ async function handleReview(req: VercelRequest, res: VercelResponse, userId: str
   }
 }
 
-async function handleMyLists(req: VercelRequest, res: VercelResponse, userId: string) {
-  if (req.method !== 'GET') throw new HttpError(405, { error: 'Method not allowed' })
+// --- My wordlists (design §7.2) --------------------------------------------------------------
 
-  const { data, error } = await supabaseAdmin
-    .from('vocab_list_assignments')
-    .select('list_id, assigned_at, completed_at, vocab_lists(id, teacher_id, title, description, cefr_level)')
-    .eq('student_id', userId)
-    .order('assigned_at', { ascending: false })
-  if (error) throw error
-  const rows = (data ?? []) as unknown as (AssignmentRow & {
-    vocab_lists: Pick<ListRow, 'id' | 'teacher_id' | 'title' | 'description' | 'cefr_level'> | null
-  })[]
-  const assignments = rows.filter((r) => r.vocab_lists)
+const WORDLIST_KINDS = new Set<string>(['custom', 'teacher', 'conversations'])
 
-  const listIds = assignments.map((a) => a.list_id)
-  const [termsByList, emails] = await Promise.all([
-    loadListTerms(listIds),
-    emailsFor([...new Set(assignments.map((a) => a.vocab_lists!.teacher_id))]),
-  ])
-  const cards = await loadProgressCards([userId], [...termsByList.values()].flat())
+/** A list reference from the query string (GET) or a body: { kind, id }. */
+function wordlistRefFrom(source: Record<string, unknown>): WordlistRef {
+  const kind = source.kind
+  if (typeof kind !== 'string' || !WORDLIST_KINDS.has(kind)) throw new HttpError(400, { error: 'Invalid list kind' })
+  if (kind === 'conversations') return { kind, id: null }
+  if (typeof source.id !== 'string' || !UUID_RE.test(source.id)) throw notFound()
+  return { kind: kind as WordlistKind, id: source.id }
+}
 
-  const lists: StudentListProgress[] = []
-  for (const a of assignments) {
-    const l = a.vocab_lists!
-    const progress = computeListProgress(termsByList.get(a.list_id) ?? [], [userId], cards)
-    let completedAt = a.completed_at
-    // Catch up a completion a review failed to record (set once, never cleared).
-    if (!completedAt && isComplete(progress.get(userId)!)) {
-      completedAt = (await recordCompletions(a.list_id, progress)).get(userId) ?? null
-    }
-    lists.push({
-      listId: l.id,
-      title: l.title,
-      description: l.description,
-      cefrLevel: l.cefr_level,
-      teacherEmail: emails.get(l.teacher_id) ?? 'unknown',
-      assignedAt: a.assigned_at,
-      completedAt,
-      ...progress.get(userId)!,
-    })
+/** The id of one of the caller's own (custom) lists, from the query string. */
+function customListIdFrom(req: VercelRequest): string {
+  const id = req.query.id
+  if (typeof id !== 'string' || !UUID_RE.test(id)) throw notFound()
+  return id
+}
+
+function listTitleFrom(value: unknown): string {
+  const title = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : ''
+  if (!title || title.length > LIST_TITLE_MAX_LENGTH) {
+    throw new HttpError(400, { error: `title must be 1–${LIST_TITLE_MAX_LENGTH} characters` })
   }
-  res.status(200).json({ lists })
+  return title
 }
 
-// --- Full practice (design §7.1) -----------------------------------------------------------
+async function withVocabErrors<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run()
+  } catch (err) {
+    if (err instanceof VocabApiError) throw new HttpError(err.status, { error: err.message })
+    throw err
+  }
+}
 
-async function handleDrillSetup(req: VercelRequest, res: VercelResponse, userId: string) {
+async function handleWordlists(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'GET') throw new HttpError(405, { error: 'Method not allowed' })
-  res.status(200).json(await loadDrillSetup(userId))
+  res.status(200).json(await loadWordlists(userId))
 }
+
+/**
+ * GET wordlist&kind=&id= — one list with its words.
+ * PATCH wordlist&id= { title } — rename a custom list.
+ * DELETE wordlist&id= — delete a custom list (its words' cards stay).
+ */
+async function handleWordlist(req: VercelRequest, res: VercelResponse, userId: string) {
+  switch (req.method) {
+    case 'GET':
+      res.status(200).json(await withVocabErrors(() => loadWordlistDetail(userId, wordlistRefFrom(req.query))))
+      return
+    case 'PATCH': {
+      const id = customListIdFrom(req)
+      const title = listTitleFrom(((req.body ?? {}) as Record<string, unknown>).title)
+      res.status(200).json(await withVocabErrors(() => renameWordlist(userId, id, title)))
+      return
+    }
+    case 'DELETE': {
+      const id = customListIdFrom(req)
+      await withVocabErrors(() => deleteWordlist(userId, id))
+      res.status(200).json({ ok: true })
+      return
+    }
+    default:
+      throw new HttpError(405, { error: 'Method not allowed' })
+  }
+}
+
+function compileInputFrom(body: Record<string, unknown>): CompileInput {
+  const topic = typeof body.topic === 'string' ? body.topic.trim().replace(/\s+/g, ' ') : ''
+  if (!topic || (!isVocabTopicId(topic) && topic.length > CUSTOM_TOPIC_MAX_LENGTH)) {
+    throw new HttpError(400, { error: `topic must be a listed topic or 1–${CUSTOM_TOPIC_MAX_LENGTH} characters` })
+  }
+  if (typeof body.cefrLevel !== 'string' || !CEFR_SET.has(body.cefrLevel)) {
+    throw new HttpError(400, { error: 'Invalid cefrLevel' })
+  }
+  const count = body.count
+  if (typeof count !== 'number' || !Number.isInteger(count) || count < COMPILE_MIN_WORDS || count > COMPILE_MAX_WORDS) {
+    throw new HttpError(400, { error: `count must be ${COMPILE_MIN_WORDS}–${COMPILE_MAX_WORDS}` })
+  }
+  return { topic, cefrLevel: body.cefrLevel as CefrLevel, count, title: listTitleFrom(body.title) }
+}
+
+async function handleWordlistCompile(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const input = compileInputFrom((req.body ?? {}) as Record<string, unknown>)
+  res.status(200).json(await withVocabErrors(() => compileWordlist(userId, input)))
+}
+
+async function handleWordlistRegenerate(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const id = customListIdFrom(req)
+  res.status(200).json(await withVocabErrors(() => regenerateWordlist(userId, id)))
+}
+
+/**
+ * POST wordlist-word&id= { term } — add a typed word to a custom list.
+ * DELETE wordlist-word&id=&itemId= — take a word off it.
+ */
+async function handleWordlistWord(req: VercelRequest, res: VercelResponse, userId: string) {
+  const id = customListIdFrom(req)
+  if (req.method === 'POST') {
+    const raw = ((req.body ?? {}) as Record<string, unknown>).term
+    const term = typeof raw === 'string' ? raw.trim().replace(/\s+/g, ' ') : ''
+    if (!normalizeTerm(term) || term.length > TERM_MAX_LENGTH) {
+      throw new HttpError(400, { error: `term must be 1–${TERM_MAX_LENGTH} characters` })
+    }
+    res.status(200).json(await withVocabErrors(() => addWordToList(userId, id, term)))
+    return
+  }
+  if (req.method === 'DELETE') {
+    const itemId = req.query.itemId
+    if (typeof itemId !== 'string' || !UUID_RE.test(itemId)) throw notFound()
+    res.status(200).json(await withVocabErrors(() => removeWordFromList(userId, id, itemId)))
+    return
+  }
+  throw new HttpError(405, { error: 'Method not allowed' })
+}
+
+async function handleWordlistSrs(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const id = customListIdFrom(req)
+  res.status(200).json(await withVocabErrors(() => addListToSrs(userId, id)))
+}
+
+// --- Fast practice (design §7.1) -----------------------------------------------------------
 
 function runIdFrom(body: Record<string, unknown>): string {
   if (typeof body.runId !== 'string' || !UUID_RE.test(body.runId)) throw notFound()
   return body.runId
 }
 
-async function withDrillErrors<T>(run: () => Promise<T>): Promise<T> {
-  try {
-    return await run()
-  } catch (err) {
-    if (err instanceof DrillError) throw new HttpError(err.status, { error: err.message })
-    throw err
-  }
-}
-
 async function handleDrillStart(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
   const body = (req.body ?? {}) as Record<string, unknown>
+  const ref = wordlistRefFrom((body.list ?? {}) as Record<string, unknown>)
 
-  const ids = body.cardIds
+  const ids = body.itemIds
   if (!Array.isArray(ids) || ids.length === 0 || !ids.every((id) => typeof id === 'string' && UUID_RE.test(id))) {
-    throw new HttpError(400, { error: 'cardIds must be a non-empty array of card ids' })
+    throw new HttpError(400, { error: 'itemIds must be a non-empty array of item ids' })
   }
-  const cardIds = [...new Set(ids as string[])]
-  if (cardIds.length > DRILL_MAX_WORDS) {
+  const itemIds = [...new Set(ids as string[])]
+  if (itemIds.length > DRILL_MAX_WORDS) {
     throw new HttpError(400, { error: `At most ${DRILL_MAX_WORDS} words per run` })
   }
-  let listId: string | null = null
-  if (body.listId !== undefined && body.listId !== null) {
-    if (typeof body.listId !== 'string' || !UUID_RE.test(body.listId)) throw notFound()
-    listId = body.listId
-  }
 
-  res.status(200).json(await withDrillErrors(() => startDrill(userId, cardIds, listId)))
+  res.status(200).json(await withVocabErrors(() => startDrill(userId, ref, itemIds)))
 }
 
 async function handleDrillAnswer(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
   const body = (req.body ?? {}) as Record<string, unknown>
   const runId = runIdFrom(body)
+  if (typeof body.itemId !== 'string' || !UUID_RE.test(body.itemId)) throw notFound()
+  const itemId = body.itemId
   const answer = parseAnswer(body)
 
-  await withDrillErrors(() => recordDrillAnswer(userId, { runId, ...answer }))
+  await withVocabErrors(() => recordDrillAnswer(userId, { runId, itemId, ...answer }))
   res.status(200).json({ ok: true })
 }
 
@@ -728,57 +810,11 @@ async function handleDrillFinish(req: VercelRequest, res: VercelResponse, userId
   if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
   const runId = runIdFrom((req.body ?? {}) as Record<string, unknown>)
 
-  await withDrillErrors(() => finishDrill(userId, runId))
+  await withVocabErrors(() => finishDrill(userId, runId))
   res.status(200).json({ ok: true })
 }
 
-// --- My words (Phase 4) --------------------------------------------------------------------
-
-interface MyWordRow {
-  id: string
-  origin: VocabOrigin
-  state: number
-  first_learned_at: string | null
-  suspended: boolean
-  context_original: string | null
-  context_corrected: string | null
-  due: string
-  created_at: string
-  vocab_items: { term: string; meaning_hu: string | null; example_en: string | null } | null
-}
-
-async function handleCards(req: VercelRequest, res: VercelResponse, userId: string) {
-  if (req.method !== 'GET') throw new HttpError(405, { error: 'Method not allowed' })
-
-  const rows = await fetchAllPages<MyWordRow>((from, to) =>
-    supabaseAdmin
-      .from('vocab_cards')
-      .select(
-        'id, origin, state, first_learned_at, suspended, context_original, context_corrected, due, created_at, vocab_items(term, meaning_hu, example_en)',
-      )
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .order('id')
-      .range(from, to) as unknown as PromiseLike<{ data: MyWordRow[] | null; error: unknown }>,
-  )
-
-  const cards: MyWord[] = rows
-    .filter((r) => r.vocab_items)
-    .map((r) => ({
-      cardId: r.id,
-      term: r.vocab_items!.term,
-      meaningHu: r.vocab_items!.meaning_hu,
-      exampleEn: r.vocab_items!.example_en,
-      origin: r.origin,
-      stage: cardStage(r),
-      suspended: r.suspended,
-      contextOriginal: r.context_original,
-      contextCorrected: r.context_corrected,
-      due: r.due,
-      createdAt: r.created_at,
-    }))
-  res.status(200).json({ cards })
-}
+// --- Cards (Phase 4) -----------------------------------------------------------------------
 
 function cardIdFrom(body: Record<string, unknown>): string {
   if (typeof body.cardId !== 'string' || !UUID_RE.test(body.cardId)) throw notFound()
@@ -857,11 +893,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case 'review':
         await handleReview(req, res, user.id)
         return
-      case 'my-lists':
-        await handleMyLists(req, res, user.id)
+      case 'wordlists':
+        await handleWordlists(req, res, user.id)
         return
-      case 'drill-setup':
-        await handleDrillSetup(req, res, user.id)
+      case 'wordlist':
+        await handleWordlist(req, res, user.id)
+        return
+      case 'wordlist-compile':
+        await handleWordlistCompile(req, res, user.id)
+        return
+      case 'wordlist-regenerate':
+        await handleWordlistRegenerate(req, res, user.id)
+        return
+      case 'wordlist-word':
+        await handleWordlistWord(req, res, user.id)
+        return
+      case 'wordlist-srs':
+        await handleWordlistSrs(req, res, user.id)
         return
       case 'drill-start':
         await handleDrillStart(req, res, user.id)
@@ -871,9 +919,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'drill-finish':
         await handleDrillFinish(req, res, user.id)
-        return
-      case 'cards':
-        await handleCards(req, res, user.id)
         return
       case 'remove':
         await handleRemove(req, res, user.id)

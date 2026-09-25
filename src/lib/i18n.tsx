@@ -369,8 +369,6 @@ const messages = {
 
   // Student vocabulary practice (Vocabulary Builder Phase 3)
   vcDueBadge: { hu: '{n} esedékes', en: '{n} due', de: '{n} fällig' },
-  vcTabPractice: { hu: 'Gyakorlás', en: 'Practice', de: 'Üben' },
-  vcTabFromTeacher: { hu: 'A tanáromtól', en: 'From my teacher', de: 'Von meiner Lehrkraft' },
   vcDueNow: { hu: 'Esedékes ismétlés', en: 'Reviews due', de: 'Fällige Wiederholungen' },
   vcNewToday: { hu: 'Új szó mára', en: 'New words today', de: 'Neue Wörter heute' },
   vcLearnedStat: { hu: 'Megtanult szó', en: 'Words learned', de: 'Gelernte Wörter' },
@@ -383,9 +381,9 @@ const messages = {
   },
   vcNextDue: { hu: 'Következő ismétlés {when}.', en: 'Next review {when}.', de: 'Nächste Wiederholung {when}.' },
   vcNoCards: {
-    hu: 'Még nincsenek szavaid. A tanárodtól kapott szólisták és az Oktató bottal folytatott beszélgetéseid szavai itt jelennek meg.',
-    en: "You have no words yet. Words from your teacher's lists and your Tutor Bot conversations show up here.",
-    de: 'Du hast noch keine Wörter. Wörter aus den Listen deiner Lehrkraft und aus deinen Tutor-Bot-Gesprächen erscheinen hier.',
+    hu: 'Még nincs szó az ismétlésben. A tanári listák és az Oktató bottal folytatott beszélgetések szavai automatikusan ide kerülnek; a saját listáidat a Szólistáim fülön adhatod hozzá.',
+    en: "No words in spaced repetition yet. Words from your teacher's lists and Tutor Bot conversations land here automatically; add your own lists from My wordlists.",
+    de: 'Noch keine Wörter in der Wiederholung. Wörter aus Listen deiner Lehrkraft und aus Tutor-Bot-Gesprächen kommen automatisch hierher; eigene Listen fügst du unter Meine Wortlisten hinzu.',
   },
   vcLoadFailed: {
     hu: 'Nem sikerült betölteni a szavaidat. Próbáld újra.',
@@ -439,15 +437,9 @@ const messages = {
   },
   vcPracticeMore: { hu: 'Még gyakorolok', en: 'Practise more', de: 'Weiter üben' },
   vcBackToOverview: { hu: 'Vissza', en: 'Back', de: 'Zurück' },
-  vcFromTeacherEmpty: {
-    hu: 'Még nem kaptál szólistát a tanárodtól.',
-    en: "Your teacher hasn't assigned you any word lists yet.",
-    de: 'Deine Lehrkraft hat dir noch keine Wortlisten zugewiesen.',
-  },
   vcFromTeacherBy: { hu: 'Tanár: {email}', en: 'From {email}', de: 'Von {email}' },
 
   // Tutor Bot words and "My words" (Vocabulary Builder Phase 4)
-  vcTabMyWords: { hu: 'Szavaim', en: 'My words', de: 'Meine Wörter' },
   vcFilterAll: { hu: 'Mind', en: 'All', de: 'Alle' },
   vcFilterTeacher: { hu: 'Tanártól', en: 'From my teacher', de: 'Von der Lehrkraft' },
   vcFilterTutor: { hu: 'Beszélgetésből', en: 'From conversations', de: 'Aus Gesprächen' },
@@ -463,11 +455,6 @@ const messages = {
     hu: 'Eltávolítod ezt a szót: „{term}”? Az eddigi gyakorlásod is törlődik.',
     en: 'Remove “{term}”? Your practice history for it is deleted too.',
     de: '„{term}“ entfernen? Dein Übungsverlauf dazu wird ebenfalls gelöscht.',
-  },
-  vcPauseHint: {
-    hu: 'A tanártól kapott szavakat szüneteltetheted, de nem törölheted.',
-    en: 'Words from your teacher can be paused, not removed.',
-    de: 'Wörter von deiner Lehrkraft kannst du pausieren, aber nicht entfernen.',
   },
   vcMeaningPending: { hu: 'a jelentés hamarosan elkészül', en: 'meaning on its way', de: 'Bedeutung folgt' },
   vcActionFailed: {
@@ -490,28 +477,18 @@ const messages = {
   vcReasonAsked: { hu: 'rákérdeztél', en: 'you asked for it', de: 'du hast danach gefragt' },
   vcReasonLacked: { hu: 'nem jutott eszedbe', en: 'you were looking for it', de: 'es hat dir gefehlt' },
 
-  // Vocabulary: daily review vs. Full practice (design §7.1)
+  // Vocabulary: spaced-repetition review and Fast practice runs (design §7, §7.1)
   vcReviewTitle: { hu: 'Napi ismétlés', en: 'Daily review', de: 'Tägliche Wiederholung' },
   vcReviewHint: {
     hu: 'Az esedékes és az új szavak, egy-egy feladattal. Ez alapján dől el, mikor jön elő újra egy szó.',
     en: 'Words that are due, plus new ones, one exercise each. This decides when each word comes back.',
     de: 'Fällige und neue Wörter, je eine Übung. Danach richtet sich, wann ein Wort wiederkommt.',
   },
-  vcDrillTitle: { hu: 'Teljes gyakorlás', en: 'Full practice', de: 'Komplettübung' },
-  vcDrillHint: {
-    hu: 'Te választod ki a szavakat, és mindegyiken végigmész az összes feladattal: jelentés, felidézés, kiegészítés, hallás utáni értés. Az ismétlések ütemezését nem változtatja meg.',
-    en: "Pick any words and go through every exercise with them: meaning, recall, gap-fill and listening. It doesn't change your review schedule.",
-    de: 'Wähle beliebige Wörter und mach alle Übungen damit: Bedeutung, Abrufen, Lückentext und Hören. Dein Wiederholungsplan bleibt unverändert.',
-  },
-  vcDrillChooseWords: { hu: 'Szavak kiválasztása', en: 'Choose words', de: 'Wörter auswählen' },
   vcDrillSetupHint: {
-    hu: 'Indulj ki az összes szavadból vagy egy tanári szólistából, majd pipáld be vagy vedd ki a szavakat.',
-    en: "Start from all your words or a teacher's list, then tick or untick words to add or remove them.",
-    de: 'Beginne mit all deinen Wörtern oder einer Liste deiner Lehrkraft und hake dann Wörter an oder ab.',
+    hu: 'Minden szó ki van jelölve; vedd ki, amelyiket most nem szeretnéd gyakorolni.',
+    en: "Every word is ticked; untick any you don't want in this run.",
+    de: 'Alle Wörter sind ausgewählt; nimm die heraus, die du diesmal nicht üben willst.',
   },
-  vcDrillSource: { hu: 'Szavak forrása', en: 'Start from', de: 'Ausgangspunkt' },
-  vcDrillAllWords: { hu: 'Minden szavam ({n})', en: 'All my words ({n})', de: 'Alle meine Wörter ({n})' },
-  vcDrillListOption: { hu: '{title} ({n})', en: '{title} ({n})', de: '{title} ({n})' },
   vcDrillSearch: { hu: 'Keresés…', en: 'Search…', de: 'Suchen…' },
   vcDrillSelectAll: { hu: 'Mind kijelölése', en: 'Select all', de: 'Alle auswählen' },
   vcDrillSelectNone: { hu: 'Kijelölés törlése', en: 'Select none', de: 'Keine auswählen' },
@@ -544,6 +521,140 @@ const messages = {
   },
   vcDrillAgain: { hu: 'Újra ezekkel a szavakkal', en: 'Again with these words', de: 'Nochmal mit diesen Wörtern' },
   vcDrillChangeWords: { hu: 'Más szavak', en: 'Change words', de: 'Andere Wörter' },
+
+  // Vocabulary: Fast practice and My wordlists (design §7.1–§7.2)
+  vcTabFast: { hu: 'Gyors gyakorlás', en: 'Fast practice', de: 'Schnellübung' },
+  vcTabLists: { hu: 'Szólistáim', en: 'My wordlists', de: 'Meine Wortlisten' },
+  vcTabSrs: { hu: 'Ismétlés', en: 'Spaced repetition', de: 'Wiederholung' },
+  vcFastTitle: { hu: 'Gyakorolj egy listát', en: 'Practise a list', de: 'Eine Liste üben' },
+  vcFastHint: {
+    hu: 'Bármelyik listádat végigveheted az összes feladattal, bármikor — akkor is, ha már megtanultad. Az ismétlések ütemezését nem változtatja meg.',
+    en: "Go through every exercise with any of your lists, any time — learned or not. It doesn't change your review schedule.",
+    de: 'Übe jede deiner Listen mit allen Übungen, jederzeit — gelernt oder nicht. Dein Wiederholungsplan bleibt unverändert.',
+  },
+  vcFastNoLists: {
+    hu: 'Még nincs listád. Állíts össze egyet lent!',
+    en: "You don't have any lists yet. Compile one below!",
+    de: 'Du hast noch keine Listen. Stelle unten eine zusammen!',
+  },
+  vcPractise: { hu: 'Gyakorlás', en: 'Practise', de: 'Üben' },
+  vcWordCount: { hu: '{n} szó', en: '{n} word(s)', de: '{n} Wort/Wörter' },
+  vcCompileTitle: { hu: 'Új lista összeállítása', en: 'Compile a new list', de: 'Neue Liste zusammenstellen' },
+  vcCompileHint: {
+    hu: 'Válassz témát, szintet és szószámot, és összeállítjuk a listát. Utána szerkesztheted, gyorsan gyakorolhatod, vagy hozzáadhatod az ismétléshez.',
+    en: 'Pick a topic, a level and how many words, and we put the list together. Then edit it, fast-practise it or add it to spaced repetition.',
+    de: 'Wähle Thema, Niveau und Wortanzahl, und wir stellen die Liste zusammen. Danach kannst du sie bearbeiten, schnell üben oder zur Wiederholung hinzufügen.',
+  },
+  vcCompileTopic: { hu: 'Téma', en: 'Topic', de: 'Thema' },
+  vcCompileLevel: { hu: 'Szint', en: 'Level', de: 'Niveau' },
+  vcCompileCount: { hu: 'Szavak száma', en: 'Number of words', de: 'Anzahl der Wörter' },
+  vcCompile: { hu: 'Összeállítás', en: 'Compile list', de: 'Liste erstellen' },
+  vcCompiling: { hu: 'Összeállítás…', en: 'Compiling…', de: 'Wird erstellt…' },
+  vcCompilesLeft: {
+    hu: 'Mára még {n} új lista maradt (napi {max}).',
+    en: '{n} of {max} new lists left today.',
+    de: 'Heute noch {n} von {max} neuen Listen.',
+  },
+  vcCompileLimit: {
+    hu: 'Mára elérted a napi {n} új listát. Holnap újra összeállíthatsz.',
+    en: "You've reached today's limit of {n} new lists. You can compile more tomorrow.",
+    de: 'Du hast das Tageslimit von {n} neuen Listen erreicht. Morgen kannst du wieder welche erstellen.',
+  },
+  vcCompileFailed: {
+    hu: 'Nem sikerült összeállítani a listát. Próbáld újra.',
+    en: "Couldn't compile the list. Please try again.",
+    de: 'Die Liste konnte nicht erstellt werden. Bitte versuche es erneut.',
+  },
+  vcTopicTravel: { hu: 'Utazás', en: 'Travel', de: 'Reisen' },
+  vcTopicFood: { hu: 'Étel és ital', en: 'Food & drink', de: 'Essen & Trinken' },
+  vcTopicWork: { hu: 'Munka', en: 'Work', de: 'Arbeit' },
+  vcTopicShopping: { hu: 'Vásárlás', en: 'Shopping', de: 'Einkaufen' },
+  vcTopicHealth: { hu: 'Egészség', en: 'Health', de: 'Gesundheit' },
+  vcTopicHome: { hu: 'Otthon és család', en: 'Home & family', de: 'Zuhause & Familie' },
+  vcTopicFreeTime: { hu: 'Szabadidő', en: 'Free time', de: 'Freizeit' },
+  vcTopicEducation: { hu: 'Oktatás', en: 'Education', de: 'Bildung' },
+  vcTopicNature: { hu: 'Természet és időjárás', en: 'Nature & weather', de: 'Natur & Wetter' },
+  vcTopicPeople: { hu: 'Érzések és emberek', en: 'Feelings & people', de: 'Gefühle & Menschen' },
+  vcTopicOther: { hu: 'Saját téma…', en: 'Your own topic…', de: 'Eigenes Thema…' },
+  vcTopicOtherPlaceholder: {
+    hu: 'Pl. focimeccs, állásinterjú',
+    en: 'e.g. football match, job interview',
+    de: 'z. B. Fußballspiel, Vorstellungsgespräch',
+  },
+  vcListsEmpty: {
+    hu: 'Még nincs szólistád. A Gyors gyakorlás fülön állíthatsz össze egyet.',
+    en: 'No word lists yet. Compile one on the Fast practice tab.',
+    de: 'Noch keine Wortlisten. Stelle eine im Tab Schnellübung zusammen.',
+  },
+  vcFilterCustom: { hu: 'Saját', en: 'Made by me', de: 'Eigene' },
+  vcKindCustom: { hu: 'saját', en: 'mine', de: 'eigene' },
+  vcKindTeacher: { hu: 'tanártól', en: 'from teacher', de: 'von Lehrkraft' },
+  vcKindConversations: { hu: 'beszélgetésből', en: 'from conversations', de: 'aus Gesprächen' },
+  vcListConversations: { hu: 'Beszélgetésekből', en: 'From conversations', de: 'Aus Gesprächen' },
+  vcInSrsCount: { hu: '{n} az ismétlésben', en: '{n} in spaced repetition', de: '{n} in der Wiederholung' },
+  vcNotInSrs: { hu: 'nincs az ismétlésben', en: 'not in review', de: 'nicht in Wiederholung' },
+  vcBackToLists: { hu: 'Vissza', en: 'Back', de: 'Zurück' },
+  vcListTitle: { hu: 'Lista neve', en: 'List name', de: 'Listenname' },
+  vcSave: { hu: 'Mentés', en: 'Save', de: 'Speichern' },
+  vcCancel: { hu: 'Mégse', en: 'Cancel', de: 'Abbrechen' },
+  vcSaving: { hu: 'Mentés…', en: 'Saving…', de: 'Wird gespeichert…' },
+  vcFastPractise: { hu: 'Gyors gyakorlás', en: 'Fast practice', de: 'Schnell üben' },
+  vcAddToSrs: {
+    hu: '{n} szó hozzáadása az ismétléshez',
+    en: 'Add {n} word(s) to spaced repetition',
+    de: '{n} Wort/Wörter zur Wiederholung hinzufügen',
+  },
+  vcAllInSrs: {
+    hu: 'Minden szó az ismétlésben van',
+    en: 'All words are in spaced repetition',
+    de: 'Alle Wörter sind in der Wiederholung',
+  },
+  vcAddedToSrs: {
+    hu: '{n} szó bekerült az ismétlésbe.',
+    en: '{n} word(s) added to spaced repetition.',
+    de: '{n} Wort/Wörter zur Wiederholung hinzugefügt.',
+  },
+  vcRegenerate: { hu: 'Új szavak', en: 'New set of words', de: 'Neue Wörter' },
+  vcConfirmRegenerate: {
+    hu: 'Lecseréljük a lista szavait egy új sorozatra? Ez egy új listának számít a mai keretből (mára még {n} maradt, napi {max}). Az ismétlésben lévő szavak ott maradnak.',
+    en: "Replace this list's words with a new set? It counts as one of today's new lists ({n} of {max} left). Words already in spaced repetition stay there.",
+    de: 'Die Wörter dieser Liste durch neue ersetzen? Das zählt als eine der heutigen neuen Listen (noch {n} von {max}). Wörter in der Wiederholung bleiben dort.',
+  },
+  vcRename: { hu: 'Átnevezés', en: 'Rename', de: 'Umbenennen' },
+  vcDeleteList: { hu: 'Lista törlése', en: 'Delete list', de: 'Liste löschen' },
+  vcConfirmDeleteList: {
+    hu: 'Törlöd ezt a listát: „{title}”? Az ismétlésben lévő szavai ott maradnak.',
+    en: 'Delete "{title}"? Its words that are in spaced repetition stay there.',
+    de: '„{title}“ löschen? Wörter, die in der Wiederholung sind, bleiben dort.',
+  },
+  vcTeacherListSrsNote: {
+    hu: 'A tanári listák szavai automatikusan bekerülnek az ismétlésbe.',
+    en: "Words from your teacher's lists are in spaced repetition automatically.",
+    de: 'Wörter aus Listen deiner Lehrkraft sind automatisch in der Wiederholung.',
+  },
+  vcConversationsSrsNote: {
+    hu: 'Az Oktató bottal folytatott beszélgetések szavai automatikusan bekerülnek az ismétlésbe.',
+    en: 'Words from your Tutor Bot conversations are in spaced repetition automatically.',
+    de: 'Wörter aus deinen Tutor-Bot-Gesprächen sind automatisch in der Wiederholung.',
+  },
+  vcRemoveFromList: { hu: 'Levétel a listáról', en: 'Remove from list', de: 'Von der Liste nehmen' },
+  vcListNoWords: {
+    hu: 'Ezen a listán nincs szó.',
+    en: 'There are no words on this list.',
+    de: 'Auf dieser Liste sind keine Wörter.',
+  },
+  vcAddWordPlaceholder: {
+    hu: 'Új szó vagy kifejezés angolul…',
+    en: 'Add a word or phrase in English…',
+    de: 'Wort oder Ausdruck auf Englisch hinzufügen…',
+  },
+  vcAddWord: { hu: 'Hozzáadás', en: 'Add', de: 'Hinzufügen' },
+  vcWordExists: {
+    hu: '„{term}” már szerepel a listán.',
+    en: '"{term}" is already on the list.',
+    de: '„{term}“ steht schon auf der Liste.',
+  },
+  vcClose: { hu: 'Bezárás', en: 'Close', de: 'Schließen' },
 } as const satisfies Record<string, Record<Lang, string>>
 
 export type MessageKey = keyof typeof messages

@@ -7,7 +7,7 @@ import type {
   VocabularyNote,
   VocabularyReason,
 } from '../../src/lib/types.js'
-import { MISTAKE_CATEGORIES, type CefrLevel } from './prompts.js'
+import { MISTAKE_CATEGORIES, WORD_PICK_MAX_WORDS_PER_TERM, type CefrLevel } from './prompts.js'
 import { recordGroqRateLimits } from './groqRateLimit.js'
 import {
   ITEM_FIELD_MAX_LENGTH,
@@ -314,4 +314,33 @@ export function parseGrammarLessonJson(raw: string, lang: LessonLanguage = 'hu')
   }
 
   return parsed as GrammarLesson
+}
+
+/**
+ * Parses buildVocabWordPickPrompt's reply into distinct terms, in reply order. Tolerates
+ * a wrapper object like {"terms": [...]}; drops non-strings, over-long terms, multi-word
+ * terms longer than WORD_PICK_MAX_WORDS_PER_TERM and duplicates (by normalizeTerm).
+ * Throws only when the reply isn't JSON at all.
+ */
+export function parseWordPickJson(raw: string): string[] {
+  const cleaned = raw.trim().replace(/^```(json)?/i, '').replace(/```$/, '').trim()
+  const parsed: unknown = JSON.parse(cleaned)
+  const list: unknown[] = Array.isArray(parsed)
+    ? parsed
+    : typeof parsed === 'object' && parsed !== null
+      ? ((Object.values(parsed).find(Array.isArray) as unknown[] | undefined) ?? [])
+      : []
+
+  const seen = new Set<string>()
+  const terms: string[] = []
+  for (const item of list) {
+    if (typeof item !== 'string') continue
+    const term = item.trim().replace(/\s+/g, ' ')
+    const normalized = normalizeTerm(term)
+    if (!normalized || term.length > TERM_MAX_LENGTH || seen.has(normalized)) continue
+    if (normalized.split(' ').length > WORD_PICK_MAX_WORDS_PER_TERM) continue
+    seen.add(normalized)
+    terms.push(term)
+  }
+  return terms
 }

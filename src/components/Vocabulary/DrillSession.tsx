@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLanguage, type MessageKey } from '../../lib/i18n'
 import { finishDrill, submitDrillAnswer } from '../../lib/vocabPracticeApi'
 import { DRILL_ROUNDS, drillQueue } from '../../lib/vocabPractice'
-import type { PracticeCard, PracticeExercise } from '../../lib/vocab'
+import type { DrillCard, PracticeExercise } from '../../lib/vocab'
 import Exercise, { type ExerciseOutcome, type Speech } from './Exercise'
 import { FeedbackPanel, type Feedback } from './PracticeSession'
 import ProgressBar from '../VocabLists/ProgressBar'
@@ -22,7 +22,7 @@ export interface DrillSummary {
 }
 
 /**
- * Full practice (design §7.1): every exercise for every chosen card, round by round.
+ * Fast practice (design §7.1): every exercise for every chosen word, round by round.
  * Answers are recorded for the run but never reschedule a card.
  */
 export default function DrillSession({
@@ -32,7 +32,7 @@ export default function DrillSession({
   onFinish,
 }: {
   runId: string
-  cards: PracticeCard[]
+  cards: DrillCard[]
   speech: Speech
   onFinish: (summary: DrillSummary) => void
 }) {
@@ -63,10 +63,10 @@ export default function DrillSession({
     results.current.set(step.exercise, r)
     setFeedback({ outcome, saving: true, saveFailed: false, completedLists: [] })
 
-    const cardId = step.card.cardId
+    const itemId = step.card.itemId
     const save = submitDrillAnswer({
       runId,
-      cardId,
+      itemId,
       exercise: step.exercise,
       correct: outcome.correct,
       usedHint: outcome.usedHint,
@@ -74,7 +74,7 @@ export default function DrillSession({
     })
       .then(() => setFeedback((f) => f && { ...f, saving: false }))
       .catch((err) => {
-        console.error('Failed to save full practice answer', { runId, cardId, err })
+        console.error('Failed to save fast practice answer', { runId, itemId, err })
         saveFailures.current += 1
         setFeedback((f) => f && { ...f, saving: false, saveFailed: true })
       })
@@ -85,7 +85,7 @@ export default function DrillSession({
     setFinishing(true)
     await Promise.allSettled(pending.current)
     // Only marks the run's end time; the answers are already saved.
-    await finishDrill(runId).catch((err) => console.error('Failed to finish full practice run', { runId, err }))
+    await finishDrill(runId).catch((err) => console.error('Failed to finish fast practice run', { runId, err }))
     onFinish({
       words: cards.length,
       rounds: DRILL_ROUNDS.flatMap((exercise) => {
@@ -142,7 +142,7 @@ export default function DrillSession({
           <FeedbackPanel card={step.card} feedback={feedback} speech={speech} />
         ) : (
           <Exercise
-            key={`${step.card.cardId}-${step.exercise}`}
+            key={`${step.card.itemId}-${step.exercise}`}
             card={step.card}
             exercise={step.exercise}
             speech={speech}

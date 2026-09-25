@@ -154,3 +154,14 @@ export async function refreshListCompletion(listId: string, studentIds?: string[
   const cards = await loadProgressCards(openIds, terms)
   await recordCompletions(listId, computeListProgress(terms, openIds, cards))
 }
+
+/** User emails by id. Rosters and assigned lists are small at this app's scale — same per-user lookup as api/connect.ts. */
+export async function emailsFor(userIds: string[]): Promise<Map<string, string>> {
+  const entries = await Promise.all(
+    userIds.map(async (id) => {
+      const { data } = await supabaseAdmin.auth.admin.getUserById(id)
+      return [id, data.user?.email ?? 'unknown'] as const
+    }),
+  )
+  return new Map(entries)
+}

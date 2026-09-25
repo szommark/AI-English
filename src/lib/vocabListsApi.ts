@@ -32,6 +32,16 @@ export class VocabValidationError extends Error {
   }
 }
 
+/** Any other failed request, e.g. 409 (already exists) or 429 (daily limit reached). */
+export class VocabRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message)
+  }
+}
+
 /** Shared by vocabPracticeApi.ts. */
 export async function request<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
   const headers: Record<string, string> = { ...(await authHeader()) }
@@ -46,7 +56,7 @@ export async function request<T>(path: string, init: { method?: string; body?: u
   const body = await res.json().catch(() => ({}))
   if (res.status === 403 || res.status === 404) throw new VocabAccessError(body.error ?? 'Not found')
   if (res.status === 400) throw new VocabValidationError(body.error ?? 'Invalid request', body.terms ?? [])
-  throw new Error(body.error ?? `Request failed (${res.status})`)
+  throw new VocabRequestError(body.error ?? `Request failed (${res.status})`, res.status)
 }
 
 export async function fetchVocabLists(archived = false): Promise<VocabListSummary[]> {

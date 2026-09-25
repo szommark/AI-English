@@ -1,143 +1,74 @@
 import { supabaseAdmin } from './supabaseAdmin.js'
-import { fetchAllPages, loadListTerms } from './vocabListProgress.js'
-import { SESSION_CARD_COLUMNS, distractorPool, fillPendingItems, toPracticeCard, type SessionCardRow } from './vocabPractice.js'
+import { distractorPool, fillPendingItems, pickDistractors } from './vocabPractice.js'
+import { VocabApiError, loadListWords } from './vocabWordlists.js'
 import {
-  cardStage,
+  RECOGNITION_DISTRACTORS,
   type DrillAnswerInput,
-  type DrillListOption,
+  type DrillCard,
   type DrillRun,
-  type DrillSetup,
-  type DrillWord,
-  type PracticeCard,
-  type VocabOrigin,
+  type WordlistRef,
 } from '../../src/lib/vocab.js'
 
-// Full practice (design §7.1): every exercise over words the student picks, outside the
-// spaced-repetition schedule. Answers go to vocab_drill_answers, never to vocab_reviews,
-// so they don't reschedule cards, use up new cards or move teacher-list progress.
-// Everything here acts on the calling student's own cards only.
-
-export class DrillError extends Error {
-  constructor(
-    readonly status: 404,
-    message: string,
-  ) {
-    super(message)
-  }
-}
-
-interface DrillWordRow {
-  id: string
-  term_normalized: string
-  origin: VocabOrigin
-  state: number
-  first_learned_at: string | null
-  vocab_items: { term: string; meaning_hu: string | null } | null
-}
-
-/** The student's active (not paused) words, A–Z, and their teacher lists as selections. */
-export async function loadDrillSetup(userId: string): Promise<DrillSetup> {
-  const [rows, { data: assigned, error }] = await Promise.all([
-    fetchAllPages<DrillWordRow>((from, to) =>
-      supabaseAdmin
-        .from('vocab_cards')
-        .select('id, term_normalized, origin, state, first_learned_at, vocab_items(term, meaning_hu)')
-        .eq('user_id', userId)
-        .eq('suspended', false)
-        .order('id')
-        .range(from, to) as unknown as PromiseLike<{ data: DrillWordRow[] | null; error: unknown }>,
-    ),
-    supabaseAdmin
-      .from('vocab_list_assignments')
-      .select('list_id, vocab_lists(title)')
-      .eq('student_id', userId)
-      .order('assigned_at', { ascending: false }),
-  ])
-  if (error) throw error
-
-  const withItems = rows.filter((r) => r.vocab_items)
-  const words: DrillWord[] = withItems
-    .map((r) => ({
-      cardId: r.id,
-      term: r.vocab_items!.term,
-      meaningHu: r.vocab_items!.meaning_hu,
-      origin: r.origin,
-      stage: cardStage(r),
-    }))
-    .sort((a, b) => a.term.localeCompare(b.term, 'en', { sensitivity: 'base' }))
-
-  // Lists match cards on term_normalized, like list progress (design §6.2).
-  const cardByTerm = new Map(withItems.map((r) => [r.term_normalized, r.id]))
-  const assignments = ((assigned ?? []) as unknown as { list_id: string; vocab_lists: { title: string } | null }[]).filter(
-    (a) => a.vocab_lists,
-  )
-  const termsByList = await loadListTerms(assignments.map((a) => a.list_id))
-  const lists: DrillListOption[] = assignments
-    .map((a) => ({
-      listId: a.list_id,
-      title: a.vocab_lists!.title,
-      cardIds: [...new Set((termsByList.get(a.list_id) ?? []).flatMap((t) => cardByTerm.get(t) ?? []))],
-    }))
-    .filter((l) => l.cardIds.length > 0)
-
-  return { words, lists }
-}
+// Fast practice (design §7.1): every exercise over words the student picks from one of
+// their lists, at any time and whether or not the words are in spaced repetition. Answers
+// go to vocab_drill_answers, keyed by item, never to vocab_reviews — so they don't
+// reschedule cards, use up new cards or move teacher-list progress.
 
 /**
- * Starts a run over the given cards (already validated as distinct ids, at most
- * DRILL_MAX_WORDS). Cards that aren't the caller's, or are paused, are left out; if none
- * remain the run is not created. `listId`, when given, must be a list assigned to the caller.
+ * Starts a run over the chosen words of a list the caller may see (`itemIds` already
+ * validated as distinct ids, at most DRILL_MAX_WORDS). Ids that aren't on the list are
+ * left out; if none remain the run is not created.
  */
-export async function startDrill(userId: string, cardIds: string[], listId: string | null): Promise<DrillRun> {
-  if (listId) {
-    const { data, error } = await supabaseAdmin
-      .from('vocab_list_assignments')
-      .select('list_id')
-      .eq('list_id', listId)
-      .eq('student_id', userId)
-      .maybeSingle()
-    if (error) throw error
-    if (!data) throw new DrillError(404, 'Not found')
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from('vocab_cards')
-    .select(SESSION_CARD_COLUMNS)
-    .eq('user_id', userId)
-    .eq('suspended', false)
-    .in('id', cardIds)
-  if (error) throw error
-  const order = new Map(cardIds.map((id, i) => [id, i]))
-  const rows = ((data ?? []) as unknown as SessionCardRow[]).sort((a, b) => order.get(a.id)! - order.get(b.id)!)
+export async function startDrill(userId: string, ref: WordlistRef, itemIds: string[]): Promise<DrillRun> {
+  const { rows: listRows } = await loadListWords(userId, ref)
+  const byItem = new Map(listRows.map((r) => [r.item_id, r]))
+  const rows = itemIds.flatMap((id) => byItem.get(id) ?? [])
+  if (rows.length === 0) throw new VocabApiError(404, 'No words to practise')
 
   await fillPendingItems(userId, rows)
   const pool = await distractorPool(userId, rows)
-  const cards = rows.map((r) => toPracticeCard(r, pool, true)).filter((c): c is PracticeCard => c !== null)
-  if (cards.length === 0) throw new DrillError(404, 'No words to practise')
+  const cards: DrillCard[] = rows.map((r) => ({
+    itemId: r.item_id,
+    term: r.vocab_items.term,
+    kind: r.vocab_items.kind,
+    meaningHu: r.vocab_items.meaning_hu,
+    definitionEn: r.vocab_items.definition_en,
+    exampleEn: r.vocab_items.example_en,
+    contextCorrected: r.context_corrected,
+    distractors: pickDistractors(r.vocab_items.meaning_hu, pool, RECOGNITION_DISTRACTORS),
+  }))
 
-  const { data: run, error: runError } = await supabaseAdmin
+  const { data: run, error } = await supabaseAdmin
     .from('vocab_drill_runs')
-    .insert({ user_id: userId, list_id: listId, word_count: cards.length })
+    .insert({
+      user_id: userId,
+      source: ref.kind,
+      list_id: ref.kind === 'teacher' ? ref.id : null,
+      student_list_id: ref.kind === 'custom' ? ref.id : null,
+      word_count: cards.length,
+      item_ids: cards.map((c) => c.itemId),
+    })
     .select('id')
     .single()
-  if (runError) throw runError
+  if (error) throw error
   return { runId: run.id as string, cards }
 }
 
-/** Records one answer. A repeat of the same run/card/exercise is ignored, not an error. */
+/** Records one answer for a word of the run. A repeat of the same run/word/exercise is ignored. */
 export async function recordDrillAnswer(userId: string, input: DrillAnswerInput, now = new Date()): Promise<void> {
-  const [run, card] = await Promise.all([
-    supabaseAdmin.from('vocab_drill_runs').select('id').eq('id', input.runId).eq('user_id', userId).maybeSingle(),
-    supabaseAdmin.from('vocab_cards').select('id').eq('id', input.cardId).eq('user_id', userId).maybeSingle(),
-  ])
-  if (run.error) throw run.error
-  if (card.error) throw card.error
-  if (!run.data || !card.data) throw new DrillError(404, 'Not found')
+  const { data: run, error: runError } = await supabaseAdmin
+    .from('vocab_drill_runs')
+    .select('id, item_ids')
+    .eq('id', input.runId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (runError) throw runError
+  if (!run || !(run.item_ids as string[]).includes(input.itemId)) throw new VocabApiError(404, 'Not found')
 
   const { error } = await supabaseAdmin.from('vocab_drill_answers').upsert(
     {
       run_id: input.runId,
-      card_id: input.cardId,
+      item_id: input.itemId,
       user_id: userId,
       exercise: input.exercise,
       correct: input.correct,
@@ -145,7 +76,7 @@ export async function recordDrillAnswer(userId: string, input: DrillAnswerInput,
       response_ms: input.responseMs,
       answered_at: now.toISOString(),
     },
-    { onConflict: 'run_id,card_id,exercise', ignoreDuplicates: true },
+    { onConflict: 'run_id,item_id,exercise', ignoreDuplicates: true },
   )
   if (error) throw error
 }
@@ -159,7 +90,7 @@ export async function finishDrill(userId: string, runId: string, now = new Date(
     .eq('user_id', userId)
     .maybeSingle()
   if (error) throw error
-  if (!run) throw new DrillError(404, 'Not found')
+  if (!run) throw new VocabApiError(404, 'Not found')
   if (run.finished_at) return
 
   const { error: updateError } = await supabaseAdmin

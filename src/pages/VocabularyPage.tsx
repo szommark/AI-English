@@ -1,19 +1,40 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import PageHeading from '../components/PageHeading'
 import AccentToggle from '../components/AccentToggle'
 import PracticeSession, { type SessionSummary } from '../components/Vocabulary/PracticeSession'
-import ListProgress from '../components/VocabLists/ListProgress'
-import MyWordsList from '../components/Vocabulary/MyWordsList'
 import DrillSession, { ROUND_LABEL, type DrillSummary } from '../components/Vocabulary/DrillSession'
-import DrillSetupPanel, { type DrillSelection } from '../components/Vocabulary/DrillSetupPanel'
+import DrillSetupPanel from '../components/Vocabulary/DrillSetupPanel'
+import FastPracticeTab from '../components/Vocabulary/FastPracticeTab'
+import MyWordlistsTab from '../components/Vocabulary/MyWordlistsTab'
+import WordlistView from '../components/Vocabulary/WordlistView'
+import { useListTitle } from '../components/Vocabulary/wordlistLabels'
 import { getFeature } from '../data/features'
 import { localizeFeature, useLanguage, type Lang } from '../lib/i18n'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { getAccentPreference, setAccentPreference, type AccentPreference } from '../lib/voiceSelection'
-import { fetchDrillSetup, fetchMyVocabLists, fetchPracticeSession, fetchVocabOverview, startDrill } from '../lib/vocabPracticeApi'
-import type { DrillRun, DrillSetup, PracticeCard, StudentListProgress, VocabOverview } from '../lib/vocab'
+import { fetchPracticeSession, fetchVocabOverview, fetchWordlist, fetchWordlists, startDrill } from '../lib/vocabPracticeApi'
+import {
+  COMPILES_PER_DAY,
+  type DrillRun,
+  type PracticeCard,
+  type VocabOverview,
+  type WordlistDetail,
+  type WordlistRef,
+  type WordlistsResponse,
+} from '../lib/vocab'
 
-type Tab = 'practice' | 'teacher' | 'words'
+type Tab = 'fast' | 'lists' | 'srs'
+
+/** Where a Fast practice run goes back to: the tabs, or the list it was started from. */
+type ReturnTo = 'tabs' | WordlistRef
+
+type View =
+  | { name: 'tabs' }
+  | { name: 'list'; ref: WordlistRef; initial: WordlistDetail | null }
+  | { name: 'drill-setup'; detail: WordlistDetail; initial: string[] | null; returnTo: ReturnTo }
+  | { name: 'drill'; run: DrillRun; detail: WordlistDetail; itemIds: string[]; returnTo: ReturnTo }
+  | { name: 'drill-summary'; summary: DrillSummary; detail: WordlistDetail; itemIds: string[]; returnTo: ReturnTo }
+  | { name: 'review'; cards: PracticeCard[] }
 
 /** "in 3 hours", "tomorrow" … in the UI language. */
 function relativeTime(iso: string, lang: Lang): string {
@@ -35,94 +56,85 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   )
 }
 
-/** Student Vocabulary page, route /vocabulary (design §7, decisions 6–7). */
+/**
+ * Student Vocabulary page, route /vocabulary (design §7, decisions 6–7): Fast practice,
+ * My wordlists and Spaced repetition tabs.
+ */
 export default function VocabularyPage() {
   const { t, lang } = useLanguage()
   const feature = getFeature('vocabulary')!
-  const [tab, setTab] = useState<Tab>('practice')
+  const [tab, setTab] = useState<Tab>('fast')
+  const [view, setView] = useState<View>({ name: 'tabs' })
   const [accent, setAccent] = useState<AccentPreference>(() => getAccentPreference())
   const tts = useSpeechSynthesis('female', accent)
 
   const [overview, setOverview] = useState<VocabOverview | null>(null)
-  const [lists, setLists] = useState<StudentListProgress[] | null>(null)
-  const [error, setError] = useState(false)
-  const [cards, setCards] = useState<PracticeCard[] | null>(null)
+  const [wordlists, setWordlists] = useState<WordlistsResponse | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
+  /** A Fast practice or review that failed to start. */
+  const [startFailed, setStartFailed] = useState(false)
   const [starting, setStarting] = useState(false)
-  const [summary, setSummary] = useState<SessionSummary | null>(null)
-
-  // Full practice (design §7.1)
-  const [drillSetupOpen, setDrillSetupOpen] = useState(false)
-  const [drillSetup, setDrillSetup] = useState<DrillSetup | null>(null)
-  const [drillSelection, setDrillSelection] = useState<DrillSelection | null>(null)
-  const [drillStarting, setDrillStarting] = useState(false)
-  const [drillError, setDrillError] = useState(false)
-  const [drill, setDrill] = useState<DrillRun | null>(null)
-  const [drillSummary, setDrillSummary] = useState<DrillSummary | null>(null)
+  const [reviewSummary, setReviewSummary] = useState<SessionSummary | null>(null)
 
   const refresh = useCallback(() => {
-    setError(false)
-    Promise.all([fetchVocabOverview(), fetchMyVocabLists()])
-      .then(([o, l]) => {
+    setLoadFailed(false)
+    Promise.all([fetchVocabOverview(), fetchWordlists()])
+      .then(([o, w]) => {
         setOverview(o)
-        setLists(l)
+        setWordlists(w)
       })
-      .catch(() => setError(true))
+      .catch(() => setLoadFailed(true))
   }, [])
 
   useEffect(refresh, [refresh])
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [view.name])
 
-  async function start() {
+  function goBack(returnTo: ReturnTo) {
+    setStartFailed(false)
+    setView(returnTo === 'tabs' ? { name: 'tabs' } : { name: 'list', ref: returnTo, initial: null })
+  }
+
+  /** From the Fast practice tab: load the list, then let the student untick words. */
+  async function practiseList(ref: WordlistRef) {
     setStarting(true)
-    setSummary(null)
-    setDrillSummary(null)
+    setStartFailed(false)
     try {
-      const session = await fetchPracticeSession()
-      if (session.cards.length > 0) setCards(session.cards)
-      else refresh()
+      setView({ name: 'drill-setup', detail: await fetchWordlist(ref), initial: null, returnTo: 'tabs' })
     } catch {
-      setError(true)
+      setStartFailed(true)
     } finally {
       setStarting(false)
     }
   }
 
-  function handleFinish(s: SessionSummary) {
-    setCards(null)
-    setSummary(s)
-    refresh()
-  }
-
-  async function openDrillSetup() {
-    setDrillError(false)
-    setDrillSetup(null)
-    setDrillSetupOpen(true)
+  async function beginDrill(detail: WordlistDetail, itemIds: string[], returnTo: ReturnTo) {
+    setStarting(true)
+    setStartFailed(false)
     try {
-      setDrillSetup(await fetchDrillSetup())
+      const run = await startDrill({ kind: detail.list.kind, id: detail.list.id }, itemIds)
+      setView({ name: 'drill', run, detail, itemIds, returnTo })
     } catch {
-      setDrillError(true)
-    }
-  }
-
-  async function beginDrill(selection: DrillSelection) {
-    setDrillStarting(true)
-    setDrillError(false)
-    try {
-      const run = await startDrill(selection.cardIds, selection.listId)
-      setDrillSelection(selection)
-      setSummary(null)
-      setDrillSummary(null)
-      setDrillSetupOpen(false)
-      setDrill(run)
-    } catch {
-      setDrillError(true)
+      setStartFailed(true)
     } finally {
-      setDrillStarting(false)
+      setStarting(false)
     }
   }
 
-  function handleDrillFinish(s: DrillSummary) {
-    setDrill(null)
-    setDrillSummary(s)
+  async function startReview() {
+    setStarting(true)
+    setStartFailed(false)
+    setReviewSummary(null)
+    try {
+      const session = await fetchPracticeSession()
+      if (session.cards.length > 0) setView({ name: 'review', cards: session.cards })
+      else refresh()
+    } catch {
+      setStartFailed(true)
+    } finally {
+      setStarting(false)
+    }
   }
 
   function changeAccent(next: AccentPreference) {
@@ -130,162 +142,176 @@ export default function VocabularyPage() {
     setAccentPreference(next)
   }
 
-  const available = overview ? overview.dueCount + overview.newAvailable : 0
-  const tabButton = (value: Tab, label: string) => (
-    <button
-      type="button"
-      onClick={() => setTab(value)}
-      aria-pressed={tab === value}
-      className={`rounded-md px-3 py-1.5 text-sm sm:px-4 ${
-        tab === value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-      }`}
-    >
-      {label}
-    </button>
-  )
+  const startError = startFailed && <p className="text-sm text-red-600">{t('vcDrillFailed')}</p>
+
+  let body: ReactNode
+  switch (view.name) {
+    case 'review':
+      body = (
+        <PracticeSession
+          cards={view.cards}
+          speech={tts}
+          onFinish={(s) => {
+            setReviewSummary(s)
+            setView({ name: 'tabs' })
+            refresh()
+          }}
+        />
+      )
+      break
+
+    case 'drill':
+      body = (
+        <DrillSession
+          key={view.run.runId}
+          runId={view.run.runId}
+          cards={view.run.cards}
+          speech={tts}
+          onFinish={(summary) => setView({ ...view, name: 'drill-summary', summary })}
+        />
+      )
+      break
+
+    case 'drill-summary':
+      body = (
+        <div className="space-y-4">
+          {startError}
+          <DrillSummaryCard
+            summary={view.summary}
+            detail={view.detail}
+            starting={starting}
+            onAgain={() => void beginDrill(view.detail, view.itemIds, view.returnTo)}
+            onChangeWords={() => setView({ name: 'drill-setup', detail: view.detail, initial: view.itemIds, returnTo: view.returnTo })}
+            onDone={() => goBack(view.returnTo)}
+          />
+        </div>
+      )
+      break
+
+    case 'drill-setup':
+      body = (
+        <div className="space-y-4">
+          {startError}
+          <DrillSetupPanel
+            detail={view.detail}
+            initial={view.initial}
+            starting={starting}
+            onStart={(itemIds) => void beginDrill(view.detail, itemIds, view.returnTo)}
+            onCancel={() => goBack(view.returnTo)}
+          />
+        </div>
+      )
+      break
+
+    case 'list':
+      body = (
+        <WordlistView
+          key={`${view.ref.kind}-${view.ref.id}`}
+          listRef={view.ref}
+          initial={view.initial}
+          compilesLeft={Math.max(0, COMPILES_PER_DAY - (wordlists?.compiledToday ?? 0))}
+          onBack={() => setView({ name: 'tabs' })}
+          onPractise={(detail) =>
+            setView({ name: 'drill-setup', detail, initial: null, returnTo: { kind: detail.list.kind, id: detail.list.id } })
+          }
+          onChanged={refresh}
+        />
+      )
+      break
+
+    case 'tabs': {
+      const tabButton = (value: Tab, label: string) => (
+        <button
+          type="button"
+          onClick={() => setTab(value)}
+          aria-pressed={tab === value}
+          className={`rounded-md px-3 py-1.5 text-sm sm:px-4 ${
+            tab === value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          {label}
+        </button>
+      )
+      body = (
+        <>
+          <div className="inline-flex flex-wrap rounded-lg bg-secondary p-0.5" role="group">
+            {tabButton('fast', t('vcTabFast'))}
+            {tabButton('lists', t('vcTabLists'))}
+            {tabButton('srs', t('vcTabSrs'))}
+          </div>
+
+          {loadFailed && <p className="text-sm text-red-600">{t('vcLoadFailed')}</p>}
+          {startError}
+
+          {tab === 'fast' &&
+            (wordlists === null ? (
+              !loadFailed && <p className="text-sm text-muted-foreground">{t('loading')}</p>
+            ) : (
+              <FastPracticeTab
+                data={wordlists}
+                onPractise={(ref) => void practiseList(ref)}
+                onCompiled={(detail) => {
+                  refresh()
+                  setView({ name: 'list', ref: { kind: 'custom', id: detail.list.id }, initial: detail })
+                }}
+              />
+            ))}
+
+          {tab === 'lists' &&
+            (wordlists === null ? (
+              !loadFailed && <p className="text-sm text-muted-foreground">{t('loading')}</p>
+            ) : (
+              <MyWordlistsTab lists={wordlists.lists} onOpen={(ref) => setView({ name: 'list', ref, initial: null })} />
+            ))}
+
+          {tab === 'srs' &&
+            (overview === null ? (
+              !loadFailed && <p className="text-sm text-muted-foreground">{t('loading')}</p>
+            ) : (
+              <div className="space-y-4">
+                {reviewSummary && <SummaryCard summary={reviewSummary} />}
+                {overview.totalCards === 0 ? (
+                  <p className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">{t('vcNoCards')}</p>
+                ) : (
+                  <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
+                    <div className="space-y-1">
+                      <h2 className="text-lg font-semibold text-foreground">{t('vcReviewTitle')}</h2>
+                      <p className="text-sm text-muted-foreground">{t('vcReviewHint')}</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                      <Stat label={t('vcDueNow')} value={overview.dueCount} />
+                      <Stat label={t('vcNewToday')} value={overview.newAvailable} />
+                      <Stat label={t('vcLearnedStat')} value={`${overview.learnedCards} / ${overview.totalCards}`} />
+                    </div>
+                    {overview.dueCount + overview.newAvailable > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => void startReview()}
+                        disabled={starting}
+                        className="w-full rounded-lg bg-[var(--teal-accent)] px-5 py-3 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40 sm:w-auto"
+                      >
+                        {starting ? t('vcStarting') : reviewSummary ? t('vcPracticeMore') : t('vcStart')}
+                      </button>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        {t('vcNothingDue')}
+                        {overview.nextDue && <> {t('vcNextDue', { when: relativeTime(overview.nextDue, lang) })}</>}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+        </>
+      )
+      break
+    }
+  }
 
   return (
     <div className="max-w-3xl space-y-6">
       <PageHeading title={localizeFeature(lang, feature).title} actions={<AccentToggle accent={accent} onChange={changeAccent} />} />
-
-      {cards ? (
-        <PracticeSession cards={cards} speech={tts} onFinish={handleFinish} />
-      ) : drill ? (
-        <DrillSession key={drill.runId} runId={drill.runId} cards={drill.cards} speech={tts} onFinish={handleDrillFinish} />
-      ) : drillSetupOpen ? (
-        <div className="space-y-4">
-          {drillError && <p className="text-sm text-red-600">{t('vcDrillFailed')}</p>}
-          {drillSetup ? (
-            <DrillSetupPanel
-              setup={drillSetup}
-              initial={drillSelection}
-              starting={drillStarting}
-              onStart={(selection) => void beginDrill(selection)}
-              onCancel={() => {
-                setDrillSetupOpen(false)
-                setDrillError(false)
-              }}
-            />
-          ) : drillError ? (
-            <button
-              type="button"
-              onClick={() => {
-                setDrillSetupOpen(false)
-                setDrillError(false)
-              }}
-              className="rounded-lg border border-border px-4 py-2.5 text-sm text-muted-foreground hover:bg-secondary"
-            >
-              {t('vcBackToOverview')}
-            </button>
-          ) : (
-            <p className="text-sm text-muted-foreground">{t('loading')}</p>
-          )}
-        </div>
-      ) : (
-        <>
-          <div className="inline-flex rounded-lg bg-secondary p-0.5" role="group">
-            {tabButton('practice', t('vcTabPractice'))}
-            {tabButton('teacher', t('vcTabFromTeacher'))}
-            {tabButton('words', t('vcTabMyWords'))}
-          </div>
-
-          {error && <p className="text-sm text-red-600">{t('vcLoadFailed')}</p>}
-
-          {tab === 'practice' &&
-            (overview === null ? (
-              !error && <p className="text-sm text-muted-foreground">{t('loading')}</p>
-            ) : (
-              <div className="space-y-4">
-                {summary && <SummaryCard summary={summary} />}
-                {drillSummary && (
-                  <DrillSummaryCard
-                    summary={drillSummary}
-                    starting={drillStarting}
-                    onAgain={drillSelection ? () => void beginDrill(drillSelection) : null}
-                    onChangeWords={() => void openDrillSetup()}
-                  />
-                )}
-                {drillSummary && drillError && <p className="text-sm text-red-600">{t('vcDrillFailed')}</p>}
-
-                {overview.totalCards === 0 ? (
-                  <p className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">{t('vcNoCards')}</p>
-                ) : (
-                  <>
-                    <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
-                      <div className="space-y-1">
-                        <h2 className="text-lg font-semibold text-foreground">{t('vcReviewTitle')}</h2>
-                        <p className="text-sm text-muted-foreground">{t('vcReviewHint')}</p>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                        <Stat label={t('vcDueNow')} value={overview.dueCount} />
-                        <Stat label={t('vcNewToday')} value={overview.newAvailable} />
-                        <Stat label={t('vcLearnedStat')} value={`${overview.learnedCards} / ${overview.totalCards}`} />
-                      </div>
-                      {available > 0 ? (
-                        <button
-                          type="button"
-                          onClick={start}
-                          disabled={starting}
-                          className="w-full rounded-lg bg-[var(--teal-accent)] px-5 py-3 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40 sm:w-auto"
-                        >
-                          {starting ? t('vcStarting') : summary ? t('vcPracticeMore') : t('vcStart')}
-                        </button>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          {t('vcNothingDue')}
-                          {overview.nextDue && <> {t('vcNextDue', { when: relativeTime(overview.nextDue, lang) })}</>}
-                        </p>
-                      )}
-                    </div>
-  
-                    <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
-                      <div className="space-y-1">
-                        <h2 className="text-lg font-semibold text-foreground">{t('vcDrillTitle')}</h2>
-                        <p className="text-sm text-muted-foreground">{t('vcDrillHint')}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void openDrillSetup()}
-                        className="w-full rounded-lg border border-[var(--teal-accent-border)] px-5 py-3 text-sm font-semibold text-foreground hover:bg-[var(--teal-accent-soft)] sm:w-auto"
-                      >
-                        {t('vcDrillChooseWords')}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-
-          {tab === 'words' && <MyWordsList onChanged={refresh} />}
-
-          {tab === 'teacher' &&
-            (lists === null ? (
-              !error && <p className="text-sm text-muted-foreground">{t('loading')}</p>
-            ) : lists.length === 0 ? (
-              <p className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">{t('vcFromTeacherEmpty')}</p>
-            ) : (
-              <ul className="space-y-3">
-                {lists.map((l) => (
-                  <li key={l.listId} className="space-y-2 rounded-2xl border border-border bg-card p-5">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="break-words font-medium text-foreground">{l.title}</p>
-                        <p className="break-all text-xs text-muted-foreground">{t('vcFromTeacherBy', { email: l.teacherEmail })}</p>
-                      </div>
-                      {l.cefrLevel && (
-                        <span className="shrink-0 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-secondary-foreground">
-                          {l.cefrLevel}
-                        </span>
-                      )}
-                    </div>
-                    {l.description && <p className="text-sm text-muted-foreground">{l.description}</p>}
-                    <ListProgress progress={l} completedAt={l.completedAt} />
-                  </li>
-                ))}
-              </ul>
-            ))}
-        </>
-      )}
+      {body}
     </div>
   )
 }
@@ -313,21 +339,28 @@ function SummaryCard({ summary }: { summary: SessionSummary }) {
 
 function DrillSummaryCard({
   summary,
+  detail,
   starting,
   onAgain,
   onChangeWords,
+  onDone,
 }: {
   summary: DrillSummary
+  detail: WordlistDetail
   starting: boolean
-  onAgain: (() => void) | null
+  onAgain: () => void
   onChangeWords: () => void
+  onDone: () => void
 }) {
   const { t } = useLanguage()
+  const listTitle = useListTitle()
   return (
     <div className="space-y-4 rounded-2xl border border-[var(--teal-accent-border)] bg-[var(--teal-accent-soft)] p-5">
       <div className="space-y-1">
         <h2 className="text-lg font-semibold text-foreground">{t('vcSummaryTitle')}</h2>
-        <p className="text-sm text-muted-foreground">{t('vcDrillSummaryWords', { n: summary.words })}</p>
+        <p className="break-words text-sm text-muted-foreground">
+          {listTitle(detail.list)} · {t('vcDrillSummaryWords', { n: summary.words })}
+        </p>
       </div>
       {summary.rounds.length > 0 && (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
@@ -338,16 +371,14 @@ function DrillSummaryCard({
       )}
       {summary.saveFailures > 0 && <p className="text-sm text-red-600">{t('vcDrillSaveFailures', { n: summary.saveFailures })}</p>}
       <div className="flex flex-wrap gap-2">
-        {onAgain && (
-          <button
-            type="button"
-            onClick={onAgain}
-            disabled={starting}
-            className="rounded-lg bg-[var(--teal-accent)] px-5 py-2.5 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40"
-          >
-            {starting ? t('vcStarting') : t('vcDrillAgain')}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onAgain}
+          disabled={starting}
+          className="rounded-lg bg-[var(--teal-accent)] px-5 py-2.5 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40"
+        >
+          {starting ? t('vcStarting') : t('vcDrillAgain')}
+        </button>
         <button
           type="button"
           onClick={onChangeWords}
@@ -355,6 +386,14 @@ function DrillSummaryCard({
           className="rounded-lg border border-border bg-card px-4 py-2.5 text-sm text-foreground hover:bg-secondary"
         >
           {t('vcDrillChangeWords')}
+        </button>
+        <button
+          type="button"
+          onClick={onDone}
+          disabled={starting}
+          className="rounded-lg border border-border bg-card px-4 py-2.5 text-sm text-foreground hover:bg-secondary"
+        >
+          {t('vcClose')}
         </button>
       </div>
     </div>
