@@ -79,6 +79,32 @@ supabase link --project-ref <your-project-ref>
 supabase db push
 ```
 
+## Vocabulary word bank
+
+Student-compiled word lists pick their words from a word bank first, and a model fills
+any gaps (see `docs/vocabulary-builder-design.md` §5.3). The source files live in
+`data/wordbank/`; `data/wordbank/topic-map.json` maps their topic categories onto the
+app's topics. After running the `vocabulary_word_bank` migration, load the bank with
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` set in `.env`:
+
+```bash
+npm run wordbank:check
+npm run wordbank:import
+```
+
+`wordbank:check` only prints the counts. The import is idempotent, and words hidden in
+`vocab_word_bank` stay hidden.
+
+The word bank uses:
+
+- **The CEFR-J Wordlist Version 1.5.** Compiled by Yukio Tono, Tokyo University of
+  Foreign Studies. Retrieved from http://www.cefr-j.org/download.html, via
+  [Open Language Profiles](https://github.com/openlanguageprofiles/olp-en-cefrj). Free
+  for research and commercial use with citation; copyright Tono Laboratory, TUFS.
+- **The Octanove Vocabulary Profile C1/C2 (ver 1.0),** created by
+  [Octanove Labs](http://www.octanove.com/), via Open Language Profiles. Licensed under
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+
 ## Cost controls (Groq/Gemini free tiers)
 
 - The daily session cap is **removed for now** while the user base is small (a handful

@@ -25,7 +25,7 @@
 | 6 | Vocabulary is its **own feature**, the **sixth landing tile**, route `/vocabulary` | Same pattern as Grammar Coach and Pronunciation: an entry in `src/data/features.ts`. The tile shows a "N due" badge when reviews are waiting. Accent: the app's teal (needs a new `FeatureAccent`). |
 | 7 | Name: **Vocabulary** in English, **Szótanuló** in Hungarian | Tile title and page heading, through the existing i18n. |
 | 8 | Every teacher list item **must have a Hungarian meaning** before the list can be saved | Recognition (step 1, §7) needs one. The editor highlights rows still missing a meaning after enrichment and blocks Save; the API returns 400 naming those terms. |
-| 9 | Global cache rows created from teacher uploads get **`origin = 'teacher'`**, not `'catalog'` | `origin = 'catalog'` on a global row means the item passed Mark's review (§5.3). Teacher-sourced cache rows stay distinguishable as unreviewed, and Phase 5 only publishes reviewed ones. |
+| 9 | Global cache rows created from teacher uploads get **`origin = 'teacher'`**, not `'catalog'` | `origin = 'catalog'` on a global row means the term comes from the reviewed word bank (§5.3; the review covers the bank's topic mapping, and meanings are enriched like any other item). Teacher-sourced cache rows stay distinguishable as unreviewed, and Phase 5 only publishes reviewed ones. |
 | 10 | Teacher lists can be **archived, not deleted** (for now) | `archived_at` hides a list from the teacher's default view; assignments, cards and progress stay. Hard delete is deferred (§12). |
 | 11 | The teacher section is called **Szólisták / Word lists / Wortlisten** | All new UI strings go through `src/lib/i18n.tsx` in hu, en and de. |
 
@@ -114,13 +114,25 @@ Auto-add rules (decision 2):
 
 The same prompt change applies to the Rehearsal/Test feedback prompt (`buildFeedbackPrompt`) for consistency, but only Tutor Bot sessions auto-add in the first pass.
 
-### 5.3 Catalog (Phase 5)
+### 5.3 Word bank (Phase 5)
 
-- **Source list:** CEFR-J Wordlist 1.5 (A1–B2), which includes topic columns. Free for commercial use with citation — add an attribution line on the Vocabulary page and in the repo README.
-- **C1/C2:** Octanove C1/C2 1.0 is CC BY-SA 4.0 — keep it in a clearly separated import with its own attribution, or skip until C1 learners exist.
-- **Not used:** Oxford 3000/5000, English Vocabulary Profile (publisher-owned; no clear licence for embedding).
-- **Topic packs:** CEFR-J topics map onto the app's own topic taxonomy (travel, work, small talk, …) via a small mapping file Mark curates. Phrase/collocation packs (CEFR-J is mostly single words) are Groq-generated per topic and level, reviewed by Mark, then published.
-- Students browse by level (default = their `learner_profiles.cefr_level`, never locked) and topic, and add a whole pack or single items (`origin = 'catalog'`).
+The terms students' compiled lists draw on first (§7.2). The model fills whatever the bank can't cover.
+
+- **Sources** (`data/wordbank/`, cited in the README and under the compile form):
+  - The CEFR-J Wordlist 1.5 (A1–B2, with topic columns). Free for commercial use with citation.
+  - The Octanove Vocabulary Profile C1/C2 1.0 (CC BY-SA 4.0), which has no topics.
+- **Not used:** Oxford 3000/5000 and the English Vocabulary Profile. Both are publisher-owned, with no clear licence for embedding.
+- **`vocab_word_bank`** holds one row per normalized term: term, kind, part of speech, CEFR level, `topics` (VOCAB_TOPICS ids), `source` and `hidden`. It has no meanings. Those are enriched on demand into `vocab_items` (§4.2) the first time a word lands in a student's list, and cached from then on.
+- **Import:** `npm run wordbank:import` (`scripts/import-word-bank.ts`, built by `scripts/wordBank.ts`). It is idempotent, upserts on `term_normalized`, and never sends `hidden`.
+  - Spelling variants such as "color/colour" keep the first spelling.
+  - A headword listed several times keeps its lowest level and the union of its topics.
+  - Function words (determiners, prepositions, modals…) are skipped.
+- **Topics:** `data/wordbank/topic-map.json` maps CEFR-J's Core Inventory and Threshold categories onto the 10 topics, and lists the ones deliberately left out. The import fails on a category the file doesn't mention. Mark's review covers this mapping; the published list itself is trusted.
+  - About 2,000 of the 8,454 bank words carry a topic.
+  - Most topics have 30–140 words per level. Nature & weather is thin, and C1/C2 has no topics, so the model fills those.
+- **Picking:** `pick_word_bank_terms(topic, level, count, exclude)` returns random visible terms at exactly the chosen level, excluding what the student already has. Custom (free-text) topics use the model only.
+- **Items from the bank** are created with `origin = 'catalog'` (the term came from the reviewed catalog; decision 9). Model-picked terms get `origin = 'student'`.
+- **Later:** an "Explore" tab for browsing the bank by level and topic, and a way to hide individual words (the `hidden` flag is already there).
 
 ## 6. Scheduling & completion
 
@@ -190,11 +202,10 @@ All of a student's lists, filterable by where they come from:
 | **teacher** | Lists assigned by a teacher (§5.1), with progress | Automatic on assignment, as before |
 | **conversations** | The Tutor Bot words (§5.2) — a virtual list over `origin = 'tutor'` cards | Automatic, as before |
 
-- **Compiling a list:** topic (one of 10 fixed topics — travel, food & drink, work, shopping, health, home & family, free time, education, nature & weather, feelings & people — or the student's own, up to `CUSTOM_TOPIC_MAX_LENGTH`), CEFR level (default: the learner's level) and `COMPILE_MIN_WORDS`–`COMPILE_MAX_WORDS` (1–10) words. One model call picks the terms (`buildVocabWordPickPrompt`, logged as `vocab_generate`), avoiding terms the student already has in their deck or lists; the terms then go through the cached enrichment pipeline (§4.2) as global items with `origin = 'student'`. `origin = 'student'` items are unreviewed, like `'teacher'` and `'tutor'` ones (decision 9).
-- **Daily limit:** `COMPILES_PER_DAY` = 5 compiles + regenerations per student per UTC day, counted from `vocab_generate` rows in `groq_usage_log` (429 once reached).
+- **Compiling a list:** topic (one of 10 fixed topics — travel, food & drink, work, shopping, health, home & family, free time, education, nature & weather, feelings & people — or the student's own, up to `CUSTOM_TOPIC_MAX_LENGTH`), CEFR level (default: the learner's level) and `COMPILE_MIN_WORDS`–`COMPILE_MAX_WORDS` (1–10) words. Terms come from the word bank first (§5.3). For whatever it can't cover, one model call picks the rest (`buildVocabWordPickPrompt`, logged as `vocab_generate`). Both skip terms the student already has in their deck or lists. The terms then go through the cached enrichment pipeline (§4.2): bank words become `origin = 'catalog'` items, and model words `origin = 'student'` ones. `'student'` items are unreviewed, like `'teacher'` and `'tutor'` ones (decision 9).
+- **Daily limit:** `COMPILES_PER_DAY` = 5 compiles + regenerations per student per UTC day, counted from `vocab_compiles` (one row per compile, with how many words came from the bank and from the model; 429 once reached).
 - **Editing custom lists:** rename, remove a word, add a typed word (enriched through the cache), "New set of words" (regenerate: same topic, level and size; counts towards the daily limit), delete. Deleting a list or removing a word never touches the student's cards — learning progress stays.
 - **Per word:** its spaced-repetition state (not in review / new / learning / learned / paused). Any word with a card can be paused or resumed; conversation words can also be removed (hard delete, as before); teacher words can only be paused.
-- **Word bank (later):** compiling will prefer a reviewed word bank (CEFR-J, §5.3) once it exists, topping up with AI-picked words when a topic or level has too few.
 - **API:** `wordlists` (GET), `wordlist` (GET `&kind=&id=`, PATCH rename, DELETE), `wordlist-compile` (POST `{ topic, cefrLevel, count, title }`), `wordlist-regenerate`, `wordlist-word` (POST add / DELETE `&itemId=`), `wordlist-srs` (POST).
 
 ## 8. Closing the loop with the Tutor Bot (Phase 6)
@@ -223,7 +234,7 @@ API surface (one action-routed function to stay inside the Vercel function limit
 | 2 | Teacher Word lists: create, paste/upload, preview/edit, assign, per-student list progress on the teacher dashboard | Teachers can build and assign lists |
 | 3 | Student Vocabulary page + practice session (steps 1–4), "From my teacher" tab, landing-page tile | Students practise teacher lists; completion tracking live |
 | 4 | Tutor Bot structured extraction + auto-add + undo; migrate `vocabulary_mastery` rows into cards; replace table with the view | Tutor words flow into the deck |
-| 5 | Catalog: CEFR-J import, topic mapping, reviewed phrase packs, "Explore" tab | Self-serve topic/level packs |
+| 5 | Word bank: CEFR-J + Octanove import, topic mapping, bank-first compiled lists; "Explore" tab later | Compiled lists draw on a curated word list |
 | 6 | Tutor loop-back + Production step (Groq-judged) | Conversation counts as practice |
 
 One phase per fresh Claude Code session, PR per phase, migration run manually between phases.

@@ -1,0 +1,49 @@
+{
+  "_about": "Maps the CEFR-J Wordlist 1.5 topic categories (columns CoreInventory 1, CoreInventory 2, Threshold) onto the app's 10 Fast practice topics (VOCAB_TOPICS in src/lib/vocab.ts). A word gets every topic one of its categories maps to. Categories under _unmapped are deliberately left out. Reviewed by Mark before the word bank goes live (design doc §5.3).",
+  "topics": {
+    "travel": [
+      "Travel",
+      "Travel and services vocab",
+      "Ways of travelling",
+      "Ways of traveling",
+      "Holidays",
+      "Places",
+      "Services",
+      "Nationalities and countries"
+    ],
+    "food": ["Food and drink"],
+    "work": ["Work and Jobs", "Work and jobs"],
+    "shopping": ["Shopping", "Things in the town, shops and shopping", "Clothes", "Colours"],
+    "health": ["Health and body care"],
+    "home": ["House and home, environment", "Objects and rooms", "Family life", "Daily life"],
+    "free-time": [
+      "Free time, entertainment",
+      "Hobbies and pastimes",
+      "Hobbies and lifestyles",
+      "Leisure activities",
+      "Arts",
+      "Art",
+      "Film",
+      "Media",
+      "Books and literature"
+    ],
+    "education": ["Education", "Language"],
+    "nature": ["Weather"],
+    "people": [
+      "Personal identification",
+      "Personal information",
+      "Relations with other people",
+      "Adjectives: personality, description, feelings"
+    ]
+  },
+  "_unmapped": [
+    "News, lifestyles and current affairs",
+    "Collocation",
+    "Idiomatic expressions",
+    "Dimensions",
+    "Scientific development",
+    "Technical and legal language",
+    "darling",
+    "重複？"
+  ]
+}

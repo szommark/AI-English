@@ -655,6 +655,11 @@ const messages = {
     de: '„{term}“ steht schon auf der Liste.',
   },
   vcClose: { hu: 'Bezárás', en: 'Close', de: 'Schließen' },
+  vcWordBankCredit: {
+    hu: 'A szólisták a CEFR-J Wordlist 1.5 (összeállította: Tono Jukio, Tokiói Idegennyelvi Egyetem) és az Octanove Vocabulary Profile C1/C2 szavaiból válogatnak.',
+    en: 'Word lists draw on the CEFR-J Wordlist Version 1.5 (compiled by Yukio Tono, Tokyo University of Foreign Studies) and the Octanove Vocabulary Profile C1/C2.',
+    de: 'Die Wortlisten stützen sich auf die CEFR-J Wordlist Version 1.5 (zusammengestellt von Yukio Tono, Tokyo University of Foreign Studies) und das Octanove Vocabulary Profile C1/C2.',
+  },
 } as const satisfies Record<string, Record<Lang, string>>
 
 export type MessageKey = keyof typeof messages

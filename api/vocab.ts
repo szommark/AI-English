@@ -84,7 +84,8 @@ import {
 //                                        (kind: custom | teacher | conversations; no id for conversations)
 //   PATCH  wordlist&id=                 rename a custom list { title }
 //   DELETE wordlist&id=                 delete a custom list — its words' cards stay
-//   POST   wordlist-compile             { topic, cefrLevel, count, title } — AI-picked words, at most
+//   POST   wordlist-compile             { topic, cefrLevel, count, title } — word-bank words, then
+//                                        model-picked ones for any gap; at most
 //                                        COMPILES_PER_DAY compiles + regenerations per UTC day (429)
 //   POST   wordlist-regenerate&id=      a fresh set of words for a custom list (counts as a compile)
 //   POST   wordlist-word&id=            { term } — add a typed word to a custom list
