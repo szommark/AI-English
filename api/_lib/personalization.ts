@@ -87,32 +87,9 @@ async function upsertMistakes(userId: string, feedback: FeedbackResult) {
   }
 }
 
-async function upsertVocabulary(userId: string, words: string[]) {
-  for (const word of words) {
-    const normalized = word.trim().toLowerCase()
-    if (!normalized) continue
-
-    const { data: existing } = await supabaseAdmin
-      .from('vocabulary_mastery')
-      .select('occurrences')
-      .eq('user_id', userId)
-      .eq('word', normalized)
-      .maybeSingle()
-
-    const occurrences = (existing?.occurrences ?? 0) + 1
-    // 1st sighting -> new, 2nd -> practicing, 3rd+ -> mastered. A placeholder
-    // rule, not a real spaced-repetition model — revisit if it feels off in practice.
-    const status = occurrences === 1 ? 'new' : occurrences === 2 ? 'practicing' : 'mastered'
-
-    await supabaseAdmin.from('vocabulary_mastery').upsert({
-      user_id: userId,
-      word: normalized,
-      status,
-      occurrences,
-      last_seen_at: new Date().toISOString(),
-    })
-  }
-}
+// Vocabulary is no longer written here: vocabulary_mastery is a read-only view over
+// vocab_cards (supabase/migrations/20260925120000_vocabulary_tutor_words.sql), and Tutor
+// Bot words become cards in api/_lib/vocabTutorWords.ts. The summary below still reads it.
 
 async function maybeUpdateSummaryAndCefr(userId: string, modelId: ModelId) {
   const { count } = await supabaseAdmin
@@ -170,7 +147,6 @@ async function maybeUpdateSummaryAndCefr(userId: string, modelId: ModelId) {
 export async function recordFeedbackToPersonalization(userId: string, feedback: FeedbackResult, modelId: ModelId) {
   try {
     await upsertMistakes(userId, feedback)
-    await upsertVocabulary(userId, feedback.vocabularyNoted ?? [])
     await maybeUpdateSummaryAndCefr(userId, modelId)
   } catch (err) {
     console.error('Failed to record personalization data', err)

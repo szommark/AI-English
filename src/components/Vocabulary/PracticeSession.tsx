@@ -173,7 +173,9 @@ function FeedbackPanel({ card, feedback, speech }: { card: PracticeCard; feedbac
           )}
         </div>
         {card.meaningHu && <p className="text-foreground">{card.meaningHu}</p>}
-        {card.exampleEn && <p className="text-sm italic text-muted-foreground">{card.exampleEn}</p>}
+        {(card.contextCorrected ?? card.exampleEn) && (
+          <p className="text-sm italic text-muted-foreground">{card.contextCorrected ?? card.exampleEn}</p>
+        )}
       </div>
       {feedback.completedLists.map((title) => (
         <p key={title} className="rounded-xl bg-[var(--teal-accent-soft)] px-4 py-3 text-sm font-medium text-foreground" role="status">

@@ -8,7 +8,9 @@ import { getUserRole } from './_lib/roles.js'
 import { getPersonaForRole, applyPersonaTokens } from './_lib/personas.js'
 import { buildTutorSystemPrompt, buildTutorFeedbackPrompt } from './_lib/prompts.js'
 import { getLearnerProfile, recordFeedbackToPersonalization } from './_lib/personalization.js'
+import { addTutorWords } from './_lib/vocabTutorWords.js'
 import type { ChatMessage, FeedbackResult } from '../src/lib/types.js'
+import type { AddedTutorWord } from '../src/lib/vocab.js'
 
 // Single Vercel function for the whole /api/tutor surface (conversation turn,
 // end-of-session feedback), multiplexed by ?action= to stay under Vercel Hobby's
@@ -103,7 +105,7 @@ interface TutorEndRequestBody {
   fullTranscript: ChatMessage[]
 }
 
-async function handleEnd(req: VercelRequest, res: VercelResponse, userId: string) {
+async function handleEnd(req: VercelRequest, res: VercelResponse, userId: string, userEmail: string | undefined) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return
@@ -143,9 +145,19 @@ async function handleEnd(req: VercelRequest, res: VercelResponse, userId: string
     console.error('Failed to save tutor session', err)
   }
 
+  // Study targets go straight into the Vocabulary deck (design §5.2). Never fatal: the
+  // learner still gets their feedback if this fails.
+  let addedWords: AddedTutorWord[] = []
+  try {
+    const { cefrLevel } = await getLearnerProfile(userId, userEmail)
+    addedWords = await addTutorWords(userId, feedback.vocabulary ?? [], cefrLevel)
+  } catch (err) {
+    console.error('Failed to add tutor words to the vocabulary deck', err)
+  }
+
   await recordFeedbackToPersonalization(userId, feedback, modelId)
 
-  res.status(200).json({ feedback })
+  res.status(200).json({ feedback, addedWords })
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -162,7 +174,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await handleChat(req, res, user.id, user.email)
       return
     case 'end':
-      await handleEnd(req, res, user.id)
+      await handleEnd(req, res, user.id, user.email)
       return
     default:
       res.status(404).json({ error: 'Not found' })

@@ -3,6 +3,7 @@ import PageHeading from '../components/PageHeading'
 import AccentToggle from '../components/AccentToggle'
 import PracticeSession, { type SessionSummary } from '../components/Vocabulary/PracticeSession'
 import ListProgress from '../components/VocabLists/ListProgress'
+import MyWordsList from '../components/Vocabulary/MyWordsList'
 import { getFeature } from '../data/features'
 import { localizeFeature, useLanguage, type Lang } from '../lib/i18n'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
@@ -10,7 +11,7 @@ import { getAccentPreference, setAccentPreference, type AccentPreference } from 
 import { fetchMyVocabLists, fetchPracticeSession, fetchVocabOverview } from '../lib/vocabPracticeApi'
 import type { PracticeCard, StudentListProgress, VocabOverview } from '../lib/vocab'
 
-type Tab = 'practice' | 'teacher'
+type Tab = 'practice' | 'teacher' | 'words'
 
 /** "in 3 hours", "tomorrow" … in the UI language. */
 function relativeTime(iso: string, lang: Lang): string {
@@ -90,7 +91,7 @@ export default function VocabularyPage() {
       type="button"
       onClick={() => setTab(value)}
       aria-pressed={tab === value}
-      className={`rounded-md px-4 py-1.5 text-sm ${
+      className={`rounded-md px-3 py-1.5 text-sm sm:px-4 ${
         tab === value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
       }`}
     >
@@ -109,6 +110,7 @@ export default function VocabularyPage() {
           <div className="inline-flex rounded-lg bg-secondary p-0.5" role="group">
             {tabButton('practice', t('vcTabPractice'))}
             {tabButton('teacher', t('vcTabFromTeacher'))}
+            {tabButton('words', t('vcTabMyWords'))}
           </div>
 
           {error && <p className="text-sm text-red-600">{t('vcLoadFailed')}</p>}
@@ -148,6 +150,8 @@ export default function VocabularyPage() {
                 )}
               </div>
             ))}
+
+          {tab === 'words' && <MyWordsList onChanged={refresh} />}
 
           {tab === 'teacher' &&
             (lists === null ? (

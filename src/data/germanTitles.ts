@@ -24,7 +24,7 @@ export const featureDe: Record<string, { title: string; description: string }> =
   },
   vocabulary: {
     title: 'Vokabeltrainer',
-    description: 'Kurze tägliche Übungen mit den Wörtern und Ausdrücken von deiner Lehrkraft.',
+    description: 'Kurze tägliche Übungen mit Wörtern von deiner Lehrkraft und aus deinen Tutor-Bot-Gesprächen.',
   },
 }
 

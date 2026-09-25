@@ -55,9 +55,25 @@ export interface FeedbackCorrection {
   category?: string
 }
 
+/** Why a word became a study target (docs/vocabulary-builder-design.md §5.2). */
+export type VocabularyReason = 'switched' | 'asked' | 'lacked'
+
+/** One word or phrase the learner should study, from end-of-session feedback. */
+export interface VocabularyNote {
+  term: string
+  kind: 'word' | 'phrase'
+  /** The learner's own line. */
+  learnerSaid: string | null
+  /** That line rewritten naturally with the term in it. */
+  betterVersion: string | null
+  reason: VocabularyReason
+}
+
 export interface FeedbackResult {
   strengths: string[]
   corrections: FeedbackCorrection[]
+  vocabulary?: VocabularyNote[]
+  /** Superseded by `vocabulary` (Phase 4); only in sessions saved before it. */
   vocabularyNoted?: string[]
 }
 

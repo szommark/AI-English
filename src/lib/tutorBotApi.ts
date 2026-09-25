@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import type { ChatMessage, FeedbackResult } from './types'
+import type { AddedTutorWord } from './vocab'
 
 export interface TutorChatResponse {
   reply: string
@@ -9,6 +10,8 @@ export interface TutorChatResponse {
 
 export interface TutorEndResponse {
   feedback: FeedbackResult
+  /** Words added to the student's Vocabulary deck from this session (Phase 4). */
+  addedWords?: AddedTutorWord[]
 }
 
 export interface TutorPersonaSummary {

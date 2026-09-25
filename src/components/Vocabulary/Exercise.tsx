@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLanguage } from '../../lib/i18n'
-import { answerHint, checkTypedAnswer, gapSentence, shuffle, type AnswerCheck } from '../../lib/vocabPractice'
+import { answerHint, checkTypedAnswer, gapSentence, practiceSentence, shuffle, type AnswerCheck } from '../../lib/vocabPractice'
 import type { PracticeCard, PracticeExercise } from '../../lib/vocab'
 import { SpeakerIcon } from '../icons/AudioIcons'
 
@@ -109,11 +109,12 @@ function Typed({
   const [hintShown, setHintShown] = useState(false)
   const [retrying, setRetrying] = useState(false)
 
-  const gap = exercise === 'recall' ? null : gapSentence(card.exampleEn, card.term)
+  const sentence = practiceSentence(card)
+  const gap = exercise === 'recall' ? null : gapSentence(sentence, card.term)
   // Compare against the sentence's own form when there is one ("Book a table" at the
   // start of a sentence); the check ignores case either way.
   const expected = gap?.answer ?? card.term
-  const listenText = exercise === 'listening' ? (gap ? card.exampleEn! : card.term) : null
+  const listenText = exercise === 'listening' ? (gap ? sentence! : card.term) : null
 
   useEffect(() => {
     inputRef.current?.focus()
