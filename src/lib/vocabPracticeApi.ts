@@ -1,5 +1,15 @@
 import { request } from './vocabListsApi'
-import type { MyWord, PracticeSession, ReviewInput, ReviewResult, StudentListProgress, VocabOverview } from './vocab'
+import type {
+  DrillAnswerInput,
+  DrillRun,
+  DrillSetup,
+  MyWord,
+  PracticeSession,
+  ReviewInput,
+  ReviewResult,
+  StudentListProgress,
+  VocabOverview,
+} from './vocab'
 
 // Client for the student side of /api/vocab (Phase 3: practice). See api/vocab.ts.
 
@@ -32,4 +42,22 @@ export async function removeCard(cardId: string): Promise<void> {
 
 export async function setCardSuspended(cardId: string, suspended: boolean): Promise<void> {
   await request('action=suspend', { method: 'POST', body: { cardId, suspended } })
+}
+
+// --- Full practice (design §7.1) ---------------------------------------------------------
+
+export function fetchDrillSetup(): Promise<DrillSetup> {
+  return request('action=drill-setup')
+}
+
+export function startDrill(cardIds: string[], listId: string | null): Promise<DrillRun> {
+  return request('action=drill-start', { method: 'POST', body: { cardIds, listId } })
+}
+
+export async function submitDrillAnswer(input: DrillAnswerInput): Promise<void> {
+  await request('action=drill-answer', { method: 'POST', body: input })
+}
+
+export async function finishDrill(runId: string): Promise<void> {
+  await request('action=drill-finish', { method: 'POST', body: { runId } })
 }

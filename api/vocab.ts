@@ -13,10 +13,13 @@ import {
   refreshListCompletion,
 } from './_lib/vocabListProgress.js'
 import { ReviewError, buildSession, loadOverview, recordReview } from './_lib/vocabPractice.js'
+import { DrillError, finishDrill, loadDrillSetup, recordDrillAnswer, startDrill } from './_lib/vocabDrill.js'
 import type { CefrLevel } from './_lib/prompts.js'
 import {
+  DRILL_MAX_WORDS,
   LIST_MAX_ITEMS,
   PRACTICE_EXERCISES,
+  cardStage,
   normalizeTerm,
   type PracticeExercise,
   type MyWord,
@@ -59,6 +62,11 @@ import {
 //   POST   suspend                      { cardId, suspended } — teacher-origin cards are
 //                                        suspended instead of removed, so list progress
 //                                        stays honest (design §5.2)
+// Full practice (own cards only, design §7.1; recorded apart from reviews, never rescheduled):
+//   GET    drill-setup                  active words + assigned lists as starting selections
+//   POST   drill-start                  { cardIds, listId? } — the run with every card's content
+//   POST   drill-answer                 { runId, cardId, exercise, correct, usedHint, responseMs }
+//   POST   drill-finish                 { runId }
 
 const CEFR_SET = new Set<string>(CEFR_LEVELS)
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -587,10 +595,8 @@ async function handleSession(req: VercelRequest, res: VercelResponse, userId: st
 /** A generous upper bound; anything longer is an abandoned tab, not a response time. */
 const MAX_RESPONSE_MS = 10 * 60 * 1000
 
-async function handleReview(req: VercelRequest, res: VercelResponse, userId: string) {
-  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
-  const body = (req.body ?? {}) as Record<string, unknown>
-
+/** The answer fields shared by review and drill-answer: { cardId, exercise, correct, usedHint, responseMs }. */
+function parseAnswer(body: Record<string, unknown>) {
   if (typeof body.cardId !== 'string' || !UUID_RE.test(body.cardId)) throw notFound()
   if (!(PRACTICE_EXERCISES as readonly unknown[]).includes(body.exercise)) {
     throw new HttpError(400, { error: 'Invalid exercise' })
@@ -600,15 +606,21 @@ async function handleReview(req: VercelRequest, res: VercelResponse, userId: str
   }
   const ms = body.responseMs
   const responseMs = typeof ms === 'number' && Number.isFinite(ms) && ms >= 0 ? Math.min(Math.round(ms), MAX_RESPONSE_MS) : null
+  return {
+    cardId: body.cardId,
+    exercise: body.exercise as PracticeExercise,
+    correct: body.correct,
+    usedHint: body.usedHint,
+    responseMs,
+  }
+}
+
+async function handleReview(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const answer = parseAnswer((req.body ?? {}) as Record<string, unknown>)
 
   try {
-    const result = await recordReview(userId, {
-      cardId: body.cardId,
-      exercise: body.exercise as PracticeExercise,
-      correct: body.correct,
-      usedHint: body.usedHint,
-      responseMs,
-    })
+    const result = await recordReview(userId, answer)
     res.status(200).json(result)
   } catch (err) {
     if (err instanceof ReviewError) throw new HttpError(err.status, { error: err.message })
@@ -660,6 +672,66 @@ async function handleMyLists(req: VercelRequest, res: VercelResponse, userId: st
   res.status(200).json({ lists })
 }
 
+// --- Full practice (design §7.1) -----------------------------------------------------------
+
+async function handleDrillSetup(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'GET') throw new HttpError(405, { error: 'Method not allowed' })
+  res.status(200).json(await loadDrillSetup(userId))
+}
+
+function runIdFrom(body: Record<string, unknown>): string {
+  if (typeof body.runId !== 'string' || !UUID_RE.test(body.runId)) throw notFound()
+  return body.runId
+}
+
+async function withDrillErrors<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run()
+  } catch (err) {
+    if (err instanceof DrillError) throw new HttpError(err.status, { error: err.message })
+    throw err
+  }
+}
+
+async function handleDrillStart(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const body = (req.body ?? {}) as Record<string, unknown>
+
+  const ids = body.cardIds
+  if (!Array.isArray(ids) || ids.length === 0 || !ids.every((id) => typeof id === 'string' && UUID_RE.test(id))) {
+    throw new HttpError(400, { error: 'cardIds must be a non-empty array of card ids' })
+  }
+  const cardIds = [...new Set(ids as string[])]
+  if (cardIds.length > DRILL_MAX_WORDS) {
+    throw new HttpError(400, { error: `At most ${DRILL_MAX_WORDS} words per run` })
+  }
+  let listId: string | null = null
+  if (body.listId !== undefined && body.listId !== null) {
+    if (typeof body.listId !== 'string' || !UUID_RE.test(body.listId)) throw notFound()
+    listId = body.listId
+  }
+
+  res.status(200).json(await withDrillErrors(() => startDrill(userId, cardIds, listId)))
+}
+
+async function handleDrillAnswer(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const body = (req.body ?? {}) as Record<string, unknown>
+  const runId = runIdFrom(body)
+  const answer = parseAnswer(body)
+
+  await withDrillErrors(() => recordDrillAnswer(userId, { runId, ...answer }))
+  res.status(200).json({ ok: true })
+}
+
+async function handleDrillFinish(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const runId = runIdFrom((req.body ?? {}) as Record<string, unknown>)
+
+  await withDrillErrors(() => finishDrill(userId, runId))
+  res.status(200).json({ ok: true })
+}
+
 // --- My words (Phase 4) --------------------------------------------------------------------
 
 interface MyWordRow {
@@ -698,7 +770,7 @@ async function handleCards(req: VercelRequest, res: VercelResponse, userId: stri
       meaningHu: r.vocab_items!.meaning_hu,
       exampleEn: r.vocab_items!.example_en,
       origin: r.origin,
-      stage: r.first_learned_at ? 'learned' : r.state === 0 ? 'new' : 'learning',
+      stage: cardStage(r),
       suspended: r.suspended,
       contextOriginal: r.context_original,
       contextCorrected: r.context_corrected,
@@ -787,6 +859,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'my-lists':
         await handleMyLists(req, res, user.id)
+        return
+      case 'drill-setup':
+        await handleDrillSetup(req, res, user.id)
+        return
+      case 'drill-start':
+        await handleDrillStart(req, res, user.id)
+        return
+      case 'drill-answer':
+        await handleDrillAnswer(req, res, user.id)
+        return
+      case 'drill-finish':
+        await handleDrillFinish(req, res, user.id)
         return
       case 'cards':
         await handleCards(req, res, user.id)

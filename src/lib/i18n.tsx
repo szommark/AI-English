@@ -489,6 +489,61 @@ const messages = {
   vcReasonSwitched: { hu: 'magyarul mondtad', en: 'you said it in Hungarian', de: 'du hast es auf Ungarisch gesagt' },
   vcReasonAsked: { hu: 'rákérdeztél', en: 'you asked for it', de: 'du hast danach gefragt' },
   vcReasonLacked: { hu: 'nem jutott eszedbe', en: 'you were looking for it', de: 'es hat dir gefehlt' },
+
+  // Vocabulary: daily review vs. Full practice (design §7.1)
+  vcReviewTitle: { hu: 'Napi ismétlés', en: 'Daily review', de: 'Tägliche Wiederholung' },
+  vcReviewHint: {
+    hu: 'Az esedékes és az új szavak, egy-egy feladattal. Ez alapján dől el, mikor jön elő újra egy szó.',
+    en: 'Words that are due, plus new ones, one exercise each. This decides when each word comes back.',
+    de: 'Fällige und neue Wörter, je eine Übung. Danach richtet sich, wann ein Wort wiederkommt.',
+  },
+  vcDrillTitle: { hu: 'Teljes gyakorlás', en: 'Full practice', de: 'Komplettübung' },
+  vcDrillHint: {
+    hu: 'Te választod ki a szavakat, és mindegyiken végigmész az összes feladattal: jelentés, felidézés, kiegészítés, hallás utáni értés. Az ismétlések ütemezését nem változtatja meg.',
+    en: "Pick any words and go through every exercise with them: meaning, recall, gap-fill and listening. It doesn't change your review schedule.",
+    de: 'Wähle beliebige Wörter und mach alle Übungen damit: Bedeutung, Abrufen, Lückentext und Hören. Dein Wiederholungsplan bleibt unverändert.',
+  },
+  vcDrillChooseWords: { hu: 'Szavak kiválasztása', en: 'Choose words', de: 'Wörter auswählen' },
+  vcDrillSetupHint: {
+    hu: 'Indulj ki az összes szavadból vagy egy tanári szólistából, majd pipáld be vagy vedd ki a szavakat.',
+    en: "Start from all your words or a teacher's list, then tick or untick words to add or remove them.",
+    de: 'Beginne mit all deinen Wörtern oder einer Liste deiner Lehrkraft und hake dann Wörter an oder ab.',
+  },
+  vcDrillSource: { hu: 'Szavak forrása', en: 'Start from', de: 'Ausgangspunkt' },
+  vcDrillAllWords: { hu: 'Minden szavam ({n})', en: 'All my words ({n})', de: 'Alle meine Wörter ({n})' },
+  vcDrillListOption: { hu: '{title} ({n})', en: '{title} ({n})', de: '{title} ({n})' },
+  vcDrillSearch: { hu: 'Keresés…', en: 'Search…', de: 'Suchen…' },
+  vcDrillSelectAll: { hu: 'Mind kijelölése', en: 'Select all', de: 'Alle auswählen' },
+  vcDrillSelectNone: { hu: 'Kijelölés törlése', en: 'Select none', de: 'Keine auswählen' },
+  vcDrillSelected: { hu: '{n} szó kiválasztva', en: '{n} word(s) selected', de: '{n} Wort/Wörter ausgewählt' },
+  vcDrillTooMany: {
+    hu: 'Egyszerre legfeljebb {max} szót gyakorolhatsz — vegyél ki néhányat.',
+    en: 'At most {max} words in one run — remove a few.',
+    de: 'Höchstens {max} Wörter auf einmal — entferne ein paar.',
+  },
+  vcDrillStart: { hu: 'Indítás', en: 'Start', de: 'Starten' },
+  vcDrillFailed: {
+    hu: 'Nem sikerült elindítani a gyakorlást. Próbáld újra.',
+    en: "Couldn't start the practice. Please try again.",
+    de: 'Die Übung konnte nicht gestartet werden. Bitte versuche es erneut.',
+  },
+  vcRoundOf: { hu: '{n}. kör / {total}', en: 'Round {n} of {total}', de: 'Runde {n} von {total}' },
+  vcRoundRecognition: { hu: 'Jelentés', en: 'Meaning', de: 'Bedeutung' },
+  vcRoundRecall: { hu: 'Felidézés', en: 'Recall', de: 'Abrufen' },
+  vcRoundContext: { hu: 'Kiegészítés', en: 'Gap-fill', de: 'Lückentext' },
+  vcRoundListening: { hu: 'Hallás utáni értés', en: 'Listening', de: 'Hören' },
+  vcDrillSummaryWords: {
+    hu: 'Gyakorolt szavak: {n}. Az ismétlések ütemezése nem változott.',
+    en: 'Words practised: {n}. Your review schedule is unchanged.',
+    de: 'Geübte Wörter: {n}. Dein Wiederholungsplan ist unverändert.',
+  },
+  vcDrillSaveFailures: {
+    hu: '{n} választ nem sikerült elmenteni.',
+    en: "{n} answer(s) couldn't be saved.",
+    de: '{n} Antwort(en) konnten nicht gespeichert werden.',
+  },
+  vcDrillAgain: { hu: 'Újra ezekkel a szavakkal', en: 'Again with these words', de: 'Nochmal mit diesen Wörtern' },
+  vcDrillChangeWords: { hu: 'Más szavak', en: 'Change words', de: 'Andere Wörter' },
 } as const satisfies Record<string, Record<Lang, string>>
 
 export type MessageKey = keyof typeof messages

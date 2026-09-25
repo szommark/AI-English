@@ -275,6 +275,55 @@ export interface AddedTutorWord {
 /** Where a card is on its way to "learned", for the My words list. */
 export type CardStage = 'new' | 'learning' | 'learned'
 
+/** Learned once graduated (sticky, design §6.2); New while FSRS state is 0. */
+export function cardStage(card: { state: number; first_learned_at: string | null }): CardStage {
+  return card.first_learned_at ? 'learned' : card.state === 0 ? 'new' : 'learning'
+}
+
+// --- Full practice (design §7.1) ----------------------------------------------------------
+
+/** Words per Full practice run; a whole teacher list always fits. */
+export const DRILL_MAX_WORDS = LIST_MAX_ITEMS
+
+/** One word the student can pick for Full practice (active cards only). */
+export interface DrillWord {
+  cardId: string
+  term: string
+  meaningHu: string | null
+  origin: VocabOrigin
+  stage: CardStage
+}
+
+/** A teacher list assigned to the student, as a Full practice starting selection. */
+export interface DrillListOption {
+  listId: string
+  title: string
+  /** The student's active cards for the list's terms. */
+  cardIds: string[]
+}
+
+/** GET /api/vocab?action=drill-setup. */
+export interface DrillSetup {
+  words: DrillWord[]
+  lists: DrillListOption[]
+}
+
+/** POST /api/vocab?action=drill-start: the run and every chosen card, distractors included. */
+export interface DrillRun {
+  runId: string
+  cards: PracticeCard[]
+}
+
+/** Body of POST /api/vocab?action=drill-answer. Recorded apart from reviews; never rescheduled. */
+export interface DrillAnswerInput {
+  runId: string
+  cardId: string
+  exercise: PracticeExercise
+  correct: boolean
+  usedHint: boolean
+  responseMs: number | null
+}
+
 /** One entry of GET /api/vocab?action=cards. */
 export interface MyWord {
   cardId: string
