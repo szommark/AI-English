@@ -128,8 +128,8 @@ The terms students' compiled lists draw on first (§7.2). The model fills whatev
   - A headword listed several times keeps its lowest level and the union of its topics.
   - Function words (determiners, prepositions, modals…) are skipped.
 - **Topics:** `data/wordbank/topic-map.json` maps CEFR-J's Core Inventory and Threshold categories onto the 10 topics, and lists the ones deliberately left out. The import fails on a category the file doesn't mention. Mark's review covers this mapping; the published list itself is trusted.
-  - About 2,000 of the 8,454 bank words carry a topic.
-  - Most topics have 30–140 words per level. Nature & weather is thin, and C1/C2 has no topics, so the model fills those.
+  - 1,869 of the 8,454 bank words carry a topic.
+  - Most topics have 30–140 words per level. Nature & weather and Feelings & people are thin (under 16 words per level), and C1/C2 has no topics, so the model fills those. CEFR-J's "Personal identification" (mostly job titles) and "Relations with other people" (crime, violence, politics next to friendship) are deliberately left out of Feelings & people.
 - **Picking:** `pick_word_bank_terms(topic, level, count, exclude)` returns random visible terms at exactly the chosen level, excluding what the student already has. Custom (free-text) topics use the model only.
 - **Items from the bank** are created with `origin = 'catalog'` (the term came from the reviewed catalog; decision 9). Model-picked terms get `origin = 'student'`.
 - **Later:** an "Explore" tab for browsing the bank by level and topic, and a way to hide individual words (the `hidden` flag is already there).

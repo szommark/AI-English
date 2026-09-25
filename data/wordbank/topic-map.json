@@ -30,13 +30,13 @@
     "education": ["Education", "Language"],
     "nature": ["Weather"],
     "people": [
-      "Personal identification",
       "Personal information",
-      "Relations with other people",
       "Adjectives: personality, description, feelings"
     ]
   },
   "_unmapped": [
+    "Personal identification",
+    "Relations with other people",
     "News, lifestyles and current affairs",
     "Collocation",
     "Idiomatic expressions",
