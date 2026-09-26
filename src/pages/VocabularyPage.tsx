@@ -4,7 +4,7 @@ import PageHeading from '../components/PageHeading'
 import AccentToggle from '../components/AccentToggle'
 import PracticeSession, { type SessionSummary } from '../components/Vocabulary/PracticeSession'
 import DrillSession, { ROUND_LABEL, type DrillSummary } from '../components/Vocabulary/DrillSession'
-import DrillSetupPanel from '../components/Vocabulary/DrillSetupPanel'
+import DrillSetupPanel, { type DrillChoice } from '../components/Vocabulary/DrillSetupPanel'
 import FastPracticeTab from '../components/Vocabulary/FastPracticeTab'
 import MyWordlistsTab from '../components/Vocabulary/MyWordlistsTab'
 import { DEFAULT_WORDLIST_FILTER, type WordlistFilter } from '../components/Vocabulary/WordlistFilters'
@@ -14,11 +14,13 @@ import { getFeature } from '../data/features'
 import { localizeFeature, useLanguage, type Lang, type MessageKey } from '../lib/i18n'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { getAccentPreference, setAccentPreference, type AccentPreference } from '../lib/voiceSelection'
+import { DRILL_ROUNDS } from '../lib/vocabPractice'
 import { fetchPracticeSession, fetchVocabOverview, fetchWordlist, fetchWordlists, startDrill } from '../lib/vocabPracticeApi'
 import {
   COMPILES_PER_DAY,
   type DrillRun,
   type PracticeCard,
+  type PracticeExercise,
   type VocabOverview,
   type WordlistDetail,
   type WordlistRef,
@@ -33,9 +35,9 @@ type ReturnTo = 'tabs' | WordlistRef
 type View =
   | { name: 'tabs' }
   | { name: 'list'; ref: WordlistRef; initial: WordlistDetail | null }
-  | { name: 'drill-setup'; detail: WordlistDetail; initial: string[] | null; returnTo: ReturnTo }
-  | { name: 'drill'; run: DrillRun; detail: WordlistDetail; itemIds: string[]; returnTo: ReturnTo }
-  | { name: 'drill-summary'; summary: DrillSummary; detail: WordlistDetail; itemIds: string[]; returnTo: ReturnTo }
+  | { name: 'drill-setup'; detail: WordlistDetail; initialWords: string[] | null; returnTo: ReturnTo }
+  | { name: 'drill'; run: DrillRun; detail: WordlistDetail; choice: DrillChoice; returnTo: ReturnTo }
+  | { name: 'drill-summary'; summary: DrillSummary; detail: WordlistDetail; choice: DrillChoice; returnTo: ReturnTo }
   | { name: 'review'; cards: PracticeCard[] }
 
 /** "in 3 hours", "tomorrow" … in the UI language. */
@@ -84,14 +86,16 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 
 /**
  * Student Vocabulary page, route /vocabulary (design §7, decisions 6–7): Fast practice,
- * My wordlists and Spaced repetition tabs.
+ * My wordlists, Fast practice and Spaced repetition tabs.
  */
 export default function VocabularyPage() {
   const { t, lang } = useLanguage()
   const feature = getFeature('vocabulary')!
-  const [tab, setTab] = useState<Tab>('fast')
+  const [tab, setTab] = useState<Tab>('lists')
   /** Shared by the Fast practice and My wordlists tabs, and kept while a list is open. */
   const [listFilter, setListFilter] = useState<WordlistFilter>(DEFAULT_WORDLIST_FILTER)
+  /** The last Fast practice run's exercise types: the default for the next run. */
+  const [drillExercises, setDrillExercises] = useState<PracticeExercise[]>([...DRILL_ROUNDS])
   const [view, setView] = useState<View>({ name: 'tabs' })
   const [accent, setAccent] = useState<AccentPreference>(() => getAccentPreference())
   const tts = useSpeechSynthesis('female', accent)
@@ -124,12 +128,12 @@ export default function VocabularyPage() {
     setView(returnTo === 'tabs' ? { name: 'tabs' } : { name: 'list', ref: returnTo, initial: null })
   }
 
-  /** From the Fast practice tab: load the list, then let the student untick words. */
+  /** From the Fast practice tab: load the list, then let the student untick words and exercises. */
   async function practiseList(ref: WordlistRef) {
     setStarting(true)
     setStartFailed(false)
     try {
-      setView({ name: 'drill-setup', detail: await fetchWordlist(ref), initial: null, returnTo: 'tabs' })
+      setView({ name: 'drill-setup', detail: await fetchWordlist(ref), initialWords: null, returnTo: 'tabs' })
     } catch {
       setStartFailed(true)
     } finally {
@@ -137,12 +141,13 @@ export default function VocabularyPage() {
     }
   }
 
-  async function beginDrill(detail: WordlistDetail, itemIds: string[], returnTo: ReturnTo) {
+  async function beginDrill(detail: WordlistDetail, choice: DrillChoice, returnTo: ReturnTo) {
     setStarting(true)
     setStartFailed(false)
+    setDrillExercises(choice.exercises)
     try {
-      const run = await startDrill({ kind: detail.list.kind, id: detail.list.id }, itemIds)
-      setView({ name: 'drill', run, detail, itemIds, returnTo })
+      const run = await startDrill({ kind: detail.list.kind, id: detail.list.id }, choice.itemIds)
+      setView({ name: 'drill', run, detail, choice, returnTo })
     } catch {
       setStartFailed(true)
     } finally {
@@ -194,6 +199,7 @@ export default function VocabularyPage() {
           key={view.run.runId}
           runId={view.run.runId}
           cards={view.run.cards}
+          exercises={view.choice.exercises}
           speech={tts}
           onFinish={(summary) => {
             setView({ ...view, name: 'drill-summary', summary })
@@ -211,8 +217,10 @@ export default function VocabularyPage() {
             summary={view.summary}
             detail={view.detail}
             starting={starting}
-            onAgain={() => void beginDrill(view.detail, view.itemIds, view.returnTo)}
-            onChangeWords={() => setView({ name: 'drill-setup', detail: view.detail, initial: view.itemIds, returnTo: view.returnTo })}
+            onAgain={() => void beginDrill(view.detail, view.choice, view.returnTo)}
+            onChangeWords={() =>
+              setView({ name: 'drill-setup', detail: view.detail, initialWords: view.choice.itemIds, returnTo: view.returnTo })
+            }
             onDone={() => goBack(view.returnTo)}
           />
         </div>
@@ -225,9 +233,10 @@ export default function VocabularyPage() {
           {startError}
           <DrillSetupPanel
             detail={view.detail}
-            initial={view.initial}
+            initialWords={view.initialWords}
+            initialExercises={drillExercises}
             starting={starting}
-            onStart={(itemIds) => void beginDrill(view.detail, itemIds, view.returnTo)}
+            onStart={(choice) => void beginDrill(view.detail, choice, view.returnTo)}
             onCancel={() => goBack(view.returnTo)}
           />
         </div>
@@ -243,7 +252,7 @@ export default function VocabularyPage() {
           compilesLeft={Math.max(0, COMPILES_PER_DAY - (wordlists?.compiledToday ?? 0))}
           onBack={() => setView({ name: 'tabs' })}
           onPractise={(detail) =>
-            setView({ name: 'drill-setup', detail, initial: null, returnTo: { kind: detail.list.kind, id: detail.list.id } })
+            setView({ name: 'drill-setup', detail, initialWords: null, returnTo: { kind: detail.list.kind, id: detail.list.id } })
           }
           onChanged={refresh}
         />
@@ -267,8 +276,8 @@ export default function VocabularyPage() {
       body = (
         <>
           <div className="inline-flex flex-wrap rounded-lg bg-secondary p-0.5" role="group">
-            {tabButton('fast', t('vcTabFast'))}
             {tabButton('lists', t('vcTabLists'))}
+            {tabButton('fast', t('vcTabFast'))}
             {tabButton('srs', t('vcTabSrs'))}
           </div>
 

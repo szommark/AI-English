@@ -1,19 +1,28 @@
 import { useLanguage, type MessageKey } from '../../lib/i18n'
 import { GRAMMAR_LEVELS as CEFR_LEVELS, type CefrLevel } from '../../data/grammarCurriculum'
-import { VOCAB_TOPICS, isVocabTopicId, type WordlistKind, type WordlistSummary } from '../../lib/vocab'
+import type { WordlistKind, WordlistSummary } from '../../lib/vocab'
 import { useTopicLabel } from './wordlistLabels'
 
 // The list filters shared by the Fast practice and My wordlists tabs (design §7.1–§7.2):
-// source chips, then level, topic and sort dropdowns in one row.
+// source chips, then level, topic and sort dropdowns in one row. The level and topic
+// dropdowns offer All, Mixed (lists without one), then only the values the lists have,
+// each with how many lists it would show.
 
 export type ListSort = 'newest' | 'popular' | 'longest'
 
-const ALL = 'all'
+// Can't clash with a level or a topic: the student's own topics are free text, but these
+// aren't likely ones.
+const ALL = ':all'
+const MIXED = ':mixed'
+
+/** Topics offered in the dropdown: the most recently used ones. */
+const MAX_TOPIC_OPTIONS = 10
 
 export interface WordlistFilter {
   source: typeof ALL | WordlistKind
-  level: typeof ALL | CefrLevel
-  /** A VOCAB_TOPICS id or a student's own topic; only custom lists have one. */
+  /** MIXED: lists without a level (conversations, some teacher lists). */
+  level: typeof ALL | typeof MIXED | CefrLevel
+  /** A VOCAB_TOPICS id or a student's own topic; MIXED: lists without one (all but custom). */
   topic: string
   sort: ListSort
 }
@@ -41,14 +50,24 @@ const COMPARE: Record<ListSort, (a: WordlistSummary, b: WordlistSummary) => numb
   longest: (a, b) => b.wordCount - a.wordCount || newestFirst(a, b),
 }
 
+const matchesSource = (list: WordlistSummary, source: WordlistFilter['source']) => source === ALL || list.kind === source
+
+function matchesLevel(list: WordlistSummary, level: WordlistFilter['level']): boolean {
+  return level === ALL || (level === MIXED ? list.cefrLevel === null : list.cefrLevel === level)
+}
+
+function matchesTopic(list: WordlistSummary, topic: string): boolean {
+  return topic === ALL || (topic === MIXED ? list.topic === null : list.topic === topic)
+}
+
 function matchesAttributes(list: WordlistSummary, filter: WordlistFilter): boolean {
-  return (filter.level === ALL || list.cefrLevel === filter.level) && (filter.topic === ALL || list.topic === filter.topic)
+  return matchesLevel(list, filter.level) && matchesTopic(list, filter.topic)
 }
 
 /** The lists the filter lets through, in its sort order. */
 export function applyWordlistFilter(lists: WordlistSummary[], filter: WordlistFilter): WordlistSummary[] {
   return lists
-    .filter((l) => (filter.source === ALL || l.kind === filter.source) && matchesAttributes(l, filter))
+    .filter((l) => matchesSource(l, filter.source) && matchesAttributes(l, filter))
     .sort(COMPARE[filter.sort])
 }
 
@@ -68,12 +87,23 @@ export default function WordlistFilters({
   const topicLabel = useTopicLabel()
   const set = (patch: Partial<WordlistFilter>) => onChange({ ...filter, ...patch })
 
-  // The fixed topics, then the student's own ones (and the chosen one, even if its list is gone).
-  const ownTopics = [
-    ...new Set([...lists.flatMap((l) => (l.topic && !isVocabTopicId(l.topic) ? [l.topic] : [])), filter.topic]),
-  ]
-    .filter((topic) => topic !== ALL && !isVocabTopicId(topic))
-    .sort((a, b) => a.localeCompare(b))
+  // Each option's count follows the source and the other dropdown.
+  const levelCount = (level: WordlistFilter['level']) =>
+    lists.filter((l) => matchesSource(l, filter.source) && matchesTopic(l, filter.topic) && matchesLevel(l, level)).length
+  const topicCount = (topic: string) =>
+    lists.filter((l) => matchesSource(l, filter.source) && matchesLevel(l, filter.level) && matchesTopic(l, topic)).length
+
+  // The chosen value stays on offer even once its last list is gone, so the select never goes blank.
+  const levels = CEFR_LEVELS.filter((level) => filter.level === level || lists.some((l) => l.cefrLevel === level))
+  const hasMixedLevel = filter.level === MIXED || lists.some((l) => l.cefrLevel === null)
+
+  const lastUsed = new Map<string, string>()
+  for (const l of lists) {
+    if (l.topic && l.createdAt > (lastUsed.get(l.topic) ?? '')) lastUsed.set(l.topic, l.createdAt)
+  }
+  const topics = [...lastUsed.keys()].sort((a, b) => lastUsed.get(b)!.localeCompare(lastUsed.get(a)!)).slice(0, MAX_TOPIC_OPTIONS)
+  if (filter.topic !== ALL && filter.topic !== MIXED && !topics.includes(filter.topic)) topics.push(filter.topic)
+  const hasMixedTopic = filter.topic === MIXED || lists.some((l) => l.topic === null)
 
   return (
     <div className="space-y-2">
@@ -106,18 +136,32 @@ export default function WordlistFilters({
           aria-label={t('vcCompileLevel')}
           className={selectClass}
         >
-          <option value={ALL}>{t('vcFilterLevelAll')}</option>
-          {CEFR_LEVELS.map((l) => (
+          <option value={ALL}>
+            {t('vcFilterLevelAll')} ({levelCount(ALL)})
+          </option>
+          {hasMixedLevel && (
+            <option value={MIXED}>
+              {t('vcFilterLevelMixed')} ({levelCount(MIXED)})
+            </option>
+          )}
+          {levels.map((l) => (
             <option key={l} value={l}>
-              {l}
+              {l} ({levelCount(l)})
             </option>
           ))}
         </select>
         <select value={filter.topic} onChange={(e) => set({ topic: e.target.value })} aria-label={t('vcCompileTopic')} className={selectClass}>
-          <option value={ALL}>{t('vcFilterTopicAll')}</option>
-          {[...VOCAB_TOPICS, ...ownTopics].map((topic) => (
+          <option value={ALL}>
+            {t('vcFilterTopicAll')} ({topicCount(ALL)})
+          </option>
+          {hasMixedTopic && (
+            <option value={MIXED}>
+              {t('vcFilterTopicMixed')} ({topicCount(MIXED)})
+            </option>
+          )}
+          {topics.map((topic) => (
             <option key={topic} value={topic}>
-              {topicLabel(topic)}
+              {topicLabel(topic)} ({topicCount(topic)})
             </option>
           ))}
         </select>

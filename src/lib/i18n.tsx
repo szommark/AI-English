@@ -481,9 +481,15 @@ const messages = {
     de: 'Fällige und neue Wörter, je eine Übung. Danach richtet sich, wann ein Wort wiederkommt.',
   },
   vcDrillSetupHint: {
-    hu: 'Minden szó ki van jelölve; vedd ki, amelyiket most nem szeretnéd gyakorolni.',
-    en: "Every word is ticked; untick any you don't want in this run.",
-    de: 'Alle Wörter sind ausgewählt; nimm die heraus, die du diesmal nicht üben willst.',
+    hu: 'Minden feladattípus és minden szó ki van jelölve; vedd ki, amelyiket most nem szeretnéd gyakorolni.',
+    en: "Every exercise and every word is ticked; untick any you don't want in this run.",
+    de: 'Alle Übungen und alle Wörter sind ausgewählt; nimm heraus, was du diesmal nicht üben willst.',
+  },
+  vcDrillExercises: { hu: 'Feladattípusok', en: 'Exercises', de: 'Übungen' },
+  vcDrillNoExercises: {
+    hu: 'Válassz legalább egy feladattípust.',
+    en: 'Choose at least one exercise.',
+    de: 'Wähle mindestens eine Übung.',
   },
   vcDrillSearch: { hu: 'Keresés…', en: 'Search…', de: 'Suchen…' },
   vcDrillSelectAll: { hu: 'Mind kijelölése', en: 'Select all', de: 'Alle auswählen' },
@@ -516,7 +522,7 @@ const messages = {
     de: '{n} Antwort(en) konnten nicht gespeichert werden.',
   },
   vcDrillAgain: { hu: 'Újra ezekkel a szavakkal', en: 'Again with these words', de: 'Nochmal mit diesen Wörtern' },
-  vcDrillChangeWords: { hu: 'Más szavak', en: 'Change words', de: 'Andere Wörter' },
+  vcDrillChangeWords: { hu: 'Más szavak vagy feladatok', en: 'Change words or exercises', de: 'Wörter oder Übungen ändern' },
 
   // Vocabulary: Fast practice and My wordlists (design §7.1–§7.2)
   vcTabFast: { hu: 'Gyors gyakorlás', en: 'Fast practice', de: 'Schnellübung' },
@@ -589,6 +595,8 @@ const messages = {
   vcLevelOption: { hu: '{level} szint', en: 'Level {level}', de: 'Niveau {level}' },
   vcFilterLevelAll: { hu: 'Minden szint', en: 'All levels', de: 'Alle Niveaus' },
   vcFilterTopicAll: { hu: 'Minden téma', en: 'All topics', de: 'Alle Themen' },
+  vcFilterLevelMixed: { hu: 'Vegyes szint', en: 'Mixed level', de: 'Gemischtes Niveau' },
+  vcFilterTopicMixed: { hu: 'Vegyes témák', en: 'Mixed topics', de: 'Gemischte Themen' },
   vcSortLabel: { hu: 'Rendezés', en: 'Sort', de: 'Sortierung' },
   vcSortNewest: { hu: 'Legújabb elöl', en: 'Newest first', de: 'Neueste zuerst' },
   vcSortPopular: { hu: 'Legtöbbet gyakorolt', en: 'Most practised', de: 'Am meisten geübt' },

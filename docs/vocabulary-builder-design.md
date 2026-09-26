@@ -179,7 +179,7 @@ Steps 1–4 are fully deterministic and client-rendered; only the result is POST
 
 **Session composition:** all due cards first (oldest due first, max `MAX_REVIEWS_PER_SESSION`), then up to `NEW_CARDS_PER_DAY` new cards, teacher-origin new cards before others. A session ends at the cap or when nothing is due; the summary shows reviewed / new / next due.
 
-**Student Vocabulary page:** three tabs — **Fast practice** (§7.1), **My wordlists** (§7.2) and **Spaced repetition** (the Daily review session above).
+**Student Vocabulary page:** three tabs — **My wordlists** (§7.2, open by default), **Fast practice** (§7.1) and **Spaced repetition** (the Daily review session above).
 
 - **Pipeline** (Spaced repetition tab): how many words are in each stage — not in review (words in the student's lists without a card) → new → learning → learned (the `cardStage` stages) — plus paused cards, the next repetition ("now (N due)" or a relative time) and the new words left today. `overview` returns the stage counts; `wordlists` returns `notInSrs`. The earlier "From my teacher" and "My words" tabs are folded into My wordlists. "Explore" (catalog, Phase 5) comes later.
 
@@ -187,8 +187,8 @@ Steps 1–4 are fully deterministic and client-rendered; only the result is POST
 
 Every exercise, over any list, any time — whether or not its words are learned or in spaced repetition.
 
-- **Starting a run:** pick a list (from the Fast practice tab, with the same filters as My wordlists, or from a list's page), then untick any words to leave out. At most `DRILL_MAX_WORDS` (= `LIST_MAX_ITEMS`, so a whole list fits) per run.
-- **Order:** round by round, easiest first: recognition for every word, then recall, gap-fill, listening. Words are shuffled within each round. An exercise that can't run for a word (no Hungarian meaning, no sentence containing the term, no speech synthesis) is skipped, not stepped down, so no word gets the same exercise twice.
+- **Starting a run:** pick a list (from the Fast practice tab, with the same filters as My wordlists, or from a list's page), then untick any exercise types and words to leave out. At least one exercise type must stay ticked; the last run's choice is the default for the next one (for the page visit). At most `DRILL_MAX_WORDS` (= `LIST_MAX_ITEMS`, so a whole list fits) per run.
+- **Order:** round by round, easiest first: recognition for every word, then recall, gap-fill, listening (only the chosen ones). Words are shuffled within each round. An exercise that can't run for a word (no Hungarian meaning, no sentence containing the term, no speech synthesis) is skipped, not stepped down, so no word gets the same exercise twice.
 - **Recorded apart from scheduling:** answers go to `vocab_drill_answers` (one row per run, **item** and exercise — words need no card), grouped by `vocab_drill_runs` (`source` custom/teacher/conversations, the list id, `item_ids`, `word_count`, `started_at`, `finished_at`). An answer must be for one of the run's `item_ids`. Runs never touch FSRS state, `ladder_step` or `vocab_reviews`, so they don't reschedule cards, use up `NEW_CARDS_PER_DAY` or move teacher-list progress. Cramming would distort FSRS intervals.
 - **Summary:** correct/total per round; "Again with these words", "Change words", "Close" (back to where the run started).
 - **API:** `drill-start` `{ list: { kind, id }, itemIds }`, `drill-answer` `{ runId, itemId, exercise, correct, usedHint, responseMs }`, `drill-finish` `{ runId }`. Every word gets recognition distractors.
@@ -199,7 +199,7 @@ Every exercise, over any list, any time — whether or not its words are learned
 The "Compile a new list" form sits at the top of the tab, in one row (topic, level, word count, Compile). Below it are all of the student's lists, with filters shared with Fast practice (one filter state for both tabs):
 
 - **Source** chips: all / made by me / from my teacher / from conversations. Their counts follow the other filters.
-- **Level** (A1–C2) and **topic** (the 10 fixed topics plus the student's own) dropdowns. Only custom lists have a topic.
+- **Level** and **topic** dropdowns: All, then **Mixed** (lists without a level, or without a topic: teacher and conversation lists), then only the levels / topics the lists have, topics most recently used first (at most 10). Every option shows how many lists it would show, given the source and the other dropdown.
 - **Sort:** newest first, most practised (Fast practice runs started on the list, `practiceCount` from `vocab_drill_runs`), longest first.
 
 The kinds of list:
