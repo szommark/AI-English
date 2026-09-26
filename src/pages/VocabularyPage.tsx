@@ -20,6 +20,7 @@ import {
   COMPILES_PER_DAY,
   MAX_REVIEWS_PER_SESSION,
   NEW_CARDS_PER_DAY,
+  PRACTICE_EXERCISES,
   type DrillRun,
   type PracticeCard,
   type PracticeExercise,
@@ -53,29 +54,51 @@ function relativeTime(iso: string, lang: Lang): string {
   return fmt.format(Math.round(hours / 24), 'day')
 }
 
-/** Where the student's words are (design §6.2, §6.4): not in review → new → learning → learned → mastered. */
-function Pipeline({ stages, notInSrs }: { stages: VocabOverview['stages']; notInSrs: number }) {
+interface PipelineStep {
+  label: MessageKey
+  n: number
+  className: string
+}
+
+/** One row of boxes with arrows between them, under a small caption. */
+function Pipeline({ caption, steps }: { caption: MessageKey; steps: PipelineStep[] }) {
   const { t } = useLanguage()
-  const steps: { label: MessageKey; n: number; className: string }[] = [
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium text-muted-foreground">{t(caption)}</p>
+      <ol className="grid grid-cols-2 gap-2 sm:flex sm:items-stretch">
+        {steps.map((step, i) => (
+          <li key={step.label} className="flex items-center gap-1 sm:flex-1">
+            {i > 0 && <ChevronRight className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" aria-hidden />}
+            <div className={`h-full flex-1 rounded-xl px-3 py-2.5 ${step.className}`}>
+              <div className="text-2xl font-semibold tabular-nums">{step.n}</div>
+              <div className="text-xs">{t(step.label)}</div>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
+/** Where the student's words are (design §6.2, §6.4): not in review → new → learning → learned → mastered. */
+function stageSteps(stages: VocabOverview['stages'], notInSrs: number): PipelineStep[] {
+  return [
     { label: 'vcPipeNotInSrs', n: notInSrs, className: 'border border-dashed border-border text-muted-foreground' },
     { label: 'vcPipeNew', n: stages.new, className: 'bg-secondary text-secondary-foreground' },
     { label: 'vcPipeLearning', n: stages.learning, className: 'bg-amber-100 text-amber-800' },
     { label: 'vcPipeLearned', n: stages.learned, className: 'bg-emerald-100 text-emerald-700' },
     { label: 'vcPipeMastered', n: stages.mastered, className: 'bg-violet-100 text-violet-800' },
   ]
-  return (
-    <ol className="grid grid-cols-2 gap-2 sm:flex sm:items-stretch">
-      {steps.map((step, i) => (
-        <li key={step.label} className="flex items-center gap-1 sm:flex-1">
-          {i > 0 && <ChevronRight className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" aria-hidden />}
-          <div className={`h-full flex-1 rounded-xl px-3 py-2.5 ${step.className}`}>
-            <div className="text-2xl font-semibold tabular-nums">{step.n}</div>
-            <div className="text-xs">{t(step.label)}</div>
-          </div>
-        </li>
-      ))}
-    </ol>
-  )
+}
+
+/** Words in review by the exercise they are at (design §7): meaning → recall → gap-fill → listening. */
+function exerciseSteps(exercises: VocabOverview['exercises']): PipelineStep[] {
+  return PRACTICE_EXERCISES.map((e) => ({
+    label: ROUND_LABEL[e],
+    n: exercises[e],
+    className: 'bg-[var(--teal-accent-soft)] text-foreground',
+  }))
 }
 
 /** "How does it work?": the scheduling rules in plain words, closed by default. */
@@ -364,7 +387,8 @@ export default function VocabularyPage() {
                       <p className="text-sm text-muted-foreground">{t('vcReviewHint')}</p>
                     </div>
                     <SrsExplainer />
-                    <Pipeline stages={overview.stages} notInSrs={notInSrs} />
+                    <Pipeline caption="vcPipeByStage" steps={stageSteps(overview.stages, notInSrs)} />
+                    <Pipeline caption="vcPipeByExercise" steps={exerciseSteps(overview.exercises)} />
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                       {overview.dueCount > 0 ? (
                         <span className="font-medium text-foreground">{t('vcNextRepNow', { n: overview.dueCount })}</span>
