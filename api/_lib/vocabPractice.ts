@@ -239,11 +239,13 @@ async function countCards(userId: string, filter: (q: any) => any): Promise<numb
 export async function loadOverview(userId: string, now = new Date()): Promise<VocabOverview> {
   const nowIso = now.toISOString()
   const active = (q: any) => q.eq('suspended', false)
-  const [dueCount, newTotal, totalCards, learnedCards, startedToday] = await Promise.all([
+  const [dueCount, newTotal, totalCards, learningCards, learnedCards, pausedCards, startedToday] = await Promise.all([
     countCards(userId, (q) => active(q).neq('state', STATE_NEW).lte('due', nowIso)),
     countCards(userId, (q) => active(q).eq('state', STATE_NEW)),
     countCards(userId, active),
+    countCards(userId, (q) => active(q).neq('state', STATE_NEW).is('first_learned_at', null)),
     countCards(userId, (q) => active(q).not('first_learned_at', 'is', null)),
+    countCards(userId, (q) => q.eq('suspended', true)),
     newCardsStartedToday(userId, now),
   ])
 
@@ -269,6 +271,13 @@ export async function loadOverview(userId: string, now = new Date()): Promise<Vo
     totalCards,
     learnedCards,
     nextDue,
+    // Same stages as cardStage: learned is sticky, new is FSRS state 0.
+    stages: {
+      new: newTotal,
+      learning: learningCards,
+      learned: learnedCards,
+      paused: pausedCards,
+    },
   }
 }
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { ChevronRight } from 'lucide-react'
 import PageHeading from '../components/PageHeading'
 import AccentToggle from '../components/AccentToggle'
 import PracticeSession, { type SessionSummary } from '../components/Vocabulary/PracticeSession'
@@ -6,10 +7,11 @@ import DrillSession, { ROUND_LABEL, type DrillSummary } from '../components/Voca
 import DrillSetupPanel from '../components/Vocabulary/DrillSetupPanel'
 import FastPracticeTab from '../components/Vocabulary/FastPracticeTab'
 import MyWordlistsTab from '../components/Vocabulary/MyWordlistsTab'
+import { DEFAULT_WORDLIST_FILTER, type WordlistFilter } from '../components/Vocabulary/WordlistFilters'
 import WordlistView from '../components/Vocabulary/WordlistView'
 import { useListTitle } from '../components/Vocabulary/wordlistLabels'
 import { getFeature } from '../data/features'
-import { localizeFeature, useLanguage, type Lang } from '../lib/i18n'
+import { localizeFeature, useLanguage, type Lang, type MessageKey } from '../lib/i18n'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { getAccentPreference, setAccentPreference, type AccentPreference } from '../lib/voiceSelection'
 import { fetchPracticeSession, fetchVocabOverview, fetchWordlist, fetchWordlists, startDrill } from '../lib/vocabPracticeApi'
@@ -47,6 +49,30 @@ function relativeTime(iso: string, lang: Lang): string {
   return fmt.format(Math.round(hours / 24), 'day')
 }
 
+/** Where the student's words are (design §6.2): not in review → new → learning → learned. */
+function Pipeline({ stages, notInSrs }: { stages: VocabOverview['stages']; notInSrs: number }) {
+  const { t } = useLanguage()
+  const steps: { label: MessageKey; n: number; className: string }[] = [
+    { label: 'vcPipeNotInSrs', n: notInSrs, className: 'border border-dashed border-border text-muted-foreground' },
+    { label: 'vcPipeNew', n: stages.new, className: 'bg-secondary text-secondary-foreground' },
+    { label: 'vcPipeLearning', n: stages.learning, className: 'bg-amber-100 text-amber-800' },
+    { label: 'vcPipeLearned', n: stages.learned, className: 'bg-emerald-100 text-emerald-700' },
+  ]
+  return (
+    <ol className="grid grid-cols-2 gap-2 sm:flex sm:items-stretch">
+      {steps.map((step, i) => (
+        <li key={step.label} className="flex items-center gap-1 sm:flex-1">
+          {i > 0 && <ChevronRight className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" aria-hidden />}
+          <div className={`h-full flex-1 rounded-xl px-3 py-2.5 ${step.className}`}>
+            <div className="text-2xl font-semibold tabular-nums">{step.n}</div>
+            <div className="text-xs">{t(step.label)}</div>
+          </div>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-xl bg-secondary px-4 py-3">
@@ -64,6 +90,8 @@ export default function VocabularyPage() {
   const { t, lang } = useLanguage()
   const feature = getFeature('vocabulary')!
   const [tab, setTab] = useState<Tab>('fast')
+  /** Shared by the Fast practice and My wordlists tabs, and kept while a list is open. */
+  const [listFilter, setListFilter] = useState<WordlistFilter>(DEFAULT_WORDLIST_FILTER)
   const [view, setView] = useState<View>({ name: 'tabs' })
   const [accent, setAccent] = useState<AccentPreference>(() => getAccentPreference())
   const tts = useSpeechSynthesis('female', accent)
@@ -167,7 +195,10 @@ export default function VocabularyPage() {
           runId={view.run.runId}
           cards={view.run.cards}
           speech={tts}
-          onFinish={(summary) => setView({ ...view, name: 'drill-summary', summary })}
+          onFinish={(summary) => {
+            setView({ ...view, name: 'drill-summary', summary })
+            refresh()
+          }}
         />
       )
       break
@@ -220,6 +251,7 @@ export default function VocabularyPage() {
       break
 
     case 'tabs': {
+      const notInSrs = wordlists?.notInSrs ?? 0
       const tabButton = (value: Tab, label: string) => (
         <button
           type="button"
@@ -249,11 +281,9 @@ export default function VocabularyPage() {
             ) : (
               <FastPracticeTab
                 data={wordlists}
+                filter={listFilter}
+                onFilterChange={setListFilter}
                 onPractise={(ref) => void practiseList(ref)}
-                onCompiled={(detail) => {
-                  refresh()
-                  setView({ name: 'list', ref: { kind: 'custom', id: detail.list.id }, initial: detail })
-                }}
               />
             ))}
 
@@ -261,7 +291,16 @@ export default function VocabularyPage() {
             (wordlists === null ? (
               !loadFailed && <p className="text-sm text-muted-foreground">{t('loading')}</p>
             ) : (
-              <MyWordlistsTab lists={wordlists.lists} onOpen={(ref) => setView({ name: 'list', ref, initial: null })} />
+              <MyWordlistsTab
+                data={wordlists}
+                filter={listFilter}
+                onFilterChange={setListFilter}
+                onOpen={(ref) => setView({ name: 'list', ref, initial: null })}
+                onCompiled={(detail) => {
+                  refresh()
+                  setView({ name: 'list', ref: { kind: 'custom', id: detail.list.id }, initial: detail })
+                }}
+              />
             ))}
 
           {tab === 'srs' &&
@@ -270,7 +309,7 @@ export default function VocabularyPage() {
             ) : (
               <div className="space-y-4">
                 {reviewSummary && <SummaryCard summary={reviewSummary} />}
-                {overview.totalCards === 0 ? (
+                {overview.totalCards + overview.stages.paused + notInSrs === 0 ? (
                   <p className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">{t('vcNoCards')}</p>
                 ) : (
                   <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
@@ -278,12 +317,19 @@ export default function VocabularyPage() {
                       <h2 className="text-lg font-semibold text-foreground">{t('vcReviewTitle')}</h2>
                       <p className="text-sm text-muted-foreground">{t('vcReviewHint')}</p>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                      <Stat label={t('vcDueNow')} value={overview.dueCount} />
-                      <Stat label={t('vcNewToday')} value={overview.newAvailable} />
-                      <Stat label={t('vcLearnedStat')} value={`${overview.learnedCards} / ${overview.totalCards}`} />
+                    <Pipeline stages={overview.stages} notInSrs={notInSrs} />
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                      {overview.dueCount > 0 ? (
+                        <span className="font-medium text-foreground">{t('vcNextRepNow', { n: overview.dueCount })}</span>
+                      ) : (
+                        overview.nextDue && <span>{t('vcNextRepAt', { when: relativeTime(overview.nextDue, lang) })}</span>
+                      )}
+                      {overview.newAvailable > 0 && <span>{t('vcNewTodayCount', { n: overview.newAvailable })}</span>}
+                      {overview.stages.paused > 0 && <span>{t('vcPipePaused', { n: overview.stages.paused })}</span>}
                     </div>
-                    {overview.dueCount + overview.newAvailable > 0 ? (
+                    {overview.totalCards === 0 ? (
+                      <p className="text-sm text-muted-foreground">{t('vcNoCards')}</p>
+                    ) : overview.dueCount + overview.newAvailable > 0 ? (
                       <button
                         type="button"
                         onClick={() => void startReview()}
@@ -293,10 +339,7 @@ export default function VocabularyPage() {
                         {starting ? t('vcStarting') : reviewSummary ? t('vcPracticeMore') : t('vcStart')}
                       </button>
                     ) : (
-                      <p className="text-sm text-muted-foreground">
-                        {t('vcNothingDue')}
-                        {overview.nextDue && <> {t('vcNextDue', { when: relativeTime(overview.nextDue, lang) })}</>}
-                      </p>
+                      <p className="text-sm text-muted-foreground">{t('vcNothingDue')}</p>
                     )}
                   </div>
                 )}
