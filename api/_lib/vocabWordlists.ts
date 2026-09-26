@@ -72,7 +72,9 @@ interface CardRow {
   term_normalized: string
   origin: VocabOrigin
   state: number
+  ladder_step: number
   first_learned_at: string | null
+  retired_at: string | null
   suspended: boolean
   context_original: string | null
   context_corrected: string | null
@@ -80,7 +82,7 @@ interface CardRow {
 }
 
 const CARD_COLUMNS =
-  'id, item_id, term_normalized, origin, state, first_learned_at, suspended, context_original, context_corrected, created_at'
+  'id, item_id, term_normalized, origin, state, ladder_step, first_learned_at, retired_at, suspended, context_original, context_corrected, created_at'
 
 /**
  * One word of a list with its content, and the student's card for the term if they have
@@ -98,7 +100,7 @@ export interface ListWordRow {
 }
 
 function toWordCard(c: CardRow): WordCard {
-  return { cardId: c.id, stage: cardStage(c), suspended: c.suspended, origin: c.origin }
+  return { cardId: c.id, stage: cardStage(c), ladderStep: c.ladder_step, suspended: c.suspended, origin: c.origin }
 }
 
 function toWord(row: ListWordRow): WordlistWord {

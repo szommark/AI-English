@@ -37,6 +37,11 @@ export async function setCardSuspended(cardId: string, suspended: boolean): Prom
   await request('action=suspend', { method: 'POST', body: { cardId, suspended } })
 }
 
+/** Puts a mastered card back into spaced repetition, due now. */
+export async function reviewCardAgain(cardId: string): Promise<void> {
+  await request('action=review-again', { method: 'POST', body: { cardId } })
+}
+
 // --- My wordlists (design §7.2) ------------------------------------------------------------
 
 const listId = (id: string) => encodeURIComponent(id)

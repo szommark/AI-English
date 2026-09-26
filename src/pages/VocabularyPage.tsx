@@ -18,6 +18,8 @@ import { DRILL_ROUNDS } from '../lib/vocabPractice'
 import { fetchPracticeSession, fetchVocabOverview, fetchWordlist, fetchWordlists, startDrill } from '../lib/vocabPracticeApi'
 import {
   COMPILES_PER_DAY,
+  MAX_REVIEWS_PER_SESSION,
+  NEW_CARDS_PER_DAY,
   type DrillRun,
   type PracticeCard,
   type PracticeExercise,
@@ -51,7 +53,7 @@ function relativeTime(iso: string, lang: Lang): string {
   return fmt.format(Math.round(hours / 24), 'day')
 }
 
-/** Where the student's words are (design §6.2): not in review → new → learning → learned. */
+/** Where the student's words are (design §6.2, §6.4): not in review → new → learning → learned → mastered. */
 function Pipeline({ stages, notInSrs }: { stages: VocabOverview['stages']; notInSrs: number }) {
   const { t } = useLanguage()
   const steps: { label: MessageKey; n: number; className: string }[] = [
@@ -59,6 +61,7 @@ function Pipeline({ stages, notInSrs }: { stages: VocabOverview['stages']; notIn
     { label: 'vcPipeNew', n: stages.new, className: 'bg-secondary text-secondary-foreground' },
     { label: 'vcPipeLearning', n: stages.learning, className: 'bg-amber-100 text-amber-800' },
     { label: 'vcPipeLearned', n: stages.learned, className: 'bg-emerald-100 text-emerald-700' },
+    { label: 'vcPipeMastered', n: stages.mastered, className: 'bg-violet-100 text-violet-800' },
   ]
   return (
     <ol className="grid grid-cols-2 gap-2 sm:flex sm:items-stretch">
@@ -72,6 +75,40 @@ function Pipeline({ stages, notInSrs }: { stages: VocabOverview['stages']; notIn
         </li>
       ))}
     </ol>
+  )
+}
+
+/** "How does it work?": the scheduling rules in plain words, closed by default. */
+function SrsExplainer() {
+  const { t } = useLanguage()
+  const stages: { label: MessageKey; text: MessageKey }[] = [
+    { label: 'vcPipeNotInSrs', text: 'vcSrsStageNotInSrs' },
+    { label: 'vcPipeNew', text: 'vcSrsStageNew' },
+    { label: 'vcPipeLearning', text: 'vcSrsStageLearning' },
+    { label: 'vcPipeLearned', text: 'vcSrsStageLearned' },
+    { label: 'vcPipeMastered', text: 'vcSrsStageMastered' },
+  ]
+  return (
+    <details className="group rounded-xl border border-border px-4 py-2.5 text-sm">
+      <summary className="cursor-pointer font-medium text-foreground marker:text-muted-foreground">{t('vcSrsHowTitle')}</summary>
+      <ul className="mt-2 list-disc space-y-1.5 pl-5 text-muted-foreground">
+        <li>{t('vcSrsHowGaps')}</li>
+        <li>{t('vcSrsHowLadder')}</li>
+        <li>{t('vcSrsHowHint')}</li>
+        <li>{t('vcSrsHowSession', { max: MAX_REVIEWS_PER_SESSION, newPerDay: NEW_CARDS_PER_DAY })}</li>
+        <li>
+          {t('vcSrsHowStages')}
+          <ul className="mt-1 list-[circle] space-y-1 pl-5">
+            {stages.map((s) => (
+              <li key={s.label}>
+                <span className="font-medium text-foreground">{t(s.label)}:</span> {t(s.text)}
+              </li>
+            ))}
+          </ul>
+        </li>
+        <li>{t('vcSrsHowSources')}</li>
+      </ul>
+    </details>
   )
 }
 
@@ -326,6 +363,7 @@ export default function VocabularyPage() {
                       <h2 className="text-lg font-semibold text-foreground">{t('vcReviewTitle')}</h2>
                       <p className="text-sm text-muted-foreground">{t('vcReviewHint')}</p>
                     </div>
+                    <SrsExplainer />
                     <Pipeline stages={overview.stages} notInSrs={notInSrs} />
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                       {overview.dueCount > 0 ? (

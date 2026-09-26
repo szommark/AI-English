@@ -78,6 +78,7 @@ import {
 //   POST   suspend                      { cardId, suspended } — teacher-origin cards are
 //                                        suspended instead of removed, so list progress
 //                                        stays honest (design §5.2)
+//   POST   review-again                 { cardId } — puts a mastered card back into rotation, due now
 // My wordlists (design §7.2; own lists, assigned teacher lists and the Tutor Bot words):
 //   GET    wordlists                    every list, plus the learner level and today's compiles
 //   GET    wordlist&kind=&id=           one list with its words and their cards
@@ -861,6 +862,24 @@ async function handleSuspend(req: VercelRequest, res: VercelResponse, userId: st
   res.status(200).json({ suspended: body.suspended })
 }
 
+/** Puts a mastered (retired) card back into review sessions, due now (design §6.4). */
+async function handleReviewAgain(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const cardId = cardIdFrom((req.body ?? {}) as Record<string, unknown>)
+  const now = new Date().toISOString()
+
+  const { data, error } = await supabaseAdmin
+    .from('vocab_cards')
+    .update({ retired_at: null, due: now, updated_at: now })
+    .eq('id', cardId)
+    .eq('user_id', userId)
+    .not('retired_at', 'is', null)
+    .select('id')
+  if (error) throw error
+  if (!data || data.length === 0) throw notFound()
+  res.status(200).json({ ok: true })
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await getUserFromRequest(req)
   if (!user) {
@@ -926,6 +945,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'suspend':
         await handleSuspend(req, res, user.id)
+        return
+      case 'review-again':
+        await handleReviewAgain(req, res, user.id)
         return
       default:
         res.status(404).json({ error: 'Not found' })
