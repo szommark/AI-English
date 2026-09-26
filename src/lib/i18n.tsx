@@ -615,6 +615,12 @@ const messages = {
   vcPipeLearned: { hu: 'Megtanulva', en: 'Learned', de: 'Gelernt' },
   vcPipePaused: { hu: 'Szüneteltetve: {n}', en: 'Paused: {n}', de: 'Pausiert: {n}' },
   vcPipeMastered: { hu: 'Elsajátítva', en: 'Mastered', de: 'Gemeistert' },
+  vcPipeByStage: { hu: 'Szakasz szerint', en: 'By stage', de: 'Nach Stufe' },
+  vcPipeByExercise: {
+    hu: 'Feladat szerint (az ismétlésben lévő szavak)',
+    en: 'By exercise (words in review)',
+    de: 'Nach Übung (Wörter in der Wiederholung)',
+  },
   vcReviewAgain: { hu: 'Újra ismétlem', en: 'Review again', de: 'Wieder üben' },
 
   // Vocabulary: "How does it work?" on the Spaced repetition tab (design §6)

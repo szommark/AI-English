@@ -261,6 +261,8 @@ export interface VocabOverview {
   nextDue: string | null
   /** Cards per stage of the pipeline; paused cards are counted apart from the other three. */
   stages: Record<CardStage, number> & { paused: number }
+  /** Cards in rotation (not paused, not mastered) per exercise they are at (ladder step). */
+  exercises: Record<PracticeExercise, number>
 }
 
 // --- Tutor Bot words (Phase 4, design §5.2) ------------------------------------------------

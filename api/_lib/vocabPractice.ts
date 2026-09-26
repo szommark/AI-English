@@ -7,6 +7,7 @@ import {
   ENRICH_BATCH_SIZE,
   MAX_REVIEWS_PER_SESSION,
   NEW_CARDS_PER_DAY,
+  PRACTICE_EXERCISES,
   RECOGNITION_DISTRACTORS,
   type PracticeCard,
   type PracticeSession,
@@ -252,6 +253,10 @@ export async function loadOverview(userId: string, now = new Date()): Promise<Vo
     countCards(userId, (q) => q.eq('suspended', true)),
     newCardsStartedToday(userId, now),
   ])
+  // ladder_step 1–4 is recognition … listening, in PRACTICE_EXERCISES order.
+  const perExercise = await Promise.all(
+    PRACTICE_EXERCISES.map((_, i) => countCards(userId, (q) => inRotation(q).eq('ladder_step', i + 1))),
+  )
 
   let nextDue: string | null = null
   if (dueCount === 0) {
@@ -284,6 +289,7 @@ export async function loadOverview(userId: string, now = new Date()): Promise<Vo
       mastered: masteredCards,
       paused: pausedCards,
     },
+    exercises: Object.fromEntries(PRACTICE_EXERCISES.map((e, i) => [e, perExercise[i]])) as VocabOverview['exercises'],
   }
 }
 

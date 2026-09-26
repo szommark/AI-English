@@ -188,7 +188,7 @@ Steps 1–4 are fully deterministic and client-rendered; only the result is POST
 
 **Student Vocabulary page:** three tabs — **My wordlists** (§7.2, open by default), **Fast practice** (§7.1) and **Spaced repetition** (the Daily review session above).
 
-- **Pipeline** (Spaced repetition tab): how many words are in each stage — not in review (words in the student's lists without a card) → new → learning → learned → mastered (the `cardStage` stages, §6.4) — plus paused cards, the next repetition ("now (N due)" or a relative time) and the new words left today. `overview` returns the stage counts; `wordlists` returns `notInSrs`. A collapsible "How does it work?" box above the pipeline explains the scheduling in plain words. The earlier "From my teacher" and "My words" tabs are folded into My wordlists. "Explore" (catalog, Phase 5) comes later.
+- **Pipeline** (Spaced repetition tab): how many words are in each stage — not in review (words in the student's lists without a card) → new → learning → learned → mastered (the `cardStage` stages, §6.4); a second row counts the words in review (not paused, not mastered) by the exercise they are at: meaning → recall → gap-fill → listening (`overview.exercises`, from `ladder_step`). Below them: paused cards, the next repetition ("now (N due)" or a relative time) and the new words left today. `overview` returns the stage counts; `wordlists` returns `notInSrs`. A collapsible "How does it work?" box above the pipeline explains the scheduling in plain words. The earlier "From my teacher" and "My words" tabs are folded into My wordlists. "Explore" (catalog, Phase 5) comes later.
 
 ### 7.1 Fast practice (Gyors gyakorlás / Schnellübung)
 
