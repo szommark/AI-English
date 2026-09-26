@@ -1,22 +1,26 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { ChevronRight } from 'lucide-react'
 import PageHeading from '../components/PageHeading'
 import AccentToggle from '../components/AccentToggle'
 import PracticeSession, { type SessionSummary } from '../components/Vocabulary/PracticeSession'
 import DrillSession, { ROUND_LABEL, type DrillSummary } from '../components/Vocabulary/DrillSession'
-import DrillSetupPanel from '../components/Vocabulary/DrillSetupPanel'
+import DrillSetupPanel, { type DrillChoice } from '../components/Vocabulary/DrillSetupPanel'
 import FastPracticeTab from '../components/Vocabulary/FastPracticeTab'
 import MyWordlistsTab from '../components/Vocabulary/MyWordlistsTab'
+import { DEFAULT_WORDLIST_FILTER, type WordlistFilter } from '../components/Vocabulary/WordlistFilters'
 import WordlistView from '../components/Vocabulary/WordlistView'
 import { useListTitle } from '../components/Vocabulary/wordlistLabels'
 import { getFeature } from '../data/features'
-import { localizeFeature, useLanguage, type Lang } from '../lib/i18n'
+import { localizeFeature, useLanguage, type Lang, type MessageKey } from '../lib/i18n'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { getAccentPreference, setAccentPreference, type AccentPreference } from '../lib/voiceSelection'
+import { DRILL_ROUNDS } from '../lib/vocabPractice'
 import { fetchPracticeSession, fetchVocabOverview, fetchWordlist, fetchWordlists, startDrill } from '../lib/vocabPracticeApi'
 import {
   COMPILES_PER_DAY,
   type DrillRun,
   type PracticeCard,
+  type PracticeExercise,
   type VocabOverview,
   type WordlistDetail,
   type WordlistRef,
@@ -31,9 +35,9 @@ type ReturnTo = 'tabs' | WordlistRef
 type View =
   | { name: 'tabs' }
   | { name: 'list'; ref: WordlistRef; initial: WordlistDetail | null }
-  | { name: 'drill-setup'; detail: WordlistDetail; initial: string[] | null; returnTo: ReturnTo }
-  | { name: 'drill'; run: DrillRun; detail: WordlistDetail; itemIds: string[]; returnTo: ReturnTo }
-  | { name: 'drill-summary'; summary: DrillSummary; detail: WordlistDetail; itemIds: string[]; returnTo: ReturnTo }
+  | { name: 'drill-setup'; detail: WordlistDetail; initialWords: string[] | null; returnTo: ReturnTo }
+  | { name: 'drill'; run: DrillRun; detail: WordlistDetail; choice: DrillChoice; returnTo: ReturnTo }
+  | { name: 'drill-summary'; summary: DrillSummary; detail: WordlistDetail; choice: DrillChoice; returnTo: ReturnTo }
   | { name: 'review'; cards: PracticeCard[] }
 
 /** "in 3 hours", "tomorrow" … in the UI language. */
@@ -47,6 +51,30 @@ function relativeTime(iso: string, lang: Lang): string {
   return fmt.format(Math.round(hours / 24), 'day')
 }
 
+/** Where the student's words are (design §6.2): not in review → new → learning → learned. */
+function Pipeline({ stages, notInSrs }: { stages: VocabOverview['stages']; notInSrs: number }) {
+  const { t } = useLanguage()
+  const steps: { label: MessageKey; n: number; className: string }[] = [
+    { label: 'vcPipeNotInSrs', n: notInSrs, className: 'border border-dashed border-border text-muted-foreground' },
+    { label: 'vcPipeNew', n: stages.new, className: 'bg-secondary text-secondary-foreground' },
+    { label: 'vcPipeLearning', n: stages.learning, className: 'bg-amber-100 text-amber-800' },
+    { label: 'vcPipeLearned', n: stages.learned, className: 'bg-emerald-100 text-emerald-700' },
+  ]
+  return (
+    <ol className="grid grid-cols-2 gap-2 sm:flex sm:items-stretch">
+      {steps.map((step, i) => (
+        <li key={step.label} className="flex items-center gap-1 sm:flex-1">
+          {i > 0 && <ChevronRight className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" aria-hidden />}
+          <div className={`h-full flex-1 rounded-xl px-3 py-2.5 ${step.className}`}>
+            <div className="text-2xl font-semibold tabular-nums">{step.n}</div>
+            <div className="text-xs">{t(step.label)}</div>
+          </div>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-xl bg-secondary px-4 py-3">
@@ -58,12 +86,16 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 
 /**
  * Student Vocabulary page, route /vocabulary (design §7, decisions 6–7): Fast practice,
- * My wordlists and Spaced repetition tabs.
+ * My wordlists, Fast practice and Spaced repetition tabs.
  */
 export default function VocabularyPage() {
   const { t, lang } = useLanguage()
   const feature = getFeature('vocabulary')!
-  const [tab, setTab] = useState<Tab>('fast')
+  const [tab, setTab] = useState<Tab>('lists')
+  /** Shared by the Fast practice and My wordlists tabs, and kept while a list is open. */
+  const [listFilter, setListFilter] = useState<WordlistFilter>(DEFAULT_WORDLIST_FILTER)
+  /** The last Fast practice run's exercise types: the default for the next run. */
+  const [drillExercises, setDrillExercises] = useState<PracticeExercise[]>([...DRILL_ROUNDS])
   const [view, setView] = useState<View>({ name: 'tabs' })
   const [accent, setAccent] = useState<AccentPreference>(() => getAccentPreference())
   const tts = useSpeechSynthesis('female', accent)
@@ -96,12 +128,12 @@ export default function VocabularyPage() {
     setView(returnTo === 'tabs' ? { name: 'tabs' } : { name: 'list', ref: returnTo, initial: null })
   }
 
-  /** From the Fast practice tab: load the list, then let the student untick words. */
+  /** From the Fast practice tab: load the list, then let the student untick words and exercises. */
   async function practiseList(ref: WordlistRef) {
     setStarting(true)
     setStartFailed(false)
     try {
-      setView({ name: 'drill-setup', detail: await fetchWordlist(ref), initial: null, returnTo: 'tabs' })
+      setView({ name: 'drill-setup', detail: await fetchWordlist(ref), initialWords: null, returnTo: 'tabs' })
     } catch {
       setStartFailed(true)
     } finally {
@@ -109,12 +141,13 @@ export default function VocabularyPage() {
     }
   }
 
-  async function beginDrill(detail: WordlistDetail, itemIds: string[], returnTo: ReturnTo) {
+  async function beginDrill(detail: WordlistDetail, choice: DrillChoice, returnTo: ReturnTo) {
     setStarting(true)
     setStartFailed(false)
+    setDrillExercises(choice.exercises)
     try {
-      const run = await startDrill({ kind: detail.list.kind, id: detail.list.id }, itemIds)
-      setView({ name: 'drill', run, detail, itemIds, returnTo })
+      const run = await startDrill({ kind: detail.list.kind, id: detail.list.id }, choice.itemIds)
+      setView({ name: 'drill', run, detail, choice, returnTo })
     } catch {
       setStartFailed(true)
     } finally {
@@ -166,8 +199,12 @@ export default function VocabularyPage() {
           key={view.run.runId}
           runId={view.run.runId}
           cards={view.run.cards}
+          exercises={view.choice.exercises}
           speech={tts}
-          onFinish={(summary) => setView({ ...view, name: 'drill-summary', summary })}
+          onFinish={(summary) => {
+            setView({ ...view, name: 'drill-summary', summary })
+            refresh()
+          }}
         />
       )
       break
@@ -180,8 +217,10 @@ export default function VocabularyPage() {
             summary={view.summary}
             detail={view.detail}
             starting={starting}
-            onAgain={() => void beginDrill(view.detail, view.itemIds, view.returnTo)}
-            onChangeWords={() => setView({ name: 'drill-setup', detail: view.detail, initial: view.itemIds, returnTo: view.returnTo })}
+            onAgain={() => void beginDrill(view.detail, view.choice, view.returnTo)}
+            onChangeWords={() =>
+              setView({ name: 'drill-setup', detail: view.detail, initialWords: view.choice.itemIds, returnTo: view.returnTo })
+            }
             onDone={() => goBack(view.returnTo)}
           />
         </div>
@@ -194,9 +233,10 @@ export default function VocabularyPage() {
           {startError}
           <DrillSetupPanel
             detail={view.detail}
-            initial={view.initial}
+            initialWords={view.initialWords}
+            initialExercises={drillExercises}
             starting={starting}
-            onStart={(itemIds) => void beginDrill(view.detail, itemIds, view.returnTo)}
+            onStart={(choice) => void beginDrill(view.detail, choice, view.returnTo)}
             onCancel={() => goBack(view.returnTo)}
           />
         </div>
@@ -212,7 +252,7 @@ export default function VocabularyPage() {
           compilesLeft={Math.max(0, COMPILES_PER_DAY - (wordlists?.compiledToday ?? 0))}
           onBack={() => setView({ name: 'tabs' })}
           onPractise={(detail) =>
-            setView({ name: 'drill-setup', detail, initial: null, returnTo: { kind: detail.list.kind, id: detail.list.id } })
+            setView({ name: 'drill-setup', detail, initialWords: null, returnTo: { kind: detail.list.kind, id: detail.list.id } })
           }
           onChanged={refresh}
         />
@@ -220,6 +260,7 @@ export default function VocabularyPage() {
       break
 
     case 'tabs': {
+      const notInSrs = wordlists?.notInSrs ?? 0
       const tabButton = (value: Tab, label: string) => (
         <button
           type="button"
@@ -235,8 +276,8 @@ export default function VocabularyPage() {
       body = (
         <>
           <div className="inline-flex flex-wrap rounded-lg bg-secondary p-0.5" role="group">
-            {tabButton('fast', t('vcTabFast'))}
             {tabButton('lists', t('vcTabLists'))}
+            {tabButton('fast', t('vcTabFast'))}
             {tabButton('srs', t('vcTabSrs'))}
           </div>
 
@@ -249,11 +290,9 @@ export default function VocabularyPage() {
             ) : (
               <FastPracticeTab
                 data={wordlists}
+                filter={listFilter}
+                onFilterChange={setListFilter}
                 onPractise={(ref) => void practiseList(ref)}
-                onCompiled={(detail) => {
-                  refresh()
-                  setView({ name: 'list', ref: { kind: 'custom', id: detail.list.id }, initial: detail })
-                }}
               />
             ))}
 
@@ -261,7 +300,16 @@ export default function VocabularyPage() {
             (wordlists === null ? (
               !loadFailed && <p className="text-sm text-muted-foreground">{t('loading')}</p>
             ) : (
-              <MyWordlistsTab lists={wordlists.lists} onOpen={(ref) => setView({ name: 'list', ref, initial: null })} />
+              <MyWordlistsTab
+                data={wordlists}
+                filter={listFilter}
+                onFilterChange={setListFilter}
+                onOpen={(ref) => setView({ name: 'list', ref, initial: null })}
+                onCompiled={(detail) => {
+                  refresh()
+                  setView({ name: 'list', ref: { kind: 'custom', id: detail.list.id }, initial: detail })
+                }}
+              />
             ))}
 
           {tab === 'srs' &&
@@ -270,7 +318,7 @@ export default function VocabularyPage() {
             ) : (
               <div className="space-y-4">
                 {reviewSummary && <SummaryCard summary={reviewSummary} />}
-                {overview.totalCards === 0 ? (
+                {overview.totalCards + overview.stages.paused + notInSrs === 0 ? (
                   <p className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">{t('vcNoCards')}</p>
                 ) : (
                   <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
@@ -278,12 +326,19 @@ export default function VocabularyPage() {
                       <h2 className="text-lg font-semibold text-foreground">{t('vcReviewTitle')}</h2>
                       <p className="text-sm text-muted-foreground">{t('vcReviewHint')}</p>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                      <Stat label={t('vcDueNow')} value={overview.dueCount} />
-                      <Stat label={t('vcNewToday')} value={overview.newAvailable} />
-                      <Stat label={t('vcLearnedStat')} value={`${overview.learnedCards} / ${overview.totalCards}`} />
+                    <Pipeline stages={overview.stages} notInSrs={notInSrs} />
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                      {overview.dueCount > 0 ? (
+                        <span className="font-medium text-foreground">{t('vcNextRepNow', { n: overview.dueCount })}</span>
+                      ) : (
+                        overview.nextDue && <span>{t('vcNextRepAt', { when: relativeTime(overview.nextDue, lang) })}</span>
+                      )}
+                      {overview.newAvailable > 0 && <span>{t('vcNewTodayCount', { n: overview.newAvailable })}</span>}
+                      {overview.stages.paused > 0 && <span>{t('vcPipePaused', { n: overview.stages.paused })}</span>}
                     </div>
-                    {overview.dueCount + overview.newAvailable > 0 ? (
+                    {overview.totalCards === 0 ? (
+                      <p className="text-sm text-muted-foreground">{t('vcNoCards')}</p>
+                    ) : overview.dueCount + overview.newAvailable > 0 ? (
                       <button
                         type="button"
                         onClick={() => void startReview()}
@@ -293,10 +348,7 @@ export default function VocabularyPage() {
                         {starting ? t('vcStarting') : reviewSummary ? t('vcPracticeMore') : t('vcStart')}
                       </button>
                     ) : (
-                      <p className="text-sm text-muted-foreground">
-                        {t('vcNothingDue')}
-                        {overview.nextDue && <> {t('vcNextDue', { when: relativeTime(overview.nextDue, lang) })}</>}
-                      </p>
+                      <p className="text-sm text-muted-foreground">{t('vcNothingDue')}</p>
                     )}
                   </div>
                 )}

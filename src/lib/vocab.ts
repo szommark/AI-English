@@ -253,6 +253,8 @@ export interface VocabOverview {
   learnedCards: number
   /** Earliest future due date among non-new cards, when nothing is due now. */
   nextDue: string | null
+  /** Cards per stage of the pipeline; paused cards are counted apart from the other three. */
+  stages: Record<CardStage, number> & { paused: number }
 }
 
 // --- Tutor Bot words (Phase 4, design §5.2) ------------------------------------------------
@@ -337,6 +339,8 @@ export interface WordlistSummary extends WordlistRef {
   wordCount: number
   /** Words of the list that are in spaced repetition (paused ones included). */
   inSrs: number
+  /** Fast practice runs started on this list. */
+  practiceCount: number
   createdAt: string
   /** Teacher lists only. */
   teacher: {
@@ -353,6 +357,8 @@ export interface WordlistsResponse {
   learnerLevel: CefrLevel
   /** Lists compiled or regenerated today, out of COMPILES_PER_DAY. */
   compiledToday: number
+  /** Distinct words across the lists that have no card: the start of the pipeline. */
+  notInSrs: number
 }
 
 /** A word's spaced-repetition card, if it has one. */

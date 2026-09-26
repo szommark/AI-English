@@ -22,23 +22,26 @@ export interface DrillSummary {
 }
 
 /**
- * Fast practice (design §7.1): every exercise for every chosen word, round by round.
+ * Fast practice (design §7.1): every chosen exercise for every chosen word, round by round.
  * Answers are recorded for the run but never reschedule a card.
  */
 export default function DrillSession({
   runId,
   cards,
+  exercises,
   speech,
   onFinish,
 }: {
   runId: string
   cards: DrillCard[]
+  /** The exercise types the student chose for this run. */
+  exercises: PracticeExercise[]
   speech: Speech
   onFinish: (summary: DrillSummary) => void
 }) {
   const { t } = useLanguage()
   // Fixed for the whole run: reshuffling on a re-render would jump around.
-  const [queue] = useState(() => drillQueue(cards, speech.supported))
+  const [queue] = useState(() => drillQueue(cards, speech.supported, exercises))
   const [index, setIndex] = useState(0)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const results = useRef(new Map<PracticeExercise, { correct: number; total: number }>())

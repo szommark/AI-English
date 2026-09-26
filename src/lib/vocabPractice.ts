@@ -145,19 +145,22 @@ export interface DrillStep<T extends ExerciseContent = ExerciseContent> {
 
 /**
  * The Fast practice queue: round by round (every card's recognition, then every card's
- * recall, …), cards shuffled within each round so the order gives nothing away. Rounds
- * no card can run are left out.
+ * recall, …), cards shuffled within each round so the order gives nothing away. Only the
+ * chosen exercises run, always in DRILL_ROUNDS order; rounds no card can run are left out.
  */
 export function drillQueue<T extends ExerciseContent>(
   cards: readonly T[],
   speechSupported: boolean,
+  exercises: readonly PracticeExercise[] = DRILL_ROUNDS,
   random: () => number = Math.random,
 ): DrillStep<T>[] {
   return DRILL_ROUNDS.flatMap((exercise, round) =>
-    shuffle(
-      cards.filter((card) => canRunExercise(card, exercise, speechSupported)),
-      random,
-    ).map((card) => ({ card, exercise, round })),
+    !exercises.includes(exercise)
+      ? []
+      : shuffle(
+          cards.filter((card) => canRunExercise(card, exercise, speechSupported)),
+          random,
+        ).map((card) => ({ card, exercise, round })),
   )
 }
 
