@@ -1,5 +1,5 @@
 import { createEmptyCard, fsrs, Rating, State, type Card, type Grade } from 'ts-fsrs'
-import { FAST_ANSWER_MS, REQUEST_RETENTION, type VocabExercise } from '../../src/lib/vocab.js'
+import { FAST_ANSWER_MS, REQUEST_RETENTION, RETIRE_INTERVAL_DAYS, type VocabExercise } from '../../src/lib/vocab.js'
 
 // Thin, pure wrapper around ts-fsrs for the Vocabulary Builder (design doc §6). No DB
 // access here — callers load a vocab_cards row, pass it in, and write the result back.
@@ -91,7 +91,7 @@ function nextLadderStep(current: number, rating: Grade): number {
 }
 
 export interface ReviewOutcome {
-  fields: VocabCardFsrsRow & { ladder_step: number; first_learned_at: string | null }
+  fields: VocabCardFsrsRow & { ladder_step: number; first_learned_at: string | null; retired_at: string | null }
   /** The card's state before this review, for vocab_reviews.state_before. */
   stateBefore: number
 }
@@ -106,6 +106,8 @@ export function applyReview(row: VocabCardScheduleRow, rating: Grade, now: Date)
       ladder_step: nextLadderStep(row.ladder_step, rating),
       // Sticky: a later lapse never clears it, so a completed teacher list stays completed.
       first_learned_at: learnedNow ? now.toISOString() : row.first_learned_at,
+      // Mastered (design §6.4): the next gap is a year or more, so the card leaves rotation.
+      retired_at: card.scheduled_days >= RETIRE_INTERVAL_DAYS ? now.toISOString() : null,
     },
     stateBefore: row.state,
   }

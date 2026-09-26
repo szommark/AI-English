@@ -1,5 +1,14 @@
 import { useLanguage, type MessageKey } from '../../lib/i18n'
-import { isVocabTopicId, type CardStage, type VocabTopicId, type WordCard, type WordlistKind, type WordlistSummary } from '../../lib/vocab'
+import {
+  PRACTICE_EXERCISES,
+  isVocabTopicId,
+  type CardStage,
+  type VocabTopicId,
+  type WordCard,
+  type WordlistKind,
+  type WordlistSummary,
+} from '../../lib/vocab'
+import { ROUND_LABEL } from './DrillSession'
 
 // Labels shared by the Fast practice and My wordlists tabs (design §7.1–§7.2).
 
@@ -32,12 +41,14 @@ const STAGE_LABEL: Record<CardStage, MessageKey> = {
   new: 'vcStageNew',
   learning: 'vcStageLearning',
   learned: 'vcStageLearned',
+  mastered: 'vcStageMastered',
 }
 
 const STAGE_CLASS: Record<CardStage, string> = {
   new: 'bg-secondary text-secondary-foreground',
   learning: 'bg-amber-100 text-amber-800',
   learned: 'bg-emerald-100 text-emerald-700',
+  mastered: 'bg-violet-100 text-violet-800',
 }
 
 /** A list's title in the UI language: the conversations list has no stored title. */
@@ -57,7 +68,10 @@ export function KindBadge({ kind }: { kind: WordlistKind }) {
   return <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium ${KIND_CLASS[kind]}`}>{t(KIND_LABEL[kind])}</span>
 }
 
-/** Where a word stands in spaced repetition: not in it, new / learning / learned, paused. */
+/**
+ * Where a word stands in spaced repetition: not in it, new / learning / learned (with the
+ * exercise it is at), mastered, paused.
+ */
 export function CardBadge({ card }: { card: WordCard | null }) {
   const { t } = useLanguage()
   if (!card) {
@@ -65,7 +79,10 @@ export function CardBadge({ card }: { card: WordCard | null }) {
   }
   return (
     <>
-      <span className={`rounded-md px-1.5 py-0.5 text-xs ${STAGE_CLASS[card.stage]}`}>{t(STAGE_LABEL[card.stage])}</span>
+      <span className={`rounded-md px-1.5 py-0.5 text-xs ${STAGE_CLASS[card.stage]}`}>
+        {t(STAGE_LABEL[card.stage])}
+        {card.stage !== 'mastered' && ` · ${t(ROUND_LABEL[PRACTICE_EXERCISES[card.ladderStep - 1] ?? 'recognition'])}`}
+      </span>
       {card.suspended && <span className="text-xs text-muted-foreground">{t('vcPausedTag')}</span>}
     </>
   )

@@ -10,6 +10,7 @@ import {
   removeCard,
   removeWordFromList,
   renameWordlist,
+  reviewCardAgain,
   setCardSuspended,
 } from '../../lib/vocabPracticeApi'
 import { COMPILES_PER_DAY, LIST_TITLE_MAX_LENGTH, TERM_MAX_LENGTH, type WordlistDetail, type WordlistRef, type WordlistWord } from '../../lib/vocab'
@@ -149,6 +150,13 @@ export default function WordlistView({
   function wordAction(w: WordlistWord) {
     const card = w.card
     const actions: { key: string; label: string; danger?: boolean; onClick: () => void }[] = []
+    if (card?.stage === 'mastered' && !card.suspended) {
+      actions.push({
+        key: 'review-again',
+        label: t('vcReviewAgain'),
+        onClick: () => void run(`review-again-${w.itemId}`, () => reviewCardAgain(card.cardId).then(reload), () => {}),
+      })
+    }
     if (card) {
       actions.push({
         key: 'pause',
@@ -290,7 +298,7 @@ export default function WordlistView({
                     {w.meaningHu ?? <em className="text-xs">{t('vcMeaningPending')}</em>}
                   </span>
                 </div>
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <CardBadge card={w.card} />
                   {wordAction(w).map((a) => (
                     <button

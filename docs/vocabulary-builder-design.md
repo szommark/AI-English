@@ -165,6 +165,13 @@ The terms students' compiled lists draw on first (§7.2). The model fills whatev
 
 `word = term_normalized`, `occurrences = reps`, `last_seen_at = coalesce(last_review, created_at)`. Suspended cards excluded. Created `with (security_invoker = true)` so the cards table's RLS applies.
 
+### 6.4 Mastered: leaving rotation after a year-long gap
+
+- A review that schedules the next gap at `RETIRE_INTERVAL_DAYS` (365) or more sets `retired_at` on the card: it is **mastered** and stops coming up in review sessions, the due count and "next repetition". Its FSRS state is kept.
+- Why a year: research ties long-term retention to spacing more than to a fixed number of repetitions. [Bahrick et al. 1993](https://journals.sagepub.com/doi/10.1111/j.1467-9280.1993.tb00571.x) found 13 foreign-vocabulary sessions 56 days apart matched 26 sessions 14 days apart. [Cepeda et al. 2008](https://journals.sagepub.com/doi/10.1111/j.1467-9280.2008.02209.x) found the best gap for 1-year retention is about 5–10% of that year. With `REQUEST_RETENTION = 0.9`, a word reaches a year-long gap after about 6 reviews over ~7 months when every answer is right (gaps 10 min, 2 d, 11 d, 46 d, 163 d, then 498 d), and 8–12 with a few mistakes.
+- The student can put a mastered word back from its list ("Review again", `review-again`): `retired_at` is cleared and the card is due now.
+- A mastered card still counts as learned (teacher-list progress, §6.2), and the `vocabulary_mastery` view is unchanged.
+
 ## 7. The practice session (Phase 3)
 
 A card's exercise type climbs with its `ladder_step`, which advances on Good/Easy and drops one step on Again:
@@ -181,7 +188,7 @@ Steps 1–4 are fully deterministic and client-rendered; only the result is POST
 
 **Student Vocabulary page:** three tabs — **My wordlists** (§7.2, open by default), **Fast practice** (§7.1) and **Spaced repetition** (the Daily review session above).
 
-- **Pipeline** (Spaced repetition tab): how many words are in each stage — not in review (words in the student's lists without a card) → new → learning → learned (the `cardStage` stages) — plus paused cards, the next repetition ("now (N due)" or a relative time) and the new words left today. `overview` returns the stage counts; `wordlists` returns `notInSrs`. The earlier "From my teacher" and "My words" tabs are folded into My wordlists. "Explore" (catalog, Phase 5) comes later.
+- **Pipeline** (Spaced repetition tab): how many words are in each stage — not in review (words in the student's lists without a card) → new → learning → learned → mastered (the `cardStage` stages, §6.4) — plus paused cards, the next repetition ("now (N due)" or a relative time) and the new words left today. `overview` returns the stage counts; `wordlists` returns `notInSrs`. A collapsible "How does it work?" box above the pipeline explains the scheduling in plain words. The earlier "From my teacher" and "My words" tabs are folded into My wordlists. "Explore" (catalog, Phase 5) comes later.
 
 ### 7.1 Fast practice (Gyors gyakorlás / Schnellübung)
 
@@ -213,7 +220,7 @@ The kinds of list:
 - **Compiling a list:** topic (one of 10 fixed topics — travel, food & drink, work, shopping, health, home & family, free time, education, nature & weather, feelings & people — or the student's own, up to `CUSTOM_TOPIC_MAX_LENGTH`), CEFR level (default: the learner's level) and `COMPILE_MIN_WORDS`–`COMPILE_MAX_WORDS` (1–10) words. Terms come from the word bank first (§5.3). For whatever it can't cover, one model call picks the rest (`buildVocabWordPickPrompt`, logged as `vocab_generate`). Both skip terms the student already has in their deck or lists. The terms then go through the cached enrichment pipeline (§4.2): bank words become `origin = 'catalog'` items, and model words `origin = 'student'` ones. `'student'` items are unreviewed, like `'teacher'` and `'tutor'` ones (decision 9).
 - **Daily limit:** `COMPILES_PER_DAY` = 5 compiles + regenerations per student per UTC day, counted from `vocab_compiles` (one row per compile, with how many words came from the bank and from the model; 429 once reached).
 - **Editing custom lists:** rename, remove a word, add a typed word (enriched through the cache), "New set of words" (regenerate: same topic, level and size; counts towards the daily limit), delete. Deleting a list or removing a word never touches the student's cards — learning progress stays.
-- **Per word:** its spaced-repetition state (not in review / new / learning / learned / paused). Any word with a card can be paused or resumed; conversation words can also be removed (hard delete, as before); teacher words can only be paused.
+- **Per word:** its spaced-repetition state (not in review / new / learning / learned / mastered / paused) and, until mastered, the exercise it is at (its `ladder_step`). Any word with a card can be paused or resumed; conversation words can also be removed (hard delete, as before); teacher words can only be paused.
 - **API:** `wordlists` (GET), `wordlist` (GET `&kind=&id=`, PATCH rename, DELETE), `wordlist-compile` (POST `{ topic, cefrLevel, count, title }`), `wordlist-regenerate`, `wordlist-word` (POST add / DELETE `&itemId=`), `wordlist-srs` (POST).
 
 ## 8. Closing the loop with the Tutor Bot (Phase 6)
@@ -249,7 +256,7 @@ One phase per fresh Claude Code session, PR per phase, migration run manually be
 
 ## 11. Constants (initial values, all tuneable)
 
-`ENRICH_BATCH_SIZE = 15` · `LIST_MAX_ITEMS = 100` · `REQUEST_RETENTION = 0.9` · `FAST_ANSWER_MS = 4000` · `NEW_CARDS_PER_DAY = 10` · `MAX_REVIEWS_PER_SESSION = 40` · `MAX_TUTOR_ITEMS_PER_SESSION = 5` · `MASTERED_STABILITY_DAYS = 21` · `TUTOR_TARGET_WORDS = 4`
+`ENRICH_BATCH_SIZE = 15` · `LIST_MAX_ITEMS = 100` · `REQUEST_RETENTION = 0.9` · `FAST_ANSWER_MS = 4000` · `NEW_CARDS_PER_DAY = 10` · `MAX_REVIEWS_PER_SESSION = 40` · `MAX_TUTOR_ITEMS_PER_SESSION = 5` · `MASTERED_STABILITY_DAYS = 21` · `TUTOR_TARGET_WORDS = 4` · `RETIRE_INTERVAL_DAYS = 365`
 
 ## 12. Deferred / open
 

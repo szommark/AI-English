@@ -195,6 +195,7 @@ export async function buildSession(userId: string, now = new Date()): Promise<Pr
       .select(SESSION_CARD_COLUMNS)
       .eq('user_id', userId)
       .eq('suspended', false)
+      .is('retired_at', null)
       .neq('state', STATE_NEW)
       .lte('due', nowIso)
       .order('due')
@@ -239,12 +240,15 @@ async function countCards(userId: string, filter: (q: any) => any): Promise<numb
 export async function loadOverview(userId: string, now = new Date()): Promise<VocabOverview> {
   const nowIso = now.toISOString()
   const active = (q: any) => q.eq('suspended', false)
-  const [dueCount, newTotal, totalCards, learningCards, learnedCards, pausedCards, startedToday] = await Promise.all([
-    countCards(userId, (q) => active(q).neq('state', STATE_NEW).lte('due', nowIso)),
-    countCards(userId, (q) => active(q).eq('state', STATE_NEW)),
+  /** Not paused and not mastered: the cards review sessions draw on. */
+  const inRotation = (q: any) => active(q).is('retired_at', null)
+  const [dueCount, newTotal, totalCards, learningCards, learnedCards, masteredCards, pausedCards, startedToday] = await Promise.all([
+    countCards(userId, (q) => inRotation(q).neq('state', STATE_NEW).lte('due', nowIso)),
+    countCards(userId, (q) => inRotation(q).eq('state', STATE_NEW)),
     countCards(userId, active),
-    countCards(userId, (q) => active(q).neq('state', STATE_NEW).is('first_learned_at', null)),
-    countCards(userId, (q) => active(q).not('first_learned_at', 'is', null)),
+    countCards(userId, (q) => inRotation(q).neq('state', STATE_NEW).is('first_learned_at', null)),
+    countCards(userId, (q) => inRotation(q).not('first_learned_at', 'is', null)),
+    countCards(userId, (q) => active(q).not('retired_at', 'is', null)),
     countCards(userId, (q) => q.eq('suspended', true)),
     newCardsStartedToday(userId, now),
   ])
@@ -256,6 +260,7 @@ export async function loadOverview(userId: string, now = new Date()): Promise<Vo
       .select('due')
       .eq('user_id', userId)
       .eq('suspended', false)
+      .is('retired_at', null)
       .neq('state', STATE_NEW)
       .gt('due', nowIso)
       .order('due')
@@ -269,13 +274,14 @@ export async function loadOverview(userId: string, now = new Date()): Promise<Vo
     dueCount,
     newAvailable: Math.min(newTotal, newCardAllowance(startedToday)),
     totalCards,
-    learnedCards,
+    learnedCards: learnedCards + masteredCards,
     nextDue,
-    // Same stages as cardStage: learned is sticky, new is FSRS state 0.
+    // Same stages as cardStage: mastered once retired, learned is sticky, new is FSRS state 0.
     stages: {
       new: newTotal,
       learning: learningCards,
       learned: learnedCards,
+      mastered: masteredCards,
       paused: pausedCards,
     },
   }
@@ -295,6 +301,7 @@ interface CardRow extends VocabCardScheduleRow {
   user_id: string
   term_normalized: string
   suspended: boolean
+  retired_at: string | null
   updated_at: string
 }
 
@@ -341,7 +348,8 @@ export async function recordReview(userId: string, input: ReviewInput, now = new
     .maybeSingle()
   if (error) throw error
   const card = data as CardRow | null
-  if (!card || card.suspended) throw new ReviewError(404, 'Not found')
+  // Paused and mastered cards aren't in rotation, so a session never offers them.
+  if (!card || card.suspended || card.retired_at) throw new ReviewError(404, 'Not found')
 
   const rating = ratingFromResult({
     correct: input.correct,

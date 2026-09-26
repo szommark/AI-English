@@ -443,6 +443,7 @@ const messages = {
   vcStageNew: { hu: 'új', en: 'new', de: 'neu' },
   vcStageLearning: { hu: 'tanulás alatt', en: 'learning', de: 'wird gelernt' },
   vcStageLearned: { hu: 'megtanulva', en: 'learned', de: 'gelernt' },
+  vcStageMastered: { hu: 'elsajátítva', en: 'mastered', de: 'gemeistert' },
   vcPausedTag: { hu: 'szüneteltetve', en: 'paused', de: 'pausiert' },
   vcRemoveWord: { hu: 'Eltávolítás', en: 'Remove', de: 'Entfernen' },
   vcPauseWord: { hu: 'Szüneteltetés', en: 'Pause', de: 'Pausieren' },
@@ -613,6 +614,58 @@ const messages = {
   vcPipeLearning: { hu: 'Tanulás alatt', en: 'Learning', de: 'Wird gelernt' },
   vcPipeLearned: { hu: 'Megtanulva', en: 'Learned', de: 'Gelernt' },
   vcPipePaused: { hu: 'Szüneteltetve: {n}', en: 'Paused: {n}', de: 'Pausiert: {n}' },
+  vcPipeMastered: { hu: 'Elsajátítva', en: 'Mastered', de: 'Gemeistert' },
+  vcReviewAgain: { hu: 'Újra ismétlem', en: 'Review again', de: 'Wieder üben' },
+
+  // Vocabulary: "How does it work?" on the Spaced repetition tab (design §6)
+  vcSrsHowTitle: { hu: 'Hogyan működik az ismétlés?', en: 'How spaced repetition works', de: 'Wie funktioniert die Wiederholung?' },
+  vcSrsHowGaps: {
+    hu: 'Minden szó akkor kerül elő újra, amikor épp elfelejtenéd. Ha jól válaszolsz, egyre hosszabb a szünet: néhány perc, aztán egy nap, majd napok, hetek, hónapok. Ha hibázol, hamarosan újra jön.',
+    en: "Every word comes back just before you'd forget it. When you answer correctly, the gap grows: a few minutes, then a day, then days, weeks and months. When you get it wrong, it comes back soon.",
+    de: 'Jedes Wort kommt wieder, kurz bevor du es vergessen würdest. Antwortest du richtig, wird die Pause länger: ein paar Minuten, dann ein Tag, dann Tage, Wochen und Monate. Antwortest du falsch, kommt es bald wieder.',
+  },
+  vcSrsHowLadder: {
+    hu: 'Minden szó négy feladaton halad végig: jelentés → felidézés → kiegészítés → hallás utáni értés. Jó válasznál egy lépéssel feljebb lép, hibánál egy lépéssel vissza.',
+    en: 'Each word climbs through four exercises: meaning → recall → gap-fill → listening. A right answer moves it one step up and a wrong one moves it one step down.',
+    de: 'Jedes Wort durchläuft vier Übungen: Bedeutung → Abrufen → Lückentext → Hören. Eine richtige Antwort bringt es eine Stufe höher, eine falsche eine Stufe zurück.',
+  },
+  vcSrsHowHint: {
+    hu: 'Ha segítséggel vagy második próbálkozásra találod el, kevésbé nő a szünet.',
+    en: 'If you needed a hint or a second try, the gap grows less.',
+    de: 'Brauchst du einen Hinweis oder einen zweiten Versuch, wächst die Pause weniger.',
+  },
+  vcSrsHowSession: {
+    hu: 'Egy ismétlés az esedékes szavakat hozza (egyszerre legfeljebb {max}-et), plusz naponta legfeljebb {newPerDay} új szót.',
+    en: 'A review session brings the words that are due (up to {max} at a time), plus up to {newPerDay} new words a day.',
+    de: 'Eine Wiederholung bringt die fälligen Wörter (höchstens {max} auf einmal) und bis zu {newPerDay} neue Wörter pro Tag.',
+  },
+  vcSrsHowStages: { hu: 'A szakaszok:', en: 'The stages:', de: 'Die Stufen:' },
+  vcSrsStageNotInSrs: {
+    hu: 'benne van a listáidban, de még nem adtad hozzá.',
+    en: 'in your lists, but not added yet.',
+    de: 'in deinen Listen, aber noch nicht hinzugefügt.',
+  },
+  vcSrsStageNew: { hu: 'hozzáadtad, de még nem gyakoroltad.', en: 'added, but not practised yet.', de: 'hinzugefügt, aber noch nicht geübt.' },
+  vcSrsStageLearning: {
+    hu: 'az első, rövid ismétléseknél tart.',
+    en: 'still in its first, short repeats.',
+    de: 'noch in den ersten, kurzen Wiederholungen.',
+  },
+  vcSrsStageLearned: {
+    hu: 'már napok vagy hosszabb idő után jön elő. Akkor is megtanult marad, ha később egyszer elrontod.',
+    en: 'it now comes back after days or longer. It stays learned even if you miss it later.',
+    de: 'kommt jetzt erst nach Tagen oder länger wieder. Es bleibt gelernt, auch wenn du es später einmal falsch beantwortest.',
+  },
+  vcSrsStageMastered: {
+    hu: 'a következő szünet már legalább egy év lenne (hibátlanul kb. 6 ismétlés, hibákkal több), ezért nem jön elő többé. A listájában az „Újra ismétlem” gombbal visszateheted.',
+    en: 'its next gap would be a year or more (about 6 reviews if you always get it right, more with mistakes), so it stops coming back. Put it back from its list with “Review again”.',
+    de: 'die nächste Pause wäre ein Jahr oder länger (etwa 6 Wiederholungen, wenn du immer richtig antwortest, mit Fehlern mehr), deshalb kommt es nicht mehr. In seiner Liste holst du es mit „Wieder üben“ zurück.',
+  },
+  vcSrsHowSources: {
+    hu: 'A tanári listák és a beszélgetések szavai maguktól bekerülnek, a saját listáidat a Szólistáim fülön adhatod hozzá. A szüneteltetett szavak nem jönnek elő, és a Gyors gyakorlás nem változtat az ütemezésen.',
+    en: "Words from your teacher's lists and from conversations are added automatically. You add your own lists from My wordlists. Paused words don't come up, and Fast practice doesn't change this schedule.",
+    de: 'Wörter aus den Listen deiner Lehrkraft und aus Gesprächen kommen automatisch dazu; eigene Listen fügst du unter Meine Wortlisten hinzu. Pausierte Wörter kommen nicht, und die Schnellübung ändert diesen Plan nicht.',
+  },
   vcNextRepNow: {
     hu: 'Következő ismétlés: most ({n} esedékes)',
     en: 'Next repetition: now ({n} due)',

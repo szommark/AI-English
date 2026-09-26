@@ -12,6 +12,12 @@ export const MAX_REVIEWS_PER_SESSION = 40
 export const MAX_TUTOR_ITEMS_PER_SESSION = 5
 export const MASTERED_STABILITY_DAYS = 21
 export const TUTOR_TARGET_WORDS = 4
+/**
+ * A review that schedules the next gap at this many days or more retires the card as
+ * mastered (design §6.4): with REQUEST_RETENTION 0.9, about 6 reviews over ~7 months when
+ * every answer is right, 8–12 with a few mistakes.
+ */
+export const RETIRE_INTERVAL_DAYS = 365
 
 export type VocabKind = 'word' | 'phrase'
 
@@ -267,11 +273,15 @@ export interface AddedTutorWord {
   reason: 'switched' | 'asked' | 'lacked'
 }
 
-/** Where a card is on its way to "learned". */
-export type CardStage = 'new' | 'learning' | 'learned'
+/** Where a card is on its way to "learned" and then "mastered". */
+export type CardStage = 'new' | 'learning' | 'learned' | 'mastered'
 
-/** Learned once graduated (sticky, design §6.2); New while FSRS state is 0. */
-export function cardStage(card: { state: number; first_learned_at: string | null }): CardStage {
+/**
+ * Mastered once retired (design §6.4); learned once graduated (sticky, design §6.2); New
+ * while FSRS state is 0.
+ */
+export function cardStage(card: { state: number; first_learned_at: string | null; retired_at: string | null }): CardStage {
+  if (card.retired_at) return 'mastered'
   return card.first_learned_at ? 'learned' : card.state === 0 ? 'new' : 'learning'
 }
 
@@ -365,6 +375,8 @@ export interface WordlistsResponse {
 export interface WordCard {
   cardId: string
   stage: CardStage
+  /** 1 = recognition … 4 = listening: the exercise the word is at in spaced repetition. */
+  ladderStep: number
   suspended: boolean
   origin: VocabOrigin
 }
