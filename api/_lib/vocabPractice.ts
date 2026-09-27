@@ -5,7 +5,6 @@ import { enrichTerms } from './vocabEnrichment.js'
 import type { CefrLevel } from './prompts.js'
 import {
   ENRICH_BATCH_SIZE,
-  RECOGNITION_DISTRACTORS,
   type ReviewInput,
   type ReviewResult,
   type VocabKind,
@@ -15,11 +14,6 @@ import {
 // Student practice (design §6–§7): the content helpers review sessions and Fast practice
 // share, and scheduling a review. Everything here acts on the calling student's own cards
 // only. Which cards a list's review session contains: vocabListSession.ts.
-
-/** Distinct meanings fetched from the student's deck for recognition distractors. */
-const DECK_DISTRACTOR_POOL = 200
-/** Global items fetched when the deck alone can't supply enough distractors. */
-const GLOBAL_DISTRACTOR_POOL = 100
 
 export interface ItemContent {
   term: string
@@ -63,38 +57,10 @@ export function pickDistractors(
   return candidates.slice(0, n)
 }
 
-/** Rows that carry item content: session cards, and the words of a Fast practice list. */
+/** Rows that carry item content: the words of a list, for a review session or a Fast practice run. */
 export interface ItemContentRow {
   term_normalized: string
   vocab_items: ItemContent | null
-}
-
-export async function distractorPool(userId: string, cards: ItemContentRow[]): Promise<string[]> {
-  const { data, error } = await supabaseAdmin
-    .from('vocab_cards')
-    .select('vocab_items(meaning_hu)')
-    .eq('user_id', userId)
-    .limit(DECK_DISTRACTOR_POOL)
-  if (error) throw error
-  const pool = new Set<string>()
-  for (const row of (data ?? []) as unknown as { vocab_items: { meaning_hu: string | null } | null }[]) {
-    if (row.vocab_items?.meaning_hu) pool.add(row.vocab_items.meaning_hu)
-  }
-
-  // A small deck: top up with global items at the session's levels (design §7).
-  if (pool.size < RECOGNITION_DISTRACTORS + 1) {
-    const levels = [...new Set(cards.map((c) => c.vocab_items?.cefr_level).filter((l): l is string => Boolean(l)))]
-    let query = supabaseAdmin
-      .from('vocab_items')
-      .select('meaning_hu')
-      .is('owner_teacher_id', null)
-      .not('meaning_hu', 'is', null)
-    if (levels.length > 0) query = query.in('cefr_level', levels)
-    const { data: global, error: globalError } = await query.limit(GLOBAL_DISTRACTOR_POOL)
-    if (globalError) throw globalError
-    for (const row of global ?? []) if (row.meaning_hu) pool.add(row.meaning_hu as string)
-  }
-  return [...pool]
 }
 
 /**

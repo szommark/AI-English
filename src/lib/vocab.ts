@@ -388,6 +388,8 @@ export interface WordlistSummary extends WordlistRef {
   srs: ListSrs
   /** Fast practice runs started on this list. */
   practiceCount: number
+  /** Finished tests of this list (hasTest lists only); null before the first. */
+  tests: ListTestScores | null
   createdAt: string
   /** Teacher lists only. */
   teacher: {
@@ -471,6 +473,56 @@ export interface DrillCard extends ExerciseContent {
 export interface DrillRun {
   runId: string
   cards: DrillCard[]
+}
+
+// --- Fast practice tests (design §7.1) --------------------------------------------------
+
+/** A list needs more words than this to offer a test. */
+export const TEST_MIN_LIST_WORDS = 20
+/** The share of the list's words a test asks, rounded up. */
+export const TEST_SHARE = 0.2
+
+/** Whether a list offers a test: more than TEST_MIN_LIST_WORDS words. */
+export function hasTest(list: Pick<WordlistSummary, 'wordCount'>): boolean {
+  return list.wordCount > TEST_MIN_LIST_WORDS
+}
+
+/** Words in a test of a list this long: TEST_SHARE of them, rounded up (23 → 5). */
+export function testSize(wordCount: number): number {
+  return Math.ceil(Math.round(wordCount * TEST_SHARE * 1000) / 1000)
+}
+
+/** A test's score in percent, rounded. */
+export function testScore(correct: number, total: number): number {
+  return total > 0 ? Math.round((correct / total) * 100) : 0
+}
+
+/** Finished tests of one list: scores in percent. */
+export interface ListTestScores {
+  last: number
+  best: number
+  count: number
+}
+
+/** POST /api/vocab?action=test-start { list }: random words of the list, asked as recall. */
+export interface TestRun {
+  testId: string
+  cards: DrillCard[]
+}
+
+/** Body of POST /api/vocab?action=test-answer. Strict: no hint, one try, a typo is wrong. */
+export interface TestAnswerInput {
+  testId: string
+  itemId: string
+  correct: boolean
+}
+
+/** POST /api/vocab?action=test-finish { testId }: scored from the saved answers; unanswered words are wrong. */
+export interface TestResult {
+  correct: number
+  total: number
+  /** Percent, rounded. */
+  score: number
 }
 
 /** Body of POST /api/vocab?action=drill-answer. Recorded apart from reviews; never rescheduled. */

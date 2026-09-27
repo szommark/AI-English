@@ -176,7 +176,7 @@ The terms students' compiled lists draw on first (§7.2). The model fills whatev
 
 A card's exercise type climbs with its `ladder_step`, which advances on Good/Easy and drops one step on Again:
 
-1. **Recognition** — English term shown/spoken → pick the Hungarian meaning from 4 options (distractors: other cards in the deck, else same-level global items).
+1. **Recognition** — English term shown/spoken → pick the Hungarian meaning from up to 4 options (distractors: the meanings of other words on the same list, in review sessions and Fast practice alike; a 3-word list gives 3 options).
 2. **Recall** — Hungarian meaning → type the English term (tolerant matching: case, punctuation, one-character typo = Hard, not Again).
 3. **Context** — gap-fill in the example sentence (or the student's own `betterVersion` for tutor cards).
 4. **Listening** — hear the term in a sentence (browser TTS, existing US/GB toggle) → type it; reuse `src/lib/wordMatch.ts`.
@@ -198,7 +198,8 @@ Every exercise, over any list, any time — whether or not its words are learned
 - **Order:** round by round, easiest first: recognition for every word, then recall, gap-fill, listening (only the chosen ones). Words are shuffled within each round. An exercise that can't run for a word (no Hungarian meaning, no sentence containing the term, no speech synthesis) is skipped, not stepped down, so no word gets the same exercise twice.
 - **Recorded apart from scheduling:** answers go to `vocab_drill_answers` (one row per run, **item** and exercise — words need no card), grouped by `vocab_drill_runs` (`source` custom/teacher/conversations, the list id, `item_ids`, `word_count`, `started_at`, `finished_at`). An answer must be for one of the run's `item_ids`. Runs never touch FSRS state, `ladder_step` or `vocab_reviews`, so they don't reschedule cards, use up `NEW_CARDS_PER_DAY` or move teacher-list progress. Cramming would distort FSRS intervals.
 - **Summary:** correct/total per round; "Again with these words", "Change words", "Close" (back to where the run started).
-- **API:** `drill-start` `{ list: { kind, id }, itemIds }`, `drill-answer` `{ runId, itemId, exercise, correct, usedHint, responseMs }`, `drill-finish` `{ runId }`. Every word gets recognition distractors.
+- **API:** `drill-start` `{ list: { kind, id }, itemIds }`, `drill-answer` `{ runId, itemId, exercise, correct, usedHint, responseMs }`, `drill-finish` `{ runId }`. Recognition distractors come from the list's other words (all of them, not only the ones picked for the run), so a 2-word list gives 2 options and a 1-word list skips the recognition round.
+- **Test** (lists of more than `TEST_MIN_LIST_WORDS` = 20 words; from the Fast practice tab or the list's page): `TEST_SHARE` = 20% of the list's words, rounded up (`testSize`: 21–25 words → 5, 26 → 6), picked at random by the API (words still without a Hungarian meaning after enrichment are passed over), each asked once as **recall**, strictly: no hint, one try, and a one-letter typo counts as **wrong**. Answers are saved one by one to `vocab_test_answers` (the first answer per word counts); `test-finish` scores the test from them — words left unanswered (ended early) count as wrong — and stores `correct_count` on `vocab_tests`. Score = correct / asked, in percent, rounded. The result card shows the score and the words missed; the list shows the last and best score (`WordlistSummary.tests`). Like a run, a test never touches cards, reviews or teacher-list progress. API: `test-start` `{ list }`, `test-answer` `{ testId, itemId, correct }`, `test-finish` `{ testId }`. Code: `api/_lib/vocabTest.ts`, `src/components/Vocabulary/TestSession.tsx`.
 - **Not yet:** teacher-visible Fast practice history.
 
 ### 7.2 My wordlists (Szólistáim / Meine Wortlisten)
@@ -256,7 +257,7 @@ One phase per fresh Claude Code session, PR per phase, migration run manually be
 
 ## 11. Constants (initial values, all tuneable)
 
-`ENRICH_BATCH_SIZE = 15` · `LIST_MAX_ITEMS = 100` · `REQUEST_RETENTION = 0.9` · `FAST_ANSWER_MS = 4000` · `NEW_CARDS_PER_DAY = 10` (per list) · `MAX_REVIEWS_PER_SESSION = 40` · `SRS_MIN_WORDS = 3` · `ADD_WORDS_MAX = 20` · `MAX_TUTOR_ITEMS_PER_SESSION = 5` · `MASTERED_STABILITY_DAYS = 21` · `TUTOR_TARGET_WORDS = 4` · `RETIRE_INTERVAL_DAYS = 365`
+`ENRICH_BATCH_SIZE = 15` · `LIST_MAX_ITEMS = 100` · `REQUEST_RETENTION = 0.9` · `FAST_ANSWER_MS = 4000` · `NEW_CARDS_PER_DAY = 10` (per list) · `MAX_REVIEWS_PER_SESSION = 40` · `SRS_MIN_WORDS = 3` · `TEST_MIN_LIST_WORDS = 20` · `TEST_SHARE = 0.2` · `ADD_WORDS_MAX = 20` · `MAX_TUTOR_ITEMS_PER_SESSION = 5` · `MASTERED_STABILITY_DAYS = 21` · `TUTOR_TARGET_WORDS = 4` · `RETIRE_INTERVAL_DAYS = 365`
 
 ## 12. Deferred / open
 

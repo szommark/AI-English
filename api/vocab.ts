@@ -16,6 +16,7 @@ import {
 import { ReviewError, recordReview } from './_lib/vocabPractice.js'
 import { buildListSession, loadOverview } from './_lib/vocabListSession.js'
 import { finishDrill, recordDrillAnswer, startDrill } from './_lib/vocabDrill.js'
+import { finishTest, recordTestAnswer, startTest } from './_lib/vocabTest.js'
 import {
   VocabApiError,
   addBankWords,
@@ -100,6 +101,11 @@ import {
 //   POST   drill-start                  { list: { kind, id }, itemIds } — the run with every word's content
 //   POST   drill-answer                 { runId, itemId, exercise, correct, usedHint, responseMs }
 //   POST   drill-finish                 { runId }
+// Fast practice tests (design §7.1; lists of more than TEST_MIN_LIST_WORDS words, recall only,
+// strict: no hint, one try, a typo is wrong):
+//   POST   test-start                   { list: { kind, id } } — TEST_SHARE of the list's words, picked at random
+//   POST   test-answer                  { testId, itemId, correct } — the first answer per word counts
+//   POST   test-finish                  { testId } — { correct, total, score }; unanswered words count as wrong
 
 const CEFR_SET = new Set<string>(CEFR_LEVELS)
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -842,6 +848,38 @@ async function handleDrillFinish(req: VercelRequest, res: VercelResponse, userId
   res.status(200).json({ ok: true })
 }
 
+// --- Fast practice tests (design §7.1) -------------------------------------------------------
+
+function testIdFrom(body: Record<string, unknown>): string {
+  if (typeof body.testId !== 'string' || !UUID_RE.test(body.testId)) throw notFound()
+  return body.testId
+}
+
+async function handleTestStart(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const ref = wordlistRefFrom((((req.body ?? {}) as Record<string, unknown>).list ?? {}) as Record<string, unknown>)
+  res.status(200).json(await withVocabErrors(() => startTest(userId, ref)))
+}
+
+async function handleTestAnswer(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const body = (req.body ?? {}) as Record<string, unknown>
+  const testId = testIdFrom(body)
+  if (typeof body.itemId !== 'string' || !UUID_RE.test(body.itemId)) throw notFound()
+  const itemId = body.itemId
+  if (typeof body.correct !== 'boolean') throw new HttpError(400, { error: 'correct must be a boolean' })
+  const correct = body.correct
+
+  await withVocabErrors(() => recordTestAnswer(userId, { testId, itemId, correct }))
+  res.status(200).json({ ok: true })
+}
+
+async function handleTestFinish(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const testId = testIdFrom((req.body ?? {}) as Record<string, unknown>)
+  res.status(200).json(await withVocabErrors(() => finishTest(userId, testId)))
+}
+
 // --- Cards (Phase 4) -----------------------------------------------------------------------
 
 function cardIdFrom(body: Record<string, unknown>): string {
@@ -965,6 +1003,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'drill-finish':
         await handleDrillFinish(req, res, user.id)
+        return
+      case 'test-start':
+        await handleTestStart(req, res, user.id)
+        return
+      case 'test-answer':
+        await handleTestAnswer(req, res, user.id)
+        return
+      case 'test-finish':
+        await handleTestFinish(req, res, user.id)
         return
       case 'remove':
         await handleRemove(req, res, user.id)
