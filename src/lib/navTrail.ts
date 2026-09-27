@@ -3,6 +3,8 @@ import { categories, getCategory, getCategoryForScenario } from '../data/categor
 import { getFeature } from '../data/features'
 import { getPhoneme } from '../data/phonemes'
 import { getScenario } from '../data/scenarios'
+import { getExamPaperMeta } from '../data/exams/catalog'
+import { examPaperLabel } from './examLabels'
 import { localizeCategory, localizeFeature, localizeScenario, localizeSubcategory, type Lang, type MessageKey } from './i18n'
 
 export interface Crumb {
@@ -11,7 +13,7 @@ export interface Crumb {
   to?: string
 }
 
-type T = (key: MessageKey) => string
+type T = (key: MessageKey, vars?: Record<string, string | number>) => string
 
 /**
  * Single source of truth for the navigation trail shown under the "Back to home" button.
@@ -92,6 +94,13 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
   if (at('/tutor-bot')) return finish([{ label: localizeFeatureById('tutor-bot', lang) }])
   if (at('/grammar-coach')) return finish([{ label: localizeFeatureById('grammar-coach', lang) }])
   if (at('/vocabulary')) return finish([{ label: localizeFeatureById('vocabulary', lang) }])
+
+  const exams: Crumb = { label: localizeFeatureById('exam-prep', lang), to: '/exams' }
+  if (at('/exams')) return finish([exams])
+  if ((m = at('/exams/:paperId'))) {
+    const paper = getExamPaperMeta(m.params.paperId!)
+    return finish(paper ? [exams, { label: examPaperLabel(t, paper) }] : [exams])
+  }
 
   const pronunciationRoot: Crumb = { label: t('crumbPronunciation'), to: '/pronunciation' }
   if (at('/pronunciation')) return finish([pronunciationRoot])

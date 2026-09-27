@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Plane, Bot, BookOpen, Briefcase, Mic, Languages, type LucideIcon } from 'lucide-react'
+import { Plane, Bot, BookOpen, Briefcase, Mic, Languages, GraduationCap, Radio, type LucideIcon } from 'lucide-react'
 import type { Feature, FeatureAccent } from '../data/features'
 import { localizeFeature, useLanguage } from '../lib/i18n'
 
@@ -10,6 +10,8 @@ const icons: Record<string, LucideIcon> = {
   Briefcase,
   Mic,
   Languages,
+  GraduationCap,
+  Radio,
 }
 
 const accentClasses: Record<FeatureAccent, { badge: string; border: string }> = {
@@ -19,6 +21,8 @@ const accentClasses: Record<FeatureAccent, { badge: string; border: string }> = 
   emerald: { badge: 'bg-emerald-100 text-emerald-600', border: 'hover:border-emerald-200' },
   rose: { badge: 'bg-rose-100 text-rose-600', border: 'hover:border-rose-200' },
   teal: { badge: 'bg-[var(--teal-accent-soft)] text-[var(--teal-accent-strong)]', border: 'hover:border-[var(--teal-accent-border)]' },
+  sky: { badge: 'bg-sky-100 text-sky-600', border: 'hover:border-sky-200' },
+  fuchsia: { badge: 'bg-fuchsia-100 text-fuchsia-600', border: 'hover:border-fuchsia-200' },
 }
 
 export default function FeatureTile({
