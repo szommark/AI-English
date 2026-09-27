@@ -1,4 +1,5 @@
-// B1 General English (alapfok), sample paper 1. Transcribed verbatim from the task sheet
+// Zöld Út Nyelvvizsgaközpont (MATE), B1 General English (alapfok), sample paper 1 — freely
+// downloadable at https://zoldut.uni-mate.hu/mintafeladatsorok. Transcribed verbatim from the task sheet
 // and its answer key, including the source's own typos. The speaking pages are left out,
 // and no section times are printed on this paper, so none are set (see D3 in the PR).
 import type { ExamPaper, PassageBlock } from '../types'
@@ -42,7 +43,8 @@ const paper: ExamPaper = {
   language: 'en',
   level: 'B1',
   sittingLabelHu: 'Minta 1.',
-  source: 'B1 General English (alapfok, ÁLT) mintafeladatsor 1. — feladatsor és megoldókulcs. A kiadó vizsgaközpont megerősítésre vár.',
+  source:
+    'Zöld Út Nyelvvizsgaközpont (MATE): B1 General English (alapfok, ÁLT) mintafeladatsor 1. — feladatsor és megoldókulcs. Ingyenesen letölthető: https://zoldut.uni-mate.hu/mintafeladatsorok',
   sections: [
     {
       id: 'reading',
