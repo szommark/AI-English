@@ -146,18 +146,20 @@ export default function PracticeSession({
 /** The right answer after an exercise, with how it went and whether it was saved. */
 export function FeedbackPanel({ card, feedback, speech }: { card: ExerciseContent; feedback: Feedback; speech: Speech }) {
   const { t } = useLanguage()
-  const { check } = feedback.outcome
+  const { check, correct } = feedback.outcome
+  // In a test a typo is wrong: red, and said so.
+  const strictTypo = check === 'typo' && !correct
   const tone =
     check === 'exact'
       ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-      : check === 'typo'
+      : check === 'typo' && !strictTypo
         ? 'border-amber-200 bg-amber-50 text-amber-800'
         : 'border-red-200 bg-red-50 text-red-800'
 
   return (
     <div className="space-y-4" aria-live="polite">
       <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${tone}`}>
-        {check === 'exact' ? t('vcCorrect') : check === 'typo' ? t('vcTypo') : t('vcWrong')}
+        {check === 'exact' ? t('vcCorrect') : strictTypo ? t('vcTestTypo') : check === 'typo' ? t('vcTypo') : t('vcWrong')}
       </div>
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-3">

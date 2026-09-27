@@ -8,6 +8,9 @@ import type {
   PracticeSession,
   ReviewInput,
   ReviewResult,
+  TestAnswerInput,
+  TestResult,
+  TestRun,
   VocabOverview,
   WordlistDetail,
   WordlistRef,
@@ -98,4 +101,19 @@ export async function submitDrillAnswer(input: DrillAnswerInput): Promise<void> 
 
 export async function finishDrill(runId: string): Promise<void> {
   await request('action=drill-finish', { method: 'POST', body: { runId } })
+}
+
+// --- Fast practice tests (design §7.1) -----------------------------------------------------
+
+/** A test of a list: the server picks its words at random. */
+export function startTest(list: WordlistRef): Promise<TestRun> {
+  return request('action=test-start', { method: 'POST', body: { list } })
+}
+
+export async function submitTestAnswer(input: TestAnswerInput): Promise<void> {
+  await request('action=test-answer', { method: 'POST', body: input })
+}
+
+export function finishTest(testId: string): Promise<TestResult> {
+  return request('action=test-finish', { method: 'POST', body: { testId } })
 }

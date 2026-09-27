@@ -17,6 +17,9 @@ import {
   COMPILES_PER_DAY,
   LIST_TITLE_MAX_LENGTH,
   SRS_MIN_WORDS,
+  TEST_SHARE,
+  hasTest,
+  testSize,
   type WordlistDetail,
   type WordlistRef,
   type WordlistSummary,
@@ -25,6 +28,7 @@ import {
 import ListProgress from '../VocabLists/ListProgress'
 import AddWordsPanel from './AddWordsPanel'
 import ListSrsPanel from './ListSrsPanel'
+import { TestScoresLine } from './TestSession'
 import { CardBadge, KindBadge, LevelBadge, useListTitle, useTopicLabel } from './wordlistLabels'
 
 const inputClass =
@@ -46,6 +50,7 @@ export default function WordlistView({
   starting,
   onBack,
   onPractise,
+  onTest,
   onStartReview,
   onChanged,
 }: {
@@ -53,10 +58,11 @@ export default function WordlistView({
   /** Already loaded (e.g. just compiled), so no fetch is needed. */
   initial: WordlistDetail | null
   compilesLeft: number
-  /** A review session is being loaded. */
+  /** A review session or a test is being loaded. */
   starting: boolean
   onBack: () => void
   onPractise: (detail: WordlistDetail) => void
+  onTest: (list: WordlistSummary) => void
   onStartReview: (list: WordlistSummary) => void
   /** Lists or cards changed: refresh the tabs' data. */
   onChanged: () => void
@@ -253,6 +259,8 @@ export default function WordlistView({
             {list.teacher && `${t('vcFromTeacherBy', { email: list.teacher.email })} · `}
             {custom && list.topic && `${topicLabel(list.topic)} · `}
             {t('vcWordCount', { n: list.wordCount })}
+            {list.tests && ' · '}
+            <TestScoresLine tests={list.tests} />
           </p>
           {list.teacher?.description && <p className="text-sm text-muted-foreground">{list.teacher.description}</p>}
           {list.teacher && <ListProgress progress={list.teacher.progress} completedAt={list.teacher.completedAt} />}
@@ -267,6 +275,17 @@ export default function WordlistView({
           >
             {t('vcFastPractise')}
           </button>
+          {hasTest(list) && (
+            <button
+              type="button"
+              onClick={() => onTest(list)}
+              disabled={starting || busy !== null}
+              title={t('vcTestHint', { share: TEST_SHARE * 100 })}
+              className={actionButton}
+            >
+              {t('vcTestStart', { n: testSize(list.wordCount) })}
+            </button>
+          )}
           {custom && (
             <button
               type="button"

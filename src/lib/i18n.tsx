@@ -768,6 +768,41 @@ const messages = {
     en: 'You can add at most {n} words at a time.',
     de: 'Du kannst höchstens {n} Wörter auf einmal hinzufügen.',
   },
+
+  // Vocabulary: Fast practice tests (design §7.1)
+  vcTestStart: { hu: 'Teszt ({n} szó)', en: 'Test ({n} words)', de: 'Test ({n} Wörter)' },
+  vcTestHint: {
+    hu: 'A lista szavainak {share}%-a véletlenszerűen, „Hogy mondod angolul?” feladattal. Nincs segítség, egy próbálkozás, az elírás is hibának számít.',
+    en: 'A random {share}% of the list, as "How do you say it in English?". No hints, one try, and a typo counts as wrong.',
+    de: 'Zufällige {share} % der Liste, als „Wie sagt man das auf Englisch?“. Keine Hinweise, ein Versuch, ein Tippfehler zählt als falsch.',
+  },
+  vcTestRules: {
+    hu: 'Teszt · nincs segítség, egy próbálkozás, az elírás hiba',
+    en: 'Test · no hints, one try, a typo is wrong',
+    de: 'Test · keine Hinweise, ein Versuch, Tippfehler sind falsch',
+  },
+  vcTestTypo: {
+    hu: 'Majdnem — de a teszten az elírás hibának számít. A helyes válasz:',
+    en: 'Almost — but in a test a typo counts as wrong. The right answer:',
+    de: 'Fast — aber im Test zählt ein Tippfehler als falsch. Die richtige Antwort:',
+  },
+  vcTestConfirmEnd: {
+    hu: 'Befejezed a tesztet? A még hátralévő szavak hibának számítanak.',
+    en: "End the test? The words you haven't answered count as wrong.",
+    de: 'Test beenden? Nicht beantwortete Wörter zählen als falsch.',
+  },
+  vcTestSeeScore: { hu: 'Eredmény', en: 'See my score', de: 'Ergebnis' },
+  vcTestTitle: { hu: 'Teszt', en: 'Test', de: 'Test' },
+  vcTestResultTitle: { hu: 'Teszt eredménye', en: 'Test result', de: 'Testergebnis' },
+  vcTestCorrectOf: { hu: '{correct} / {total} helyes', en: '{correct} of {total} correct', de: '{correct} von {total} richtig' },
+  vcTestMissed: { hu: 'Ezeket érdemes átnézni:', en: 'Worth another look:', de: 'Diese lohnen einen zweiten Blick:' },
+  vcTestAgain: { hu: 'Új teszt', en: 'New test', de: 'Neuer Test' },
+  vcTestSaveFailed: {
+    hu: 'Az eredményt nem sikerült elmenteni.',
+    en: "The score couldn't be saved.",
+    de: 'Das Ergebnis konnte nicht gespeichert werden.',
+  },
+  vcTestScores: { hu: 'Teszt: legutóbb {last}% · legjobb {best}%', en: 'Test: last {last}% · best {best}%', de: 'Test: zuletzt {last} % · bestes {best} %' },
   vcWordBankCredit: {
     hu: 'A szólisták a CEFR-J Wordlist 1.5 (összeállította: Tono Jukio, Tokiói Idegennyelvi Egyetem) és az Octanove Vocabulary Profile C1/C2 szavaiból válogatnak.',
     en: 'Word lists draw on the CEFR-J Wordlist Version 1.5 (compiled by Yukio Tono, Tokyo University of Foreign Studies) and the Octanove Vocabulary Profile C1/C2.',

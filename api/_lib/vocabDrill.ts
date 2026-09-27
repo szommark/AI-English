@@ -1,5 +1,5 @@
 import { supabaseAdmin } from './supabaseAdmin.js'
-import { distractorPool, fillPendingItems, pickDistractors } from './vocabPractice.js'
+import { fillPendingItems, pickDistractors } from './vocabPractice.js'
 import { VocabApiError, loadListWords } from './vocabWordlists.js'
 import {
   RECOGNITION_DISTRACTORS,
@@ -25,8 +25,12 @@ export async function startDrill(userId: string, ref: WordlistRef, itemIds: stri
   const rows = itemIds.flatMap((id) => byItem.get(id) ?? [])
   if (rows.length === 0) throw new VocabApiError(404, 'No words to practise')
 
-  await fillPendingItems(userId, rows)
-  const pool = await distractorPool(userId, rows)
+  // The run's words first, so the one enrichment batch fills them before the rest of the
+  // list, whose meanings serve as distractors: like a review session, the meaning exercise
+  // only offers the list's own words (design §7.1).
+  const chosen = new Set(rows)
+  await fillPendingItems(userId, [...rows, ...listRows.filter((r) => !chosen.has(r))])
+  const pool = listRows.map((r) => r.vocab_items.meaning_hu)
   const cards: DrillCard[] = rows.map((r) => ({
     itemId: r.item_id,
     term: r.vocab_items.term,

@@ -6,6 +6,7 @@ import DrillSession, { ROUND_LABEL, type DrillSummary } from '../components/Voca
 import DrillSetupPanel, { type DrillChoice } from '../components/Vocabulary/DrillSetupPanel'
 import FastPracticeTab from '../components/Vocabulary/FastPracticeTab'
 import ListSrsPanel, { SrsExplainer } from '../components/Vocabulary/ListSrsPanel'
+import TestSession, { TestSummaryCard, type TestSummary } from '../components/Vocabulary/TestSession'
 import MyWordlistsTab from '../components/Vocabulary/MyWordlistsTab'
 import { DEFAULT_WORDLIST_FILTER, type WordlistFilter } from '../components/Vocabulary/WordlistFilters'
 import WordlistView from '../components/Vocabulary/WordlistView'
@@ -15,13 +16,14 @@ import { localizeFeature, useLanguage } from '../lib/i18n'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { getAccentPreference, setAccentPreference, type AccentPreference } from '../lib/voiceSelection'
 import { DRILL_ROUNDS } from '../lib/vocabPractice'
-import { fetchPracticeSession, fetchWordlist, fetchWordlists, startDrill } from '../lib/vocabPracticeApi'
+import { fetchPracticeSession, fetchWordlist, fetchWordlists, startDrill, startTest } from '../lib/vocabPracticeApi'
 import {
   COMPILES_PER_DAY,
   hasSrsSession,
   type DrillRun,
   type PracticeCard,
   type PracticeExercise,
+  type TestRun,
   type WordlistDetail,
   type WordlistRef,
   type WordlistSummary,
@@ -40,6 +42,8 @@ type View =
   | { name: 'drill'; run: DrillRun; detail: WordlistDetail; choice: DrillChoice; returnTo: ReturnTo }
   | { name: 'drill-summary'; summary: DrillSummary; detail: WordlistDetail; choice: DrillChoice; returnTo: ReturnTo }
   | { name: 'review'; cards: PracticeCard[]; list: WordlistSummary; returnTo: ReturnTo }
+  | { name: 'test'; run: TestRun; list: WordlistSummary; returnTo: ReturnTo }
+  | { name: 'test-summary'; summary: TestSummary; list: WordlistSummary; returnTo: ReturnTo }
 
 const refOf = (list: WordlistSummary): WordlistRef => ({ kind: list.kind, id: list.id })
 
@@ -127,6 +131,19 @@ export default function VocabularyPage() {
     }
   }
 
+  /** A test of a list (design §7.1), from the Fast practice tab or the list itself. */
+  async function beginTest(list: WordlistSummary, returnTo: ReturnTo) {
+    setStarting(true)
+    setStartFailed(false)
+    try {
+      setView({ name: 'test', run: await startTest(refOf(list)), list, returnTo })
+    } catch {
+      setStartFailed(true)
+    } finally {
+      setStarting(false)
+    }
+  }
+
   /** One list's review session, from the list itself or from the Spaced repetition tab. */
   async function startReview(list: WordlistSummary, returnTo: ReturnTo) {
     setStarting(true)
@@ -170,6 +187,41 @@ export default function VocabularyPage() {
               }
               refresh()
             }}
+          />
+        </div>
+      )
+      break
+
+    case 'test':
+      body = (
+        <div className="space-y-3">
+          <p className="break-words text-sm text-muted-foreground">
+            {t('vcTestTitle')} · <span className="font-medium text-foreground">{listTitle(view.list)}</span>
+          </p>
+          <TestSession
+            key={view.run.testId}
+            testId={view.run.testId}
+            cards={view.run.cards}
+            speech={tts}
+            onFinish={(summary) => {
+              setView({ name: 'test-summary', summary, list: view.list, returnTo: view.returnTo })
+              refresh()
+            }}
+          />
+        </div>
+      )
+      break
+
+    case 'test-summary':
+      body = (
+        <div className="space-y-4">
+          {startError}
+          <TestSummaryCard
+            summary={view.summary}
+            listTitle={listTitle(view.list)}
+            starting={starting}
+            onAgain={() => void beginTest(view.list, view.returnTo)}
+            onDone={() => goBack(view.returnTo)}
           />
         </div>
       )
@@ -238,6 +290,7 @@ export default function VocabularyPage() {
             starting={starting}
             onBack={() => setView({ name: 'tabs' })}
             onPractise={(detail) => setView({ name: 'drill-setup', detail, initialWords: null, returnTo: refOf(detail.list) })}
+            onTest={(list) => void beginTest(list, refOf(list))}
             onStartReview={(list) => void startReview(list, refOf(list))}
             onChanged={refresh}
           />
@@ -277,7 +330,12 @@ export default function VocabularyPage() {
                   data={wordlists}
                   filter={listFilter}
                   onFilterChange={setListFilter}
+                  starting={starting}
                   onPractise={(ref) => void practiseList(ref)}
+                  onTest={(ref) => {
+                    const list = wordlists.lists.find((l) => l.kind === ref.kind && l.id === ref.id)
+                    if (list) void beginTest(list, 'tabs')
+                  }}
                 />
               )}
 

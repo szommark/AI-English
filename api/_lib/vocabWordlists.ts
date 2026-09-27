@@ -25,6 +25,7 @@ import {
   VOCAB_TOPIC_PROMPT,
   cardStage,
   isVocabTopicId,
+  testScore,
   mixedLevels,
   normalizeTerm,
   termKind,
@@ -32,6 +33,7 @@ import {
   type AddWordsResult,
   type CompileInput,
   type ListLevel,
+  type ListTestScores,
   type VocabOrigin,
   type WordCard,
   type WordlistDetail,
@@ -81,7 +83,7 @@ const CARD_COLUMNS = `${SRS_CARD_COLUMNS}, item_id, context_original, context_co
 /**
  * One word of a list with its content, and the student's card for the term if they have
  * one. Shaped like a session row (term_normalized + vocab_items) so the practice helpers
- * (fillPendingItems, distractorPool) work on it too.
+ * (fillPendingItems, pickDistractors) work on it too.
  */
 export interface ListWordRow {
   item_id: string
@@ -210,6 +212,42 @@ async function practiceCountFor(userId: string, ref: WordlistRef): Promise<numbe
   return count ?? 0
 }
 
+interface FinishedTestRow extends DrillRunRef {
+  word_count: number
+  correct_count: number
+}
+
+/**
+ * Finished tests per list (keyed by listKey): last and best score. With `ref`, only that
+ * list's tests are read.
+ */
+async function testScores(userId: string, ref?: WordlistRef): Promise<Map<string, ListTestScores>> {
+  const tests = await fetchAllPages<FinishedTestRow>((from, to) => {
+    let query = supabaseAdmin
+      .from('vocab_tests')
+      .select('source, list_id, student_list_id, word_count, correct_count')
+      .eq('user_id', userId)
+      .not('finished_at', 'is', null)
+    if (ref) query = query.eq('source', ref.kind)
+    if (ref?.kind === 'custom') query = query.eq('student_list_id', ref.id!)
+    if (ref?.kind === 'teacher') query = query.eq('list_id', ref.id!)
+    return query.order('finished_at').order('id').range(from, to) as unknown as PromiseLike<{
+      data: FinishedTestRow[] | null
+      error: unknown
+    }>
+  })
+  const scores = new Map<string, ListTestScores>()
+  for (const test of tests) {
+    const testRef = runListRef(test)
+    if (!testRef) continue
+    const score = testScore(test.correct_count, test.word_count)
+    const prev = scores.get(listKey(testRef))
+    // Oldest first, so the last one seen is the latest.
+    scores.set(listKey(testRef), { last: score, best: Math.max(score, prev?.best ?? 0), count: (prev?.count ?? 0) + 1 })
+  }
+  return scores
+}
+
 async function learnerLevel(userId: string): Promise<CefrLevel> {
   const { data, error } = await supabaseAdmin.from('learner_profiles').select('cefr_level').eq('user_id', userId).maybeSingle()
   if (error) throw error
@@ -250,7 +288,13 @@ interface TeacherAssignmentRow {
   } | null
 }
 
-function customSummary(list: StudentListRow, terms: string[], ctx: SrsContext, practiceCount: number): WordlistSummary {
+function customSummary(
+  list: StudentListRow,
+  terms: string[],
+  ctx: SrsContext,
+  practiceCount: number,
+  tests: Map<string, ListTestScores>,
+): WordlistSummary {
   return {
     kind: 'custom',
     id: list.id,
@@ -261,6 +305,7 @@ function customSummary(list: StudentListRow, terms: string[], ctx: SrsContext, p
     inSrs: terms.filter((t) => ctx.cards.has(t)).length,
     srs: listSrs(terms, ctx),
     practiceCount,
+    tests: tests.get(listKey({ kind: 'custom', id: list.id })) ?? null,
     createdAt: list.created_at,
     teacher: null,
   }
@@ -272,6 +317,7 @@ async function teacherSummaries(
   assignments: TeacherAssignmentRow[],
   ctx: SrsContext,
   practiced: Map<string, number>,
+  tests: Map<string, ListTestScores>,
 ): Promise<WordlistSummary[]> {
   const rows = assignments.filter((a) => a.vocab_lists)
   if (rows.length === 0) return []
@@ -300,6 +346,7 @@ async function teacherSummaries(
       inSrs: terms.filter((t) => ctx.cards.has(t)).length,
       srs: listSrs(terms, ctx),
       practiceCount: practiced.get(listKey({ kind: 'teacher', id: l.id })) ?? 0,
+      tests: tests.get(listKey({ kind: 'teacher', id: l.id })) ?? null,
       createdAt: a.assigned_at,
       teacher: {
         email: emails.get(l.teacher_id) ?? 'unknown',
@@ -312,7 +359,12 @@ async function teacherSummaries(
   return summaries
 }
 
-function conversationsSummary(tutorCards: SrsCardRow[], ctx: SrsContext, practiceCount: number): WordlistSummary {
+function conversationsSummary(
+  tutorCards: SrsCardRow[],
+  ctx: SrsContext,
+  practiceCount: number,
+  tests: Map<string, ListTestScores>,
+): WordlistSummary {
   return {
     kind: 'conversations',
     id: null,
@@ -326,6 +378,7 @@ function conversationsSummary(tutorCards: SrsCardRow[], ctx: SrsContext, practic
       ctx,
     ),
     practiceCount,
+    tests: tests.get(listKey({ kind: 'conversations', id: null })) ?? null,
     createdAt: tutorCards[0]?.created_at ?? new Date(0).toISOString(),
     teacher: null,
   }
@@ -335,7 +388,7 @@ const TEACHER_ASSIGNMENT_COLUMNS = 'list_id, assigned_at, completed_at, vocab_li
 
 /** GET wordlists: custom lists (newest first), teacher lists, then the conversations list. */
 export async function loadWordlists(userId: string, now = new Date()): Promise<WordlistsResponse> {
-  const [deck, startedToday, custom, assigned, level, compiled, practiced] = await Promise.all([
+  const [deck, startedToday, custom, assigned, level, compiled, practiced, tests] = await Promise.all([
     loadDeck(userId),
     cardsStartedToday(userId, now),
     supabaseAdmin
@@ -351,6 +404,7 @@ export async function loadWordlists(userId: string, now = new Date()): Promise<W
     learnerLevel(userId),
     compilesToday(userId),
     practiceCounts(userId),
+    testScores(userId),
   ])
   if (custom.error) throw custom.error
   if (assigned.error) throw assigned.error
@@ -365,11 +419,12 @@ export async function loadWordlists(userId: string, now = new Date()): Promise<W
       l.vocab_student_list_items.flatMap((i) => (i.vocab_items ? [i.vocab_items.term_normalized] : [])),
       ctx,
       practiced.get(listKey({ kind: 'custom', id: l.id })) ?? 0,
+      tests,
     ),
   )
-  const teacherLists = await teacherSummaries(userId, (assigned.data ?? []) as unknown as TeacherAssignmentRow[], ctx, practiced)
+  const teacherLists = await teacherSummaries(userId, (assigned.data ?? []) as unknown as TeacherAssignmentRow[], ctx, practiced, tests)
   const tutorCards = deck.filter((c) => c.origin === 'tutor')
-  const conversations = conversationsSummary(tutorCards, ctx, practiced.get(listKey({ kind: 'conversations', id: null })) ?? 0)
+  const conversations = conversationsSummary(tutorCards, ctx, practiced.get(listKey({ kind: 'conversations', id: null })) ?? 0, tests)
 
   return {
     lists: [...customLists, ...teacherLists, ...(tutorCards.length > 0 ? [conversations] : [])],
@@ -428,14 +483,15 @@ export async function loadListWords(
   now = new Date(),
 ): Promise<{ summary: WordlistSummary; rows: ListWordRow[]; ctx: SrsContext }> {
   if (ref.kind === 'custom') {
-    const [list, practiceCount, startedToday] = await Promise.all([
+    const [list, practiceCount, startedToday, tests] = await Promise.all([
       loadOwnList(userId, ref.id!),
       practiceCountFor(userId, ref),
       cardsStartedToday(userId, now),
+      testScores(userId, ref),
     ])
     const rows = await withCards(userId, await customListItems(list.id))
     const ctx = rowsContext(rows, startedToday, now)
-    return { summary: customSummary(list, rows.map((r) => r.term_normalized), ctx, practiceCount), rows, ctx }
+    return { summary: customSummary(list, rows.map((r) => r.term_normalized), ctx, practiceCount, tests), rows, ctx }
   }
 
   if (ref.kind === 'teacher') {
@@ -458,8 +514,9 @@ export async function loadListWords(
     const items = ((data ?? []) as unknown as { vocab_items: ItemRow | null }[]).flatMap((r) => (r.vocab_items ? [r.vocab_items] : []))
     const [rows, startedToday] = await Promise.all([withCards(userId, items), cardsStartedToday(userId, now)])
     const ctx = rowsContext(rows, startedToday, now)
-    const practiced = new Map([[listKey(ref), await practiceCountFor(userId, ref)]])
-    const [summary] = await teacherSummaries(userId, [assignment as unknown as TeacherAssignmentRow], ctx, practiced)
+    const [practiceCount, tests] = await Promise.all([practiceCountFor(userId, ref), testScores(userId, ref)])
+    const practiced = new Map([[listKey(ref), practiceCount]])
+    const [summary] = await teacherSummaries(userId, [assignment as unknown as TeacherAssignmentRow], ctx, practiced, tests)
     return { summary, rows, ctx }
   }
 
@@ -485,7 +542,8 @@ export async function loadListWords(
       card: c as CardRow,
     }))
   const ctx = rowsContext(rows, await cardsStartedToday(userId, now), now)
-  return { summary: conversationsSummary(cards, ctx, await practiceCountFor(userId, ref)), rows, ctx }
+  const [practiceCount, tests] = await Promise.all([practiceCountFor(userId, ref), testScores(userId, ref)])
+  return { summary: conversationsSummary(cards, ctx, practiceCount, tests), rows, ctx }
 }
 
 export async function loadWordlistDetail(userId: string, ref: WordlistRef): Promise<WordlistDetail> {

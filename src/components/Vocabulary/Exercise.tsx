@@ -36,22 +36,27 @@ function SpeakButton({ onClick, label }: { onClick: () => void; label: string })
   )
 }
 
-/** One exercise of the practice ladder (design §7). Reports once, via onDone. */
+/**
+ * One exercise of the practice ladder (design §7). Reports once, via onDone. `strict` (a
+ * test, §7.1): typed exercises offer no hint and no second try, and a typo is wrong.
+ */
 export default function Exercise({
   card,
   exercise,
   speech,
+  strict = false,
   onDone,
 }: {
   card: ExerciseContent
   exercise: PracticeExercise
   speech: Speech
+  strict?: boolean
   onDone: (outcome: ExerciseOutcome) => void
 }) {
   return exercise === 'recognition' ? (
     <Recognition card={card} speech={speech} onDone={onDone} />
   ) : (
-    <Typed card={card} exercise={exercise} speech={speech} onDone={onDone} />
+    <Typed card={card} exercise={exercise} speech={speech} strict={strict} onDone={onDone} />
   )
 }
 
@@ -95,11 +100,13 @@ function Typed({
   card,
   exercise,
   speech,
+  strict,
   onDone,
 }: {
   card: ExerciseContent
   exercise: Exclude<PracticeExercise, 'recognition'>
   speech: Speech
+  strict: boolean
   onDone: (o: ExerciseOutcome) => void
 }) {
   const { t } = useLanguage()
@@ -124,7 +131,7 @@ function Typed({
 
   function finish(check: AnswerCheck) {
     onDone({
-      correct: check !== 'wrong',
+      correct: strict ? check === 'exact' : check !== 'wrong',
       usedHint: hintShown || retrying || check === 'typo',
       responseMs: performance.now() - started.current,
       check,
@@ -136,7 +143,7 @@ function Typed({
     if (!value.trim()) return
     const check = checkTypedAnswer(expected, value)
     // One second try after a wrong answer (design §6.1: "second attempt" → Hard).
-    if (check === 'wrong' && !retrying) {
+    if (check === 'wrong' && !retrying && !strict) {
       setRetrying(true)
       setValue('')
       inputRef.current?.focus()
@@ -202,9 +209,11 @@ function Typed({
           <button type="submit" disabled={!value.trim()} className={primaryButton}>
             {t('vcCheck')}
           </button>
-          <button type="button" disabled={hintShown} onClick={() => setHintShown(true)} className={secondaryButton}>
-            {t('vcHint')}
-          </button>
+          {!strict && (
+            <button type="button" disabled={hintShown} onClick={() => setHintShown(true)} className={secondaryButton}>
+              {t('vcHint')}
+            </button>
+          )}
           <button type="button" onClick={() => finish('wrong')} className={secondaryButton}>
             {t('vcDontKnow')}
           </button>
