@@ -1,138 +1,52 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { ChevronRight } from 'lucide-react'
 import PageHeading from '../components/PageHeading'
 import AccentToggle from '../components/AccentToggle'
 import PracticeSession, { type SessionSummary } from '../components/Vocabulary/PracticeSession'
 import DrillSession, { ROUND_LABEL, type DrillSummary } from '../components/Vocabulary/DrillSession'
 import DrillSetupPanel, { type DrillChoice } from '../components/Vocabulary/DrillSetupPanel'
 import FastPracticeTab from '../components/Vocabulary/FastPracticeTab'
+import ListSrsPanel, { SrsExplainer } from '../components/Vocabulary/ListSrsPanel'
 import MyWordlistsTab from '../components/Vocabulary/MyWordlistsTab'
 import { DEFAULT_WORDLIST_FILTER, type WordlistFilter } from '../components/Vocabulary/WordlistFilters'
 import WordlistView from '../components/Vocabulary/WordlistView'
-import { useListTitle } from '../components/Vocabulary/wordlistLabels'
+import { KindBadge, LevelBadge, useListTitle } from '../components/Vocabulary/wordlistLabels'
 import { getFeature } from '../data/features'
-import { localizeFeature, useLanguage, type Lang, type MessageKey } from '../lib/i18n'
+import { localizeFeature, useLanguage } from '../lib/i18n'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { getAccentPreference, setAccentPreference, type AccentPreference } from '../lib/voiceSelection'
 import { DRILL_ROUNDS } from '../lib/vocabPractice'
-import { fetchPracticeSession, fetchVocabOverview, fetchWordlist, fetchWordlists, startDrill } from '../lib/vocabPracticeApi'
+import { fetchPracticeSession, fetchWordlist, fetchWordlists, startDrill } from '../lib/vocabPracticeApi'
 import {
   COMPILES_PER_DAY,
-  MAX_REVIEWS_PER_SESSION,
-  NEW_CARDS_PER_DAY,
-  PRACTICE_EXERCISES,
+  hasSrsSession,
   type DrillRun,
   type PracticeCard,
   type PracticeExercise,
-  type VocabOverview,
   type WordlistDetail,
   type WordlistRef,
+  type WordlistSummary,
   type WordlistsResponse,
 } from '../lib/vocab'
 
 type Tab = 'fast' | 'lists' | 'srs'
 
-/** Where a Fast practice run goes back to: the tabs, or the list it was started from. */
+/** Where a Fast practice run or a review session goes back to: the tabs, or the list it was started from. */
 type ReturnTo = 'tabs' | WordlistRef
 
 type View =
   | { name: 'tabs' }
-  | { name: 'list'; ref: WordlistRef; initial: WordlistDetail | null }
+  | { name: 'list'; ref: WordlistRef; initial: WordlistDetail | null; summary?: SessionSummary }
   | { name: 'drill-setup'; detail: WordlistDetail; initialWords: string[] | null; returnTo: ReturnTo }
   | { name: 'drill'; run: DrillRun; detail: WordlistDetail; choice: DrillChoice; returnTo: ReturnTo }
   | { name: 'drill-summary'; summary: DrillSummary; detail: WordlistDetail; choice: DrillChoice; returnTo: ReturnTo }
-  | { name: 'review'; cards: PracticeCard[] }
+  | { name: 'review'; cards: PracticeCard[]; list: WordlistSummary; returnTo: ReturnTo }
 
-/** "in 3 hours", "tomorrow" … in the UI language. */
-function relativeTime(iso: string, lang: Lang): string {
-  const diffMs = new Date(iso).getTime() - Date.now()
-  const fmt = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' })
-  const minutes = Math.round(diffMs / 60_000)
-  if (Math.abs(minutes) < 60) return fmt.format(Math.max(1, minutes), 'minute')
-  const hours = Math.round(minutes / 60)
-  if (Math.abs(hours) < 24) return fmt.format(hours, 'hour')
-  return fmt.format(Math.round(hours / 24), 'day')
-}
+const refOf = (list: WordlistSummary): WordlistRef => ({ kind: list.kind, id: list.id })
 
-interface PipelineStep {
-  label: MessageKey
-  n: number
-  className: string
-}
-
-/** One row of boxes with arrows between them, under a small caption. */
-function Pipeline({ caption, steps }: { caption: MessageKey; steps: PipelineStep[] }) {
-  const { t } = useLanguage()
-  return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-medium text-muted-foreground">{t(caption)}</p>
-      <ol className="grid grid-cols-2 gap-2 sm:flex sm:items-stretch">
-        {steps.map((step, i) => (
-          <li key={step.label} className="flex items-center gap-1 sm:flex-1">
-            {i > 0 && <ChevronRight className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" aria-hidden />}
-            <div className={`h-full flex-1 rounded-xl px-3 py-2.5 ${step.className}`}>
-              <div className="text-2xl font-semibold tabular-nums">{step.n}</div>
-              <div className="text-xs">{t(step.label)}</div>
-            </div>
-          </li>
-        ))}
-      </ol>
-    </div>
-  )
-}
-
-/** Where the student's words are (design §6.2, §6.4): not in review → new → learning → learned → mastered. */
-function stageSteps(stages: VocabOverview['stages'], notInSrs: number): PipelineStep[] {
-  return [
-    { label: 'vcPipeNotInSrs', n: notInSrs, className: 'border border-dashed border-border text-muted-foreground' },
-    { label: 'vcPipeNew', n: stages.new, className: 'bg-secondary text-secondary-foreground' },
-    { label: 'vcPipeLearning', n: stages.learning, className: 'bg-amber-100 text-amber-800' },
-    { label: 'vcPipeLearned', n: stages.learned, className: 'bg-emerald-100 text-emerald-700' },
-    { label: 'vcPipeMastered', n: stages.mastered, className: 'bg-violet-100 text-violet-800' },
-  ]
-}
-
-/** Words in review by the exercise they are at (design §7): meaning → recall → gap-fill → listening. */
-function exerciseSteps(exercises: VocabOverview['exercises']): PipelineStep[] {
-  return PRACTICE_EXERCISES.map((e) => ({
-    label: ROUND_LABEL[e],
-    n: exercises[e],
-    className: 'bg-[var(--teal-accent-soft)] text-foreground',
-  }))
-}
-
-/** "How does it work?": the scheduling rules in plain words, closed by default. */
-function SrsExplainer() {
-  const { t } = useLanguage()
-  const stages: { label: MessageKey; text: MessageKey }[] = [
-    { label: 'vcPipeNotInSrs', text: 'vcSrsStageNotInSrs' },
-    { label: 'vcPipeNew', text: 'vcSrsStageNew' },
-    { label: 'vcPipeLearning', text: 'vcSrsStageLearning' },
-    { label: 'vcPipeLearned', text: 'vcSrsStageLearned' },
-    { label: 'vcPipeMastered', text: 'vcSrsStageMastered' },
-  ]
-  return (
-    <details className="group rounded-xl border border-border px-4 py-2.5 text-sm">
-      <summary className="cursor-pointer font-medium text-foreground marker:text-muted-foreground">{t('vcSrsHowTitle')}</summary>
-      <ul className="mt-2 list-disc space-y-1.5 pl-5 text-muted-foreground">
-        <li>{t('vcSrsHowGaps')}</li>
-        <li>{t('vcSrsHowLadder')}</li>
-        <li>{t('vcSrsHowHint')}</li>
-        <li>{t('vcSrsHowSession', { max: MAX_REVIEWS_PER_SESSION, newPerDay: NEW_CARDS_PER_DAY })}</li>
-        <li>
-          {t('vcSrsHowStages')}
-          <ul className="mt-1 list-[circle] space-y-1 pl-5">
-            {stages.map((s) => (
-              <li key={s.label}>
-                <span className="font-medium text-foreground">{t(s.label)}:</span> {t(s.text)}
-              </li>
-            ))}
-          </ul>
-        </li>
-        <li>{t('vcSrsHowSources')}</li>
-      </ul>
-    </details>
-  )
+/** Lists whose review has something to do now come first; otherwise the lists' own order. */
+function srsOrder(lists: WordlistSummary[]): WordlistSummary[] {
+  const ready = (l: WordlistSummary) => hasSrsSession(l) && l.srs.dueCount + l.srs.newAvailable > 0
+  return lists.filter((l) => l.inSrs > 0).sort((a, b) => Number(ready(b)) - Number(ready(a)))
 }
 
 function Stat({ label, value }: { label: string; value: string | number }) {
@@ -145,11 +59,12 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 }
 
 /**
- * Student Vocabulary page, route /vocabulary (design §7, decisions 6–7): Fast practice,
- * My wordlists, Fast practice and Spaced repetition tabs.
+ * Student Vocabulary page, route /vocabulary (design §7, decisions 6–7): My wordlists,
+ * Fast practice and Spaced repetition tabs. Every list has its own review session.
  */
 export default function VocabularyPage() {
   const { t, lang } = useLanguage()
+  const listTitle = useListTitle()
   const feature = getFeature('vocabulary')!
   const [tab, setTab] = useState<Tab>('lists')
   /** Shared by the Fast practice and My wordlists tabs, and kept while a list is open. */
@@ -160,21 +75,18 @@ export default function VocabularyPage() {
   const [accent, setAccent] = useState<AccentPreference>(() => getAccentPreference())
   const tts = useSpeechSynthesis('female', accent)
 
-  const [overview, setOverview] = useState<VocabOverview | null>(null)
   const [wordlists, setWordlists] = useState<WordlistsResponse | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
   /** A Fast practice or review that failed to start. */
   const [startFailed, setStartFailed] = useState(false)
   const [starting, setStarting] = useState(false)
-  const [reviewSummary, setReviewSummary] = useState<SessionSummary | null>(null)
+  /** The last review started from the Spaced repetition tab, shown there. */
+  const [reviewSummary, setReviewSummary] = useState<{ title: string; summary: SessionSummary } | null>(null)
 
   const refresh = useCallback(() => {
     setLoadFailed(false)
-    Promise.all([fetchVocabOverview(), fetchWordlists()])
-      .then(([o, w]) => {
-        setOverview(o)
-        setWordlists(w)
-      })
+    fetchWordlists()
+      .then(setWordlists)
       .catch(() => setLoadFailed(true))
   }, [])
 
@@ -215,13 +127,14 @@ export default function VocabularyPage() {
     }
   }
 
-  async function startReview() {
+  /** One list's review session, from the list itself or from the Spaced repetition tab. */
+  async function startReview(list: WordlistSummary, returnTo: ReturnTo) {
     setStarting(true)
     setStartFailed(false)
     setReviewSummary(null)
     try {
-      const session = await fetchPracticeSession()
-      if (session.cards.length > 0) setView({ name: 'review', cards: session.cards })
+      const session = await fetchPracticeSession(refOf(list))
+      if (session.cards.length > 0) setView({ name: 'review', cards: session.cards, list, returnTo })
       else refresh()
     } catch {
       setStartFailed(true)
@@ -241,15 +154,24 @@ export default function VocabularyPage() {
   switch (view.name) {
     case 'review':
       body = (
-        <PracticeSession
-          cards={view.cards}
-          speech={tts}
-          onFinish={(s) => {
-            setReviewSummary(s)
-            setView({ name: 'tabs' })
-            refresh()
-          }}
-        />
+        <div className="space-y-3">
+          <p className="break-words text-sm text-muted-foreground">
+            {t('vcListSrsTitle')} · <span className="font-medium text-foreground">{listTitle(view.list)}</span>
+          </p>
+          <PracticeSession
+            cards={view.cards}
+            speech={tts}
+            onFinish={(summary) => {
+              if (view.returnTo === 'tabs') {
+                setReviewSummary({ title: listTitle(view.list), summary })
+                setView({ name: 'tabs' })
+              } else {
+                setView({ name: 'list', ref: view.returnTo, initial: null, summary })
+              }
+              refresh()
+            }}
+          />
+        </div>
       )
       break
 
@@ -305,22 +227,25 @@ export default function VocabularyPage() {
 
     case 'list':
       body = (
-        <WordlistView
-          key={`${view.ref.kind}-${view.ref.id}`}
-          listRef={view.ref}
-          initial={view.initial}
-          compilesLeft={Math.max(0, COMPILES_PER_DAY - (wordlists?.compiledToday ?? 0))}
-          onBack={() => setView({ name: 'tabs' })}
-          onPractise={(detail) =>
-            setView({ name: 'drill-setup', detail, initialWords: null, returnTo: { kind: detail.list.kind, id: detail.list.id } })
-          }
-          onChanged={refresh}
-        />
+        <div className="space-y-4">
+          {view.summary && <SummaryCard summary={view.summary} />}
+          {startError}
+          <WordlistView
+            key={`${view.ref.kind}-${view.ref.id}`}
+            listRef={view.ref}
+            initial={view.initial}
+            compilesLeft={Math.max(0, COMPILES_PER_DAY - (wordlists?.compiledToday ?? 0))}
+            starting={starting}
+            onBack={() => setView({ name: 'tabs' })}
+            onPractise={(detail) => setView({ name: 'drill-setup', detail, initialWords: null, returnTo: refOf(detail.list) })}
+            onStartReview={(list) => void startReview(list, refOf(list))}
+            onChanged={refresh}
+          />
+        </div>
       )
       break
 
     case 'tabs': {
-      const notInSrs = wordlists?.notInSrs ?? 0
       const tabButton = (value: Tab, label: string) => (
         <button
           type="button"
@@ -333,6 +258,7 @@ export default function VocabularyPage() {
           {label}
         </button>
       )
+      const srsLists = wordlists ? srsOrder(wordlists.lists) : []
       body = (
         <>
           <div className="inline-flex flex-wrap rounded-lg bg-secondary p-0.5" role="group">
@@ -344,78 +270,71 @@ export default function VocabularyPage() {
           {loadFailed && <p className="text-sm text-red-600">{t('vcLoadFailed')}</p>}
           {startError}
 
-          {tab === 'fast' &&
-            (wordlists === null ? (
-              !loadFailed && <p className="text-sm text-muted-foreground">{t('loading')}</p>
-            ) : (
-              <FastPracticeTab
-                data={wordlists}
-                filter={listFilter}
-                onFilterChange={setListFilter}
-                onPractise={(ref) => void practiseList(ref)}
-              />
-            ))}
+          {wordlists === null
+            ? !loadFailed && <p className="text-sm text-muted-foreground">{t('loading')}</p>
+            : tab === 'fast' && (
+                <FastPracticeTab
+                  data={wordlists}
+                  filter={listFilter}
+                  onFilterChange={setListFilter}
+                  onPractise={(ref) => void practiseList(ref)}
+                />
+              )}
 
-          {tab === 'lists' &&
-            (wordlists === null ? (
-              !loadFailed && <p className="text-sm text-muted-foreground">{t('loading')}</p>
-            ) : (
-              <MyWordlistsTab
-                data={wordlists}
-                filter={listFilter}
-                onFilterChange={setListFilter}
-                onOpen={(ref) => setView({ name: 'list', ref, initial: null })}
-                onCompiled={(detail) => {
-                  refresh()
-                  setView({ name: 'list', ref: { kind: 'custom', id: detail.list.id }, initial: detail })
-                }}
-              />
-            ))}
+          {wordlists !== null && tab === 'lists' && (
+            <MyWordlistsTab
+              data={wordlists}
+              filter={listFilter}
+              onFilterChange={setListFilter}
+              onOpen={(ref) => setView({ name: 'list', ref, initial: null })}
+              onCompiled={(detail) => {
+                refresh()
+                setView({ name: 'list', ref: { kind: 'custom', id: detail.list.id }, initial: detail })
+              }}
+            />
+          )}
 
-          {tab === 'srs' &&
-            (overview === null ? (
-              !loadFailed && <p className="text-sm text-muted-foreground">{t('loading')}</p>
-            ) : (
-              <div className="space-y-4">
-                {reviewSummary && <SummaryCard summary={reviewSummary} />}
-                {overview.totalCards + overview.stages.paused + notInSrs === 0 ? (
-                  <p className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">{t('vcNoCards')}</p>
-                ) : (
-                  <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
+          {wordlists !== null && tab === 'srs' && (
+            <div className="space-y-4">
+              {reviewSummary && <SummaryCard summary={reviewSummary.summary} listTitle={reviewSummary.title} />}
+              {srsLists.length === 0 ? (
+                <p className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">{t('vcNoCards')}</p>
+              ) : (
+                <>
+                  <div className="space-y-3 rounded-2xl border border-border bg-card p-5">
                     <div className="space-y-1">
                       <h2 className="text-lg font-semibold text-foreground">{t('vcReviewTitle')}</h2>
-                      <p className="text-sm text-muted-foreground">{t('vcReviewHint')}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {t('vcReviewHint')} {t('vcSrsListsHint')}
+                      </p>
                     </div>
                     <SrsExplainer />
-                    <Pipeline caption="vcPipeByStage" steps={stageSteps(overview.stages, notInSrs)} />
-                    <Pipeline caption="vcPipeByExercise" steps={exerciseSteps(overview.exercises)} />
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                      {overview.dueCount > 0 ? (
-                        <span className="font-medium text-foreground">{t('vcNextRepNow', { n: overview.dueCount })}</span>
-                      ) : (
-                        overview.nextDue && <span>{t('vcNextRepAt', { when: relativeTime(overview.nextDue, lang) })}</span>
-                      )}
-                      {overview.newAvailable > 0 && <span>{t('vcNewTodayCount', { n: overview.newAvailable })}</span>}
-                      {overview.stages.paused > 0 && <span>{t('vcPipePaused', { n: overview.stages.paused })}</span>}
-                    </div>
-                    {overview.totalCards === 0 ? (
-                      <p className="text-sm text-muted-foreground">{t('vcNoCards')}</p>
-                    ) : overview.dueCount + overview.newAvailable > 0 ? (
-                      <button
-                        type="button"
-                        onClick={() => void startReview()}
-                        disabled={starting}
-                        className="w-full rounded-lg bg-[var(--teal-accent)] px-5 py-3 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40 sm:w-auto"
-                      >
-                        {starting ? t('vcStarting') : reviewSummary ? t('vcPracticeMore') : t('vcStart')}
-                      </button>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">{t('vcNothingDue')}</p>
-                    )}
                   </div>
-                )}
-              </div>
-            ))}
+                  <ul className="space-y-3">
+                    {srsLists.map((l) => (
+                      <li key={`${l.kind}-${l.id}`} className="space-y-3 rounded-2xl border border-border bg-card p-5">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setView({ name: 'list', ref: refOf(l), initial: null })}
+                            className="min-w-0 break-words text-left font-medium text-foreground hover:underline"
+                            title={t('vcOpenList')}
+                          >
+                            {listTitle(l)}
+                          </button>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <LevelBadge level={l.cefrLevel} />
+                            <KindBadge kind={l.kind} />
+                          </div>
+                        </div>
+                        <ListSrsPanel list={l} compact starting={starting} onStart={() => void startReview(l, 'tabs')} />
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          )}
         </>
       )
       break
@@ -430,11 +349,14 @@ export default function VocabularyPage() {
   )
 }
 
-function SummaryCard({ summary }: { summary: SessionSummary }) {
+function SummaryCard({ summary, listTitle }: { summary: SessionSummary; listTitle?: string }) {
   const { t } = useLanguage()
   return (
     <div className="space-y-4 rounded-2xl border border-[var(--teal-accent-border)] bg-[var(--teal-accent-soft)] p-5">
-      <h2 className="text-lg font-semibold text-foreground">{t('vcSummaryTitle')}</h2>
+      <div className="space-y-1">
+        <h2 className="text-lg font-semibold text-foreground">{t('vcSummaryTitle')}</h2>
+        {listTitle && <p className="break-words text-sm text-muted-foreground">{listTitle}</p>}
+      </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         <Stat label={t('vcSummaryReviewed')} value={summary.reviewed} />
         <Stat label={t('vcSummaryCorrect')} value={summary.correct} />

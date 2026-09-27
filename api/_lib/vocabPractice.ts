@@ -5,28 +5,21 @@ import { enrichTerms } from './vocabEnrichment.js'
 import type { CefrLevel } from './prompts.js'
 import {
   ENRICH_BATCH_SIZE,
-  MAX_REVIEWS_PER_SESSION,
-  NEW_CARDS_PER_DAY,
-  PRACTICE_EXERCISES,
   RECOGNITION_DISTRACTORS,
-  type PracticeCard,
-  type PracticeSession,
   type ReviewInput,
   type ReviewResult,
   type VocabKind,
-  type VocabOverview,
   type VocabPos,
 } from '../../src/lib/vocab.js'
 
-// Student practice (design §6–§7): which cards a session contains, and scheduling a
-// review. Everything here acts on the calling student's own cards only.
+// Student practice (design §6–§7): the content helpers review sessions and Fast practice
+// share, and scheduling a review. Everything here acts on the calling student's own cards
+// only. Which cards a list's review session contains: vocabListSession.ts.
 
 /** Distinct meanings fetched from the student's deck for recognition distractors. */
 const DECK_DISTRACTOR_POOL = 200
 /** Global items fetched when the deck alone can't supply enough distractors. */
 const GLOBAL_DISTRACTOR_POOL = 100
-
-const STATE_NEW = 0
 
 export interface ItemContent {
   term: string
@@ -40,39 +33,9 @@ export interface ItemContent {
   owner_teacher_id: string | null
 }
 
-interface SessionCardRow {
-  id: string
-  term_normalized: string
-  origin: string
-  state: number
-  ladder_step: number
-  context_corrected: string | null
-  vocab_items: ItemContent | null
-}
-
-const SESSION_CARD_COLUMNS =
-  'id, term_normalized, origin, state, ladder_step, context_corrected, ' +
-  'vocab_items(term, kind, pos, meaning_hu, definition_en, example_en, cefr_level, enrichment_status, owner_teacher_id)'
-
 /** "New cards per day" counts from UTC midnight — the same day boundary as the usage meters. */
 export function utcDayStart(now: Date): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-}
-
-/** New cards the student started today: reviews of a card that was still New. */
-async function newCardsStartedToday(userId: string, now: Date): Promise<number> {
-  const { count, error } = await supabaseAdmin
-    .from('vocab_reviews')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('state_before', STATE_NEW)
-    .gte('reviewed_at', utcDayStart(now).toISOString())
-  if (error) throw error
-  return count ?? 0
-}
-
-function newCardAllowance(startedToday: number): number {
-  return Math.max(0, NEW_CARDS_PER_DAY - startedToday)
 }
 
 /**
@@ -101,7 +64,10 @@ export function pickDistractors(
 }
 
 /** Rows that carry item content: session cards, and the words of a Fast practice list. */
-export type ItemContentRow = Pick<SessionCardRow, 'term_normalized' | 'vocab_items'>
+export interface ItemContentRow {
+  term_normalized: string
+  vocab_items: ItemContent | null
+}
 
 export async function distractorPool(userId: string, cards: ItemContentRow[]): Promise<string[]> {
   const { data, error } = await supabaseAdmin
@@ -129,24 +95,6 @@ export async function distractorPool(userId: string, cards: ItemContentRow[]): P
     for (const row of global ?? []) if (row.meaning_hu) pool.add(row.meaning_hu as string)
   }
   return [...pool]
-}
-
-function toPracticeCard(row: SessionCardRow, pool: string[]): PracticeCard | null {
-  const item = row.vocab_items
-  if (!item) return null
-  return {
-    cardId: row.id,
-    term: item.term,
-    termNormalized: row.term_normalized,
-    kind: item.kind,
-    meaningHu: item.meaning_hu,
-    definitionEn: item.definition_en,
-    exampleEn: item.example_en,
-    contextCorrected: row.context_corrected,
-    ladderStep: row.ladder_step,
-    state: row.state,
-    distractors: row.ladder_step === 1 ? pickDistractors(item.meaning_hu, pool, RECOGNITION_DISTRACTORS) : [],
-  }
 }
 
 /**
@@ -181,115 +129,6 @@ export async function fillPendingItems(userId: string, rows: ItemContentRow[]): 
       example_en: r.exampleEn,
       enrichment_status: 'done',
     }
-  }
-}
-
-/**
- * Design §7: every due review first (oldest due first, at most MAX_REVIEWS_PER_SESSION),
- * then up to today's remaining NEW_CARDS_PER_DAY new cards, teacher-origin before others.
- */
-export async function buildSession(userId: string, now = new Date()): Promise<PracticeSession> {
-  const nowIso = now.toISOString()
-  const [{ data: due, error: dueError }, startedToday] = await Promise.all([
-    supabaseAdmin
-      .from('vocab_cards')
-      .select(SESSION_CARD_COLUMNS)
-      .eq('user_id', userId)
-      .eq('suspended', false)
-      .is('retired_at', null)
-      .neq('state', STATE_NEW)
-      .lte('due', nowIso)
-      .order('due')
-      .limit(MAX_REVIEWS_PER_SESSION),
-    newCardsStartedToday(userId, now),
-  ])
-  if (dueError) throw dueError
-
-  const newCards: SessionCardRow[] = []
-  let allowance = newCardAllowance(startedToday)
-  for (const teacherFirst of [true, false]) {
-    if (allowance <= 0) break
-    let query = supabaseAdmin
-      .from('vocab_cards')
-      .select(SESSION_CARD_COLUMNS)
-      .eq('user_id', userId)
-      .eq('suspended', false)
-      .eq('state', STATE_NEW)
-    query = teacherFirst ? query.eq('origin', 'teacher') : query.neq('origin', 'teacher')
-    const { data, error } = await query.order('created_at').order('id').limit(allowance)
-    if (error) throw error
-    const rows = (data ?? []) as unknown as SessionCardRow[]
-    newCards.push(...rows)
-    allowance -= rows.length
-  }
-
-  const rows = [...((due ?? []) as unknown as SessionCardRow[]), ...newCards]
-  await fillPendingItems(userId, rows)
-  const pool = rows.some((r) => r.ladder_step === 1) ? await distractorPool(userId, rows) : []
-  const cards = rows.map((r) => toPracticeCard(r, pool)).filter((c): c is PracticeCard => c !== null)
-
-  return { cards, dueCount: (due ?? []).length, newCount: newCards.length }
-}
-
-async function countCards(userId: string, filter: (q: any) => any): Promise<number> {
-  const base = supabaseAdmin.from('vocab_cards').select('id', { count: 'exact', head: true }).eq('user_id', userId)
-  const { count, error } = await filter(base)
-  if (error) throw error
-  return count ?? 0
-}
-
-export async function loadOverview(userId: string, now = new Date()): Promise<VocabOverview> {
-  const nowIso = now.toISOString()
-  const active = (q: any) => q.eq('suspended', false)
-  /** Not paused and not mastered: the cards review sessions draw on. */
-  const inRotation = (q: any) => active(q).is('retired_at', null)
-  const [dueCount, newTotal, totalCards, learningCards, learnedCards, masteredCards, pausedCards, startedToday] = await Promise.all([
-    countCards(userId, (q) => inRotation(q).neq('state', STATE_NEW).lte('due', nowIso)),
-    countCards(userId, (q) => inRotation(q).eq('state', STATE_NEW)),
-    countCards(userId, active),
-    countCards(userId, (q) => inRotation(q).neq('state', STATE_NEW).is('first_learned_at', null)),
-    countCards(userId, (q) => inRotation(q).not('first_learned_at', 'is', null)),
-    countCards(userId, (q) => active(q).not('retired_at', 'is', null)),
-    countCards(userId, (q) => q.eq('suspended', true)),
-    newCardsStartedToday(userId, now),
-  ])
-  // ladder_step 1–4 is recognition … listening, in PRACTICE_EXERCISES order.
-  const perExercise = await Promise.all(
-    PRACTICE_EXERCISES.map((_, i) => countCards(userId, (q) => inRotation(q).eq('ladder_step', i + 1))),
-  )
-
-  let nextDue: string | null = null
-  if (dueCount === 0) {
-    const { data, error } = await supabaseAdmin
-      .from('vocab_cards')
-      .select('due')
-      .eq('user_id', userId)
-      .eq('suspended', false)
-      .is('retired_at', null)
-      .neq('state', STATE_NEW)
-      .gt('due', nowIso)
-      .order('due')
-      .limit(1)
-      .maybeSingle()
-    if (error) throw error
-    nextDue = (data?.due as string | undefined) ?? null
-  }
-
-  return {
-    dueCount,
-    newAvailable: Math.min(newTotal, newCardAllowance(startedToday)),
-    totalCards,
-    learnedCards: learnedCards + masteredCards,
-    nextDue,
-    // Same stages as cardStage: mastered once retired, learned is sticky, new is FSRS state 0.
-    stages: {
-      new: newTotal,
-      learning: learningCards,
-      learned: learnedCards,
-      mastered: masteredCards,
-      paused: pausedCards,
-    },
-    exercises: Object.fromEntries(PRACTICE_EXERCISES.map((e, i) => [e, perExercise[i]])) as VocabOverview['exercises'],
   }
 }
 

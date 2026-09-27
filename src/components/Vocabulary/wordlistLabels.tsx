@@ -1,8 +1,10 @@
 import { useLanguage, type MessageKey } from '../../lib/i18n'
 import {
+  MIXED_LEVEL,
   PRACTICE_EXERCISES,
   isVocabTopicId,
   type CardStage,
+  type ListLevel,
   type VocabTopicId,
   type WordCard,
   type WordlistKind,
@@ -61,6 +63,21 @@ export function useListTitle(): (list: Pick<WordlistSummary, 'kind' | 'title'>) 
 export function useTopicLabel(): (topic: string) => string {
   const { t } = useLanguage()
   return (topic) => (isVocabTopicId(topic) ? t(TOPIC_LABEL[topic]) : topic)
+}
+
+/** A list's level (or "Mixed"), or one word's level. Nothing when there is none. */
+export function LevelBadge({ level, subtle = false }: { level: ListLevel | null; subtle?: boolean }) {
+  const { t } = useLanguage()
+  if (!level) return null
+  return (
+    <span
+      className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium ${
+        subtle ? 'border border-border text-muted-foreground' : 'bg-secondary text-secondary-foreground'
+      }`}
+    >
+      {level === MIXED_LEVEL ? t('vcLevelMixed') : level}
+    </span>
+  )
 }
 
 export function KindBadge({ kind }: { kind: WordlistKind }) {

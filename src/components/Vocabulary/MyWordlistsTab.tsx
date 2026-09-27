@@ -3,7 +3,7 @@ import type { WordlistDetail, WordlistRef, WordlistsResponse } from '../../lib/v
 import ListProgress from '../VocabLists/ListProgress'
 import CompileListForm from './CompileListForm'
 import WordlistFilters, { applyWordlistFilter, type WordlistFilter } from './WordlistFilters'
-import { KindBadge, useListTitle, useTopicLabel } from './wordlistLabels'
+import { KindBadge, LevelBadge, useListTitle, useTopicLabel } from './wordlistLabels'
 
 /** My wordlists (design §7.2): compile a new list, then every list, filtered and sorted. */
 export default function MyWordlistsTab({
@@ -49,11 +49,7 @@ export default function MyWordlistsTab({
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <p className="min-w-0 break-words font-medium text-foreground">{listTitle(l)}</p>
                       <div className="flex shrink-0 items-center gap-2">
-                        {l.cefrLevel && (
-                          <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-secondary-foreground">
-                            {l.cefrLevel}
-                          </span>
-                        )}
+                        <LevelBadge level={l.cefrLevel} />
                         <KindBadge kind={l.kind} />
                       </div>
                     </div>

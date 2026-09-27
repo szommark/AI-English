@@ -16,18 +16,22 @@ import {
   recordCompletions,
 } from './vocabListProgress.js'
 import { utcDayStart, type ItemContent } from './vocabPractice.js'
+import { SRS_CARD_COLUMNS, cardsStartedToday, listSrs, loadDeck, type SrsCardRow, type SrsContext } from './vocabListSrs.js'
 import {
   COMPILES_PER_DAY,
-  COMPILE_MAX_WORDS,
-  COMPILE_MIN_WORDS,
+  MIXED_LEVEL,
+  SRS_MIN_WORDS,
   STUDENT_LIST_MAX_ITEMS,
   VOCAB_TOPIC_PROMPT,
   cardStage,
   isVocabTopicId,
+  mixedLevels,
   normalizeTerm,
   termKind,
   type AddToSrsResult,
+  type AddWordsResult,
   type CompileInput,
+  type ListLevel,
   type VocabOrigin,
   type WordCard,
   type WordlistDetail,
@@ -66,23 +70,13 @@ const ITEM_COLUMNS =
 
 type ItemRow = ItemContent & { id: string; term_normalized: string }
 
-interface CardRow {
-  id: string
+export interface CardRow extends SrsCardRow {
   item_id: string
-  term_normalized: string
-  origin: VocabOrigin
-  state: number
-  ladder_step: number
-  first_learned_at: string | null
-  retired_at: string | null
-  suspended: boolean
   context_original: string | null
   context_corrected: string | null
-  created_at: string
 }
 
-const CARD_COLUMNS =
-  'id, item_id, term_normalized, origin, state, ladder_step, first_learned_at, retired_at, suspended, context_original, context_corrected, created_at'
+const CARD_COLUMNS = `${SRS_CARD_COLUMNS}, item_id, context_original, context_corrected`
 
 /**
  * One word of a list with its content, and the student's card for the term if they have
@@ -96,7 +90,7 @@ export interface ListWordRow {
   /** Tutor Bot cards: what the learner said, and the better version. */
   context_original: string | null
   context_corrected: string | null
-  card: WordCard | null
+  card: CardRow | null
 }
 
 function toWordCard(c: CardRow): WordCard {
@@ -107,12 +101,18 @@ function toWord(row: ListWordRow): WordlistWord {
   return {
     itemId: row.item_id,
     term: row.vocab_items.term,
+    cefrLevel: row.vocab_items.cefr_level as CefrLevel | null,
     meaningHu: row.vocab_items.meaning_hu,
     exampleEn: row.vocab_items.example_en,
     contextOriginal: row.context_original,
     contextCorrected: row.context_corrected,
-    card: row.card,
+    card: row.card ? toWordCard(row.card) : null,
   }
+}
+
+/** The SRS context of one list's rows: their cards, and today's new starts. */
+function rowsContext(rows: ListWordRow[], startedToday: Set<string>, now: Date): SrsContext {
+  return { cards: new Map(rows.flatMap((r) => (r.card ? [[r.term_normalized, r.card] as const] : []))), startedToday, now }
 }
 
 /** The caller's cards for these terms (active and paused), by term. */
@@ -131,20 +131,31 @@ async function cardsByTerm(userId: string, terms: string[]): Promise<Map<string,
   return cards
 }
 
-/** Every card term of the caller (newest first) with its origin. */
-async function deckTerms(userId: string): Promise<{ term_normalized: string; origin: VocabOrigin; created_at: string }[]> {
-  return fetchAllPages((from, to) =>
-    supabaseAdmin
-      .from('vocab_cards')
-      .select('term_normalized, origin, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .order('id')
-      .range(from, to) as unknown as PromiseLike<{
-      data: { term_normalized: string; origin: VocabOrigin; created_at: string }[] | null
-      error: unknown
-    }>,
-  )
+/** The terms of each of the caller's own lists. */
+async function customListTerms(userId: string): Promise<string[][]> {
+  const { data, error } = await supabaseAdmin
+    .from('vocab_student_lists')
+    .select('vocab_student_list_items(vocab_items(term_normalized))')
+    .eq('user_id', userId)
+  if (error) throw error
+  return ((data ?? []) as unknown as {
+    vocab_student_list_items: { vocab_items: { term_normalized: string } | null }[]
+  }[]).map((l) => l.vocab_student_list_items.flatMap((i) => (i.vocab_items ? [i.vocab_items.term_normalized] : [])))
+}
+
+/**
+ * The terms of every list the caller has — own lists, assigned teacher lists and the
+ * conversations list — for the landing badge's count (GET overview).
+ */
+export async function allListTerms(userId: string, deck: SrsCardRow[]): Promise<string[][]> {
+  const [custom, assigned] = await Promise.all([
+    customListTerms(userId),
+    supabaseAdmin.from('vocab_list_assignments').select('list_id').eq('student_id', userId),
+  ])
+  if (assigned.error) throw assigned.error
+  const teacher = await loadListTerms((assigned.data ?? []).map((a) => a.list_id as string))
+  const conversations = deck.filter((c) => c.origin === 'tutor').map((c) => c.term_normalized)
+  return [...custom, ...teacher.values(), conversations]
 }
 
 /** "custom:<id>", "teacher:<id>" or "conversations:": one key per list. */
@@ -222,7 +233,7 @@ interface StudentListRow {
   id: string
   title: string
   topic: string
-  cefr_level: CefrLevel
+  cefr_level: ListLevel
   created_at: string
 }
 
@@ -239,7 +250,7 @@ interface TeacherAssignmentRow {
   } | null
 }
 
-function customSummary(list: StudentListRow, terms: string[], deck: Set<string>, practiceCount: number): WordlistSummary {
+function customSummary(list: StudentListRow, terms: string[], ctx: SrsContext, practiceCount: number): WordlistSummary {
   return {
     kind: 'custom',
     id: list.id,
@@ -247,7 +258,8 @@ function customSummary(list: StudentListRow, terms: string[], deck: Set<string>,
     cefrLevel: list.cefr_level,
     topic: list.topic,
     wordCount: terms.length,
-    inSrs: terms.filter((t) => deck.has(t)).length,
+    inSrs: terms.filter((t) => ctx.cards.has(t)).length,
+    srs: listSrs(terms, ctx),
     practiceCount,
     createdAt: list.created_at,
     teacher: null,
@@ -258,7 +270,7 @@ function customSummary(list: StudentListRow, terms: string[], deck: Set<string>,
 async function teacherSummaries(
   userId: string,
   assignments: TeacherAssignmentRow[],
-  deck: Set<string>,
+  ctx: SrsContext,
   practiced: Map<string, number>,
 ): Promise<WordlistSummary[]> {
   const rows = assignments.filter((a) => a.vocab_lists)
@@ -285,7 +297,8 @@ async function teacherSummaries(
       cefrLevel: l.cefr_level,
       topic: null,
       wordCount: terms.length,
-      inSrs: terms.filter((t) => deck.has(t)).length,
+      inSrs: terms.filter((t) => ctx.cards.has(t)).length,
+      srs: listSrs(terms, ctx),
       practiceCount: practiced.get(listKey({ kind: 'teacher', id: l.id })) ?? 0,
       createdAt: a.assigned_at,
       teacher: {
@@ -299,7 +312,7 @@ async function teacherSummaries(
   return summaries
 }
 
-function conversationsSummary(tutorCards: { created_at: string }[], practiceCount: number): WordlistSummary {
+function conversationsSummary(tutorCards: SrsCardRow[], ctx: SrsContext, practiceCount: number): WordlistSummary {
   return {
     kind: 'conversations',
     id: null,
@@ -308,6 +321,10 @@ function conversationsSummary(tutorCards: { created_at: string }[], practiceCoun
     topic: null,
     wordCount: tutorCards.length,
     inSrs: tutorCards.length,
+    srs: listSrs(
+      tutorCards.map((c) => c.term_normalized),
+      ctx,
+    ),
     practiceCount,
     createdAt: tutorCards[0]?.created_at ?? new Date(0).toISOString(),
     teacher: null,
@@ -317,9 +334,10 @@ function conversationsSummary(tutorCards: { created_at: string }[], practiceCoun
 const TEACHER_ASSIGNMENT_COLUMNS = 'list_id, assigned_at, completed_at, vocab_lists(id, teacher_id, title, description, cefr_level)'
 
 /** GET wordlists: custom lists (newest first), teacher lists, then the conversations list. */
-export async function loadWordlists(userId: string): Promise<WordlistsResponse> {
-  const [deck, custom, assigned, level, compiled, practiced] = await Promise.all([
-    deckTerms(userId),
+export async function loadWordlists(userId: string, now = new Date()): Promise<WordlistsResponse> {
+  const [deck, startedToday, custom, assigned, level, compiled, practiced] = await Promise.all([
+    loadDeck(userId),
+    cardsStartedToday(userId, now),
     supabaseAdmin
       .from('vocab_student_lists')
       .select('id, title, topic, cefr_level, created_at, vocab_student_list_items(vocab_items(term_normalized))')
@@ -337,27 +355,26 @@ export async function loadWordlists(userId: string): Promise<WordlistsResponse> 
   if (custom.error) throw custom.error
   if (assigned.error) throw assigned.error
 
-  const deckSet = new Set(deck.map((c) => c.term_normalized))
+  const ctx: SrsContext = { cards: new Map(deck.map((c) => [c.term_normalized, c])), startedToday, now }
   const customRows = (custom.data ?? []) as unknown as (StudentListRow & {
     vocab_student_list_items: { vocab_items: { term_normalized: string } | null }[]
   })[]
-  const customTerms = customRows.map((l) => l.vocab_student_list_items.flatMap((i) => (i.vocab_items ? [i.vocab_items.term_normalized] : [])))
-  const customLists = customRows.map((l, i) =>
-    customSummary(l, customTerms[i], deckSet, practiced.get(listKey({ kind: 'custom', id: l.id })) ?? 0),
+  const customLists = customRows.map((l) =>
+    customSummary(
+      l,
+      l.vocab_student_list_items.flatMap((i) => (i.vocab_items ? [i.vocab_items.term_normalized] : [])),
+      ctx,
+      practiced.get(listKey({ kind: 'custom', id: l.id })) ?? 0,
+    ),
   )
-  const teacherLists = await teacherSummaries(userId, (assigned.data ?? []) as unknown as TeacherAssignmentRow[], deckSet, practiced)
+  const teacherLists = await teacherSummaries(userId, (assigned.data ?? []) as unknown as TeacherAssignmentRow[], ctx, practiced)
   const tutorCards = deck.filter((c) => c.origin === 'tutor')
-  const conversations = conversationsSummary(tutorCards, practiced.get(listKey({ kind: 'conversations', id: null })) ?? 0)
-
-  // Teacher-list words get cards on assignment (design §5.1) and conversation words are
-  // cards, so only custom-list words can be outside spaced repetition.
-  const notInSrs = new Set(customTerms.flat().filter((t) => !deckSet.has(t))).size
+  const conversations = conversationsSummary(tutorCards, ctx, practiced.get(listKey({ kind: 'conversations', id: null })) ?? 0)
 
   return {
     lists: [...customLists, ...teacherLists, ...(tutorCards.length > 0 ? [conversations] : [])],
     learnerLevel: level,
     compiledToday: compiled,
-    notInSrs,
   }
 }
 
@@ -388,7 +405,7 @@ async function withCards(userId: string, items: ItemRow[]): Promise<ListWordRow[
       vocab_items: i,
       context_original: card?.context_original ?? null,
       context_corrected: card?.context_corrected ?? null,
-      card: card ? toWordCard(card) : null,
+      card: card ?? null,
     }
   })
 }
@@ -405,12 +422,20 @@ async function customListItems(listId: string): Promise<ItemRow[]> {
 }
 
 /** A list's summary and its words (with their cards), after checking the caller may see it. */
-export async function loadListWords(userId: string, ref: WordlistRef): Promise<{ summary: WordlistSummary; rows: ListWordRow[] }> {
+export async function loadListWords(
+  userId: string,
+  ref: WordlistRef,
+  now = new Date(),
+): Promise<{ summary: WordlistSummary; rows: ListWordRow[]; ctx: SrsContext }> {
   if (ref.kind === 'custom') {
-    const [list, practiceCount] = await Promise.all([loadOwnList(userId, ref.id!), practiceCountFor(userId, ref)])
+    const [list, practiceCount, startedToday] = await Promise.all([
+      loadOwnList(userId, ref.id!),
+      practiceCountFor(userId, ref),
+      cardsStartedToday(userId, now),
+    ])
     const rows = await withCards(userId, await customListItems(list.id))
-    const deck = new Set(rows.filter((r) => r.card).map((r) => r.term_normalized))
-    return { summary: customSummary(list, rows.map((r) => r.term_normalized), deck, practiceCount), rows }
+    const ctx = rowsContext(rows, startedToday, now)
+    return { summary: customSummary(list, rows.map((r) => r.term_normalized), ctx, practiceCount), rows, ctx }
   }
 
   if (ref.kind === 'teacher') {
@@ -431,11 +456,11 @@ export async function loadListWords(userId: string, ref: WordlistRef): Promise<{
       .order('item_id')
     if (itemsError) throw itemsError
     const items = ((data ?? []) as unknown as { vocab_items: ItemRow | null }[]).flatMap((r) => (r.vocab_items ? [r.vocab_items] : []))
-    const rows = await withCards(userId, items)
-    const deck = new Set(rows.filter((r) => r.card).map((r) => r.term_normalized))
+    const [rows, startedToday] = await Promise.all([withCards(userId, items), cardsStartedToday(userId, now)])
+    const ctx = rowsContext(rows, startedToday, now)
     const practiced = new Map([[listKey(ref), await practiceCountFor(userId, ref)]])
-    const [summary] = await teacherSummaries(userId, [assignment as unknown as TeacherAssignmentRow], deck, practiced)
-    return { summary, rows }
+    const [summary] = await teacherSummaries(userId, [assignment as unknown as TeacherAssignmentRow], ctx, practiced)
+    return { summary, rows, ctx }
   }
 
   // Conversations: the Tutor Bot cards themselves, newest first.
@@ -457,9 +482,10 @@ export async function loadListWords(userId: string, ref: WordlistRef): Promise<{
       vocab_items: c.vocab_items!,
       context_original: c.context_original,
       context_corrected: c.context_corrected,
-      card: toWordCard(c),
+      card: c as CardRow,
     }))
-  return { summary: conversationsSummary(cards, await practiceCountFor(userId, ref)), rows }
+  const ctx = rowsContext(rows, await cardsStartedToday(userId, now), now)
+  return { summary: conversationsSummary(cards, ctx, await practiceCountFor(userId, ref)), rows, ctx }
 }
 
 export async function loadWordlistDetail(userId: string, ref: WordlistRef): Promise<WordlistDetail> {
@@ -475,18 +501,8 @@ function topicForPrompt(topic: string): string {
 
 /** The caller's most recent terms, from their deck and their own lists. */
 async function termsToAvoid(userId: string): Promise<Set<string>> {
-  const [deck, lists] = await Promise.all([
-    deckTerms(userId),
-    supabaseAdmin
-      .from('vocab_student_lists')
-      .select('vocab_student_list_items(vocab_items(term_normalized))')
-      .eq('user_id', userId),
-  ])
-  if (lists.error) throw lists.error
-  const listTerms = ((lists.data ?? []) as unknown as {
-    vocab_student_list_items: { vocab_items: { term_normalized: string } | null }[]
-  }[]).flatMap((l) => l.vocab_student_list_items.flatMap((i) => (i.vocab_items ? [i.vocab_items.term_normalized] : [])))
-  return new Set([...listTerms, ...deck.map((c) => c.term_normalized)])
+  const [deck, lists] = await Promise.all([loadDeck(userId), customListTerms(userId)])
+  return new Set([...lists.flat(), ...deck.map((c) => c.term_normalized)])
 }
 
 interface PickedWords {
@@ -516,11 +532,17 @@ async function pickFromBank(topic: string, level: CefrLevel, count: number, avoi
 }
 
 /** Up to `count` model-picked terms (one call, logged as 'vocab_generate'). Never throws. */
-async function pickFromModel(userId: string, topic: string, level: CefrLevel, count: number, avoid: Set<string>): Promise<string[]> {
+async function pickFromModel(
+  userId: string,
+  topic: string,
+  levels: CefrLevel[],
+  count: number,
+  avoid: Set<string>,
+): Promise<string[]> {
   const modelId = await getModelForFeature('vocabulary')
   const { systemPrompt, messages } = buildVocabWordPickPrompt(
     topicForPrompt(topic),
-    level,
+    levels,
     count + PICK_SLACK,
     [...avoid].slice(0, AVOID_TERMS_MAX),
   )
@@ -532,32 +554,48 @@ async function pickFromModel(userId: string, topic: string, level: CefrLevel, co
       .filter((t) => !avoid.has(normalizeTerm(t)))
       .slice(0, count)
   } catch (err) {
-    console.error('Vocab word pick failed', { topic, level, error: err })
+    console.error('Vocab word pick failed', { topic, levels, error: err })
     return []
   }
 }
 
+/** `count` split as evenly as possible over the levels; the extra words go to random levels. */
+function splitCount(count: number, levels: CefrLevel[]): Map<CefrLevel, number> {
+  const extra = [...levels].sort(() => Math.random() - 0.5).slice(0, count % levels.length)
+  return new Map(levels.map((l) => [l, Math.floor(count / levels.length) + (extra.includes(l) ? 1 : 0)]))
+}
+
 /**
- * The words for a new or regenerated list (§7.2): word-bank terms first, then the model
- * fills whatever the bank can't (thin topics, C1/C2, custom topics). Checks the daily
- * limit first. Terms are enriched through the shared cache and returned as global item
- * ids, bank words first. Bank words create 'catalog' items, model words 'student' ones —
- * the origin only labels cache rows created now (decision 9).
+ * The words for a new list, or for adding to one (§7.2): word-bank terms first, then the
+ * model fills whatever the bank can't (thin topics, C1/C2, custom topics). A mixed list
+ * spreads them over the learner's level and its neighbours. Checks the daily limit first.
+ * Terms are enriched through the shared cache and returned as global item ids, bank words
+ * first. Bank words create 'catalog' items, model words 'student' ones — the origin only
+ * labels cache rows created now (decision 9).
  */
-async function pickWords(userId: string, topic: string, level: CefrLevel, count: number): Promise<PickedWords> {
+async function pickWords(userId: string, topic: string, level: ListLevel, count: number): Promise<PickedWords> {
   if ((await compilesToday(userId)) >= COMPILES_PER_DAY) {
-    throw new VocabApiError(429, `At most ${COMPILES_PER_DAY} new word lists per day`)
+    throw new VocabApiError(429, `At most ${COMPILES_PER_DAY} word-list compiles per day`)
   }
 
+  const levels = level === MIXED_LEVEL ? mixedLevels(await learnerLevel(userId)) : [level]
   const avoid = await termsToAvoid(userId)
-  const bank = await pickFromBank(topic, level, count, avoid)
-  for (const t of bank) avoid.add(normalizeTerm(t))
-  const ai = bank.length < count ? await pickFromModel(userId, topic, level, count - bank.length, avoid) : []
+  const bankByLevel = new Map<CefrLevel, string[]>()
+  for (const [l, n] of splitCount(count, levels)) {
+    const terms = await pickFromBank(topic, l, n, avoid)
+    for (const t of terms) avoid.add(normalizeTerm(t))
+    bankByLevel.set(l, terms)
+  }
+  const bank = [...bankByLevel.values()].flat()
+  const ai = bank.length < count ? await pickFromModel(userId, topic, levels, count - bank.length, avoid) : []
   if (bank.length + ai.length === 0) throw new VocabApiError(502, "Couldn't pick words for this topic; please try again")
 
   // Never throws on model failure: terms that fail stay 'pending' and are filled in when practised.
-  if (bank.length > 0) await enrichTerms(bank, { userId, origin: 'catalog', cefrHint: level })
-  if (ai.length > 0) await enrichTerms(ai, { userId, origin: 'student', cefrHint: level })
+  for (const [l, terms] of bankByLevel) {
+    if (terms.length > 0) await enrichTerms(terms, { userId, origin: 'catalog', cefrHint: l })
+  }
+  // A mixed list's model words get no hint: enrichment guesses each one's level.
+  if (ai.length > 0) await enrichTerms(ai, { userId, origin: 'student', cefrHint: levels.length === 1 ? levels[0] : undefined })
   const itemIds = await ensureItems([
     ...bank.map((term) => ({ term, origin: 'catalog' as const })),
     ...ai.map((term) => ({ term, origin: 'student' as const })),
@@ -594,6 +632,24 @@ async function insertListItems(listId: string, itemIds: string[], firstPosition:
   if (error) throw error
 }
 
+/** Adds items to the end of a custom list, skipping any it already has. */
+async function appendListItems(listId: string, existing: ItemRow[], itemIds: string[]): Promise<void> {
+  const have = new Set(existing.map((i) => i.id))
+  const { data: last, error } = await supabaseAdmin
+    .from('vocab_student_list_items')
+    .select('position')
+    .eq('list_id', listId)
+    .order('position', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  await insertListItems(
+    listId,
+    itemIds.filter((id) => !have.has(id)),
+    ((last?.position as number | undefined) ?? -1) + 1,
+  )
+}
+
 async function touchList(listId: string): Promise<void> {
   const { error } = await supabaseAdmin.from('vocab_student_lists').update({ updated_at: new Date().toISOString() }).eq('id', listId)
   if (error) throw error
@@ -614,17 +670,18 @@ export async function compileWordlist(userId: string, input: CompileInput): Prom
   return loadWordlistDetail(userId, { kind: 'custom', id: list.id as string })
 }
 
-/** POST wordlist-regenerate: a fresh set of words (same topic, level and size) replaces the list's words. */
-export async function regenerateWordlist(userId: string, listId: string): Promise<WordlistDetail> {
+/**
+ * POST wordlist-more&id= { count }: more words for the list's topic and level, added to the
+ * end (words it already has are never picked). Counts as a compile.
+ */
+export async function addBankWords(userId: string, listId: string, count: number): Promise<WordlistDetail> {
   const list = await loadOwnList(userId, listId)
-  const current = await customListItems(listId)
-  const count = Math.min(COMPILE_MAX_WORDS, Math.max(COMPILE_MIN_WORDS, current.length || COMPILE_MAX_WORDS))
-  // The current words are in the avoid set too (they're list terms), so the set is fresh.
-  const picked = await pickWords(userId, list.topic, list.cefr_level, count)
+  const items = await customListItems(listId)
+  const room = STUDENT_LIST_MAX_ITEMS - items.length
+  if (room <= 0) throw new VocabApiError(400, `At most ${STUDENT_LIST_MAX_ITEMS} words per list`)
 
-  const { error } = await supabaseAdmin.from('vocab_student_list_items').delete().eq('list_id', listId)
-  if (error) throw error
-  await insertListItems(listId, picked.itemIds, 0)
+  const picked = await pickWords(userId, list.topic, list.cefr_level, Math.min(count, room))
+  await appendListItems(listId, items, picked.itemIds)
   await recordCompile(userId, listId, picked)
   await touchList(listId)
   return loadWordlistDetail(userId, { kind: 'custom', id: listId })
@@ -651,31 +708,34 @@ export async function deleteWordlist(userId: string, listId: string): Promise<vo
   if (!data || data.length === 0) throw notFound()
 }
 
-/** POST wordlist-word: adds a typed word (enriched through the cache) to the end of the list. */
-export async function addWordToList(userId: string, listId: string, term: string): Promise<WordlistDetail> {
+/**
+ * POST wordlist-word: adds typed words (enriched through the cache, in one batch) to the
+ * end of the list. Terms the list already has are skipped; 409 when that is all of them.
+ */
+export async function addWordsToList(userId: string, listId: string, terms: string[]): Promise<AddWordsResult> {
   const list = await loadOwnList(userId, listId)
   const items = await customListItems(listId)
-  const termNormalized = normalizeTerm(term)
-  if (items.some((i) => i.term_normalized === termNormalized)) throw new VocabApiError(409, 'Already in the list')
-  if (items.length >= STUDENT_LIST_MAX_ITEMS) {
+  const have = new Set(items.map((i) => i.term_normalized))
+  const added: string[] = []
+  const alreadyInList: string[] = []
+  for (const term of terms) {
+    const key = normalizeTerm(term)
+    if (have.has(key)) alreadyInList.push(term)
+    else {
+      have.add(key)
+      added.push(term)
+    }
+  }
+  if (added.length === 0) throw new VocabApiError(409, 'Already in the list')
+  if (items.length + added.length > STUDENT_LIST_MAX_ITEMS) {
     throw new VocabApiError(400, `At most ${STUDENT_LIST_MAX_ITEMS} words per list`)
   }
 
-  await enrichTerms([term], { userId, origin: 'student', cefrHint: list.cefr_level })
-  const [itemId] = await ensureItems([{ term, origin: 'student' }])
-  if (!itemId) throw new Error(`No item for "${term}"`)
-
-  const { data: last, error } = await supabaseAdmin
-    .from('vocab_student_list_items')
-    .select('position')
-    .eq('list_id', listId)
-    .order('position', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (error) throw error
-  await insertListItems(listId, [itemId], ((last?.position as number | undefined) ?? -1) + 1)
+  await enrichTerms(added, { userId, origin: 'student', cefrHint: list.cefr_level === MIXED_LEVEL ? undefined : list.cefr_level })
+  const itemIds = await ensureItems(added.map((term) => ({ term, origin: 'student' as const })))
+  await appendListItems(listId, items, itemIds)
   await touchList(listId)
-  return loadWordlistDetail(userId, { kind: 'custom', id: listId })
+  return { added, alreadyInList, detail: await loadWordlistDetail(userId, { kind: 'custom', id: listId }) }
 }
 
 /** DELETE wordlist-word: takes a word off the list; its card, if any, stays. */
@@ -697,10 +757,14 @@ export async function removeWordFromList(userId: string, listId: string, itemId:
  * POST wordlist-srs: cards (origin 'student', FSRS New, due now) for the list's words the
  * student has no card for yet. Existing cards — any origin, paused or not — are left as
  * they are, like Tutor Bot words (§4.3). Teacher lists join automatically on assignment
- * and conversation words already are cards, so only custom lists take this.
+ * and conversation words already are cards, so only custom lists take this. A list needs
+ * SRS_MIN_WORDS words: its review session draws the meaning exercise's options from it.
  */
 export async function addListToSrs(userId: string, listId: string): Promise<AddToSrsResult> {
   const { rows } = await loadListWords(userId, { kind: 'custom', id: listId })
+  if (rows.length < SRS_MIN_WORDS) {
+    throw new VocabApiError(400, `A list needs at least ${SRS_MIN_WORDS} words for spaced repetition`)
+  }
   const missing = rows.filter((r) => !r.card)
   const now = new Date()
 
