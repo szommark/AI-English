@@ -7,8 +7,14 @@ export const ENRICH_BATCH_SIZE = 15
 export const LIST_MAX_ITEMS = 100
 export const REQUEST_RETENTION = 0.9
 export const FAST_ANSWER_MS = 4000
+/** Per list: each list has its own review session (design §7). */
 export const NEW_CARDS_PER_DAY = 10
 export const MAX_REVIEWS_PER_SESSION = 40
+/**
+ * A list needs this many words for spaced repetition: its meaning exercise draws the
+ * wrong options from the list itself, so 3 words give 3 options.
+ */
+export const SRS_MIN_WORDS = 3
 export const MAX_TUTOR_ITEMS_PER_SESSION = 5
 export const MASTERED_STABILITY_DAYS = 21
 export const TUTOR_TARGET_WORDS = 4
@@ -195,7 +201,10 @@ export interface VocabStudentListProgress extends VocabListProgress {
 export const PRACTICE_EXERCISES = ['recognition', 'recall', 'context', 'listening'] as const
 export type PracticeExercise = (typeof PRACTICE_EXERCISES)[number]
 
-/** Wrong options shown next to the right meaning in a recognition exercise. */
+/**
+ * Wrong options shown next to the right meaning in a recognition exercise; fewer when a
+ * list is shorter (a 3-word list gives 2).
+ */
 export const RECOGNITION_DISTRACTORS = 3
 
 /** What an exercise needs to show a word (design §7). */
@@ -249,20 +258,30 @@ export interface ReviewResult {
   completedLists: string[]
 }
 
-/** GET /api/vocab?action=overview — also feeds the landing tile's badge. */
-export interface VocabOverview {
+/**
+ * One list's words in spaced repetition (design §7): every list has its own pipeline and
+ * review session. A word on two lists has one card, so its progress shows on both.
+ */
+export interface ListSrs {
   /** Reviews due now. */
   dueCount: number
-  /** New cards the student can still start today (NEW_CARDS_PER_DAY minus today's). */
+  /** New cards this list's session can still start today (NEW_CARDS_PER_DAY minus today's). */
   newAvailable: number
-  totalCards: number
-  learnedCards: number
   /** Earliest future due date among non-new cards, when nothing is due now. */
   nextDue: string | null
-  /** Cards per stage of the pipeline; paused cards are counted apart from the other three. */
+  /** Cards per stage of the pipeline; paused cards are counted apart from the others. */
   stages: Record<CardStage, number> & { paused: number }
   /** Cards in rotation (not paused, not mastered) per exercise they are at (ladder step). */
   exercises: Record<PracticeExercise, number>
+}
+
+/**
+ * GET /api/vocab?action=overview — the landing tile's badge: words that can be practised
+ * now over every list with a review session, each word counted once.
+ */
+export interface VocabOverview {
+  dueCount: number
+  newAvailable: number
 }
 
 // --- Tutor Bot words (Phase 4, design §5.2) ------------------------------------------------
@@ -327,11 +346,25 @@ export function isVocabTopicId(topic: string): topic is VocabTopicId {
 
 export const COMPILE_MIN_WORDS = 1
 export const COMPILE_MAX_WORDS = 10
-/** New or regenerated lists per student per UTC day (each costs model calls). */
+/** New lists, and word-bank additions to a list, per student per UTC day (each can cost model calls). */
 export const COMPILES_PER_DAY = 5
 export const CUSTOM_TOPIC_MAX_LENGTH = 60
-/** Words a student list can grow to by adding typed words. */
+/** Words a student list can grow to by adding words. */
 export const STUDENT_LIST_MAX_ITEMS = LIST_MAX_ITEMS
+/** Typed words added to a list in one go. */
+export const ADD_WORDS_MAX = 20
+
+/** A compiled list's level: one CEFR level, or a mix around the learner's level. */
+export const MIXED_LEVEL = 'mixed'
+export type ListLevel = CefrLevel | typeof MIXED_LEVEL
+
+const CEFR_ORDER: readonly CefrLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
+
+/** A mixed list's levels: the learner's level and its neighbours (B1 → A2, B1, B2). */
+export function mixedLevels(learnerLevel: CefrLevel): CefrLevel[] {
+  const i = CEFR_ORDER.indexOf(learnerLevel)
+  return CEFR_ORDER.slice(Math.max(0, i - 1), i + 2)
+}
 
 /** custom = made by the student; conversations = the Tutor Bot words (a virtual list). */
 export type WordlistKind = 'custom' | 'teacher' | 'conversations'
@@ -345,12 +378,14 @@ export interface WordlistRef {
 /** One entry of GET /api/vocab?action=wordlists. */
 export interface WordlistSummary extends WordlistRef {
   title: string
-  cefrLevel: CefrLevel | null
+  cefrLevel: ListLevel | null
   /** Custom lists: a VOCAB_TOPICS id or the student's own topic. */
   topic: string | null
   wordCount: number
   /** Words of the list that are in spaced repetition (paused ones included). */
   inSrs: number
+  /** This list's spaced-repetition pipeline; a session needs SRS_MIN_WORDS words. */
+  srs: ListSrs
   /** Fast practice runs started on this list. */
   practiceCount: number
   createdAt: string
@@ -367,10 +402,13 @@ export interface WordlistsResponse {
   lists: WordlistSummary[]
   /** Default level for compiling a list. */
   learnerLevel: CefrLevel
-  /** Lists compiled or regenerated today, out of COMPILES_PER_DAY. */
+  /** Lists compiled, or word-bank additions, today, out of COMPILES_PER_DAY. */
   compiledToday: number
-  /** Distinct words across the lists that have no card: the start of the pipeline. */
-  notInSrs: number
+}
+
+/** A list can have a review session: enough words, and at least one of them in spaced repetition. */
+export function hasSrsSession(list: Pick<WordlistSummary, 'wordCount' | 'inSrs'>): boolean {
+  return list.wordCount >= SRS_MIN_WORDS && list.inSrs > 0
 }
 
 /** A word's spaced-repetition card, if it has one. */
@@ -386,6 +424,7 @@ export interface WordCard {
 export interface WordlistWord {
   itemId: string
   term: string
+  cefrLevel: CefrLevel | null
   meaningHu: string | null
   exampleEn: string | null
   /** Tutor Bot words: what the learner said, and the better version. */
@@ -403,9 +442,17 @@ export interface WordlistDetail {
 /** Body of POST /api/vocab?action=wordlist-compile. */
 export interface CompileInput {
   topic: string
-  cefrLevel: CefrLevel
+  cefrLevel: ListLevel
   count: number
   title: string
+}
+
+/** POST /api/vocab?action=wordlist-word { terms }: typed words added to a custom list. */
+export interface AddWordsResult {
+  added: string[]
+  /** Typed terms the list already had; skipped. */
+  alreadyInList: string[]
+  detail: WordlistDetail
 }
 
 /** POST /api/vocab?action=wordlist-srs: the list's words added to spaced repetition. */

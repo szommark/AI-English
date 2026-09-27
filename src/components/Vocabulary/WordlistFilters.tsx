@@ -1,6 +1,6 @@
 import { useLanguage, type MessageKey } from '../../lib/i18n'
 import { GRAMMAR_LEVELS as CEFR_LEVELS, type CefrLevel } from '../../data/grammarCurriculum'
-import type { WordlistKind, WordlistSummary } from '../../lib/vocab'
+import { MIXED_LEVEL, type WordlistKind, type WordlistSummary } from '../../lib/vocab'
 import { useTopicLabel } from './wordlistLabels'
 
 // The list filters shared by the Fast practice and My wordlists tabs (design §7.1–§7.2):
@@ -20,7 +20,7 @@ const MAX_TOPIC_OPTIONS = 10
 
 export interface WordlistFilter {
   source: typeof ALL | WordlistKind
-  /** MIXED: lists without a level (conversations, some teacher lists). */
+  /** MIXED: mixed-level lists, and lists without a level (conversations, some teacher lists). */
   level: typeof ALL | typeof MIXED | CefrLevel
   /** A VOCAB_TOPICS id or a student's own topic; MIXED: lists without one (all but custom). */
   topic: string
@@ -52,8 +52,10 @@ const COMPARE: Record<ListSort, (a: WordlistSummary, b: WordlistSummary) => numb
 
 const matchesSource = (list: WordlistSummary, source: WordlistFilter['source']) => source === ALL || list.kind === source
 
+const isMixedLevel = (list: WordlistSummary) => list.cefrLevel === null || list.cefrLevel === MIXED_LEVEL
+
 function matchesLevel(list: WordlistSummary, level: WordlistFilter['level']): boolean {
-  return level === ALL || (level === MIXED ? list.cefrLevel === null : list.cefrLevel === level)
+  return level === ALL || (level === MIXED ? isMixedLevel(list) : list.cefrLevel === level)
 }
 
 function matchesTopic(list: WordlistSummary, topic: string): boolean {
@@ -95,7 +97,7 @@ export default function WordlistFilters({
 
   // The chosen value stays on offer even once its last list is gone, so the select never goes blank.
   const levels = CEFR_LEVELS.filter((level) => filter.level === level || lists.some((l) => l.cefrLevel === level))
-  const hasMixedLevel = filter.level === MIXED || lists.some((l) => l.cefrLevel === null)
+  const hasMixedLevel = filter.level === MIXED || lists.some(isMixedLevel)
 
   const lastUsed = new Map<string, string>()
   for (const l of lists) {

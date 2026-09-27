@@ -1,6 +1,7 @@
 import { request } from './vocabListsApi'
 import type {
   AddToSrsResult,
+  AddWordsResult,
   CompileInput,
   DrillAnswerInput,
   DrillRun,
@@ -20,8 +21,9 @@ export function fetchVocabOverview(): Promise<VocabOverview> {
   return request('action=overview')
 }
 
-export function fetchPracticeSession(): Promise<PracticeSession> {
-  return request('action=session')
+/** One list's review session: its due words, then its new words for today. */
+export function fetchPracticeSession(ref: WordlistRef): Promise<PracticeSession> {
+  return request(`action=session&${refQuery(ref)}`)
 }
 
 export function submitReview(input: ReviewInput): Promise<ReviewResult> {
@@ -45,21 +47,23 @@ export async function reviewCardAgain(cardId: string): Promise<void> {
 // --- My wordlists (design §7.2) ------------------------------------------------------------
 
 const listId = (id: string) => encodeURIComponent(id)
+const refQuery = (ref: WordlistRef) => `kind=${ref.kind}${ref.id ? `&id=${listId(ref.id)}` : ''}`
 
 export function fetchWordlists(): Promise<WordlistsResponse> {
   return request('action=wordlists')
 }
 
 export function fetchWordlist(ref: WordlistRef): Promise<WordlistDetail> {
-  return request(`action=wordlist&kind=${ref.kind}${ref.id ? `&id=${listId(ref.id)}` : ''}`)
+  return request(`action=wordlist&${refQuery(ref)}`)
 }
 
 export function compileWordlist(input: CompileInput): Promise<WordlistDetail> {
   return request('action=wordlist-compile', { method: 'POST', body: input })
 }
 
-export function regenerateWordlist(id: string): Promise<WordlistDetail> {
-  return request(`action=wordlist-regenerate&id=${listId(id)}`, { method: 'POST' })
+/** More words for the list's topic and level, added to the end. Counts as a compile. */
+export function addBankWords(id: string, count: number): Promise<WordlistDetail> {
+  return request(`action=wordlist-more&id=${listId(id)}`, { method: 'POST', body: { count } })
 }
 
 export function renameWordlist(id: string, title: string): Promise<WordlistDetail> {
@@ -70,8 +74,8 @@ export async function deleteWordlist(id: string): Promise<void> {
   await request(`action=wordlist&id=${listId(id)}`, { method: 'DELETE' })
 }
 
-export function addWordToList(id: string, term: string): Promise<WordlistDetail> {
-  return request(`action=wordlist-word&id=${listId(id)}`, { method: 'POST', body: { term } })
+export function addWordsToList(id: string, terms: string[]): Promise<AddWordsResult> {
+  return request(`action=wordlist-word&id=${listId(id)}`, { method: 'POST', body: { terms } })
 }
 
 export function removeWordFromList(id: string, itemId: string): Promise<WordlistDetail> {

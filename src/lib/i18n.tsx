@@ -641,9 +641,9 @@ const messages = {
     de: 'Brauchst du einen Hinweis oder einen zweiten Versuch, wächst die Pause weniger.',
   },
   vcSrsHowSession: {
-    hu: 'Egy ismétlés az esedékes szavakat hozza (egyszerre legfeljebb {max}-et), plusz naponta legfeljebb {newPerDay} új szót.',
-    en: 'A review session brings the words that are due (up to {max} at a time), plus up to {newPerDay} new words a day.',
-    de: 'Eine Wiederholung bringt die fälligen Wörter (höchstens {max} auf einmal) und bis zu {newPerDay} neue Wörter pro Tag.',
+    hu: 'Minden listának saját ismétlése van: a lista esedékes szavait hozza (egyszerre legfeljebb {max}-et), plusz naponta legfeljebb {newPerDay} új szót a listáról. A jelentés-feladat válaszlehetőségei is a listából jönnek, ezért kell legalább {min} szó a listán.',
+    en: "Each list has its own review session: the list's words that are due (up to {max} at a time), plus up to {newPerDay} new words from it a day. The meaning exercise takes its options from the list too, so a list needs at least {min} words.",
+    de: 'Jede Liste hat ihre eigene Wiederholung: die fälligen Wörter der Liste (höchstens {max} auf einmal) und bis zu {newPerDay} neue Wörter daraus pro Tag. Auch die Antwortmöglichkeiten der Bedeutungsübung kommen aus der Liste, deshalb braucht eine Liste mindestens {min} Wörter.',
   },
   vcSrsHowStages: { hu: 'A szakaszok:', en: 'The stages:', de: 'Die Stufen:' },
   vcSrsStageNotInSrs: {
@@ -668,9 +668,9 @@ const messages = {
     de: 'die nächste Pause wäre ein Jahr oder länger (etwa 6 Wiederholungen, wenn du immer richtig antwortest, mit Fehlern mehr), deshalb kommt es nicht mehr. In seiner Liste holst du es mit „Wieder üben“ zurück.',
   },
   vcSrsHowSources: {
-    hu: 'A tanári listák és a beszélgetések szavai maguktól bekerülnek, a saját listáidat a Szólistáim fülön adhatod hozzá. A szüneteltetett szavak nem jönnek elő, és a Gyors gyakorlás nem változtat az ütemezésen.',
-    en: "Words from your teacher's lists and from conversations are added automatically. You add your own lists from My wordlists. Paused words don't come up, and Fast practice doesn't change this schedule.",
-    de: 'Wörter aus den Listen deiner Lehrkraft und aus Gesprächen kommen automatisch dazu; eigene Listen fügst du unter Meine Wortlisten hinzu. Pausierte Wörter kommen nicht, und die Schnellübung ändert diesen Plan nicht.',
+    hu: 'A tanári listák és a beszélgetések szavai maguktól bekerülnek, a saját listáidat a Szólistáim fülön adhatod hozzá. Ha egy szó több listán is szerepel, egy ütemezése van: bármelyik listában gyakorlod, mindkettőben előrelép. A szüneteltetett szavak nem jönnek elő, és a Gyors gyakorlás nem változtat az ütemezésen.',
+    en: "Words from your teacher's lists and from conversations are added automatically. You add your own lists from My wordlists. A word on more than one list has one schedule, so practising it in either list counts for both. Paused words don't come up, and Fast practice doesn't change this schedule.",
+    de: 'Wörter aus den Listen deiner Lehrkraft und aus Gesprächen kommen automatisch dazu; eigene Listen fügst du unter Meine Wortlisten hinzu. Steht ein Wort auf mehreren Listen, hat es einen gemeinsamen Plan: Übst du es in einer Liste, zählt das für alle. Pausierte Wörter kommen nicht, und die Schnellübung ändert diesen Plan nicht.',
   },
   vcNextRepNow: {
     hu: 'Következő ismétlés: most ({n} esedékes)',
@@ -700,12 +700,6 @@ const messages = {
     en: '{n} word(s) added to spaced repetition.',
     de: '{n} Wort/Wörter zur Wiederholung hinzugefügt.',
   },
-  vcRegenerate: { hu: 'Új szavak', en: 'New set of words', de: 'Neue Wörter' },
-  vcConfirmRegenerate: {
-    hu: 'Lecseréljük a lista szavait egy új sorozatra? Ez egy új listának számít a mai keretből (mára még {n} maradt, napi {max}). Az ismétlésben lévő szavak ott maradnak.',
-    en: "Replace this list's words with a new set? It counts as one of today's new lists ({n} of {max} left). Words already in spaced repetition stay there.",
-    de: 'Die Wörter dieser Liste durch neue ersetzen? Das zählt als eine der heutigen neuen Listen (noch {n} von {max}). Wörter in der Wiederholung bleiben dort.',
-  },
   vcRename: { hu: 'Átnevezés', en: 'Rename', de: 'Umbenennen' },
   vcDeleteList: { hu: 'Lista törlése', en: 'Delete list', de: 'Liste löschen' },
   vcConfirmDeleteList: {
@@ -729,18 +723,51 @@ const messages = {
     en: 'There are no words on this list.',
     de: 'Auf dieser Liste sind keine Wörter.',
   },
-  vcAddWordPlaceholder: {
-    hu: 'Új szó vagy kifejezés angolul…',
-    en: 'Add a word or phrase in English…',
-    de: 'Wort oder Ausdruck auf Englisch hinzufügen…',
-  },
   vcAddWord: { hu: 'Hozzáadás', en: 'Add', de: 'Hinzufügen' },
-  vcWordExists: {
-    hu: '„{term}” már szerepel a listán.',
-    en: '"{term}" is already on the list.',
-    de: '„{term}“ steht schon auf der Liste.',
-  },
   vcClose: { hu: 'Bezárás', en: 'Close', de: 'Schließen' },
+
+  // Vocabulary: spaced repetition per list, mixed-level lists, adding words to a list
+  vcLevelMixed: { hu: 'Vegyes', en: 'Mixed', de: 'Gemischt' },
+  vcLevelMixedOption: { hu: 'Vegyes szint ({levels})', en: 'Mixed level ({levels})', de: 'Gemischtes Niveau ({levels})' },
+  vcListSrsTitle: { hu: 'Ismétlés', en: 'Spaced repetition', de: 'Wiederholung' },
+  vcSrsListsHint: {
+    hu: 'Minden listának saját ismétlése van: a szavak listánként jönnek elő, nem keverve.',
+    en: 'Each list has its own review: words come up list by list, never mixed.',
+    de: 'Jede Liste hat ihre eigene Wiederholung: Die Wörter kommen Liste für Liste, nie gemischt.',
+  },
+  vcStartListReview: { hu: 'Ismétlés indítása', en: 'Start spaced repetition', de: 'Wiederholung starten' },
+  vcOpenList: { hu: 'Lista megnyitása', en: 'Open list', de: 'Liste öffnen' },
+  vcSrsMinWords: {
+    hu: 'Az ismétléshez legalább {n} szó kell a listán.',
+    en: 'A list needs at least {n} words for spaced repetition.',
+    de: 'Für die Wiederholung braucht eine Liste mindestens {n} Wörter.',
+  },
+  vcAddWords: { hu: 'Szavak hozzáadása', en: 'Add words', de: 'Wörter hinzufügen' },
+  vcAddTypedTitle: { hu: 'Saját szavak', en: 'Type your own', de: 'Eigene Wörter' },
+  vcAddWordsPlaceholder: {
+    hu: 'Angol szavak vagy kifejezések, vesszővel vagy új sorban elválasztva…',
+    en: 'English words or phrases, separated by commas or new lines…',
+    de: 'Englische Wörter oder Ausdrücke, durch Kommas oder Zeilenumbrüche getrennt…',
+  },
+  vcAddFromBankTitle: { hu: 'Még több szó a témához', en: 'More words for this topic', de: 'Mehr Wörter zum Thema' },
+  vcAddFromBankHint: {
+    hu: 'A lista témájához és szintjéhez válogatva, olyan szó nélkül, ami már megvan. Egy összeállításnak számít a mai keretből (még {n} maradt, napi {max}).',
+    en: "Picked for the list's topic and level, never a word you already have. Counts as one of today's compiles ({n} of {max} left).",
+    de: 'Passend zu Thema und Niveau der Liste, nie ein Wort, das du schon hast. Zählt als eine der heutigen Zusammenstellungen (noch {n} von {max}).',
+  },
+  vcAddFromBankButton: { hu: '{n} szó hozzáadása', en: 'Add {n} word(s)', de: '{n} Wort/Wörter hinzufügen' },
+  vcWordsAdded: { hu: '{n} szó felkerült a listára.', en: '{n} word(s) added to the list.', de: '{n} Wort/Wörter zur Liste hinzugefügt.' },
+  vcWordsSkipped: { hu: 'Már a listán volt: {terms}', en: 'Already on the list: {terms}', de: 'Stand schon auf der Liste: {terms}' },
+  vcAllWordsExist: {
+    hu: 'Ezek a szavak már mind a listán vannak.',
+    en: 'These words are all on the list already.',
+    de: 'Diese Wörter stehen alle schon auf der Liste.',
+  },
+  vcTooManyWords: {
+    hu: 'Egyszerre legfeljebb {n} szót adhatsz hozzá.',
+    en: 'You can add at most {n} words at a time.',
+    de: 'Du kannst höchstens {n} Wörter auf einmal hinzufügen.',
+  },
   vcWordBankCredit: {
     hu: 'A szólisták a CEFR-J Wordlist 1.5 (összeállította: Tono Jukio, Tokiói Idegennyelvi Egyetem) és az Octanove Vocabulary Profile C1/C2 szavaiból válogatnak.',
     en: 'Word lists draw on the CEFR-J Wordlist Version 1.5 (compiled by Yukio Tono, Tokyo University of Foreign Studies) and the Octanove Vocabulary Profile C1/C2.',

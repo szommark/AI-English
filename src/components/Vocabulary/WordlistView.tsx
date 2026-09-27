@@ -2,20 +2,30 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useLanguage } from '../../lib/i18n'
 import { VocabRequestError } from '../../lib/vocabListsApi'
 import {
+  addBankWords,
   addListToSrs,
-  addWordToList,
+  addWordsToList,
   deleteWordlist,
   fetchWordlist,
-  regenerateWordlist,
   removeCard,
   removeWordFromList,
   renameWordlist,
   reviewCardAgain,
   setCardSuspended,
 } from '../../lib/vocabPracticeApi'
-import { COMPILES_PER_DAY, LIST_TITLE_MAX_LENGTH, TERM_MAX_LENGTH, type WordlistDetail, type WordlistRef, type WordlistWord } from '../../lib/vocab'
+import {
+  COMPILES_PER_DAY,
+  LIST_TITLE_MAX_LENGTH,
+  SRS_MIN_WORDS,
+  type WordlistDetail,
+  type WordlistRef,
+  type WordlistSummary,
+  type WordlistWord,
+} from '../../lib/vocab'
 import ListProgress from '../VocabLists/ListProgress'
-import { CardBadge, KindBadge, useListTitle, useTopicLabel } from './wordlistLabels'
+import AddWordsPanel from './AddWordsPanel'
+import ListSrsPanel from './ListSrsPanel'
+import { CardBadge, KindBadge, LevelBadge, useListTitle, useTopicLabel } from './wordlistLabels'
 
 const inputClass =
   'min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-[var(--teal-accent)] focus:outline-none'
@@ -25,24 +35,29 @@ const actionButton =
   'rounded-lg border border-border bg-card px-4 py-2.5 text-sm text-foreground hover:bg-secondary disabled:opacity-40'
 
 /**
- * One list (design §7.2): its words and where each stands in spaced repetition. Custom
- * lists are fully editable; teacher and conversation words can be paused, and
- * conversation words removed.
+ * One list (design §7.2): its words, where each stands in spaced repetition, and the
+ * list's own review session. Custom lists are fully editable; teacher and conversation
+ * words can be paused, and conversation words removed.
  */
 export default function WordlistView({
   listRef,
   initial,
   compilesLeft,
+  starting,
   onBack,
   onPractise,
+  onStartReview,
   onChanged,
 }: {
   listRef: WordlistRef
   /** Already loaded (e.g. just compiled), so no fetch is needed. */
   initial: WordlistDetail | null
   compilesLeft: number
+  /** A review session is being loaded. */
+  starting: boolean
   onBack: () => void
   onPractise: (detail: WordlistDetail) => void
+  onStartReview: (list: WordlistSummary) => void
   /** Lists or cards changed: refresh the tabs' data. */
   onChanged: () => void
 }) {
@@ -55,8 +70,8 @@ export default function WordlistView({
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [renaming, setRenaming] = useState(false)
+  const [adding, setAdding] = useState(false)
   const [title, setTitle] = useState('')
-  const [newWord, setNewWord] = useState('')
 
   useEffect(() => {
     if (initial) return
@@ -69,17 +84,27 @@ export default function WordlistView({
     // Once per opened list: the parent remounts this view for another list.
   }, [])
 
-  /** Runs one edit; `apply` gets its result. Refreshes the tabs' data on success. */
-  async function run<T>(key: string, action: () => Promise<T>, apply: (result: T) => void, errorFor?: (err: unknown) => string | null) {
+  /**
+   * Runs one edit; `apply` gets its result. Refreshes the tabs' data on success.
+   * Resolves whether it succeeded.
+   */
+  async function run<T>(
+    key: string,
+    action: () => Promise<T>,
+    apply: (result: T) => void,
+    errorFor?: (err: unknown) => string | null,
+  ): Promise<boolean> {
     setBusy(key)
     setError(null)
     setNotice(null)
     try {
       apply(await action())
       onChanged()
+      return true
     } catch (err) {
       console.error('Word list action failed', { key, err })
       setError(errorFor?.(err) ?? t('vcActionFailed'))
+      return false
     } finally {
       setBusy(null)
     }
@@ -103,6 +128,7 @@ export default function WordlistView({
   const custom = list.kind === 'custom'
   const listId = list.id!
   const notInSrs = words.filter((w) => !w.card).length
+  const tooShortForSrs = words.length < SRS_MIN_WORDS
 
   function saveTitle(e: FormEvent) {
     e.preventDefault()
@@ -113,25 +139,29 @@ export default function WordlistView({
     })
   }
 
-  function addWord(e: FormEvent) {
-    e.preventDefault()
-    const term = newWord.trim()
-    if (!term) return
-    void run(
-      'add-word',
-      () => addWordToList(listId, term),
-      (d) => {
-        setDetail(d)
-        setNewWord('')
+  function addTyped(terms: string[]): Promise<boolean> {
+    return run(
+      'add-words',
+      () => addWordsToList(listId, terms),
+      (r) => {
+        setDetail(r.detail)
+        const skipped = r.alreadyInList.length > 0 ? ` ${t('vcWordsSkipped', { terms: r.alreadyInList.join(', ') })}` : ''
+        setNotice(`${t('vcWordsAdded', { n: r.added.length })}${skipped}`)
       },
-      (err) => (err instanceof VocabRequestError && err.status === 409 ? t('vcWordExists', { term }) : null),
+      (err) => (err instanceof VocabRequestError && err.status === 409 ? t('vcAllWordsExist') : null),
     )
   }
 
-  function regenerate() {
-    if (!window.confirm(t('vcConfirmRegenerate', { n: compilesLeft, max: COMPILES_PER_DAY }))) return
-    void run('regenerate', () => regenerateWordlist(listId), setDetail, (err) =>
-      err instanceof VocabRequestError && err.status === 429 ? t('vcCompileLimit', { n: COMPILES_PER_DAY }) : t('vcCompileFailed'),
+  function addFromBank(count: number) {
+    const before = words.length
+    void run(
+      'add-bank',
+      () => addBankWords(listId, count),
+      (d) => {
+        setDetail(d)
+        setNotice(t('vcWordsAdded', { n: d.words.length - before }))
+      },
+      (err) => (err instanceof VocabRequestError && err.status === 429 ? t('vcCompileLimit', { n: COMPILES_PER_DAY }) : t('vcCompileFailed')),
     )
   }
 
@@ -214,9 +244,7 @@ export default function WordlistView({
             <div className="flex flex-wrap items-start justify-between gap-2">
               <h2 className="min-w-0 break-words text-xl font-semibold text-foreground">{listTitle(list)}</h2>
               <div className="flex shrink-0 items-center gap-2">
-                {list.cefrLevel && (
-                  <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-secondary-foreground">{list.cefrLevel}</span>
-                )}
+                <LevelBadge level={list.cefrLevel} />
                 <KindBadge kind={list.kind} />
               </div>
             </div>
@@ -240,14 +268,25 @@ export default function WordlistView({
             {t('vcFastPractise')}
           </button>
           {custom && (
-            <button type="button" onClick={addToSrs} disabled={notInSrs === 0 || busy !== null} className={actionButton}>
+            <button
+              type="button"
+              onClick={addToSrs}
+              disabled={notInSrs === 0 || tooShortForSrs || busy !== null}
+              className={actionButton}
+            >
               {busy === 'srs' ? t('vcSaving') : notInSrs === 0 ? t('vcAllInSrs') : t('vcAddToSrs', { n: notInSrs })}
             </button>
           )}
           {custom && (
             <>
-              <button type="button" onClick={regenerate} disabled={compilesLeft === 0 || busy !== null} className={actionButton}>
-                {busy === 'regenerate' ? t('vcCompiling') : t('vcRegenerate')}
+              <button
+                type="button"
+                onClick={() => setAdding((a) => !a)}
+                aria-expanded={adding}
+                disabled={busy !== null}
+                className={`${actionButton} ${adding ? 'border-[var(--teal-accent)] bg-[var(--teal-accent-soft)]' : ''}`}
+              >
+                {t('vcAddWords')}
               </button>
               <button
                 type="button"
@@ -266,6 +305,7 @@ export default function WordlistView({
             </>
           )}
         </div>
+        {custom && tooShortForSrs && notInSrs > 0 && <p className="text-xs text-muted-foreground">{t('vcSrsMinWords', { n: SRS_MIN_WORDS })}</p>}
         {!custom && (
           <p className="text-xs text-muted-foreground">
             {list.kind === 'teacher' ? t('vcTeacherListSrsNote') : t('vcConversationsSrsNote')}
@@ -284,6 +324,17 @@ export default function WordlistView({
         )}
       </div>
 
+      {custom && adding && (
+        <AddWordsPanel busy={busy} compilesLeft={compilesLeft} onAddTyped={addTyped} onAddFromBank={addFromBank} />
+      )}
+
+      {list.inSrs > 0 && (
+        <div className="space-y-3 rounded-2xl border border-border bg-card p-5 sm:p-6">
+          <h3 className="text-base font-semibold text-foreground">{t('vcListSrsTitle')}</h3>
+          <ListSrsPanel list={list} starting={starting} onStart={() => onStartReview(list)} />
+        </div>
+      )}
+
       {words.length === 0 ? (
         <p className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">{t('vcListNoWords')}</p>
       ) : (
@@ -291,11 +342,14 @@ export default function WordlistView({
           {words.map((w) => (
             <li key={w.itemId} className={`space-y-1 px-4 py-3 ${w.card?.suspended ? 'opacity-60' : ''}`}>
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <span className="break-words font-medium text-foreground">{w.term}</span>
-                  <span className="text-muted-foreground">
-                    {' — '}
-                    {w.meaningHu ?? <em className="text-xs">{t('vcMeaningPending')}</em>}
+                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <LevelBadge level={w.cefrLevel} subtle />
+                  <span className="min-w-0">
+                    <span className="break-words font-medium text-foreground">{w.term}</span>
+                    <span className="text-muted-foreground">
+                      {' — '}
+                      {w.meaningHu ?? <em className="text-xs">{t('vcMeaningPending')}</em>}
+                    </span>
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -329,22 +383,6 @@ export default function WordlistView({
             </li>
           ))}
         </ul>
-      )}
-
-      {custom && (
-        <form onSubmit={addWord} className="flex flex-wrap gap-2 rounded-2xl border border-border bg-card p-4">
-          <input
-            value={newWord}
-            onChange={(e) => setNewWord(e.target.value)}
-            maxLength={TERM_MAX_LENGTH}
-            placeholder={t('vcAddWordPlaceholder')}
-            aria-label={t('vcAddWordPlaceholder')}
-            className={inputClass}
-          />
-          <button type="submit" disabled={!newWord.trim() || busy !== null} className={actionButton}>
-            {busy === 'add-word' ? t('vcSaving') : t('vcAddWord')}
-          </button>
-        </form>
       )}
     </div>
   )

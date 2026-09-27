@@ -2,13 +2,16 @@ import { useState, type FormEvent } from 'react'
 import { useLanguage } from '../../lib/i18n'
 import { VocabRequestError } from '../../lib/vocabListsApi'
 import { compileWordlist } from '../../lib/vocabPracticeApi'
-import { GRAMMAR_LEVELS as CEFR_LEVELS, type CefrLevel } from '../../data/grammarCurriculum'
+import { GRAMMAR_LEVELS as CEFR_LEVELS } from '../../data/grammarCurriculum'
 import {
   COMPILES_PER_DAY,
   COMPILE_MAX_WORDS,
   COMPILE_MIN_WORDS,
   CUSTOM_TOPIC_MAX_LENGTH,
+  MIXED_LEVEL,
   VOCAB_TOPICS,
+  mixedLevels,
+  type ListLevel,
   type WordlistDetail,
   type WordlistsResponse,
 } from '../../lib/vocab'
@@ -28,12 +31,14 @@ export default function CompileListForm({ data, onCompiled }: { data: WordlistsR
   const topicLabel = useTopicLabel()
   const [topic, setTopic] = useState<string>(VOCAB_TOPICS[0])
   const [customTopic, setCustomTopic] = useState('')
-  const [level, setLevel] = useState<CefrLevel>(data.learnerLevel)
+  const [level, setLevel] = useState<ListLevel>(data.learnerLevel)
   const [count, setCount] = useState(DEFAULT_COUNT)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const left = Math.max(0, COMPILES_PER_DAY - data.compiledToday)
+  const mixed = mixedLevels(data.learnerLevel)
+  const mixedRange = `${mixed[0]}–${mixed[mixed.length - 1]}`
   const chosenTopic = topic === OTHER_TOPIC ? customTopic.trim() : topic
   const canCompile = left > 0 && chosenTopic.length > 0 && !busy
 
@@ -43,7 +48,7 @@ export default function CompileListForm({ data, onCompiled }: { data: WordlistsR
     setBusy(true)
     setError(null)
     try {
-      const title = `${topicLabel(chosenTopic)} · ${level}`
+      const title = `${topicLabel(chosenTopic)} · ${level === MIXED_LEVEL ? t('vcLevelMixed') : level}`
       onCompiled(await compileWordlist({ topic: chosenTopic, cefrLevel: level, count, title }))
     } catch (err) {
       console.error('Failed to compile word list', err)
@@ -82,7 +87,7 @@ export default function CompileListForm({ data, onCompiled }: { data: WordlistsR
         )}
         <select
           value={level}
-          onChange={(e) => setLevel(e.target.value as CefrLevel)}
+          onChange={(e) => setLevel(e.target.value as ListLevel)}
           aria-label={t('vcCompileLevel')}
           className={fieldClass}
         >
@@ -91,6 +96,7 @@ export default function CompileListForm({ data, onCompiled }: { data: WordlistsR
               {t('vcLevelOption', { level: l })}
             </option>
           ))}
+          <option value={MIXED_LEVEL}>{t('vcLevelMixedOption', { levels: mixedRange })}</option>
         </select>
         <select value={count} onChange={(e) => setCount(Number(e.target.value))} aria-label={t('vcCompileCount')} className={fieldClass}>
           {Array.from({ length: COMPILE_MAX_WORDS - COMPILE_MIN_WORDS + 1 }, (_, i) => COMPILE_MIN_WORDS + i).map((n) => (

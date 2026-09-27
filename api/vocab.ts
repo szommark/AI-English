@@ -13,33 +13,37 @@ import {
   recordCompletions,
   refreshListCompletion,
 } from './_lib/vocabListProgress.js'
-import { ReviewError, buildSession, loadOverview, recordReview } from './_lib/vocabPractice.js'
+import { ReviewError, recordReview } from './_lib/vocabPractice.js'
+import { buildListSession, loadOverview } from './_lib/vocabListSession.js'
 import { finishDrill, recordDrillAnswer, startDrill } from './_lib/vocabDrill.js'
 import {
   VocabApiError,
+  addBankWords,
   addListToSrs,
-  addWordToList,
+  addWordsToList,
   compileWordlist,
   deleteWordlist,
   loadWordlistDetail,
   loadWordlists,
-  regenerateWordlist,
   removeWordFromList,
   renameWordlist,
 } from './_lib/vocabWordlists.js'
 import type { CefrLevel } from './_lib/prompts.js'
 import {
+  ADD_WORDS_MAX,
   COMPILE_MAX_WORDS,
   COMPILE_MIN_WORDS,
   CUSTOM_TOPIC_MAX_LENGTH,
   DRILL_MAX_WORDS,
   LIST_MAX_ITEMS,
   LIST_TITLE_MAX_LENGTH,
+  MIXED_LEVEL,
   PRACTICE_EXERCISES,
   TERM_MAX_LENGTH,
   isVocabTopicId,
   normalizeTerm,
   type CompileInput,
+  type ListLevel,
   type PracticeExercise,
   type WordlistKind,
   type WordlistRef,
@@ -70,8 +74,8 @@ import {
 // A list that doesn't exist and one that belongs to another teacher both return the same
 // 404, like handleStudentDetail in api/connect.ts.
 // Phase 3 (any signed-in user, on their own cards only):
-//   GET    overview                     due / new-today counts (also the landing tile badge)
-//   GET    session                      the cards for one practice session
+//   GET    overview                     due / new-today counts over every list (the landing tile badge)
+//   GET    session&kind=&id=            the cards for one list's review session (SRS_MIN_WORDS words, 409 otherwise)
 //   POST   review                       { cardId, exercise, correct, usedHint, responseMs }
 // Phase 4 (own cards only):
 //   POST   remove                       { cardId } — deletes a Tutor Bot / student / catalog card
@@ -85,13 +89,13 @@ import {
 //                                        (kind: custom | teacher | conversations; no id for conversations)
 //   PATCH  wordlist&id=                 rename a custom list { title }
 //   DELETE wordlist&id=                 delete a custom list — its words' cards stay
-//   POST   wordlist-compile             { topic, cefrLevel, count, title } — word-bank words, then
-//                                        model-picked ones for any gap; at most
-//                                        COMPILES_PER_DAY compiles + regenerations per UTC day (429)
-//   POST   wordlist-regenerate&id=      a fresh set of words for a custom list (counts as a compile)
-//   POST   wordlist-word&id=            { term } — add a typed word to a custom list
+//   POST   wordlist-compile             { topic, cefrLevel (a level or 'mixed'), count, title } — word-bank
+//                                        words, then model-picked ones for any gap; at most
+//                                        COMPILES_PER_DAY compiles + word-bank additions per UTC day (429)
+//   POST   wordlist-more&id=            { count } — more words for a custom list's topic and level (counts as a compile)
+//   POST   wordlist-word&id=            { terms } — add typed words to a custom list (409 if it has them all)
 //   DELETE wordlist-word&id=&itemId=    take a word off a custom list
-//   POST   wordlist-srs&id=             add a custom list's words to spaced repetition
+//   POST   wordlist-srs&id=             add a custom list's words to spaced repetition (SRS_MIN_WORDS words)
 // Fast practice (design §7.1; recorded apart from reviews, never rescheduled):
 //   POST   drill-start                  { list: { kind, id }, itemIds } — the run with every word's content
 //   POST   drill-answer                 { runId, itemId, exercise, correct, usedHint, responseMs }
@@ -607,7 +611,8 @@ async function handleOverview(req: VercelRequest, res: VercelResponse, userId: s
 
 async function handleSession(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'GET') throw new HttpError(405, { error: 'Method not allowed' })
-  res.status(200).json(await buildSession(userId))
+  const ref = wordlistRefFrom(req.query)
+  res.status(200).json(await withVocabErrors(() => buildListSession(userId, ref)))
 }
 
 /** A generous upper bound; anything longer is an abandoned tab, not a response time. */
@@ -720,14 +725,17 @@ function compileInputFrom(body: Record<string, unknown>): CompileInput {
   if (!topic || (!isVocabTopicId(topic) && topic.length > CUSTOM_TOPIC_MAX_LENGTH)) {
     throw new HttpError(400, { error: `topic must be a listed topic or 1–${CUSTOM_TOPIC_MAX_LENGTH} characters` })
   }
-  if (typeof body.cefrLevel !== 'string' || !CEFR_SET.has(body.cefrLevel)) {
+  if (typeof body.cefrLevel !== 'string' || !(CEFR_SET.has(body.cefrLevel) || body.cefrLevel === MIXED_LEVEL)) {
     throw new HttpError(400, { error: 'Invalid cefrLevel' })
   }
-  const count = body.count
+  return { topic, cefrLevel: body.cefrLevel as ListLevel, count: compileCountFrom(body.count), title: listTitleFrom(body.title) }
+}
+
+function compileCountFrom(count: unknown): number {
   if (typeof count !== 'number' || !Number.isInteger(count) || count < COMPILE_MIN_WORDS || count > COMPILE_MAX_WORDS) {
     throw new HttpError(400, { error: `count must be ${COMPILE_MIN_WORDS}–${COMPILE_MAX_WORDS}` })
   }
-  return { topic, cefrLevel: body.cefrLevel as CefrLevel, count, title: listTitleFrom(body.title) }
+  return count
 }
 
 async function handleWordlistCompile(req: VercelRequest, res: VercelResponse, userId: string) {
@@ -736,25 +744,43 @@ async function handleWordlistCompile(req: VercelRequest, res: VercelResponse, us
   res.status(200).json(await withVocabErrors(() => compileWordlist(userId, input)))
 }
 
-async function handleWordlistRegenerate(req: VercelRequest, res: VercelResponse, userId: string) {
+/** POST wordlist-more&id= { count } — more words for a custom list's topic and level. */
+async function handleWordlistMore(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
   const id = customListIdFrom(req)
-  res.status(200).json(await withVocabErrors(() => regenerateWordlist(userId, id)))
+  const count = compileCountFrom(((req.body ?? {}) as Record<string, unknown>).count)
+  res.status(200).json(await withVocabErrors(() => addBankWords(userId, id, count)))
+}
+
+/** 1–ADD_WORDS_MAX typed terms, trimmed; duplicates (after normalizing) dropped. */
+function typedTermsFrom(raw: unknown): string[] {
+  if (!Array.isArray(raw) || !raw.every((t): t is string => typeof t === 'string')) {
+    throw new HttpError(400, { error: 'terms must be an array of strings' })
+  }
+  const byKey = new Map<string, string>()
+  for (const t of raw) {
+    const term = t.trim().replace(/\s+/g, ' ')
+    const key = normalizeTerm(term)
+    if (!key || term.length > TERM_MAX_LENGTH) {
+      throw new HttpError(400, { error: `Each term must be 1–${TERM_MAX_LENGTH} characters` })
+    }
+    if (!byKey.has(key)) byKey.set(key, term)
+  }
+  if (byKey.size === 0 || byKey.size > ADD_WORDS_MAX) {
+    throw new HttpError(400, { error: `Add 1–${ADD_WORDS_MAX} terms at a time` })
+  }
+  return [...byKey.values()]
 }
 
 /**
- * POST wordlist-word&id= { term } — add a typed word to a custom list.
+ * POST wordlist-word&id= { terms } — add typed words to a custom list.
  * DELETE wordlist-word&id=&itemId= — take a word off it.
  */
 async function handleWordlistWord(req: VercelRequest, res: VercelResponse, userId: string) {
   const id = customListIdFrom(req)
   if (req.method === 'POST') {
-    const raw = ((req.body ?? {}) as Record<string, unknown>).term
-    const term = typeof raw === 'string' ? raw.trim().replace(/\s+/g, ' ') : ''
-    if (!normalizeTerm(term) || term.length > TERM_MAX_LENGTH) {
-      throw new HttpError(400, { error: `term must be 1–${TERM_MAX_LENGTH} characters` })
-    }
-    res.status(200).json(await withVocabErrors(() => addWordToList(userId, id, term)))
+    const terms = typedTermsFrom(((req.body ?? {}) as Record<string, unknown>).terms)
+    res.status(200).json(await withVocabErrors(() => addWordsToList(userId, id, terms)))
     return
   }
   if (req.method === 'DELETE') {
@@ -922,8 +948,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case 'wordlist-compile':
         await handleWordlistCompile(req, res, user.id)
         return
-      case 'wordlist-regenerate':
-        await handleWordlistRegenerate(req, res, user.id)
+      case 'wordlist-more':
+        await handleWordlistMore(req, res, user.id)
         return
       case 'wordlist-word':
         await handleWordlistWord(req, res, user.id)
