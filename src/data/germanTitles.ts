@@ -26,6 +26,15 @@ export const featureDe: Record<string, { title: string; description: string }> =
     title: 'Vokabeltrainer',
     description: 'Kurze tägliche Übungen mit Wörtern von deiner Lehrkraft und aus deinen Tutor-Bot-Gesprächen.',
   },
+  'exam-prep': {
+    title: 'Prüfungsvorbereitung',
+    description:
+      'Schriftliche Prüfungen: érettségi (Abitur) Englisch/Deutsch auf mittlerem und erhöhtem Niveau sowie Sprachprüfungen B1, B2 und C1 in Englisch/Deutsch.',
+  },
+  'live-events': {
+    title: 'Live-Online-Events',
+    description: 'Live-Online-Stunden und Gruppenveranstaltungen mit einer Lehrkraft.',
+  },
 }
 
 export const categoryDe: Record<string, string> = {

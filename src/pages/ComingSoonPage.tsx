@@ -1,5 +1,5 @@
 import { Navigate, useParams } from 'react-router-dom'
-import { Plane, Bot, BookOpen, Briefcase, Mic, Sparkles, type LucideIcon } from 'lucide-react'
+import { Plane, Bot, BookOpen, Briefcase, Mic, Languages, GraduationCap, Radio, Sparkles, type LucideIcon } from 'lucide-react'
 import { getFeature } from '../data/features'
 import type { FeatureAccent } from '../data/features'
 import { getCategory } from '../data/categories'
@@ -11,6 +11,9 @@ const icons: Record<string, LucideIcon> = {
   BookOpen,
   Briefcase,
   Mic,
+  Languages,
+  GraduationCap,
+  Radio,
   Sparkles,
 }
 
@@ -21,6 +24,8 @@ const accentClasses: Record<FeatureAccent, string> = {
   emerald: 'bg-emerald-100 text-emerald-600',
   rose: 'bg-rose-100 text-rose-600',
   teal: 'bg-[var(--teal-accent-soft)] text-[var(--teal-accent-strong)]',
+  sky: 'bg-sky-100 text-sky-600',
+  fuchsia: 'bg-fuchsia-100 text-fuchsia-600',
 }
 
 export default function ComingSoonPage() {

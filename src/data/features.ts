@@ -1,5 +1,5 @@
 export type FeatureStatus = 'active' | 'coming-soon'
-export type FeatureAccent = 'indigo' | 'violet' | 'amber' | 'emerald' | 'rose' | 'teal'
+export type FeatureAccent = 'indigo' | 'violet' | 'amber' | 'emerald' | 'rose' | 'teal' | 'sky' | 'fuchsia'
 
 export interface Feature {
   id: string
@@ -79,6 +79,28 @@ export const features: Feature[] = [
     accent: 'teal',
     status: 'active',
     route: '/vocabulary',
+  },
+  {
+    id: 'exam-prep',
+    title: 'Exam Prep',
+    titleHu: 'Érettségi és nyelvvizsga',
+    description: 'Written papers: intermediate and advanced English/German érettségi, and B1, B2 and C1 English/German language exams.',
+    descriptionHu: 'Írásbeli feladatsorok: közép- és emelt szintű angol/német érettségi, valamint B1, B2 és C1 szintű angol/német nyelvvizsga.',
+    icon: 'GraduationCap',
+    accent: 'sky',
+    status: 'active',
+    route: '/exams',
+  },
+  {
+    id: 'live-events',
+    title: 'Live Online Events',
+    titleHu: 'Élő online események',
+    description: 'Live online sessions and group events with a teacher.',
+    descriptionHu: 'Élő online foglalkozások és közös programok tanárral.',
+    icon: 'Radio',
+    accent: 'fuchsia',
+    status: 'coming-soon',
+    route: '/coming-soon/live-events',
   },
 ]
 
