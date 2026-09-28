@@ -33,6 +33,18 @@ export function setAccentPreference(accent: AccentPreference): void {
   window.localStorage.setItem(ACCENT_PREFERENCE_KEY, accent)
 }
 
+/**
+ * The drill funnel's production stage always assesses in American English, whatever the
+ * learner's preference: Azure Pronunciation Assessment only returns phoneme names, syllables,
+ * NBest phonemes and prosody for en-US, and its en-GB overall score uses a different formula
+ * (no prosody), so GB and US production scores wouldn't be comparable.
+ */
+export const PRODUCTION_ASSESSMENT_ACCENT: AccentPreference = 'us'
+export const PRODUCTION_ASSESSMENT_LOCALE = 'en-US' as const
+
+/** Shown next to the (temporarily locked) accent toggle while the production stage is active. */
+export const PRODUCTION_ACCENT_NOTE_HU = 'A kiejtésellenőrzés amerikai angol kiejtést vár el.'
+
 export function accentToLangTag(accent: AccentPreference): 'en-US' | 'en-GB' {
   return accent === 'us' ? 'en-US' : 'en-GB'
 }

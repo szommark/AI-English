@@ -1,17 +1,17 @@
 import DeepCheckPanel from '../DeepCheckPanel'
 import type { PronunciationCheckResult } from '../../lib/types'
+import { PRODUCTION_ASSESSMENT_LOCALE } from '../../lib/voiceSelection'
 
+/** Always assessed in en-US, whatever the learner's accent preference — see PRODUCTION_ASSESSMENT_ACCENT. */
 export default function ProductionStage({
   soundItemId,
   sentence,
-  locale,
   done,
   onResult,
   onContinue,
 }: {
   soundItemId: string
   sentence: string
-  locale: 'en-US' | 'en-GB'
   done: boolean
   onResult: (result: PronunciationCheckResult) => void
   onContinue: () => void
@@ -23,7 +23,12 @@ export default function ProductionStage({
         {sentence}
       </p>
 
-      <DeepCheckPanel scenarioId={soundItemId} targetSentence={sentence} locale={locale} onResult={onResult} />
+      <DeepCheckPanel
+        scenarioId={soundItemId}
+        targetSentence={sentence}
+        locale={PRODUCTION_ASSESSMENT_LOCALE}
+        onResult={onResult}
+      />
 
       {done && (
         <button onClick={onContinue} className="rounded-lg bg-rose-600 text-white text-sm font-medium px-4 py-2 hover:bg-rose-700">

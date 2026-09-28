@@ -76,6 +76,8 @@ The choice drives two things together, not just one — they have to move in loc
 - **Scoring:** `speechRecognitionLanguage` is set to `en-US` or `en-GB` accordingly before the Azure call.
 - **Playback:** the TTS voice used for stages 1–3 (via `useSpeechSynthesis`/`voiceSelection.ts`) must match the same accent — hearing an American voice model a word and then getting scored against British norms in stage 4 would be actively confusing.
 
+**Update (production stage is always US):** the production stage (stage 4) now always assesses in `en-US` and replays its model sentence in a US voice, whatever the preference; the page's accent toggle shows US, locked, while that stage is on screen, and the saved preference is left untouched. Azure Pronunciation Assessment only returns phoneme names, syllables, NBest phonemes and prosody for `en-US`, and its `en-GB` overall score uses a different formula (no prosody), so GB production scores were both thinner and not comparable with US ones. Stages 1–3 still follow the preference. See `PRODUCTION_ASSESSMENT_ACCENT` in `voiceSelection.ts`.
+
 **Curriculum impact for the MVP's 6 items:** minimal, since th, w/v, æ/e, schwa, word stress, and weak forms don't meaningfully differ between US and UK for a Hungarian learner — the toggle mostly just changes which Azure recognition locale and which TTS voice get used. The one item where content itself would need to branch by accent is **English R** (rhotic in US, non-rhotic in UK) — already deferred to the phase-2 curriculum, so no MVP content needs to be authored twice. Default: British English, matching the thesis's own sourcing, switchable anytime.
 
 ## Azure budget handling
