@@ -3,7 +3,13 @@ import { Link, useParams } from 'react-router-dom'
 import { Volume2 } from 'lucide-react'
 import { getPhoneme } from '../data/phonemes'
 import { getSoundItem } from '../data/pronunciationCurriculum'
-import { getAccentPreference, setAccentPreference, type AccentPreference } from '../lib/voiceSelection'
+import {
+  getAccentPreference,
+  setAccentPreference,
+  PRODUCTION_ACCENT_NOTE_HU,
+  PRODUCTION_ASSESSMENT_ACCENT,
+  type AccentPreference,
+} from '../lib/voiceSelection'
 import { fetchPronunciationProgress, type PronunciationProgressEntry } from '../lib/pronunciationProgressApi'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import AccentToggle from '../components/AccentToggle'
@@ -22,7 +28,11 @@ export default function PhonemeDetailPage() {
   const [completed, setCompleted] = useState(false)
   const [swipeResult, setSwipeResult] = useState<{ score: number; total: number } | null>(null)
   const [attemptKey, setAttemptKey] = useState(0)
-  const synth = useSpeechSynthesis('female', accent)
+  // True while the drill funnel's production stage is on screen: that stage is always assessed
+  // in American English, so the toggle shows (and locks on) US without touching the saved preference.
+  const [productionActive, setProductionActive] = useState(false)
+  const displayedAccent = productionActive ? PRODUCTION_ASSESSMENT_ACCENT : accent
+  const synth = useSpeechSynthesis('female', displayedAccent)
 
   useEffect(() => {
     if (!soundItem) return
@@ -71,7 +81,14 @@ export default function PhonemeDetailPage() {
       <PageHeading
         title={`/${phoneme.ipaSymbol}/`}
         subtitle={phoneme.hungarianNoteHu}
-        actions={<AccentToggle accent={accent} onChange={handleAccentChange} />}
+        actions={
+          <div className="flex flex-col items-end gap-1">
+            <AccentToggle accent={displayedAccent} onChange={handleAccentChange} disabled={productionActive} />
+            {productionActive && (
+              <p className="max-w-[16rem] text-right text-xs text-muted-foreground">{PRODUCTION_ACCENT_NOTE_HU}</p>
+            )}
+          </div>
+        }
       />
 
       <div className="space-y-6">
@@ -144,6 +161,7 @@ export default function PhonemeDetailPage() {
             accent={accent}
             hasPriorAttempt={Boolean(progress?.attempts)}
             onItemComplete={handleItemComplete}
+            onProductionActiveChange={setProductionActive}
           />
         ) : phoneme.swipeWords && phoneme.swipeWords.length > 0 ? (
           <SwipeCardExercise key={attemptKey} phoneme={phoneme} accent={accent} onComplete={handleSwipeComplete} />

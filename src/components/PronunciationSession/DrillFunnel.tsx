@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PronunciationSoundItem } from '../../data/pronunciationCurriculum'
 import type { Phoneme } from '../../data/phonemes'
-import { accentToLangTag, type AccentPreference } from '../../lib/voiceSelection'
+import { PRODUCTION_ASSESSMENT_ACCENT, type AccentPreference } from '../../lib/voiceSelection'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import { scoreDictation } from '../../lib/wordMatch'
 import { recordPronunciationAttempt } from '../../lib/pronunciationProgressApi'
@@ -68,6 +68,11 @@ function shuffleIndices(n: number): number[] {
  * score is the average of the free stages' accuracy ratios; production score comes straight from Azure's
  * overall pronunciation score. Both are recorded once, together, when production finishes —
  * see docs/pronunciation-session-brief.md.
+ *
+ * `accent` (the learner's preference) drives the free stages' audio. The production stage
+ * ignores it: it is always assessed in en-US and its model sentence plays in a US voice, because
+ * Azure only returns full phoneme/prosody detail for en-US (see PRODUCTION_ASSESSMENT_ACCENT).
+ * `onProductionActiveChange` lets the page show that switch on its accent toggle.
  */
 export default function DrillFunnel({
   soundItem,
@@ -75,6 +80,7 @@ export default function DrillFunnel({
   accent,
   hasPriorAttempt,
   onItemComplete,
+  onProductionActiveChange,
 }: {
   soundItem: PronunciationSoundItem
   /** The tile the learner came from — supplies the card deck for the warm-up stage, if it has one. */
@@ -82,13 +88,27 @@ export default function DrillFunnel({
   accent: AccentPreference
   hasPriorAttempt: boolean
   onItemComplete: () => void
+  /** Called with true when the production stage starts and false when it ends (or on unmount). */
+  onProductionActiveChange?: (active: boolean) => void
 }) {
   const hasCards = Boolean(phoneme?.swipeWords?.length)
   const firstStage: Stage = hasCards ? 'cards' : 'forced-choice'
   const [stage, setStage] = useState<Stage>(hasPriorAttempt ? 'intro' : firstStage)
   const [rate, setRate] = useState<1 | 0.75>(1)
   const synth = useSpeechSynthesis('female', accent)
-  const locale = accentToLangTag(accent)
+  // A second instance just for the production replay; both share window.speechSynthesis and
+  // each speak() cancels whatever is playing, so the two can't overlap.
+  const productionSynth = useSpeechSynthesis('female', PRODUCTION_ASSESSMENT_ACCENT)
+
+  const productionActive = stage === 'production'
+  const onProductionActiveChangeRef = useRef(onProductionActiveChange)
+  onProductionActiveChangeRef.current = onProductionActiveChange
+  useEffect(() => {
+    onProductionActiveChangeRef.current?.(productionActive)
+  }, [productionActive])
+  useEffect(() => {
+    return () => onProductionActiveChangeRef.current?.(false)
+  }, [])
 
   const [cardResults, setCardResults] = useState<RoundResult[]>([])
 
@@ -120,7 +140,10 @@ export default function DrillFunnel({
   const perceptionScoreRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
-    return () => synth.cancel()
+    return () => {
+      synth.cancel()
+      productionSynth.cancel()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -222,7 +245,7 @@ export default function DrillFunnel({
   }
 
   function replayProduction() {
-    synth.speak(productionSentence, { rate })
+    productionSynth.speak(productionSentence, { rate })
   }
 
   if (stage === 'intro') {
@@ -310,7 +333,6 @@ export default function DrillFunnel({
           <ProductionStage
             soundItemId={soundItem.id}
             sentence={productionSentence}
-            locale={locale}
             done={productionResult !== null}
             onResult={handleProductionResult}
             onContinue={() => setStage('session-summary')}
