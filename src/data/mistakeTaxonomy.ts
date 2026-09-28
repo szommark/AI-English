@@ -7,8 +7,8 @@
 // (supabase/migrations/20261002120000_mistake_events.sql) — adding, renaming or removing
 // an id here needs a migration that changes those constraints too.
 //
-// Deliberately import-free: it's read by the frontend, by api/ (Vercel) and by
-// scripts/relabel-mistake-log.ts (plain Node), which resolve imports differently.
+// Deliberately import-free: it's read by the frontend, by api/ (Vercel) and by plain-Node
+// scripts (npm run check:grammar), which resolve imports differently.
 // `lessonIds` must exist in grammarCurriculum.ts — npm run check:grammar verifies it.
 
 export interface MistakeSubtype {
@@ -283,8 +283,7 @@ export function getMistakeArea(id: string): MistakeArea | undefined {
 
 /**
  * The taxonomy as a tree for a classification prompt: one line per subtype (id, what it
- * covers, an example) under its area. Shared by the end-of-session feedback prompt and
- * scripts/relabel-mistake-log.ts so both classify against exactly the same text.
+ * covers, an example) under its area. Used by both end-of-session feedback prompts.
  */
 export function buildTaxonomyPromptBlock(): string {
   return MISTAKE_TAXONOMY.map((area) => {

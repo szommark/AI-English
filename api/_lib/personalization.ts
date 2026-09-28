@@ -95,7 +95,7 @@ async function maybeUpdateSummaryAndCefr(userId: string, modelId: ModelId) {
 
   const currentCefr = (profile?.cefr_level ?? 'B1') as CefrLevel
 
-  // Legacy (re-labelled mistake_log) rows stand for legacy_occurrences corrections each.
+  // Legacy rows (re-labelled from the retired mistake_log) stand for legacy_occurrences corrections each.
   const countsBySubtype = new Map<string, number>()
   for (const m of mistakes ?? []) {
     countsBySubtype.set(m.subtype, (countsBySubtype.get(m.subtype) ?? 0) + (m.legacy_occurrences ?? 1))
