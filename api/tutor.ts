@@ -132,15 +132,21 @@ async function handleEnd(req: VercelRequest, res: VercelResponse, userId: string
     feedback = { strengths: [], corrections: [] }
   }
 
+  let sessionId: string | null = null
   try {
-    const { error } = await supabaseAdmin.from('sessions').insert({
-      user_id: userId,
-      scenario_id: null,
-      mode: 'tutor',
-      transcript: fullTranscript,
-      feedback,
-    })
+    const { data, error } = await supabaseAdmin
+      .from('sessions')
+      .insert({
+        user_id: userId,
+        scenario_id: null,
+        mode: 'tutor',
+        transcript: fullTranscript,
+        feedback,
+      })
+      .select('id')
+      .single()
     if (error) throw error
+    sessionId = data.id
   } catch (err) {
     console.error('Failed to save tutor session', err)
   }
@@ -155,7 +161,7 @@ async function handleEnd(req: VercelRequest, res: VercelResponse, userId: string
     console.error('Failed to add tutor words to the vocabulary deck', err)
   }
 
-  await recordFeedbackToPersonalization(userId, feedback, modelId)
+  await recordFeedbackToPersonalization(userId, feedback, modelId, { id: sessionId, source: 'tutor' })
 
   res.status(200).json({ feedback, addedWords })
 }

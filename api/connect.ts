@@ -1,10 +1,18 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { getUserRole } from './_lib/roles.js'
+import {
+  loadCefrHistory,
+  loadMistakeOverview,
+  loadPronunciationProgress,
+  loadVocabularyCounts,
+  pickNextStep,
+} from './_lib/learnerProgress.js'
+import type { MyProgress } from '../src/lib/progressTypes.js'
 
 // Single Vercel function for the whole teacher–student connection surface: the
-// student side (redeem, disconnect, teachers) and the teacher side (invite-code,
-// roster, student-detail). Multiplexed by ?action= to stay under Vercel Hobby's
+// student side (redeem, disconnect, teachers, my-progress) and the teacher side
+// (invite-code, roster, student-detail). Multiplexed by ?action= to stay under Vercel Hobby's
 // 12-serverless-function cap — do not add new files directly under api/.
 // Query params rather than path segments because this project's vercel.json defines
 // custom `rewrites`, which disables Vercel's automatic filesystem-based dynamic route
@@ -321,32 +329,17 @@ async function handleStudentDetail(req: VercelRequest, res: VercelResponse, user
     return
   }
 
-  const [{ data: sessions }, { data: mistakes }, { data: vocabulary }, { data: cefrHistory }] = await Promise.all([
+  const [{ data: sessions }, mistakeAreas, vocabulary, cefrHistory] = await Promise.all([
     supabaseAdmin
       .from('sessions')
       .select('id, scenario_id, mode, feedback, created_at')
       .eq('user_id', studentId)
       .order('created_at', { ascending: false })
       .limit(50),
-    supabaseAdmin
-      .from('mistake_log')
-      .select('category, occurrences, last_seen_at')
-      .eq('user_id', studentId)
-      .order('occurrences', { ascending: false })
-      .limit(10),
-    supabaseAdmin.from('vocabulary_mastery').select('status').eq('user_id', studentId),
-    supabaseAdmin
-      .from('cefr_history')
-      .select('cefr_level, rationale, created_at')
-      .eq('user_id', studentId)
-      .order('created_at', { ascending: true }),
+    loadMistakeOverview(studentId),
+    loadVocabularyCounts(studentId),
+    loadCefrHistory(studentId),
   ])
-
-  const vocabularyCounts = { new: 0, practicing: 0, mastered: 0 }
-  for (const row of vocabulary ?? []) {
-    const status = row.status as 'new' | 'practicing' | 'mastered'
-    if (status in vocabularyCounts) vocabularyCounts[status] += 1
-  }
 
   res.status(200).json({
     sessions: (sessions ?? []).map((s) => ({
@@ -356,18 +349,61 @@ async function handleStudentDetail(req: VercelRequest, res: VercelResponse, user
       feedback: s.feedback,
       createdAt: s.created_at,
     })),
-    mistakes: (mistakes ?? []).map((m) => ({
-      category: m.category,
-      occurrences: m.occurrences,
-      lastSeenAt: m.last_seen_at,
-    })),
-    vocabulary: vocabularyCounts,
-    cefrHistory: (cefrHistory ?? []).map((c) => ({
-      cefrLevel: c.cefr_level,
-      rationale: c.rationale,
-      createdAt: c.created_at,
-    })),
+    mistakeAreas,
+    vocabulary,
+    cefrHistory,
   })
+}
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
+
+/** The signed-in learner's own "Az én fejlődésem" page: only ever their own data. */
+async function handleMyProgress(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+
+  const since = new Date(Date.now() - THIRTY_DAYS_MS).toISOString()
+  const [
+    { data: profile },
+    cefrHistory,
+    { count: totalSessions },
+    { count: recentSessions },
+    areas,
+    pronunciation,
+    vocabulary,
+    { count: teacherLinks },
+  ] = await Promise.all([
+    supabaseAdmin.from('learner_profiles').select('cefr_level').eq('user_id', userId).maybeSingle(),
+    loadCefrHistory(userId),
+    supabaseAdmin.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+    supabaseAdmin
+      .from('sessions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', since),
+    loadMistakeOverview(userId),
+    loadPronunciationProgress(userId),
+    loadVocabularyCounts(userId),
+    supabaseAdmin
+      .from('teacher_student_links')
+      .select('id', { count: 'exact', head: true })
+      .eq('student_id', userId)
+      .eq('status', 'active'),
+  ])
+
+  const currentCefr = profile?.cefr_level ?? null
+  const body: MyProgress = {
+    cefr: { current: currentCefr, history: cefrHistory },
+    sessions: { last30Days: recentSessions ?? 0, total: totalSessions ?? 0 },
+    areas,
+    nextStep: pickNextStep(areas, currentCefr),
+    pronunciation,
+    vocabulary,
+    hasTeacher: (teacherLinks ?? 0) > 0,
+  }
+  res.status(200).json(body)
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -397,6 +433,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     case 'student-detail':
       await handleStudentDetail(req, res, user.id)
+      return
+    case 'my-progress':
+      await handleMyProgress(req, res, user.id)
       return
     default:
       res.status(404).json({ error: 'Not found' })

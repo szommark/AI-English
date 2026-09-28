@@ -13,7 +13,7 @@ One CEFR level per point: A1 16, A2 21, B1 26, B2 31, C1 19, C2 10. Row order wi
 
 The first ten mirror the parent-brand Grammar Test taxonomy (tense_aspect, conditionals, modals, articles, prepositions, passive_voice, relative_clauses, comparatives, question_formation, reported_speech); the other ten are basic_structures, pronouns_determiners, nouns_quantifiers, verb_patterns, adverbs_adjectives, phrasal_verbs, linking_cohesion, emphasis_structures, auxiliary_verbs, word_formation.
 
-`mistake_log.category` is a separate 8-value DB enum (`past_tense`, `present_tense`, `prepositions`, `articles`, `word_order`, `vocabulary`, `pronunciation`, `other`). A future mapping onto `GrammarCategory`: past_tense/present_tense → `tense_aspect`, prepositions → `prepositions`, articles → `articles`, word_order → `question_formation` / `adverbs_adjectives` / `emphasis_structures`. `vocabulary`, `pronunciation` and `other` have no grammar equivalent. `getGrammarPointsByCategory` exists for that later work.
+Learner mistakes use a separate, Hungarian-L1-informed taxonomy (area → subtype) in `src/data/mistakeTaxonomy.ts`, stored per correction in `mistake_events`. It links to this curriculum by lesson id (each subtype's `lessonIds`, checked by `npm run check:grammar`) rather than by `GrammarCategory`; that link drives the "next step" card on the learner's *Az én fejlődésem* page.
 
 ## Source legend (`source`, maintainers only — never shown or sent to the LLM)
 

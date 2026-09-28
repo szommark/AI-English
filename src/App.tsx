@@ -19,6 +19,7 @@ import VoiceSettingsPage from './pages/VoiceSettingsPage'
 import ConnectTeacherPage from './pages/settings/ConnectTeacherPage'
 import TeacherDashboardPage from './pages/TeacherDashboardPage'
 import StudentProgressPage from './pages/StudentProgressPage'
+import MyProgressPage from './pages/MyProgressPage'
 import AdminOverviewPage from './pages/AdminOverviewPage'
 import AdminPersonasPage from './pages/AdminPersonasPage'
 import AdminUsagePage from './pages/AdminUsagePage'
@@ -169,6 +170,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <PhonemeDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-progress"
+        element={
+          <ProtectedRoute>
+            <MyProgressPage />
           </ProtectedRoute>
         }
       />

@@ -6,6 +6,7 @@ import {
   getGrammarPoint,
   grammarCurriculum,
 } from '../src/data/grammarCurriculum.ts'
+import { MISTAKE_TAXONOMY } from '../src/data/mistakeTaxonomy.ts'
 
 const EXPECTED: Record<string, number> = { A1: 16, A2: 21, B1: 26, B2: 31, C1: 19, C2: 10 }
 const errors: string[] = []
@@ -37,6 +38,18 @@ for (const group of grammarCurriculum) {
 
 const used = new Set(GRAMMAR_POINTS.map((p) => p.category))
 for (const c of GRAMMAR_CATEGORIES) if (!used.has(c)) fail(`category ${c} is never used`)
+
+// Every lesson a mistake subtype links to must exist (the learner's "next step" card opens it).
+const subtypeIds = new Set<string>()
+for (const area of MISTAKE_TAXONOMY) {
+  for (const subtype of area.subtypes) {
+    if (subtypeIds.has(subtype.id)) fail(`mistake taxonomy: duplicate subtype id ${subtype.id}`)
+    subtypeIds.add(subtype.id)
+    for (const lessonId of subtype.lessonIds) {
+      if (!getGrammarPoint(lessonId)) fail(`mistake taxonomy: ${subtype.id} links to unknown lesson ${lessonId}`)
+    }
+  }
+}
 
 if (errors.length) {
   console.error(errors.join('\n'))

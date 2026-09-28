@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Search, X } from 'lucide-react'
-import { grammarCurriculum, type CefrLevel, type GrammarItem } from '../../data/grammarCurriculum'
+import { getGrammarItem, grammarCurriculum, type CefrLevel, type GrammarItem } from '../../data/grammarCurriculum'
 import { highlightMatches, normalizeSearchText, searchGrammar } from '../../lib/grammarSearch'
 import { useLanguage } from '../../lib/i18n'
 
@@ -42,7 +42,10 @@ export default function GrammarRail({
   onSelectItem: (level: CefrLevel, item: GrammarItem) => void
 }) {
   const { t } = useLanguage()
-  const [expanded, setExpanded] = useState<Set<CefrLevel>>(new Set(['A1']))
+  // Opens on the level of an already-selected item (a deep-linked lesson), else A1.
+  const [expanded, setExpanded] = useState<Set<CefrLevel>>(
+    () => new Set([(selectedItemId && getGrammarItem(selectedItemId)?.level) || 'A1']),
+  )
   const [query, setQuery] = useState('')
 
   const isSearching = normalizeSearchText(query) !== ''

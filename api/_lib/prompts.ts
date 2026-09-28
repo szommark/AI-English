@@ -1,23 +1,9 @@
 import type { ChatMessage, LessonLanguage } from '../../src/lib/types.js'
 import type { GrammarItem } from '../../src/data/grammarCurriculum.js'
 import { MAX_TUTOR_ITEMS_PER_SESSION } from '../../src/lib/vocab.js'
+import { buildTaxonomyPromptBlock } from '../../src/data/mistakeTaxonomy.js'
 
 export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
-
-// Must match the `mistake_log.category` check constraint in
-// supabase/migrations/20260831120000_personalization.sql exactly.
-export const MISTAKE_CATEGORIES = [
-  'past_tense',
-  'present_tense',
-  'prepositions',
-  'articles',
-  'word_order',
-  'vocabulary',
-  'pronunciation',
-  'other',
-] as const
-
-export type MistakeCategory = (typeof MISTAKE_CATEGORIES)[number]
 
 export interface TutorPromptParams {
   /**
@@ -82,6 +68,14 @@ export interface PromptWithMessages {
 }
 
 /**
+ * The "subtype" part of both feedback prompts: one taxonomy id per correction
+ * (src/data/mistakeTaxonomy.ts). There's deliberately no pronunciation option — the model
+ * only sees a text transcript and can't judge sounds.
+ */
+const SUBTYPE_INSTRUCTIONS = `Set each correction's "subtype" to exactly one of these ids, the most specific one that fits ("other" only if none does). They are grouped by area; use the id, never the area name:
+${buildTaxonomyPromptBlock()}`
+
+/**
  * The "vocabulary" part of both feedback prompts (docs/vocabulary-builder-design.md §5.2):
  * only words the learner didn't have — never ones they already used correctly.
  */
@@ -101,8 +95,10 @@ export function buildFeedbackPrompt(scenarioTitle: string, aiRole: string, trans
     .join('\n')
 
   const systemPrompt = `You are an English teacher reviewing a Hungarian learner's roleplay practice for the scenario "${scenarioTitle}". Review the transcript below and respond with ONLY valid JSON (no markdown, no code fences) matching exactly this shape:
-{"strengths": ["...", "..."], "corrections": [{"original": "...", "corrected": "...", "note": "...", "category": "prepositions"}], "vocabulary": [{"term": "book a table", "kind": "phrase", "learnerSaid": "...", "betterVersion": "...", "reason": "lacked"}]}
-Give 2-3 strengths and 2-3 corrections. Each correction must reference an actual line the learner said, with a corrected version and a short note explaining the fix (grammar, vocabulary, or phrasing), and a "category" set to exactly one of: ${MISTAKE_CATEGORIES.join(', ')}. ${VOCABULARY_INSTRUCTIONS} Be encouraging but specific.`
+{"strengths": ["...", "..."], "corrections": [{"original": "...", "corrected": "...", "note": "...", "subtype": "prep_time_place"}], "vocabulary": [{"term": "book a table", "kind": "phrase", "learnerSaid": "...", "betterVersion": "...", "reason": "lacked"}]}
+Give 2-3 strengths and 2-3 corrections. Each correction must reference an actual line the learner said, with a corrected version and a short note explaining the fix (grammar, vocabulary, or phrasing), and a "subtype".
+${SUBTYPE_INSTRUCTIONS}
+${VOCABULARY_INSTRUCTIONS} Be encouraging but specific.`
 
   return { systemPrompt, messages: [{ role: 'user', content: transcriptText }] }
 }
@@ -117,14 +113,17 @@ export function buildTutorFeedbackPrompt(transcript: ChatMessage[]): PromptWithM
     .join('\n')
 
   const systemPrompt = `You are an English teacher reviewing a Hungarian learner's free-form conversation practice with an AI tutor. Review the transcript below and respond with ONLY valid JSON (no markdown, no code fences) matching exactly this shape:
-{"strengths": ["...", "..."], "corrections": [{"original": "...", "corrected": "...", "note": "...", "category": "prepositions"}], "vocabulary": [{"term": "book a table", "kind": "phrase", "learnerSaid": "...", "betterVersion": "...", "reason": "lacked"}]}
-Give 2-3 strengths and 2-3 corrections. Each correction must reference an actual line the learner said, with a corrected version and a short note explaining the fix (grammar, vocabulary, or phrasing), and a "category" set to exactly one of: ${MISTAKE_CATEGORIES.join(', ')}. ${VOCABULARY_INSTRUCTIONS} Be encouraging but specific.`
+{"strengths": ["...", "..."], "corrections": [{"original": "...", "corrected": "...", "note": "...", "subtype": "prep_time_place"}], "vocabulary": [{"term": "book a table", "kind": "phrase", "learnerSaid": "...", "betterVersion": "...", "reason": "lacked"}]}
+Give 2-3 strengths and 2-3 corrections. Each correction must reference an actual line the learner said, with a corrected version and a short note explaining the fix (grammar, vocabulary, or phrasing), and a "subtype".
+${SUBTYPE_INSTRUCTIONS}
+${VOCABULARY_INSTRUCTIONS} Be encouraging but specific.`
 
   return { systemPrompt, messages: [{ role: 'user', content: transcriptText }] }
 }
 
 export interface PersonalizationUpdateInput {
-  mistakes: { category: string; occurrences: number }[]
+  /** Recent mistakes by subtype, English label, most frequent first. */
+  mistakes: { label: string; occurrences: number }[]
   vocabulary: { word: string; status: string }[]
   currentCefr: CefrLevel
 }
@@ -138,13 +137,13 @@ export function buildPersonalizationUpdatePrompt(params: PersonalizationUpdateIn
   const { mistakes, vocabulary, currentCefr } = params
 
   const mistakesText =
-    mistakes.length > 0 ? mistakes.map((m) => `${m.category} (${m.occurrences}x)`).join(', ') : 'none recorded yet'
+    mistakes.length > 0 ? mistakes.map((m) => `${m.label} (${m.occurrences}x)`).join(', ') : 'none recorded yet'
   const vocabText =
     vocabulary.length > 0 ? vocabulary.map((v) => `${v.word} (${v.status})`).join(', ') : 'none recorded yet'
 
   const systemPrompt = `You are an English teacher maintaining a running profile for a Hungarian learner currently estimated at CEFR level ${currentCefr}.
 
-Recent mistake categories (most frequent first): ${mistakesText}
+Recent mistake types (most frequent first): ${mistakesText}
 Recent vocabulary seen: ${vocabText}
 
 Based on this history, respond with ONLY valid JSON (no markdown, no code fences) matching exactly this shape:

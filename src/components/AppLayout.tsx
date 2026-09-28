@@ -75,6 +75,9 @@ export default function AppLayout() {
               {user ? (
                 <>
                   <span className="text-muted-foreground">{user.email}</span>
+                  <Link to="/my-progress" className="font-medium text-primary hover:underline">
+                    {t('myProgress')}
+                  </Link>
                   {role === 'teacher' && (
                     <Link to="/teacher" className="text-muted-foreground hover:underline">
                       {t('teacherDashboard')}

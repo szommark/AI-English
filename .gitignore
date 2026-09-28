@@ -33,3 +33,6 @@ Thumbs.db
 npm-debug.log*
 yarn-error.log*
 exam-sources/
+
+# Local script output (may contain learner data)
+scripts/output/

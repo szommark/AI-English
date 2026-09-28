@@ -25,7 +25,7 @@ export async function fetchPronunciationProgress(): Promise<PronunciationProgres
 
 export async function recordPronunciationAttempt(
   soundItemId: string,
-  scores: { perceptionScore?: number; productionScore?: number; flaggedWords?: string[] },
+  scores: { perceptionScore?: number; productionScore?: number },
 ): Promise<void> {
   const headers = await authHeader()
   const res = await fetch('/api/pronunciation?action=progress', {

@@ -52,6 +52,9 @@ export interface FeedbackCorrection {
   original: string
   corrected: string
   note: string
+  /** Mistake taxonomy id (src/data/mistakeTaxonomy.ts). */
+  subtype?: string
+  /** Pre-taxonomy label; only on feedback stored before the taxonomy existed. */
   category?: string
 }
 

@@ -109,6 +109,7 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
     return finish([pronunciationRoot, { label: phoneme ? `/${phoneme.ipaSymbol}/` : m.params.phonemeId! }])
   }
 
+  if (at('/my-progress')) return finish([{ label: t('myProgress') }])
   if (at('/settings/voice')) return finish([{ label: t('voiceSettings') }])
   if (at('/settings/teacher')) return finish([{ label: t('connectTeacher') }])
 
