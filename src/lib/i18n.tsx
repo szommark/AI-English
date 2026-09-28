@@ -18,6 +18,8 @@ const messages = {
   signIn: { hu: 'Bejelentkezés', en: 'Sign in', de: 'Anmelden' },
   signOut: { hu: 'Kijelentkezés', en: 'Sign out', de: 'Abmelden' },
   voiceSettings: { hu: 'Hangbeállítások', en: 'Voice settings', de: 'Stimmeinstellungen' },
+  // The page itself is Hungarian-only (src/data/myProgressCopy.ts); this is just its header link.
+  myProgress: { hu: 'Az én fejlődésem', en: 'My progress', de: 'Mein Fortschritt' },
   connectTeacher: { hu: 'Kapcsolódás tanárhoz', en: 'Connect to teacher', de: 'Mit Lehrer verbinden' },
   teacherDashboard: { hu: 'Tanári felület', en: 'Teacher Dashboard', de: 'Lehrer-Übersicht' },
   admin: { hu: 'Admin', en: 'Admin', de: 'Admin' },

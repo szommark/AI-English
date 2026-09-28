@@ -4,6 +4,8 @@ import { fetchStudentDetail, StudentDetailAccessError, type StudentDetail } from
 import { getScenario } from '../data/scenarios'
 import FeedbackCard from '../components/FeedbackCard'
 import StudentWordListsBox from '../components/VocabLists/StudentWordListsBox'
+import MistakeAreaList, { visibleAreas } from '../components/Progress/MistakeAreaList'
+import CefrHistoryLine from '../components/Progress/CefrHistoryLine'
 
 const MODE_LABELS: Record<string, string> = {
   rehearsal: 'Rehearsal',
@@ -60,19 +62,19 @@ export default function StudentProgressPage() {
         {detail && (
           <>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
-                <h2 className="text-sm font-medium text-slate-700">Mistake categories</h2>
-                {detail.mistakes.length === 0 ? (
+              <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2 sm:col-span-2">
+                <h2 className="text-sm font-medium text-slate-700">Mistake areas</h2>
+                {visibleAreas(detail.mistakeAreas).length === 0 ? (
                   <p className="text-sm text-slate-400">No mistakes recorded yet.</p>
                 ) : (
-                  <ul className="text-sm text-slate-600 space-y-1">
-                    {detail.mistakes.map((m) => (
-                      <li key={m.category} className="flex items-center justify-between">
-                        <span>{m.category.replace(/_/g, ' ')}</span>
-                        <span className="text-slate-400">{m.occurrences}x</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <p className="text-xs text-slate-400">
+                      Frequency: in how many of the student's last {detail.mistakeAreas[0]?.windowSize ?? 0} sessions it came
+                      up, with the trend against the sessions before. "összesen" is the all-time total, including corrections
+                      from before per-session tracking.
+                    </p>
+                    <MistakeAreaList areas={detail.mistakeAreas} showTotals />
+                  </>
                 )}
               </div>
 
@@ -101,13 +103,7 @@ export default function StudentProgressPage() {
                 <p className="text-sm text-slate-400">No CEFR estimates recorded yet.</p>
               ) : (
                 <p className="text-sm text-slate-600">
-                  {detail.cefrHistory.map((c, i) => (
-                    <span key={i}>
-                      {i > 0 && ' → '}
-                      {c.cefrLevel}
-                      <span className="text-slate-400"> ({new Date(c.createdAt).toLocaleDateString()})</span>
-                    </span>
-                  ))}
+                  <CefrHistoryLine history={detail.cefrHistory} />
                 </p>
               )}
             </div>

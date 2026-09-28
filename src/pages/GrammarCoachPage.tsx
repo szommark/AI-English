@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import PageHeading from '../components/PageHeading'
 import { localizeFeature, useLanguage } from '../lib/i18n'
 import { getFeature } from '../data/features'
-import { type CefrLevel, type GrammarItem } from '../data/grammarCurriculum'
+import { getGrammarItem, type CefrLevel, type GrammarItem } from '../data/grammarCurriculum'
 import type { GrammarLesson } from '../lib/types'
 import { fetchCachedGrammarLesson, requestGrammarLesson } from '../lib/grammarCoachApi'
 import { useSegmentPlayer } from '../hooks/useSegmentPlayer'
@@ -23,7 +24,11 @@ const NARRATION_LOCALES = { hu: 'hu-HU', en: 'en-US', de: 'de-DE' } as const
 
 export default function GrammarCoachPage() {
   const { lang, t: tr } = useLanguage()
-  const [selected, setSelected] = useState<{ level: CefrLevel; item: GrammarItem } | null>(null)
+  // ?lesson=<grammar item id> (e.g. from the "next step" card on /my-progress) opens that
+  // lesson straight away; the language effect below loads it like a click would.
+  const [searchParams] = useSearchParams()
+  const [deepLinked] = useState(() => getGrammarItem(searchParams.get('lesson') ?? '') ?? null)
+  const [selected, setSelected] = useState<{ level: CefrLevel; item: GrammarItem } | null>(deepLinked)
   const [lesson, setLesson] = useState<GrammarLesson | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [theme, setTheme] = useState<BoardTheme>('green')
@@ -32,6 +37,14 @@ export default function GrammarCoachPage() {
   // a different grammar item (fast clicks, slow network, etc.).
   const selectionTokenRef = useRef(0)
   const pendingAutoPlayRef = useRef(false)
+  const boardRef = useRef<HTMLDivElement>(null)
+
+  // On a phone the rail sits above the board, so bring a deep-linked lesson into view.
+  useEffect(() => {
+    if (deepLinked && window.matchMedia('(max-width: 1023px)').matches) {
+      boardRef.current?.scrollIntoView({ block: 'start' })
+    }
+  }, [deepLinked])
 
   const narrationLang = selected && SUPPORT_LANGUAGE_LEVELS.includes(selected.level) ? NARRATION_LOCALES[lang] : 'en-US'
   const player = useSegmentPlayer(lesson?.segments ?? [], narrationLang)
@@ -112,7 +125,7 @@ export default function GrammarCoachPage() {
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <GrammarRail selectedItemId={selected?.item.id ?? null} onSelectItem={handleSelectItem} />
 
-        <div className="space-y-4 min-w-0">
+        <div ref={boardRef} className="space-y-4 min-w-0 scroll-mt-20">
           <div className="flex items-center justify-end">
             <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
               {(['green', 'black'] as const).map((option) => (

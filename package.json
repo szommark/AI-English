@@ -12,7 +12,9 @@
     "check:exams": "node scripts/check-exam-papers.ts",
     "preview": "vite preview",
     "wordbank:check": "node scripts/import-word-bank.ts --dry-run",
-    "wordbank:import": "node --env-file=.env scripts/import-word-bank.ts"
+    "wordbank:import": "node --env-file=.env scripts/import-word-bank.ts",
+    "relabel:dry-run": "node --env-file=.env scripts/relabel-mistake-log.ts",
+    "relabel:apply": "node --env-file=.env scripts/relabel-mistake-log.ts --apply"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

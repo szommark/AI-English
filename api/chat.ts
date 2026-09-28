@@ -85,20 +85,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     feedback = { strengths: [], corrections: [] }
   }
 
+  let sessionId: string | null = null
   try {
-    const { error } = await supabaseAdmin.from('sessions').insert({
-      user_id: user.id,
-      scenario_id: scenario.id,
-      mode: body.mode,
-      transcript: fullTranscript,
-      feedback,
-    })
+    const { data, error } = await supabaseAdmin
+      .from('sessions')
+      .insert({
+        user_id: user.id,
+        scenario_id: scenario.id,
+        mode: body.mode,
+        transcript: fullTranscript,
+        feedback,
+      })
+      .select('id')
+      .single()
     if (error) throw error
+    sessionId = data.id
   } catch (err) {
     console.error('Failed to save session', err)
   }
 
-  await recordFeedbackToPersonalization(user.id, feedback, modelId)
+  await recordFeedbackToPersonalization(user.id, feedback, modelId, { id: sessionId, source: 'scenario' })
 
   res.status(200).json({ reply: chatResult.content, done: true, feedback })
 }

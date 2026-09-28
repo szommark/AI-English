@@ -4,9 +4,11 @@ import { buildPersonalizationUpdatePrompt, type CefrLevel } from './prompts.js'
 import { parsePersonalizationUpdateJson } from './groq.js'
 import type { ModelId } from '../../src/lib/models.js'
 import type { FeedbackResult } from '../../src/lib/types.js'
+import { areaForSubtype, getMistakeSubtype, isValidSubtype, OTHER_SUBTYPE } from '../../src/data/mistakeTaxonomy.js'
 
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
 const SUMMARY_CADENCE = 5 // re-run the summary/CEFR call every Nth completed session
+const SUMMARY_RECENT_EVENTS = 200 // how many of the latest mistake events the summary looks at
+const SUMMARY_TOP_SUBTYPES = 10
 
 export async function getLearnerProfile(userId: string, userEmail: string | undefined) {
   const { data } = await supabaseAdmin
@@ -36,55 +38,36 @@ export async function getLearnerProfile(userId: string, userEmail: string | unde
   }
 }
 
+export type MistakeEventSource = 'scenario' | 'tutor'
+
 /**
- * Upserts one mistake_log row: bumps occurrences if the same category was already
- * logged in the last 30 days, otherwise inserts a fresh row. Shared by grammar/vocab
- * corrections (upsertMistakes below) and the Pronunciation Chart's production-stage
- * write-back (api/pronunciation.ts, ?action=progress) — same pattern, different callers.
+ * One mistake_events row per correction, in a single insert. The area is derived from the
+ * subtype here, never taken from the model. A failed insert is logged, not thrown — the
+ * caller's feedback is already computed and must still reach the learner.
  */
-export async function upsertMistakeEntry(
+async function insertMistakeEvents(
   userId: string,
-  category: string,
-  exampleOriginal: string | null,
-  exampleCorrected: string | null,
+  feedback: FeedbackResult,
+  sessionId: string | null,
+  source: MistakeEventSource,
 ) {
-  const since = new Date(Date.now() - THIRTY_DAYS_MS).toISOString()
-
-  const { data: existing } = await supabaseAdmin
-    .from('mistake_log')
-    .select('id, occurrences')
-    .eq('user_id', userId)
-    .eq('category', category)
-    .gte('last_seen_at', since)
-    .order('last_seen_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (existing) {
-    await supabaseAdmin
-      .from('mistake_log')
-      .update({
-        occurrences: existing.occurrences + 1,
-        last_seen_at: new Date().toISOString(),
-        example_original: exampleOriginal,
-        example_corrected: exampleCorrected,
-      })
-      .eq('id', existing.id)
-  } else {
-    await supabaseAdmin.from('mistake_log').insert({
+  const rows = (feedback.corrections ?? []).map((c) => {
+    const subtype = isValidSubtype(c.subtype) ? c.subtype : OTHER_SUBTYPE
+    return {
       user_id: userId,
-      category,
-      example_original: exampleOriginal,
-      example_corrected: exampleCorrected,
-      occurrences: 1,
-    })
-  }
-}
+      session_id: sessionId,
+      area: areaForSubtype(subtype),
+      subtype,
+      example_original: c.original || null,
+      example_corrected: c.corrected || null,
+      note: c.note || null,
+      source,
+    }
+  })
+  if (rows.length === 0) return
 
-async function upsertMistakes(userId: string, feedback: FeedbackResult) {
-  for (const correction of feedback.corrections ?? []) {
-    await upsertMistakeEntry(userId, correction.category ?? 'other', correction.original, correction.corrected)
-  }
+  const { error } = await supabaseAdmin.from('mistake_events').insert(rows)
+  if (error) console.error('Failed to insert mistake events', error)
 }
 
 // Vocabulary is no longer written here: vocabulary_mastery is a read-only view over
@@ -101,19 +84,29 @@ async function maybeUpdateSummaryAndCefr(userId: string, modelId: ModelId) {
 
   const [{ data: mistakes }, { data: vocab }, { data: profile }] = await Promise.all([
     supabaseAdmin
-      .from('mistake_log')
-      .select('category, occurrences')
+      .from('mistake_events')
+      .select('subtype, legacy_occurrences')
       .eq('user_id', userId)
-      .order('occurrences', { ascending: false })
-      .limit(10),
+      .order('created_at', { ascending: false })
+      .limit(SUMMARY_RECENT_EVENTS),
     supabaseAdmin.from('vocabulary_mastery').select('word, status').eq('user_id', userId).limit(30),
     supabaseAdmin.from('learner_profiles').select('cefr_level').eq('user_id', userId).maybeSingle(),
   ])
 
   const currentCefr = (profile?.cefr_level ?? 'B1') as CefrLevel
 
+  // Legacy (re-labelled mistake_log) rows stand for legacy_occurrences corrections each.
+  const countsBySubtype = new Map<string, number>()
+  for (const m of mistakes ?? []) {
+    countsBySubtype.set(m.subtype, (countsBySubtype.get(m.subtype) ?? 0) + (m.legacy_occurrences ?? 1))
+  }
+  const topMistakes = [...countsBySubtype.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, SUMMARY_TOP_SUBTYPES)
+    .map(([subtype, occurrences]) => ({ label: getMistakeSubtype(subtype)?.labelEn ?? subtype, occurrences }))
+
   const { systemPrompt, messages } = buildPersonalizationUpdatePrompt({
-    mistakes: mistakes ?? [],
+    mistakes: topMistakes,
     vocabulary: vocab ?? [],
     currentCefr,
   })
@@ -140,13 +133,19 @@ async function maybeUpdateSummaryAndCefr(userId: string, modelId: ModelId) {
 }
 
 // Call this after any successful feedback call — from both api/chat.ts's existing
-// end-of-session branch and api/tutor.ts's end action. A failure anywhere in here must never
-// surface to the learner as a broken response — callers should await this after
-// they've already computed the feedback they're about to return, so it can't delay
-// or break that response even if every write inside fails.
-export async function recordFeedbackToPersonalization(userId: string, feedback: FeedbackResult, modelId: ModelId) {
+// end-of-session branch and api/tutor.ts's end action — with the id of the sessions row
+// just inserted (null if that insert failed), so each mistake event links to its session.
+// A failure anywhere in here must never surface to the learner as a broken response —
+// callers should await this after they've already computed the feedback they're about to
+// return, so it can't delay or break that response even if every write inside fails.
+export async function recordFeedbackToPersonalization(
+  userId: string,
+  feedback: FeedbackResult,
+  modelId: ModelId,
+  session: { id: string | null; source: MistakeEventSource },
+) {
   try {
-    await upsertMistakes(userId, feedback)
+    await insertMistakeEvents(userId, feedback, session.id, session.source)
     await maybeUpdateSummaryAndCefr(userId, modelId)
   } catch (err) {
     console.error('Failed to record personalization data', err)

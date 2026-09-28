@@ -14,8 +14,8 @@ function worstScore(entry: PronunciationProgressEntry): number | null {
 
 /**
  * §7 idea 5 (spaced resurfacing), placed per §8: draws directly on pronunciation_progress's
- * existing lowest-scoring/most-attempted-and-still-wrong signal rather than waiting on
- * mistake_log to accumulate data. Curriculum-item granularity (the six funnel items), since
+ * existing lowest-scoring/most-attempted-and-still-wrong signal (pronunciation isn't part of
+ * mistake tracking, so this is its only record). Curriculum-item granularity (the six funnel items), since
  * that's what pronunciation_progress tracks — not a per-phoneme queue.
  */
 export default function ResurfaceQueue({ progress }: { progress: PronunciationProgressEntry[] }) {

@@ -7,7 +7,8 @@ import type {
   VocabularyNote,
   VocabularyReason,
 } from '../../src/lib/types.js'
-import { MISTAKE_CATEGORIES, WORD_PICK_MAX_WORDS_PER_TERM, type CefrLevel } from './prompts.js'
+import { WORD_PICK_MAX_WORDS_PER_TERM, type CefrLevel } from './prompts.js'
+import { isValidSubtype, OTHER_SUBTYPE } from '../../src/data/mistakeTaxonomy.js'
 import { recordGroqRateLimits } from './groqRateLimit.js'
 import {
   ITEM_FIELD_MAX_LENGTH,
@@ -83,7 +84,6 @@ export async function callGroq(
   throw lastError ?? new Error('Groq API request failed after retries.')
 }
 
-const MISTAKE_CATEGORY_SET = new Set<string>(MISTAKE_CATEGORIES)
 const VALID_CEFR_LEVELS = new Set<string>(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'])
 
 export function parseFeedbackJson(raw: string): FeedbackResult {
@@ -97,7 +97,8 @@ export function parseFeedbackJson(raw: string): FeedbackResult {
       original: typeof c?.original === 'string' ? c.original : '',
       corrected: typeof c?.corrected === 'string' ? c.corrected : '',
       note: typeof c?.note === 'string' ? c.note : '',
-      category: typeof c?.category === 'string' && MISTAKE_CATEGORY_SET.has(c.category) ? c.category : 'other',
+      // Anything off-taxonomy — including the pre-taxonomy "category" field — becomes "other".
+      subtype: isValidSubtype(c?.subtype) ? c.subtype : OTHER_SUBTYPE,
     })),
     vocabulary: parseVocabularyNotes(parsed.vocabulary),
   }
