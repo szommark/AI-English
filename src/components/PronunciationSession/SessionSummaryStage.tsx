@@ -1,5 +1,5 @@
 import type { PronunciationCheckResult } from '../../lib/types'
-import { overallSessionScore, perceptionScoreFromRatios, PRODUCTION_WEIGHT } from '../../lib/pronunciationScoring'
+import { overallSessionScore, PRODUCTION_WEIGHT } from '../../lib/pronunciationScoring'
 import type { RoundResult } from './StageSummary'
 
 function scoreColor(score: number): string {
@@ -8,11 +8,25 @@ function scoreColor(score: number): string {
   return 'text-red-600'
 }
 
+function SummaryRow({ label, score, detail }: { label: string; score: number | null; detail: string }) {
+  return (
+    <div className="flex items-center justify-between px-3 py-2">
+      <span className="text-slate-600">{label}</span>
+      {score === null ? (
+        <span className="text-slate-400">kihagyva</span>
+      ) : (
+        <span className={`font-semibold ${scoreColor(score)}`}>{detail}</span>
+      )}
+    </div>
+  )
+}
+
 export default function SessionSummaryStage({
   cardResults,
   fcResults,
   ooResults,
   dictationStats,
+  perceptionScore,
   productionResult,
   onFinish,
 }: {
@@ -21,21 +35,22 @@ export default function SessionSummaryStage({
   fcResults: RoundResult[]
   ooResults: RoundResult[]
   dictationStats: { matched: number; total: number; keyMatched: number; keyTotal: number }
+  /** Undefined when the learner skipped straight to production — the total is then production alone. */
+  perceptionScore: number | undefined
   productionResult: PronunciationCheckResult
   onFinish: () => void
 }) {
-  const ratio = (results: RoundResult[]) => results.filter((r) => r.correct).length / results.length
-  const cardScore = cardResults ? Math.round(ratio(cardResults) * 100) : null
-  const fcScore = Math.round(ratio(fcResults) * 100)
-  const ooScore = Math.round(ratio(ooResults) * 100)
-  const dictationScore = Math.round((dictationStats.matched / dictationStats.total) * 100)
-  const perceptionScore = perceptionScoreFromRatios([
-    ...(cardResults ? [ratio(cardResults)] : []),
-    ratio(fcResults),
-    ratio(ooResults),
-    dictationStats.matched / dictationStats.total,
-  ])
-  const overallScore = overallSessionScore(perceptionScore, productionResult.scores.pronunciation)
+  // null marks a stage the learner skipped (or left before its first answer).
+  const ratioScore = (results: RoundResult[]) =>
+    results.length > 0 ? Math.round((results.filter((r) => r.correct).length / results.length) * 100) : null
+  const tally = (results: RoundResult[]) => `${results.filter((r) => r.correct).length}/${results.length}`
+  const productionScore = productionResult.scores.pronunciation
+  const cardScore = cardResults ? ratioScore(cardResults) : null
+  const fcScore = ratioScore(fcResults)
+  const ooScore = ratioScore(ooResults)
+  const dictationScore = dictationStats.total > 0 ? Math.round((dictationStats.matched / dictationStats.total) * 100) : null
+  const overallScore =
+    perceptionScore === undefined ? Math.round(productionScore) : overallSessionScore(perceptionScore, productionScore)
 
   return (
     <div className="space-y-4">
@@ -43,43 +58,22 @@ export default function SessionSummaryStage({
         <p className={`text-4xl font-bold ${scoreColor(overallScore)}`}>{overallScore}</p>
         <p className="text-sm text-slate-500">Összesített pontszám</p>
         <p className="text-xs text-slate-400">
-          Hallásgyakorlatok {Math.round((1 - PRODUCTION_WEIGHT) * 100)}% · kiejtés {Math.round(PRODUCTION_WEIGHT * 100)}%
+          {perceptionScore === undefined
+            ? 'Csak a kiejtés alapján — a hallásgyakorlatokat kihagytad'
+            : `Hallásgyakorlatok ${Math.round((1 - PRODUCTION_WEIGHT) * 100)}% · kiejtés ${Math.round(PRODUCTION_WEIGHT * 100)}%`}
         </p>
       </div>
 
       <div className="rounded-lg bg-slate-50 border border-slate-200 divide-y divide-slate-200 text-sm">
-        {cardResults && cardScore !== null && (
-          <div className="flex items-center justify-between px-3 py-2">
-            <span className="text-slate-600">Hallod a hangot?</span>
-            <span className={`font-semibold ${scoreColor(cardScore)}`}>
-              {cardResults.filter((r) => r.correct).length}/{cardResults.length}
-            </span>
-          </div>
-        )}
-        <div className="flex items-center justify-between px-3 py-2">
-          <span className="text-slate-600">Melyik szót hallottad?</span>
-          <span className={`font-semibold ${scoreColor(fcScore)}`}>
-            {fcResults.filter((r) => r.correct).length}/{fcResults.length}
-          </span>
-        </div>
-        <div className="flex items-center justify-between px-3 py-2">
-          <span className="text-slate-600">Melyikben van a hang?</span>
-          <span className={`font-semibold ${scoreColor(ooScore)}`}>
-            {ooResults.filter((r) => r.correct).length}/{ooResults.length}
-          </span>
-        </div>
-        <div className="flex items-center justify-between px-3 py-2">
-          <span className="text-slate-600">Írd le, amit hallasz</span>
-          <span className={`font-semibold ${scoreColor(dictationScore)}`}>
-            {dictationStats.matched}/{dictationStats.total} szó · {dictationStats.keyMatched}/{dictationStats.keyTotal}
-          </span>
-        </div>
-        <div className="flex items-center justify-between px-3 py-2">
-          <span className="text-slate-600">Kiejtés (élő ellenőrzés)</span>
-          <span className={`font-semibold ${scoreColor(productionResult.scores.pronunciation)}`}>
-            {Math.round(productionResult.scores.pronunciation)}
-          </span>
-        </div>
+        {cardResults && <SummaryRow label="Hallod a hangot?" score={cardScore} detail={tally(cardResults)} />}
+        <SummaryRow label="Melyik szót hallottad?" score={fcScore} detail={tally(fcResults)} />
+        <SummaryRow label="Melyikben van a hang?" score={ooScore} detail={tally(ooResults)} />
+        <SummaryRow
+          label="Írd le, amit hallasz"
+          score={dictationScore}
+          detail={`${dictationStats.matched}/${dictationStats.total} szó · ${dictationStats.keyMatched}/${dictationStats.keyTotal}`}
+        />
+        <SummaryRow label="Kiejtés (élő ellenőrzés)" score={productionScore} detail={String(Math.round(productionScore))} />
       </div>
 
       <button onClick={onFinish} className="rounded-lg bg-rose-600 text-white text-sm font-medium px-4 py-2 hover:bg-rose-700">
