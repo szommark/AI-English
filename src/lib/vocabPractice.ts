@@ -44,16 +44,64 @@ function editDistance(a: string, b: string, max: number): number {
 export type AnswerCheck = 'exact' | 'typo' | 'wrong'
 
 /**
- * Tolerant matching for typed answers (design §7, step 2): case and punctuation don't
- * matter; one wrong, missing or extra letter is a typo (rated Hard, not Again).
+ * A term's alternatives: "big / large" (spaces around the slash optional) is two words
+ * that are both right. A term without a slash — or one like "24/7", whose sides aren't
+ * words — is its own only alternative.
  */
-export function checkTypedAnswer(expected: string, given: string): AnswerCheck {
+export function termAlternatives(term: string): string[] {
+  const parts = term
+    .split('/')
+    .map((p) => p.trim())
+    .filter(Boolean)
+  return parts.length > 1 && parts.every((p) => /\p{L}/u.test(p)) ? parts : [term]
+}
+
+/** One typed answer against one expected form. */
+function checkOne(expected: string, given: string): AnswerCheck {
   const e = normalizeAnswer(expected)
   const g = normalizeAnswer(given)
   if (!g) return 'wrong'
   if (e === g) return 'exact'
   if (e.length >= TYPO_MIN_LENGTH && editDistance(e, g, 1) === 1) return 'typo'
   return 'wrong'
+}
+
+const RANK: Record<AnswerCheck, number> = { exact: 2, typo: 1, wrong: 0 }
+
+/**
+ * Tolerant matching for typed answers (design §7, step 2): case and punctuation don't
+ * matter; one wrong, missing or extra letter is a typo (rated Hard, not Again).
+ *
+ * A term with alternatives ("big / large") accepts any one of them, or several at once
+ * separated by "," or "/" in any order ("large, big") — each must be a different
+ * alternative, and one typo among them makes the whole answer a typo.
+ */
+export function checkTypedAnswer(expected: string, given: string): AnswerCheck {
+  const alternatives = termAlternatives(expected)
+  if (alternatives.length === 1) return checkOne(expected, given)
+
+  const parts = given
+    .split(/[,/]/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+  if (parts.length === 0 || parts.length > alternatives.length) return 'wrong'
+
+  // Match each typed part to its best still-unused alternative, best matches first.
+  const unused = new Set(alternatives.map((_, i) => i))
+  let result: AnswerCheck = 'exact'
+  const scored = parts.map((part) => alternatives.map((alt) => checkOne(alt, part)))
+  const order = scored
+    .map((row, i) => ({ i, best: Math.max(...row.map((c) => RANK[c])) }))
+    .sort((a, b) => b.best - a.best)
+  for (const { i } of order) {
+    let bestAlt = -1
+    for (const a of unused) if (bestAlt === -1 || RANK[scored[i][a]] > RANK[scored[i][bestAlt]]) bestAlt = a
+    const check = scored[i][bestAlt]
+    if (check === 'wrong') return 'wrong'
+    if (check === 'typo') result = 'typo'
+    unused.delete(bestAlt)
+  }
+  return result
 }
 
 export interface GapSentence {
@@ -71,17 +119,21 @@ function escapeRegExp(s: string): string {
  * Splits an example sentence around the term, for the gap-fill exercises. Matches whole
  * words, case-insensitively, with any run of spaces between a phrase's words. Returns
  * null when the sentence doesn't contain the term as written (e.g. an inflected form),
- * in which case the session falls back to recall.
+ * in which case the session falls back to recall. A term with alternatives ("big / large")
+ * gaps whichever of them the sentence uses; only that one then fits the gap.
  */
 export function gapSentence(sentence: string | null, term: string): GapSentence | null {
   if (!sentence) return null
-  const words = term.trim().split(/\s+/).filter(Boolean).map(escapeRegExp)
-  if (words.length === 0) return null
-  const re = new RegExp(`(^|[^\\p{L}\\p{N}'])(${words.join('\\s+')})(?=$|[^\\p{L}\\p{N}'])`, 'iu')
-  const m = re.exec(sentence)
-  if (!m) return null
-  const start = m.index + m[1].length
-  return { before: sentence.slice(0, start), after: sentence.slice(start + m[2].length), answer: m[2] }
+  for (const alternative of termAlternatives(term)) {
+    const words = alternative.trim().split(/\s+/).filter(Boolean).map(escapeRegExp)
+    if (words.length === 0) continue
+    const re = new RegExp(`(^|[^\\p{L}\\p{N}'])(${words.join('\\s+')})(?=$|[^\\p{L}\\p{N}'])`, 'iu')
+    const m = re.exec(sentence)
+    if (!m) continue
+    const start = m.index + m[1].length
+    return { before: sentence.slice(0, start), after: sentence.slice(start + m[2].length), answer: m[2] }
+  }
+  return null
 }
 
 /**
@@ -176,9 +228,13 @@ export function shuffle<T>(items: readonly T[], random: () => number = Math.rand
 
 /** First letter of each word, the rest as underscores: "book a table" → "b___ a t____". */
 export function answerHint(term: string): string {
-  return term
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0] + '_'.repeat(Math.max(0, w.length - 1)))
-    .join(' ')
+  return termAlternatives(term)
+    .map((alt) =>
+      alt
+        .trim()
+        .split(/\s+/)
+        .map((w) => w[0] + '_'.repeat(Math.max(0, w.length - 1)))
+        .join(' '),
+    )
+    .join(' / ')
 }

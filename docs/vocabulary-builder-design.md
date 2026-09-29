@@ -177,7 +177,7 @@ The terms students' compiled lists draw on first (§7.2). The model fills whatev
 A card's exercise type climbs with its `ladder_step`, which advances on Good/Easy and drops one step on Again:
 
 1. **Recognition** — English term shown/spoken → pick the Hungarian meaning from up to 4 options (distractors: the meanings of other words on the same list, in review sessions and Fast practice alike; a 3-word list gives 3 options).
-2. **Recall** — Hungarian meaning → type the English term (tolerant matching: case, punctuation, one-character typo = Hard, not Again).
+2. **Recall** — Hungarian meaning → type the English term (tolerant matching: case, punctuation, one-character typo = Hard, not Again). A term with alternatives separated by "/" ("big / large", spaces optional; not "24/7", whose sides aren't words) accepts any one of them, or several at once separated by "," or "/" in any order; one typo among them makes the answer a typo. Gap-fills blank whichever alternative the sentence uses, and only that one fits. Code: `termAlternatives`, `checkTypedAnswer` in `src/lib/vocabPractice.ts`.
 3. **Context** — gap-fill in the example sentence (or the student's own `betterVersion` for tutor cards).
 4. **Listening** — hear the term in a sentence (browser TTS, existing US/GB toggle) → type it; reuse `src/lib/wordMatch.ts`.
 5. **Production** (Phase 6) — say or write your own sentence with the term; judged by one Groq call. The only exercise that costs tokens.
