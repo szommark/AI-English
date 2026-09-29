@@ -27,6 +27,9 @@ interface AzureWordResult {
 
 const PROSODY_FLAGS: ProsodyFlag[] = ['UnexpectedBreak', 'MissingBreak', 'Monotone']
 
+// How long to wait for Azure's final result after the mic is force-stopped at maxSeconds.
+const FINALIZE_GRACE_MS = 5000
+
 function extractProsodyFlags(prosody: AzureProsodyFeedback | undefined): ProsodyFlag[] | undefined {
   const raw = [...(prosody?.Break?.ErrorTypes ?? []), ...(prosody?.Intonation?.ErrorTypes ?? [])]
   const flags = raw.filter((f): f is ProsodyFlag => (PROSODY_FLAGS as string[]).includes(f))
@@ -57,15 +60,29 @@ export async function runDeepCheck(params: {
   const recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig)
   pronunciationConfig.applyTo(recognizer)
 
-  const recognized = await Promise.race<SpeechSDKTypes.SpeechRecognitionResult>([
-    new Promise<SpeechSDKTypes.SpeechRecognitionResult>((resolve, reject) => {
-      recognizer.recognizeOnceAsync(resolve, (err) => reject(new Error(err)))
-    }),
-    new Promise<SpeechSDKTypes.SpeechRecognitionResult>((_, reject) => {
-      setTimeout(() => reject(new Error('deep_check_timeout')), params.maxSeconds * 1000)
-    }),
-  ]).finally(() => {
+  // Azure normally ends the utterance itself once it hears trailing silence, but background
+  // noise can keep that from ever triggering. Hitting maxSeconds therefore doesn't discard the
+  // attempt: close() turns the mic off and flushes the final audio, and Azure then finalizes
+  // what it heard and delivers it through the same recognizeOnceAsync callback. Only if that
+  // flush also stalls do we give up.
+  let closed = false
+  const closeRecognizer = () => {
+    if (closed) return
+    closed = true
     recognizer.close()
+  }
+  const timers: ReturnType<typeof setTimeout>[] = []
+  const recognized = await new Promise<SpeechSDKTypes.SpeechRecognitionResult>((resolve, reject) => {
+    recognizer.recognizeOnceAsync(resolve, (err) => reject(new Error(err)))
+    timers.push(
+      setTimeout(() => {
+        closeRecognizer()
+        timers.push(setTimeout(() => reject(new Error('deep_check_timeout')), FINALIZE_GRACE_MS))
+      }, params.maxSeconds * 1000),
+    )
+  }).finally(() => {
+    timers.forEach(clearTimeout)
+    closeRecognizer()
   })
 
   if (recognized.reason !== SpeechSDK.ResultReason.RecognizedSpeech) {
