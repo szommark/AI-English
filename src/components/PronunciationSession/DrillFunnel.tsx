@@ -138,6 +138,8 @@ export default function DrillFunnel({
   const [productionResult, setProductionResult] = useState<PronunciationCheckResult | null>(null)
 
   const perceptionScoreRef = useRef<number | undefined>(undefined)
+  // Pending round-advance timer, cleared on skip so it can't pull the learner back out of production.
+  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => {
     return () => {
@@ -168,7 +170,7 @@ export default function DrillFunnel({
     const isCorrect = choiceIndex === fcSpokenIndex
     if (isCorrect) fcCorrectRef.current += 1
     setFcResults((r) => [...r, { word: fcPairs[fcRound].words[fcSpokenIndex], correct: isCorrect }])
-    setTimeout(() => {
+    advanceTimerRef.current = setTimeout(() => {
       if (fcRound < ROUNDS - 1) {
         setFcRound((r) => r + 1)
         setFcFeedback(null)
@@ -191,7 +193,7 @@ export default function DrillFunnel({
     const isCorrect = displayIndex === correctDisplayIndex
     if (isCorrect) ooCorrectRef.current += 1
     setOoResults((r) => [...r, { word: ooSets[ooRound].words[originalOddIndex], correct: isCorrect }])
-    setTimeout(() => {
+    advanceTimerRef.current = setTimeout(() => {
       if (ooRound < ROUNDS - 1) {
         setOoRound((r) => r + 1)
         setOoFeedback(null)
@@ -230,6 +232,14 @@ export default function DrillFunnel({
     setStage('production')
   }
 
+  // Skipping leaves perceptionScoreRef unset, so the attempt records only a production score and
+  // the summary scores production alone — a partial run of the free stages would skew perception.
+  function skipToProduction() {
+    clearTimeout(advanceTimerRef.current)
+    synth.cancel()
+    setStage('production')
+  }
+
   async function handleProductionResult(result: PronunciationCheckResult) {
     setProductionResult(result)
     try {
@@ -261,7 +271,7 @@ export default function DrillFunnel({
               Kezdés elölről
             </button>
             <button
-              onClick={() => setStage('production')}
+              onClick={skipToProduction}
               className="rounded-lg bg-rose-600 text-white text-sm font-medium px-4 py-2 hover:bg-rose-700"
             >
               Ugrás a kiejtéshez
@@ -342,6 +352,7 @@ export default function DrillFunnel({
             fcResults={fcResults}
             ooResults={ooResults}
             dictationStats={dictationStats}
+            perceptionScore={perceptionScoreRef.current}
             productionResult={productionResult}
             onFinish={onItemComplete}
           />
@@ -354,6 +365,7 @@ export default function DrillFunnel({
         rate={rate}
         onSetRate={setRate}
         onReplay={stage === 'production' ? replayProduction : undefined}
+        onSkipToProduction={stage === 'production' || stage === 'session-summary' ? undefined : skipToProduction}
       />
     </div>
   )
