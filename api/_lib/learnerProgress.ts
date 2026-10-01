@@ -3,6 +3,7 @@ import { MISTAKE_TAXONOMY, getMistakeSubtype } from '../../src/data/mistakeTaxon
 import { GRAMMAR_LEVELS, getGrammarItem, type CefrLevel } from '../../src/data/grammarCurriculum.js'
 import { getSoundItem } from '../../src/data/pronunciationCurriculum.js'
 import { getPhonemeByCurriculumId } from '../../src/data/phonemes.js'
+import { findUnitByProgressId, lessonUnitRoute } from '../../src/data/pronunciationLessons/index.js'
 import type {
   AreaOverview,
   CefrHistoryPoint,
@@ -206,9 +207,11 @@ export async function loadCefrHistory(userId: string): Promise<CefrHistoryPoint[
 }
 
 /**
- * pronunciation_progress.sound_item_id is a pronunciationCurriculum.ts item id (e.g.
- * "th-sounds"); its chart tile is the first phoneme whose curriculumId points at it (θ for
- * th-sounds, w for w-vs-v). Items with no tile (word stress, weak forms) get no route.
+ * pronunciation_progress.sound_item_id is either a pronunciationCurriculum.ts item id (e.g.
+ * "th-sounds") or a Stress Patterns / Connected Speech unit id. A curriculum item's Sound Bank
+ * tile is the first phoneme whose curriculumId points at it (θ for th-sounds, w for w-vs-v); the
+ * word-stress and weak-forms items have no tile but are units of those two sessions, so they
+ * link there.
  */
 export async function loadPronunciationProgress(userId: string): Promise<PronunciationProgressItem[]> {
   const { data } = await supabaseAdmin
@@ -219,19 +222,25 @@ export async function loadPronunciationProgress(userId: string): Promise<Pronunc
 
   return (data ?? []).flatMap((row) => {
     const item = getSoundItem(row.sound_item_id)
-    if (!item) return []
-    const phoneme = getPhonemeByCurriculumId(item.id)
+    const lesson = findUnitByProgressId(row.sound_item_id)
+    if (!item && !lesson) return []
+    const phoneme = item ? getPhonemeByCurriculumId(item.id) : undefined
+    const route = lesson
+      ? lessonUnitRoute(lesson.session.id, lesson.unit.id)
+      : phoneme
+        ? `/pronunciation/sounds/${phoneme.id}`
+        : null
     return [
       {
-        soundItemId: item.id,
-        symbol: item.ipa,
-        title: item.title,
-        titleHu: item.titleHu,
+        soundItemId: row.sound_item_id,
+        symbol: item ? item.ipa : lesson!.session.title,
+        title: item ? item.title : lesson!.unit.title,
+        titleHu: item ? item.titleHu : lesson!.unit.titleHu,
         perceptionScore: row.perception_score,
         productionScore: row.production_score,
         attempts: row.attempts,
         updatedAt: row.updated_at,
-        route: phoneme ? `/pronunciation/sounds/${phoneme.id}` : null,
+        route,
       },
     ]
   })

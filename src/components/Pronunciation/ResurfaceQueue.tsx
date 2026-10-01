@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { RotateCcw } from 'lucide-react'
 import { getPhonemeByCurriculumId } from '../../data/phonemes'
 import { getSoundItem } from '../../data/pronunciationCurriculum'
+import { findUnitByProgressId, lessonUnitRoute } from '../../data/pronunciationLessons'
 import type { PronunciationProgressEntry } from '../../lib/pronunciationProgressApi'
 
 const SCORE_THRESHOLD = 85
@@ -15,8 +16,9 @@ function worstScore(entry: PronunciationProgressEntry): number | null {
 /**
  * §7 idea 5 (spaced resurfacing), placed per §8: draws directly on pronunciation_progress's
  * existing lowest-scoring/most-attempted-and-still-wrong signal (pronunciation isn't part of
- * mistake tracking, so this is its only record). Curriculum-item granularity (the six funnel items), since
- * that's what pronunciation_progress tracks — not a per-phoneme queue.
+ * mistake tracking, so this is its only record). Curriculum-item granularity (the funnel items and the
+ * Stress Patterns / Connected Speech units), since that's what pronunciation_progress tracks — not a
+ * per-phoneme queue.
  */
 export default function ResurfaceQueue({ progress }: { progress: PronunciationProgressEntry[] }) {
   const candidates = progress
@@ -38,15 +40,25 @@ export default function ResurfaceQueue({ progress }: { progress: PronunciationPr
         {candidates.map(({ entry, worst }) => {
           const soundItem = getSoundItem(entry.soundItemId)
           const phoneme = getPhonemeByCurriculumId(entry.soundItemId)
-          if (!soundItem || !phoneme) return null
+          const lesson = findUnitByProgressId(entry.soundItemId)
+          // A Stress Patterns / Connected Speech unit (incl. the word-stress and weak-forms items,
+          // which have no Sound Bank tile) links to its unit page; a sound links to its tile.
+          const to = lesson
+            ? lessonUnitRoute(lesson.session.id, lesson.unit.id)
+            : phoneme
+              ? `/pronunciation/sounds/${phoneme.id}`
+              : null
+          const title = soundItem?.title ?? lesson?.unit.title
+          const titleHu = soundItem?.titleHu ?? lesson?.unit.titleHu
+          if (!to || !title) return null
           return (
             <Link
               key={entry.soundItemId}
-              to={`/pronunciation/sounds/${phoneme.id}`}
+              to={to}
               className="rounded-xl border border-rose-200 bg-rose-50 p-4 hover:border-rose-300 hover:shadow-[var(--shadow-card)] transition-all"
             >
-              <p className="font-semibold text-rose-900">{soundItem.title}</p>
-              <p className="text-xs text-rose-500">{soundItem.titleHu}</p>
+              <p className="font-semibold text-rose-900">{title}</p>
+              <p className="text-xs text-rose-500">{titleHu}</p>
               <p className="mt-2 text-xs text-rose-600">Legjobb pontszám: {worst}</p>
             </Link>
           )
