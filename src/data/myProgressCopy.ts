@@ -47,7 +47,7 @@ export const MY_PROGRESS_COPY = {
   pronOpen: 'Gyakorlás', // Practise (link to the sound's page)
   pronNoScore: 'még nincs', // not yet (no score)
   pronEmpty: 'Még nem gyakoroltál kiejtést.', // You haven't practised pronunciation yet.
-  pronEmptyLink: 'Kiejtési térkép megnyitása', // Open the pronunciation chart
+  pronEmptyLink: 'Kiejtés megnyitása', // Open Pronunciation
 
   // Vocabulary
   vocabHeading: 'Szókincs', // Vocabulary

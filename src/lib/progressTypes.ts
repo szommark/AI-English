@@ -64,7 +64,7 @@ export interface VocabularyCounts {
 
 export interface PronunciationProgressItem {
   soundItemId: string
-  /** The sound's IPA label from the curriculum, e.g. "θ / ð". */
+  /** The sound's IPA label from the curriculum, e.g. "θ / ð"; for a Stress Patterns / Connected Speech unit, the session name. */
   symbol: string
   title: string
   titleHu: string
@@ -72,7 +72,7 @@ export interface PronunciationProgressItem {
   productionScore: number | null
   attempts: number
   updatedAt: string
-  /** /pronunciation/sounds/:phonemeId, or null for items with no chart tile (word stress, weak forms). */
+  /** /pronunciation/sounds/:phonemeId, or a lesson session's unit page; null when neither exists. */
   route: string | null
 }
 

@@ -20,7 +20,7 @@ export const featureDe: Record<string, { title: string; description: string }> =
   },
   'pronunciation-session': {
     title: 'Aussprache-Training',
-    description: 'Eigenständiges Aussprachetraining mit detailliertem Genauigkeits-Feedback.',
+    description: 'Sound Bank, Stress Patterns und Connected Speech: Aussprachetraining mit detailliertem Genauigkeits-Feedback.',
   },
   vocabulary: {
     title: 'Vokabeltrainer',

@@ -2,6 +2,7 @@ import { matchPath } from 'react-router-dom'
 import { categories, getCategory, getCategoryForScenario } from '../data/categories'
 import { getFeature } from '../data/features'
 import { getPhoneme } from '../data/phonemes'
+import { getLessonSession, getLessonUnit } from '../data/pronunciationLessons'
 import { getScenario } from '../data/scenarios'
 import { getExamPaperMeta } from '../data/exams/catalog'
 import { examPaperLabel } from './examLabels'
@@ -14,6 +15,10 @@ export interface Crumb {
 }
 
 type T = (key: MessageKey, vars?: Record<string, string | number>) => string
+
+function sessionCrumbLabel(sessionId: string, t: T): string {
+  return sessionId === 'stress-patterns' ? t('crumbStressPatterns') : t('crumbConnectedSpeech')
+}
 
 /**
  * Single source of truth for the navigation trail shown under the "Back to home" button.
@@ -103,10 +108,24 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
   }
 
   const pronunciationRoot: Crumb = { label: t('crumbPronunciation'), to: '/pronunciation' }
+  const soundBank: Crumb = { label: t('crumbSoundBank'), to: '/pronunciation/sound-bank' }
   if (at('/pronunciation')) return finish([pronunciationRoot])
+  if (at('/pronunciation/sound-bank')) return finish([pronunciationRoot, soundBank])
   if ((m = at('/pronunciation/sounds/:phonemeId'))) {
     const phoneme = getPhoneme(m.params.phonemeId!)
-    return finish([pronunciationRoot, { label: phoneme ? `/${phoneme.ipaSymbol}/` : m.params.phonemeId! }])
+    return finish([pronunciationRoot, soundBank, { label: phoneme ? `/${phoneme.ipaSymbol}/` : m.params.phonemeId! }])
+  }
+  if ((m = at('/pronunciation/:sessionId')) && getLessonSession(m.params.sessionId!)) {
+    return finish([pronunciationRoot, { label: sessionCrumbLabel(m.params.sessionId!, t) }])
+  }
+  if ((m = at('/pronunciation/:sessionId/:unitId')) && getLessonSession(m.params.sessionId!)) {
+    const sessionId = m.params.sessionId!
+    const unit = getLessonUnit(m.params.unitId!)?.unit
+    return finish([
+      pronunciationRoot,
+      { label: sessionCrumbLabel(sessionId, t), to: `/pronunciation/${sessionId}` },
+      { label: unit ? unit.title : m.params.unitId! },
+    ])
   }
 
   if (at('/my-progress')) return finish([{ label: t('myProgress') }])

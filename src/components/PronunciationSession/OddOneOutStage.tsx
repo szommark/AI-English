@@ -8,17 +8,22 @@ export default function OddOneOutStage({
   feedback,
   onPlay,
   onAnswer,
+  promptHu,
+  answerLabelHu = 'Ebben van',
 }: {
   roundNumber: number
   totalRounds: number
   feedback: { chosenIndex: 0 | 1 | 2; oddIndex: 0 | 1 | 2 } | null
   onPlay: (index: 0 | 1 | 2) => void
   onAnswer: (index: 0 | 1 | 2) => void
+  /** Replaces the default "which one has the sound" prompt (used by the Stress Patterns session). */
+  promptHu?: string
+  answerLabelHu?: string
 }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-500">
-        Hallgasd meg mindhármat, és válaszd ki, melyikben van benne az adott hang ({roundNumber}/{totalRounds})
+        {promptHu ?? 'Hallgasd meg mindhármat, és válaszd ki, melyikben van benne az adott hang'} ({roundNumber}/{totalRounds})
       </p>
       <div className="grid grid-cols-3 gap-3">
         {CARD_LABELS.map((label, i) => {
@@ -49,7 +54,7 @@ export default function OddOneOutStage({
                 disabled={feedback !== null}
                 className="text-xs font-medium text-rose-700 border border-rose-200 rounded-lg px-2 py-1 hover:bg-rose-50 disabled:opacity-40 disabled:cursor-default"
               >
-                Ebben van
+                {answerLabelHu}
               </button>
             </div>
           )

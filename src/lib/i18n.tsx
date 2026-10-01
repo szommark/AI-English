@@ -34,7 +34,11 @@ const messages = {
   },
 
   crumbConversational: { hu: 'Társalgási angol', en: 'Conversational English', de: 'Konversationsenglisch' },
-  crumbPronunciation: { hu: 'Kiejtési térkép', en: 'Pronunciation Chart', de: 'Ausspracheübersicht' },
+  crumbPronunciation: { hu: 'Kiejtés', en: 'Pronunciation', de: 'Aussprache' },
+  // The three Pronunciation sessions keep their English names in every language.
+  crumbSoundBank: { hu: 'Sound Bank', en: 'Sound Bank', de: 'Sound Bank' },
+  crumbStressPatterns: { hu: 'Stress Patterns', en: 'Stress Patterns', de: 'Stress Patterns' },
+  crumbConnectedSpeech: { hu: 'Connected Speech', en: 'Connected Speech', de: 'Connected Speech' },
   crumbPronunciationCentre: { hu: 'Kiejtésközpont', en: 'Pronunciation Centre', de: 'Aussprachezentrum' },
   crumbRehearsal: { hu: 'Gyakorlás', en: 'Rehearsal', de: 'Probe' },
   crumbTest: { hu: 'Teszt mód', en: 'Test mode', de: 'Testmodus' },
@@ -64,6 +68,11 @@ const messages = {
     hu: 'Válassz egy nyelvtani témát',
     en: 'Pick a grammar topic',
     de: 'Wähle ein Grammatikthema',
+  },
+  pronunciationHubSubtitle: {
+    hu: 'Válassz egy gyakorlatot: hangok, hangsúly vagy összefüggő beszéd',
+    en: 'Choose a session: sounds, stress or connected speech',
+    de: 'Wähle eine Einheit: Laute, Betonung oder zusammenhängendes Sprechen',
   },
   pronunciationSubtitle: {
     hu: 'Vidd az egeret egy hangra a meghallgatáshoz',

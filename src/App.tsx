@@ -14,6 +14,10 @@ import TestModePage from './pages/TestModePage'
 import TutorBotPage from './pages/TutorBotPage'
 import GrammarCoachPage from './pages/GrammarCoachPage'
 import PronunciationChartPage from './pages/PronunciationChartPage'
+import PronunciationHubPage from './pages/PronunciationHubPage'
+import LessonSessionPage from './pages/LessonSessionPage'
+import { stressPatterns } from './data/pronunciationLessons/stressPatterns'
+import { connectedSpeech } from './data/pronunciationLessons/connectedSpeech'
 import PhonemeDetailPage from './pages/PhonemeDetailPage'
 import VoiceSettingsPage from './pages/VoiceSettingsPage'
 import ConnectTeacherPage from './pages/settings/ConnectTeacherPage'
@@ -161,7 +165,47 @@ function AppRoutes() {
         path="/pronunciation"
         element={
           <ProtectedRoute>
+            <PronunciationHubPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/pronunciation/sound-bank"
+        element={
+          <ProtectedRoute>
             <PronunciationChartPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/pronunciation/stress-patterns"
+        element={
+          <ProtectedRoute>
+            <LessonSessionPage session={stressPatterns} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/pronunciation/stress-patterns/:unitId"
+        element={
+          <ProtectedRoute>
+            <LessonSessionPage session={stressPatterns} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/pronunciation/connected-speech"
+        element={
+          <ProtectedRoute>
+            <LessonSessionPage session={connectedSpeech} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/pronunciation/connected-speech/:unitId"
+        element={
+          <ProtectedRoute>
+            <LessonSessionPage session={connectedSpeech} />
           </ProtectedRoute>
         }
       />
