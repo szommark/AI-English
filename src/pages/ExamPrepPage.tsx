@@ -10,6 +10,69 @@ import { localizeFeature, useLanguage } from '../lib/i18n'
 
 const TYPE_ICON = { erettsegi: GraduationCap, nyelvvizsga: Languages } as const
 
+function PaperList({ ids }: { ids: string[] }) {
+  const { t } = useLanguage()
+  return (
+    <ul className="space-y-2">
+      {ids.map((id) => {
+        const paper = getExamPaperMeta(id)!
+        return (
+          <li key={id}>
+            <Link
+              to={`/exams/${id}`}
+              className="group flex min-h-12 items-center justify-between gap-3 rounded-xl border border-border px-4 py-2 transition-colors hover:border-sky-200 hover:bg-sky-50"
+            >
+              <span className="flex items-center gap-2 text-base text-foreground">
+                <FileText className="h-5 w-5 text-sky-600" />
+                {paper.sittingLabelHu}
+              </span>
+              <span className="inline-flex items-center gap-1 text-sm font-semibold text-sky-700">
+                {t('exStart')}
+                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </Link>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function YearGroup({ year, ids }: { year: string; ids: string[] }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="rounded-xl border border-border">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-2 text-left"
+      >
+        <span className="font-medium text-foreground">
+          {year} <span className="text-sm font-normal text-muted-foreground">({ids.length})</span>
+        </span>
+        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      <div className={`px-2 pb-2 ${open ? '' : 'hidden'}`}>
+        <PaperList ids={ids} />
+      </div>
+    </div>
+  )
+}
+
+/** Groups papers by the year at the start of their sitting label; papers without one (samples) stay ungrouped. */
+function groupByYear(ids: string[]): { year: string | null; ids: string[] }[] {
+  const groups: { year: string | null; ids: string[] }[] = []
+  for (const id of ids) {
+    const year = getExamPaperMeta(id)!.sittingLabelHu.match(/^(d{4})/)?.[1] ?? null
+    const last = groups[groups.length - 1]
+    const g = year === null ? last?.year === null && last : groups.find((x) => x.year === year)
+    if (g) g.ids.push(id)
+    else groups.push({ year, ids: [id] })
+  }
+  return groups
+}
+
 function CellCard({ cell }: { cell: ExamCell }) {
   const { t } = useLanguage()
   const level = examLevelLabel(t, cell.level)
@@ -40,28 +103,15 @@ function CellCard({ cell }: { cell: ExamCell }) {
         </h4>
         <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      <ul className={`mt-3 space-y-2 ${open ? '' : 'hidden'}`}>
-        {cell.paperIds.map((id) => {
-          const paper = getExamPaperMeta(id)!
-          return (
-            <li key={id}>
-              <Link
-                to={`/exams/${id}`}
-                className="group flex min-h-12 items-center justify-between gap-3 rounded-xl border border-border px-4 py-2 transition-colors hover:border-sky-200 hover:bg-sky-50"
-              >
-                <span className="flex items-center gap-2 text-base text-foreground">
-                  <FileText className="h-5 w-5 text-sky-600" />
-                  {paper.sittingLabelHu}
-                </span>
-                <span className="inline-flex items-center gap-1 text-sm font-semibold text-sky-700">
-                  {t('exStart')}
-                  <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                </span>
-              </Link>
-            </li>
-          )
-        })}
-      </ul>
+      <div className={`mt-3 space-y-2 ${open ? '' : 'hidden'}`}>
+        {groupByYear(cell.paperIds).map(({ year, ids }) =>
+          year === null ? (
+            <PaperList key="other" ids={ids} />
+          ) : (
+            <YearGroup key={year} year={year} ids={ids} />
+          ),
+        )}
+      </div>
     </div>
   )
 }
