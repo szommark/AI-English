@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react'
 import type { MultiSelectItem as MultiSelectItemData } from '../../data/exams/types'
 import { useLanguage } from '../../lib/i18n'
+import { isTickTable } from '../../lib/examScoring'
 import type { ItemProps } from './itemProps'
 
 function Box({ checked }: { checked: boolean }) {
@@ -17,17 +18,24 @@ function Box({ checked }: { checked: boolean }) {
 }
 
 /** Tick the statements that are mentioned; the paper allows a fixed number of ticks. */
-export default function MultiSelectItem({ item, value, onChange }: ItemProps<MultiSelectItemData>) {
+export default function MultiSelectItem({ task, item, value, onChange, example }: ItemProps<MultiSelectItemData>) {
   const { t } = useLanguage()
-  const ticked = Array.isArray(value) ? value : []
+  const ticked = example ? item.answer : Array.isArray(value) ? value : []
   const over = ticked.length > item.pick
 
   function toggle(key: string) {
+    if (example) return
     onChange(ticked.includes(key) ? ticked.filter((k) => k !== key) : [...ticked, key])
   }
 
   return (
     <div className="space-y-1">
+      {item.stem && (
+        <p className="px-2 pt-2 text-base font-medium leading-relaxed text-foreground">
+          <span className="mr-2 font-semibold tabular-nums text-muted-foreground">{item.id}.</span>
+          {item.stem}
+        </p>
+      )}
       {item.exampleOption && (
         <div className="flex items-start gap-3 rounded-lg px-2 py-2 opacity-70">
           <Box checked />
@@ -40,15 +48,17 @@ export default function MultiSelectItem({ item, value, onChange }: ItemProps<Mul
         const checked = ticked.includes(o.key)
         return (
           <label key={o.key} className="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-muted">
-            <input type="checkbox" className="sr-only" checked={checked} onChange={() => toggle(o.key)} />
+            <input type="checkbox" className="sr-only" checked={checked} disabled={example} onChange={() => toggle(o.key)} />
             <Box checked={checked} />
             <span className="text-base leading-relaxed text-foreground">{o.text}</span>
           </label>
         )
       })}
-      <p className={`px-2 pt-2 text-sm font-medium ${over ? 'text-rose-600' : 'text-muted-foreground'}`} aria-live="polite">
-        {t('exTicked', { n: ticked.length, max: item.pick })}
-      </p>
+      {!example && !isTickTable(task) && (
+        <p className={`px-2 pt-2 text-sm font-medium ${over ? 'text-rose-600' : 'text-muted-foreground'}`} aria-live="polite">
+          {t('exTicked', { n: ticked.length, max: item.pick })}
+        </p>
+      )}
     </div>
   )
 }

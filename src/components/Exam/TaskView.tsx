@@ -1,9 +1,11 @@
 import type { ExamItem, ExamLanguage, ExamTask } from '../../data/exams/types'
-import { answerKey, type AnswerValue, type ExamAnswers } from '../../lib/examScoring'
+import { answerKey, isTickTable, type AnswerValue, type ExamAnswers } from '../../lib/examScoring'
 import { useLanguage } from '../../lib/i18n'
 import BooleanItem from './BooleanItem'
 import CorrectionItem from './CorrectionItem'
+import McqItem from './McqItem'
 import MultiSelectItem from './MultiSelectItem'
+import OrderItem from './OrderItem'
 import Passage from './Passage'
 import ProductionItem from './ProductionItem'
 import ShortTextItem from './ShortTextItem'
@@ -35,6 +37,12 @@ export default function TaskView({
     ...(task.examples ?? []).map((item) => ({ item, example: true })),
     ...task.items.map((item) => ({ item, example: false })),
   ].filter(({ item }) => !isInPassage(task, item))
+
+  const tableTicks = task.items.reduce((n, i) => {
+    const v = valueOf(i.id)
+    return n + (i.type === 'multi-select' && Array.isArray(v) ? v.length : 0)
+  }, 0)
+  const tablePick = task.items.reduce((n, i) => n + (i.type === 'multi-select' ? i.pick : 0), 0)
 
   const usedKeys = new Set(
     task.items.map((i) => valueOf(i.id)).filter((v): v is string => typeof v === 'string'),
@@ -84,6 +92,12 @@ export default function TaskView({
         </div>
       )}
 
+      {isTickTable(task) && (
+        <p className="text-sm font-medium text-muted-foreground" aria-live="polite" lang={uiLang}>
+          {t('exTicked', { n: tableTicks, max: tablePick })}
+        </p>
+      )}
+
       {listed.length > 0 && (
         <div className="divide-y divide-border">
           {listed.map(({ item, example }) => {
@@ -102,12 +116,16 @@ export default function TaskView({
             switch (item.type) {
               case 'boolean':
                 return wrap(<BooleanItem {...props} item={item} />)
+              case 'mcq':
+                return wrap(<McqItem {...props} item={item} />)
               case 'short-text':
                 return wrap(<ShortTextItem {...props} item={item} />)
               case 'correction':
                 return wrap(<CorrectionItem {...props} item={item} />)
               case 'multi-select':
                 return wrap(<MultiSelectItem {...props} item={item} />)
+              case 'order':
+                return wrap(<OrderItem {...props} item={item} />)
               case 'production':
                 return wrap(<ProductionItem {...props} item={item} />)
               default:

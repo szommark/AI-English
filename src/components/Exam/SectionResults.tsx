@@ -14,6 +14,7 @@ function Mark({ correct }: { correct: boolean }) {
 function stemOf(item: ExamItem | undefined): string | undefined {
   if (!item) return undefined
   if (item.type === 'boolean' || item.type === 'correction') return item.statement
+  if (item.type === 'mcq') return item.stem
   if (item.type === 'short-text') return item.prompt
   return undefined
 }
@@ -50,9 +51,16 @@ function ObjectiveItem({ r, item, language }: { r: ItemResult; item?: ExamItem; 
   )
 }
 
-function MultiSelectResult({ r, language }: { r: ItemResult; language: string }) {
+function MultiSelectResult({ r, stem, language }: { r: ItemResult; stem?: string; language: string }) {
   const { t } = useLanguage()
   return (
+    <div>
+      {stem && (
+        <p lang={language} className="pt-2 text-base font-medium">
+          <span className="mr-2 font-semibold tabular-nums text-muted-foreground">{r.itemId}.</span>
+          {stem}
+        </p>
+      )}
     <ul className="divide-y divide-border">
       {r.options?.map((o) => {
         const right = o.ticked === o.shouldTick
@@ -70,6 +78,7 @@ function MultiSelectResult({ r, language }: { r: ItemResult; language: string })
         )
       })}
     </ul>
+    </div>
   )
 }
 
@@ -173,7 +182,7 @@ export default function SectionResults({
             {task.items.map((r) => {
               const item = data.items.find((i) => i.id === r.itemId)
               if (r.type === 'production' && item) return <WritingResult key={r.itemId} item={item} text={writingTexts[`${task.taskId}/${r.itemId}`] ?? ''} language={language} />
-              if (r.type === 'multi-select') return <MultiSelectResult key={r.itemId} r={r} language={language} />
+              if (r.type === 'multi-select') return <MultiSelectResult key={r.itemId} r={r} stem={item?.type === 'multi-select' ? item.stem : undefined} language={language} />
               return null
             })}
             {task.items.some((r) => r.type !== 'production' && r.type !== 'multi-select') && (
