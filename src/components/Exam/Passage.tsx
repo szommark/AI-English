@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { ExamItem, ExamTask, PassageBlock } from '../../data/exams/types'
 import type { AnswerValue } from '../../lib/examScoring'
 import ChoiceItem from './ChoiceItem'
+import McqItem from './McqItem'
 import ShortTextItem from './ShortTextItem'
 
 const GAP = /\{\{([^}]+)\}\}/g
@@ -27,6 +28,7 @@ export default function Passage({ task, blocks, valueOf, onChange }: Props) {
     if (!found) return null
     const props = { task, value: valueOf(id), onChange: (v: AnswerValue) => onChange(id, v), example: found.example }
     if (found.item.type === 'choice') return <ChoiceItem {...props} item={found.item} />
+    if (found.item.type === 'mcq') return <McqItem {...props} item={found.item} inline />
     if (found.item.type === 'short-text') return <ShortTextItem {...props} item={found.item} inline={inline} />
     return null
   }

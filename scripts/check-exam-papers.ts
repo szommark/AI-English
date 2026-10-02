@@ -11,6 +11,7 @@ import {
 } from '../src/data/exams/catalog.ts'
 import { answerKey, matchText, scorePaper, scoreTask, type ExamAnswers } from '../src/lib/examScoring.ts'
 import type { ExamItem, ExamPaper, ExamTask } from '../src/data/exams/types.ts'
+import { examKeys } from './exam-keys.ts'
 
 const errors: string[] = []
 const fail = (msg: string) => errors.push(msg)
@@ -53,6 +54,20 @@ function checkItem(where: string, task: ExamTask, item: ExamItem, isExample: boo
       // The example's word may be left out of the bank (B1 cloze: "yourself").
       else if (!isExample && !task.bank?.some((b) => b.key === item.answer)) fail(`${where}: answer ${item.answer} is not in the bank`)
       break
+    case 'mcq': {
+      const options = item.options ?? task.options ?? []
+      const keys = new Set(options.map((o) => o.key))
+      if (keys.size !== options.length || keys.size < 2) fail(`${where}: mcq needs two or more distinct options`)
+      if (!keys.has(item.answer)) fail(`${where}: answer ${item.answer} is not an option`)
+      break
+    }
+    case 'order': {
+      const keys = new Set(item.parts.map((p) => p.key))
+      if (keys.size !== item.parts.length) fail(`${where}: duplicate part keys`)
+      const all = [item.first, ...item.answer]
+      if (all.length !== keys.size || new Set(all).size !== all.length || all.some((k) => !keys.has(k))) fail(`${where}: first + answer must list every part once`)
+      break
+    }
     case 'boolean':
       if (typeof item.answer !== 'boolean') fail(`${where}: no answer`)
       if (!item.statement.trim()) fail(`${where}: empty statement`)
@@ -103,7 +118,7 @@ function checkTask(paper: ExamPaper, task: ExamTask) {
     }
   }
   for (const item of all) {
-    const needsPlace = item.type === 'choice' || (item.type === 'short-text' && !item.prompt)
+    const needsPlace = item.type === 'choice' || (item.type === 'mcq' && !item.stem) || (item.type === 'short-text' && !item.prompt)
     if (needsPlace && !placed.has(item.id)) fail(`${where}: item ${item.id} has no gap or block in the passage`)
     if (!needsPlace && placed.has(item.id)) fail(`${where}: ${item.type} item ${item.id} should not be placed in the passage`)
   }
@@ -139,7 +154,7 @@ function checkPaper(paper: ExamPaper) {
       checkTask(paper, task)
     }
     const sectionTaskIds = new Set(section.tasks.map((t) => t.id))
-    const max = section.tasks.flatMap((t) => t.items).reduce((n, i) => n + (i.type === 'production' ? 0 : i.type === 'multi-select' ? i.answer.length : 1), 0)
+    const max = section.tasks.flatMap((t) => t.items).reduce((n, i) => n + (i.type === 'production' ? 0 : i.type === 'multi-select' || i.type === 'order' ? i.answer.length : 1), 0)
     if (section.conversion) {
       const c = section.conversion
       if (c.length !== max + 1) fail(`${paper.id} ${section.id}: conversion covers 0..${c.length - 1}, raw max is ${max}`)
@@ -165,10 +180,10 @@ function checkPaper(paper: ExamPaper) {
   for (const task of paper.sections.flatMap((s) => s.tasks)) {
     for (const item of task.items) {
       const key = answerKey(task.id, item.id)
-      if (item.type === 'choice') perfect[key] = item.answer
+      if (item.type === 'choice' || item.type === 'mcq') perfect[key] = item.answer
       else if (item.type === 'boolean') perfect[key] = item.answer
       else if (item.type === 'short-text' || item.type === 'correction') perfect[key] = item.answer.accepted[0]
-      else if (item.type === 'multi-select') perfect[key] = item.answer
+      else if (item.type === 'multi-select' || item.type === 'order') perfect[key] = item.answer
     }
   }
   const result = scorePaper(paper, perfect)
@@ -338,6 +353,80 @@ function checkB1En(p: ExamPaper) {
   for (const id of ['R-2', 'L-1']) if (!task(p, id).rules?.allSameBooleanIsZero) fail(`${p.id} ${id}: allSameBooleanIsZero missing`)
 }
 
+/** Compares a paper with its separately-read answer key (érettségi papers added after the first two). */
+function checkKeys(p: ExamPaper, key: Record<string, import('./exam-keys.ts').TaskKey>) {
+  const scored = p.sections.filter((s) => s.kind !== 'writing').flatMap((s) => s.tasks)
+  for (const t of scored) if (!(t.id in key)) fail(`${p.id} ${t.id}: no answer-key fixture`)
+  for (const [taskId, tk] of Object.entries(key)) {
+    const t = p.sections.flatMap((s) => s.tasks).find((x) => x.id === taskId)
+    if (!t) {
+      fail(`${p.id}: fixture for unknown task ${taskId}`)
+      continue
+    }
+    if ('order' in tk) {
+      const item = t.items[0]
+      if (t.items.length !== 1 || item?.type !== 'order') {
+        fail(`${p.id} ${taskId}: expected a single order item`)
+        continue
+      }
+      if ([item.first, ...item.answer].join(' ') !== tk.order) fail(`${p.id} ${taskId}: order ${[item.first, ...item.answer].join(' ')}, key says ${tk.order}`)
+      continue
+    }
+    if ('multi' in tk) {
+      for (const [id, ticked] of Object.entries(tk.multi)) {
+        const item = t.items.find((x) => x.id === id)
+        if (item?.type !== 'multi-select') {
+          fail(`${p.id} ${taskId}/${id}: not a multi-select item`)
+          continue
+        }
+        if ([...item.answer].sort().join(' ') !== ticked.split(' ').sort().join(' ')) fail(`${p.id} ${taskId}/${id}: ticks ${item.answer.join(' ')}, key says ${ticked}`)
+        if (item.pick !== ticked.split(' ').length) fail(`${p.id} ${taskId}/${id}: pick ${item.pick}, key has ${ticked.split(' ').length} ticks`)
+      }
+      const missing = t.items.filter((i) => !(i.id in tk.multi)).map((i) => i.id)
+      if (missing.length) fail(`${p.id} ${taskId}: no fixture for items ${missing.join(', ')}`)
+      continue
+    }
+    if ('ticks' in tk) {
+      const item = t.items[0]
+      if (t.items.length !== 1 || item?.type !== 'multi-select') {
+        fail(`${p.id} ${taskId}: expected a single multi-select item`)
+        continue
+      }
+      const expectedTicks = tk.ticks.split(' ').sort().join(' ')
+      if ([...item.answer].sort().join(' ') !== expectedTicks) fail(`${p.id} ${taskId}: ticks ${item.answer.join(' ')}, key says ${tk.ticks}`)
+      if (item.pick !== tk.pick) fail(`${p.id} ${taskId}: pick ${item.pick}, key says ${tk.pick}`)
+      if (item.options.length !== tk.options) fail(`${p.id} ${taskId}: ${item.options.length} options, expected ${tk.options}`)
+      continue
+    }
+    if ('text' in tk) {
+      for (const [id, ok] of Object.entries(tk.text)) {
+        const item = t.items.find((x) => x.id === id)
+        if (item?.type !== 'short-text' && item?.type !== 'correction') {
+          fail(`${p.id} ${taskId}/${id}: not a text item`)
+          continue
+        }
+        for (const a of ok) if (!matchText(item.answer, a)) fail(`${p.id} ${taskId}/${id}: "${a}" should be accepted`)
+      }
+      const missing = t.items.filter((i) => !(i.id in tk.text)).map((i) => i.id)
+      if (missing.length) fail(`${p.id} ${taskId}: no fixture for items ${missing.join(', ')}`)
+      continue
+    }
+    const expected = tk.keys.split(' ')
+    if (t.items.length !== expected.length) fail(`${p.id} ${taskId}: ${t.items.length} items, key has ${expected.length}`)
+    expected.forEach((k, i) => {
+      const id = String(tk.first + i)
+      const item = t.items.find((x) => x.id === id)
+      if (!item) return fail(`${p.id} ${taskId}/${id}: missing item`)
+      if (item.type === 'choice' || item.type === 'mcq') {
+        if (item.answer !== k) fail(`${p.id} ${taskId}/${id}: answer ${item.answer}, key says ${k}`)
+      } else if (item.type === 'boolean') {
+        const [yes] = t.booleanLabels ?? ['T', 'F']
+        if (item.answer !== (k === yes)) fail(`${p.id} ${taskId}/${id}: answer ${item.answer}, key says ${k}`)
+      } else fail(`${p.id} ${taskId}/${id}: ${item.type} item in a keyed task`)
+    })
+  }
+}
+
 // --- Scoring rules ---------------------------------------------------------------------
 
 function checkRules(de: ExamPaper, b1: ExamPaper) {
@@ -359,6 +448,18 @@ function checkRules(de: ExamPaper, b1: ExamPaper) {
   if (all.raw !== 0 || all.rule?.kind !== 'allTicked') fail('rules: ticking every box should score 0')
 }
 
+// Ordering tasks are scored by links (E-D, or D closing the text, counts for the last one).
+function checkOrder(p: ExamPaper) {
+  const t = task(p, 'I-4')
+  const key = answerKey(t.id, t.items[0].id)
+  const score = (order: string[]) => scoreTask(t, { [key]: order }).raw
+  if (score(['B', 'C', 'A', 'F', 'E', 'D']) !== 6) fail(`${p.id} I-4: the right order should score 6`)
+  if (score(['B', 'C', 'A', 'F', 'D', 'E']) !== 4) fail(`${p.id} I-4: swapping the last two should score 4, got ${score(['B', 'C', 'A', 'F', 'D', 'E'])}`)
+  if (score(['C', 'B', 'A', 'F', 'E', 'D']) !== 3) fail(`${p.id} I-4: B and C swapped should score 3, got ${score(['C', 'B', 'A', 'F', 'E', 'D'])}`)
+  if (score(['A', 'B', 'C', 'E', 'F', 'D']) !== 2) fail(`${p.id} I-4: B-C and the closing D should score 2, got ${score(['A', 'B', 'C', 'E', 'F', 'D'])}`)
+  if (score(['', '', '', '', '', '']) !== 0) fail(`${p.id} I-4: an empty answer should score 0`)
+}
+
 // --- Run -------------------------------------------------------------------------------
 
 const papers = new Map<string, ExamPaper>()
@@ -375,6 +476,17 @@ else fail('érettségi DE közép 2025 május is missing')
 if (b1) checkB1En(b1)
 else fail('B1 General English minta 1 is missing')
 if (de && b1) checkRules(de, b1)
+const deOrder = papers.get('erettsegi-de-kozep-2023-majus')
+if (deOrder) checkOrder(deOrder)
+else fail('érettségi DE közép 2023 május is missing')
+for (const [id, key] of Object.entries(examKeys)) {
+  const p = papers.get(id)
+  if (p) checkKeys(p, key)
+  else fail(`answer-key fixture for ${id}, which is not in the catalog`)
+}
+for (const id of papers.keys()) {
+  if (id !== 'erettsegi-de-kozep-2025-majus' && id !== 'nyelvvizsga-en-b1-minta-01' && !examKeys[id]) fail(`${id}: no answer-key fixture`)
+}
 
 if (errors.length) {
   console.error(errors.join('\n'))

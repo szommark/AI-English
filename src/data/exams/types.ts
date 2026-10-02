@@ -101,6 +101,8 @@ export interface ExamTask {
   unusedBankCount?: number
   /** Answer labels for `boolean` items: [true, false]. */
   booleanLabels?: [string, string]
+  /** Answer options shared by every `mcq` item in the task that has none of its own (A/B/C true/false/not stated). */
+  options?: BankOption[]
   /** Worked examples, shown pre-filled and read-only. */
   examples?: ExamItem[]
   items: ExamItem[]
@@ -131,6 +133,8 @@ interface ItemBase {
 export interface ChoiceItem extends ItemBase {
   type: 'choice'
   answer: string
+  /** Other keys the answer key accepts for this item (it still has one printed answer). */
+  alsoAccept?: string[]
 }
 
 export interface BooleanItem extends ItemBase {
@@ -148,6 +152,37 @@ export interface ShortTextItem extends ItemBase {
   answer: TextAnswer
 }
 
+/**
+ * Multiple choice with its own options per question (érettségi angol: A–D per gap or
+ * question, or the shared true/false/not-stated options on the task). With `stem` the
+ * question is listed under the passage; without, it is an inline gap {{id}} in the passage.
+ */
+export interface McqItem extends ItemBase {
+  type: 'mcq'
+  stem?: string
+  /** Own options; falls back to the task's `options`. */
+  options?: BankOption[]
+  answer: string
+  /** Other keys the answer key accepts for this item. */
+  alsoAccept?: string[]
+}
+
+/**
+ * Érettségi német olvasott szöveg: the parts of a text are shuffled; the learner puts them in
+ * order after the printed first part. Scored by links: one point for each part that follows (or,
+ * for the last one, closes) its right neighbour.
+ */
+export interface OrderItem extends ItemBase {
+  type: 'order'
+  parts: BankOption[]
+  /** Key of the part printed first, as the example. */
+  first: string
+  /** The other parts' keys in the right order. */
+  answer: string[]
+  /** The number printed for the first position after the example. */
+  start: number
+}
+
 /** Listening: the statement contains wrong information; the learner writes the correction. */
 export interface CorrectionItem extends ItemBase {
   type: 'correction'
@@ -157,6 +192,8 @@ export interface CorrectionItem extends ItemBase {
 
 export interface MultiSelectItem extends ItemBase {
   type: 'multi-select'
+  /** The statement the ticks belong to (a row of a matching table). */
+  stem?: string
   /** An option already ticked as the worked example, shown read-only above the others. */
   exampleOption?: string
   options: BankOption[]
@@ -187,4 +224,4 @@ export interface ProductionItem extends ItemBase {
   modelAnswer?: string
 }
 
-export type ExamItem = ChoiceItem | BooleanItem | ShortTextItem | CorrectionItem | MultiSelectItem | ProductionItem
+export type ExamItem = ChoiceItem | BooleanItem | McqItem | OrderItem | ShortTextItem | CorrectionItem | MultiSelectItem | ProductionItem

@@ -45,6 +45,7 @@ export function matchText(answer: TextAnswer, given: string): boolean {
 export function itemMax(item: ExamItem): number {
   if (item.type === 'production') return 0
   if (item.type === 'multi-select') return item.answer.length
+  if (item.type === 'order') return item.answer.length
   return 1
 }
 
@@ -138,8 +139,39 @@ export function scoreItem(task: ExamTask, item: ExamItem, answers: ExamAnswers):
   switch (item.type) {
     case 'choice': {
       const given = asString(value)
-      const correct = given === item.answer
+      const correct = given === item.answer || !!item.alsoAccept?.includes(given)
       return { ...base, points: correct ? 1 : 0, correct, answered: !!given, given: given && bankText(task, given), expected: bankText(task, item.answer) }
+    }
+    case 'mcq': {
+      const given = asString(value)
+      const correct = given === item.answer || !!item.alsoAccept?.includes(given)
+      const options = item.options ?? task.options ?? []
+      const label = (key: string) => {
+        const text = options.find((o) => o.key === key)?.text
+        return text && text !== key ? `${key}) ${text}` : key
+      }
+      return { ...base, points: correct ? 1 : 0, correct, answered: !!given, given: given && label(given), expected: label(item.answer) }
+    }
+    case 'order': {
+      const given = Array.isArray(value) ? value : []
+      const chain = [item.first, ...item.answer]
+      const seq = [item.first, ...given]
+      let points = 0
+      for (let i = 0; i < chain.length - 1; i++) {
+        const [a, b] = [chain[i], chain[i + 1]]
+        const linked = seq.some((s, j) => s === a && seq[j + 1] === b)
+        const closesText = i === chain.length - 2 && seq[seq.length - 1] === b
+        if (linked || closesText) points++
+      }
+      const answered = given.some(Boolean)
+      return {
+        ...base,
+        points,
+        correct: points === base.max,
+        answered,
+        given: given.filter(Boolean).join(' '),
+        expected: item.answer.join(' '),
+      }
     }
     case 'boolean': {
       const answered = typeof value === 'boolean'
@@ -203,6 +235,32 @@ function allSameBoolean(task: ExamTask, answers: ExamAnswers): boolean | undefin
   return given.every((v) => v === given[0]) ? given[0] : undefined
 }
 
+/**
+ * The multi-select tick rules, applied over the whole task: a lone multi-select item (érettségi
+ * német listening, 6–7 ticks) or a table of them, one per row (matching a statement to texts or
+ * persons, 8–10 ticks in all). Ticking every box scores 0; each tick beyond the total scores −1.
+ */
+export function tickRule(task: ExamTask, answers: ExamAnswers): { kind: 'allTicked' } | { kind: 'tooManyTicks'; ticks: number; pick: number } | undefined {
+  let count = 0
+  let pick = 0
+  let options = 0
+  for (const item of task.items) {
+    if (item.type !== 'multi-select') continue
+    count += ticks(answers[answerKey(task.id, item.id)]).length
+    pick += item.pick
+    options += item.options.length
+  }
+  if (options === 0) return undefined
+  if (count === options) return { kind: 'allTicked' }
+  if (count > pick) return { kind: 'tooManyTicks', ticks: count, pick }
+  return undefined
+}
+
+/** A task with several multi-select items is a table: its tick limit counts all rows together. */
+export function isTickTable(task: ExamTask): boolean {
+  return task.items.filter((i) => i.type === 'multi-select').length > 1
+}
+
 export function scoreTask(task: ExamTask, answers: ExamAnswers): TaskResult {
   const items = task.items.map((item) => scoreItem(task, item, answers))
   const max = items.reduce((sum, r) => sum + r.max, 0)
@@ -218,17 +276,14 @@ export function scoreTask(task: ExamTask, answers: ExamAnswers): TaskResult {
   }
 
   if (task.rules?.multiSelectPenalty) {
-    for (const item of task.items) {
-      if (item.type !== 'multi-select') continue
-      const count = ticks(answers[answerKey(task.id, item.id)]).length
-      if (count === item.options.length) {
-        raw = 0
-        rule = { kind: 'allTicked' }
-      } else if (count > item.pick) {
-        const penalty = count - item.pick
-        raw = Math.max(0, raw - penalty)
-        rule = { kind: 'multiSelectPenalty', penalty }
-      }
+    const hit = tickRule(task, answers)
+    if (hit?.kind === 'allTicked') {
+      raw = 0
+      rule = { kind: 'allTicked' }
+    } else if (hit?.kind === 'tooManyTicks') {
+      const penalty = hit.ticks - hit.pick
+      raw = Math.max(0, raw - penalty)
+      rule = { kind: 'multiSelectPenalty', penalty }
     }
   }
 
@@ -296,12 +351,9 @@ export function sectionWarnings(section: ExamSection, answers: ExamAnswers): Tas
       const same = allSameBoolean(task, answers)
       if (same !== undefined) warnings.push({ kind: 'allSame', taskLabel: task.label, label: booleanLabel(task, same) })
     }
-    for (const item of task.items) {
-      if (item.type !== 'multi-select') continue
-      const count = ticks(answers[answerKey(task.id, item.id)]).length
-      if (count === item.options.length) warnings.push({ kind: 'allTicked', taskLabel: task.label })
-      else if (count > item.pick) warnings.push({ kind: 'tooManyTicks', taskLabel: task.label, ticks: count, pick: item.pick })
-    }
+    const hit = tickRule(task, answers)
+    if (hit?.kind === 'allTicked') warnings.push({ kind: 'allTicked', taskLabel: task.label })
+    else if (hit?.kind === 'tooManyTicks') warnings.push({ kind: 'tooManyTicks', taskLabel: task.label, ticks: hit.ticks, pick: hit.pick })
   }
   return warnings
 }
@@ -310,6 +362,7 @@ function isAnswered(task: ExamTask, item: ExamItem, answers: ExamAnswers): boole
   const v = answers[answerKey(task.id, item.id)]
   if (item.type === 'boolean') return typeof v === 'boolean'
   if (item.type === 'multi-select') return ticks(v).length > 0
+  if (item.type === 'order') return ticks(v).some(Boolean)
   return typeof v === 'string' && v.trim().length > 0
 }
 
