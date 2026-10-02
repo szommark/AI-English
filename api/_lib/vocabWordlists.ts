@@ -105,6 +105,7 @@ function toWord(row: ListWordRow): WordlistWord {
     term: row.vocab_items.term,
     cefrLevel: row.vocab_items.cefr_level as CefrLevel | null,
     meaningHu: row.vocab_items.meaning_hu,
+    definitionEn: row.vocab_items.definition_en,
     exampleEn: row.vocab_items.example_en,
     contextOriginal: row.context_original,
     contextCorrected: row.context_corrected,

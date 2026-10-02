@@ -7,6 +7,7 @@ import type { CefrLevel } from '../data/grammarCurriculum'
 export interface ImportedRow {
   term: string
   meaningHu?: string
+  definitionEn?: string
   exampleEn?: string
   cefrLevel?: CefrLevel
 }
@@ -18,14 +19,22 @@ function clean(cell: string | undefined): string | undefined {
   return v ? v : undefined
 }
 
-function toRow(term: string | undefined, meaning?: string, example?: string, level?: string): ImportedRow | null {
+function toRow(
+  term: string | undefined,
+  meaning?: string,
+  example?: string,
+  level?: string,
+  definition?: string,
+): ImportedRow | null {
   const t = clean(term)
   if (!t) return null
   const row: ImportedRow = { term: t }
   const m = clean(meaning)
   const e = clean(example)
   const l = clean(level)?.toUpperCase()
+  const d = clean(definition)
   if (m) row.meaningHu = m
+  if (d) row.definitionEn = d
   if (e) row.exampleEn = e
   if (l && CEFR.has(l)) row.cefrLevel = l as CefrLevel
   return row
@@ -47,9 +56,10 @@ export function parsePastedTerms(text: string): ImportedRow[] {
   return rows
 }
 
-const HEADER_ALIASES: Record<'term' | 'meaning' | 'example' | 'level', string[]> = {
+const HEADER_ALIASES: Record<'term' | 'meaning' | 'definition' | 'example' | 'level', string[]> = {
   term: ['term', 'word', 'words', 'phrase', 'english', 'angol', 'szó', 'szavak', 'kifejezés', 'wort', 'begriff', 'englisch'],
   meaning: ['meaning', 'hungarian', 'translation', 'magyar', 'jelentés', 'fordítás', 'bedeutung', 'ungarisch', 'übersetzung'],
+  definition: ['definition', 'english definition', 'angol meghatározás', 'meghatározás', 'definíció', 'definition (en)', 'definition en'],
   example: ['example', 'example sentence', 'sentence', 'példa', 'példamondat', 'beispiel', 'beispielsatz'],
   level: ['level', 'cefr', 'cefr level', 'szint', 'niveau'],
 }
@@ -67,13 +77,13 @@ export function rowsFromTable(table: string[][]): ImportedRow[] {
   const termCol = col('term')
   const hasHeader = termCol >= 0
   const map = hasHeader
-    ? { term: termCol, meaning: col('meaning'), example: col('example'), level: col('level') }
-    : { term: 0, meaning: 1, example: 2, level: -1 }
+    ? { term: termCol, meaning: col('meaning'), definition: col('definition'), example: col('example'), level: col('level') }
+    : { term: 0, meaning: 1, definition: -1, example: 2, level: -1 }
   const at = (row: string[], i: number) => (i >= 0 ? row[i] : undefined)
 
   const rows: ImportedRow[] = []
   for (const cells of hasHeader ? table.slice(1) : table) {
-    const row = toRow(at(cells, map.term), at(cells, map.meaning), at(cells, map.example), at(cells, map.level))
+    const row = toRow(at(cells, map.term), at(cells, map.meaning), at(cells, map.example), at(cells, map.level), at(cells, map.definition))
     if (row) rows.push(row)
   }
   return rows

@@ -81,17 +81,19 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
   const { t } = useLanguage()
   const [term, setTerm] = useState('')
   const [meaning, setMeaning] = useState('')
+  const [definition, setDefinition] = useState('')
   const [example, setExample] = useState('')
   const [error, setError] = useState<AddWordError | null>(null)
   const termRef = useRef<HTMLInputElement>(null)
 
   function submit(e: FormEvent) {
     e.preventDefault()
-    const result = term.trim() ? onAddWord({ term, meaningHu: meaning, exampleEn: example }) : 'empty'
+    const result = term.trim() ? onAddWord({ term, meaningHu: meaning, definitionEn: definition, exampleEn: example }) : 'empty'
     setError(result)
     if (result === null) {
       setTerm('')
       setMeaning('')
+      setDefinition('')
       setExample('')
     }
     termRef.current?.focus()
@@ -102,7 +104,7 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
 
   return (
     <form onSubmit={submit} className="space-y-2" noValidate>
-      <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1.5fr_auto]">
+      <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_1.3fr_auto]">
         <input
           ref={termRef}
           value={term}
@@ -123,6 +125,13 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
           className={inputClass}
         />
         <input
+          value={definition}
+          onChange={(e) => setDefinition(e.target.value)}
+          placeholder={t('vlDefinitionOptional')}
+          aria-label={t('vlDefinitionOptional')}
+          className={inputClass}
+        />
+        <input
           value={example}
           onChange={(e) => setExample(e.target.value)}
           placeholder={t('vlExampleOptional')}
@@ -136,6 +145,7 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
           {t('vlAdd')}
         </button>
       </div>
+      <p className="text-xs text-muted-foreground">{t('vlMeaningOrDefinition')}</p>
       {errorText && (
         <p className="text-sm text-red-600" role="alert">
           {errorText}

@@ -99,7 +99,8 @@ export const ITEM_FIELD_MAX_LENGTH = 500
 /** One row of the list editor, as sent to POST/PUT /api/vocab?action=list. */
 export interface VocabListItemInput {
   term: string
-  meaningHu: string
+  /** At least one of meaningHu and definitionEn is required. */
+  meaningHu?: string | null
   definitionEn?: string | null
   exampleEn?: string | null
   pos?: VocabPos | null
@@ -428,6 +429,7 @@ export interface WordlistWord {
   term: string
   cefrLevel: CefrLevel | null
   meaningHu: string | null
+  definitionEn: string | null
   exampleEn: string | null
   /** Tutor Bot words: what the learner said, and the better version. */
   contextOriginal: string | null

@@ -25,7 +25,7 @@ export interface PreparedListItem {
   kind: VocabKind
   pos: VocabPos | null
   cefr_level: CefrLevel | null
-  meaning_hu: string
+  meaning_hu: string | null
   definition_en: string | null
   example_en: string | null
 }
@@ -77,8 +77,8 @@ export function prepareListMeta(body: Record<string, unknown>): Prepared<Prepare
 
 /**
  * Normalizes, drops empty terms, dedupes on the normalized term (first occurrence wins,
- * order kept), then enforces LIST_MAX_ITEMS and a non-empty Hungarian meaning on every
- * item. An empty list is rejected: a list with nothing to study can't be assigned or
+ * order kept), then enforces LIST_MAX_ITEMS and, on every item, a Hungarian meaning or an
+ * English definition (either one is enough). An empty list is rejected: a list with nothing to study can't be assigned or
  * completed.
  */
 export function prepareListItems(raw: unknown): Prepared<PreparedListItem[]> {
@@ -116,14 +116,14 @@ export function prepareListItems(raw: unknown): Prepared<PreparedListItem[]> {
     const cefr = entry.cefrLevel ?? null
     if (cefr !== null && !isCefr(cefr)) return { ok: false, error: 'Invalid cefrLevel', terms: [term] }
 
-    if (meaning === null) missingMeaning.push(term)
+    if (meaning === null && definition === null) missingMeaning.push(term)
     items.push({
       term,
       term_normalized: termNormalized,
       kind: termKind(termNormalized),
       pos,
       cefr_level: cefr,
-      meaning_hu: meaning ?? '',
+      meaning_hu: meaning,
       definition_en: definition,
       example_en: example,
     })
@@ -134,7 +134,7 @@ export function prepareListItems(raw: unknown): Prepared<PreparedListItem[]> {
     return { ok: false, error: `A list can have at most ${LIST_MAX_ITEMS} terms (got ${items.length})` }
   }
   if (missingMeaning.length > 0) {
-    return { ok: false, error: 'Every term needs a Hungarian meaning', terms: missingMeaning }
+    return { ok: false, error: 'Every term needs a Hungarian meaning or an English definition', terms: missingMeaning }
   }
   return { ok: true, value: items }
 }

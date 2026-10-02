@@ -1,4 +1,6 @@
 import { useLanguage } from '../../lib/i18n'
+import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
+import WordSpeakButton from '../WordSpeakButton'
 import { LIST_MAX_ITEMS, normalizeTerm } from '../../lib/vocab'
 import { duplicateTerms, isMissingMeaning, type DraftRow } from '../../lib/vocabDraft'
 import { GRAMMAR_LEVELS, type CefrLevel } from '../../data/grammarCurriculum'
@@ -6,11 +8,12 @@ import { inputClass } from './AddTermsPanel'
 
 const cellInput = inputClass.replace('px-3 py-2', 'px-2 py-1.5')
 /** Wide screens: one grid row per term. Phones: each term becomes a stacked card. */
-const rowGrid = 'grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.6fr)_5.5rem_2rem] sm:items-start'
+const rowGrid = 'grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.4fr)_5.5rem_2rem] sm:items-start'
 
 /**
  * The editable preview (design §5.1): term, Hungarian meaning, example and level, with a
- * per-row fill-in state and a "Needs a meaning" highlight that blocks saving.
+ * per-row fill-in state and a "Needs a meaning" highlight that blocks saving. Either the
+ * Hungarian meaning or the English definition is enough; a speaker plays the term.
  */
 export default function PreviewTable({
   rows,
@@ -25,6 +28,7 @@ export default function PreviewTable({
 }) {
   const { t } = useLanguage()
   const duplicates = duplicateTerms(rows)
+  const speech = useSpeechSynthesis()
 
   return (
     <div className="space-y-3 rounded-2xl border border-border bg-card p-5">
@@ -39,10 +43,13 @@ export default function PreviewTable({
         <p className="text-sm text-muted-foreground">{t('vlEmptyPreview')}</p>
       ) : (
         <>
-          <p className="text-xs text-muted-foreground">{t('vlPreviewHint')}</p>
+          <p className="text-xs text-muted-foreground">
+            {t('vlPreviewHint')} {t('vlMeaningOrDefinition')}
+          </p>
           <div className={`${rowGrid} hidden px-1 text-xs font-medium text-muted-foreground sm:grid`}>
             <span>{t('vlTerm')}</span>
             <span>{t('vlMeaning')}</span>
+            <span>{t('vlDefinition')}</span>
             <span>{t('vlExample')}</span>
             <span>{t('vlLevel')}</span>
             <span />
@@ -63,6 +70,7 @@ export default function PreviewTable({
                   }`}
                 >
                   <div className="space-y-1">
+                    <div className="flex items-center gap-1.5">
                     <input
                       value={row.term}
                       onChange={(e) => onChange(row.key, { term: e.target.value })}
@@ -71,6 +79,10 @@ export default function PreviewTable({
                       placeholder={t('vlTerm')}
                       className={`${cellInput} font-medium ${duplicate || emptyTerm ? 'border-amber-400' : ''}`}
                     />
+                    {speech.supported && normalizeTerm(row.term) && (
+                      <WordSpeakButton label={`${t('vlSpeak')}: ${row.term}`} onSpeak={() => speech.speak(row.term.trim())} />
+                    )}
+                    </div>
                     {duplicate && <p className="text-xs text-amber-700">{t('vlRowDuplicate')}</p>}
                   </div>
                   <div className="space-y-1">
@@ -89,6 +101,13 @@ export default function PreviewTable({
                     )}
                     {missing && <p className="text-xs font-medium text-amber-700">{t('vlNeedsMeaning')}</p>}
                   </div>
+                  <input
+                    value={row.definitionEn}
+                    onChange={(e) => onChange(row.key, { definitionEn: e.target.value })}
+                    aria-label={t('vlDefinition')}
+                    placeholder={busy ? t('vlFilling') : t('vlDefinition')}
+                    className={`${cellInput} ${missing ? 'border-amber-400 bg-card' : ''}`}
+                  />
                   <input
                     value={row.exampleEn}
                     onChange={(e) => onChange(row.key, { exampleEn: e.target.value })}

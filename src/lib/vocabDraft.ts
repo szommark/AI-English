@@ -21,7 +21,6 @@ export interface DraftRow {
   meaningHu: string
   exampleEn: string
   cefrLevel: CefrLevel | ''
-  /** Not shown in the table, but saved (Phase 3 uses it). */
   definitionEn: string
   pos: VocabPos | null
   enrich: EnrichState
@@ -45,7 +44,7 @@ function draftFromImported(row: ImportedRow): DraftRow {
     meaningHu: row.meaningHu ?? '',
     exampleEn: row.exampleEn ?? '',
     cefrLevel: row.cefrLevel ?? '',
-    definitionEn: '',
+    definitionEn: row.definitionEn ?? '',
     pos: null,
     enrich: 'pending',
     enrichedFor: normalizeTerm(row.term),
@@ -149,8 +148,13 @@ export function duplicateTerms(rows: DraftRow[]): Set<string> {
   return new Set([...counts].filter(([, c]) => c > 1).map(([n]) => n))
 }
 
+/** Either language is enough: a Hungarian meaning or an English definition. */
+function hasMeaning(r: Pick<DraftRow, 'meaningHu' | 'definitionEn'>): boolean {
+  return Boolean(r.meaningHu.trim() || r.definitionEn.trim())
+}
+
 export function isMissingMeaning(r: DraftRow): boolean {
-  return (r.enrich === 'done' || r.enrich === 'failed') && !r.meaningHu.trim()
+  return (r.enrich === 'done' || r.enrich === 'failed') && !hasMeaning(r)
 }
 
 /** Why Save is disabled, as an i18n key plus vars, or null when saving is allowed. */
@@ -164,7 +168,7 @@ export function saveBlocker(
   if (rows.some((r) => !normalizeTerm(r.term))) return { key: 'vlBlockEmptyTerm' }
   if (duplicateTerms(rows).size > 0) return { key: 'vlBlockDuplicates' }
   if (rows.some((r) => r.enrich === 'pending' || r.enrich === 'loading')) return { key: 'vlBlockFilling' }
-  const missing = rows.filter((r) => !r.meaningHu.trim()).length
+  const missing = rows.filter((r) => !hasMeaning(r)).length
   if (missing > 0) return { key: 'vlBlockMeanings', vars: { n: missing } }
   return null
 }
@@ -179,7 +183,7 @@ export function toListInput(
     cefrLevel: meta.cefrLevel || null,
     items: rows.map((r) => ({
       term: r.term.trim(),
-      meaningHu: r.meaningHu.trim(),
+      meaningHu: r.meaningHu.trim() || null,
       exampleEn: r.exampleEn.trim() || null,
       definitionEn: r.definitionEn.trim() || null,
       pos: r.pos,
