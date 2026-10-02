@@ -5,6 +5,7 @@ import PracticeSession, { type SessionSummary } from '../components/Vocabulary/P
 import DrillSession, { ROUND_LABEL, type DrillSummary } from '../components/Vocabulary/DrillSession'
 import DrillSetupPanel, { type DrillChoice } from '../components/Vocabulary/DrillSetupPanel'
 import FastPracticeTab from '../components/Vocabulary/FastPracticeTab'
+import GamesTab from '../components/Vocabulary/GamesTab'
 import ListSrsPanel, { SrsExplainer } from '../components/Vocabulary/ListSrsPanel'
 import TestSession, { TestSummaryCard, type TestSummary } from '../components/Vocabulary/TestSession'
 import MyWordlistsTab from '../components/Vocabulary/MyWordlistsTab'
@@ -30,7 +31,7 @@ import {
   type WordlistsResponse,
 } from '../lib/vocab'
 
-type Tab = 'fast' | 'lists' | 'srs'
+type Tab = 'fast' | 'lists' | 'srs' | 'games'
 
 /** Where a Fast practice run or a review session goes back to: the tabs, or the list it was started from. */
 type ReturnTo = 'tabs' | WordlistRef
@@ -64,7 +65,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 
 /**
  * Student Vocabulary page, route /vocabulary (design §7, decisions 6–7): My wordlists,
- * Fast practice and Spaced repetition tabs. Every list has its own review session.
+ * Fast practice, Spaced repetition and Games tabs. Every list has its own review session.
  */
 export default function VocabularyPage() {
   const { t, lang } = useLanguage()
@@ -318,6 +319,7 @@ export default function VocabularyPage() {
             {tabButton('lists', t('vcTabLists'))}
             {tabButton('fast', t('vcTabFast'))}
             {tabButton('srs', t('vcTabSrs'))}
+            {tabButton('games', t('vcTabGames'))}
           </div>
 
           {loadFailed && <p className="text-sm text-red-600">{t('vcLoadFailed')}</p>}
@@ -351,6 +353,8 @@ export default function VocabularyPage() {
               }}
             />
           )}
+
+          {wordlists !== null && tab === 'games' && <GamesTab data={wordlists} />}
 
           {wordlists !== null && tab === 'srs' && (
             <div className="space-y-4">
