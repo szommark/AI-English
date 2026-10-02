@@ -141,7 +141,7 @@ export default function DrillSetupPanel({
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block break-words text-sm font-medium text-foreground">{w.term}</span>
-                  <span className="block break-words text-xs text-muted-foreground">{w.meaningHu ?? t('vcMeaningPending')}</span>
+                  <span className="block break-words text-xs text-muted-foreground">{w.meaningHu ?? w.definitionEn ?? t('vcMeaningPending')}</span>
                 </span>
                 <span className="flex shrink-0 flex-wrap items-center gap-1">
                   <CardBadge card={w.card} />

@@ -6,6 +6,7 @@ import PreviewTable from '../components/VocabLists/PreviewTable'
 import AssignPanel from '../components/VocabLists/AssignPanel'
 import ListProgress from '../components/VocabLists/ListProgress'
 import { useLanguage } from '../lib/i18n'
+import { printWordlistPdf } from '../lib/vocabPdf'
 import { fetchTeacherRoster, type RosterEntry } from '../lib/teacherApi'
 import {
   VocabAccessError,
@@ -60,6 +61,7 @@ export default function TeacherVocabListPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [roster, setRoster] = useState<RosterEntry[] | null>(null)
   const [archiveError, setArchiveError] = useState(false)
+  const [pdfBlocked, setPdfBlocked] = useState(false)
   /** The list id whose data is already on screen (set after create, so we don't refetch it). */
   const loadedIdRef = useRef<string | null>(null)
 
@@ -216,6 +218,22 @@ export default function TeacherVocabListPage() {
     }
   }
 
+  function exportPdf() {
+    const ok = printWordlistPdf(
+      meta.title.trim() || t('vlCrumbNew'),
+      rows.map((r) => ({
+        term: r.term.trim(),
+        meaningHu: r.meaningHu.trim(),
+        definitionEn: r.definitionEn.trim(),
+        exampleEn: r.exampleEn.trim(),
+        cefrLevel: r.cefrLevel,
+      })),
+      { term: t('vlTerm'), meaning: t('vlMeaning'), definition: t('vlDefinition'), example: t('vlExample'), level: t('vlLevel') },
+      meta.description.trim() || null,
+    )
+    setPdfBlocked(!ok)
+  }
+
   async function reload() {
     if (!listId) return
     try {
@@ -248,15 +266,25 @@ export default function TeacherVocabListPage() {
         title={detail ? detail.list.title : t('vlCrumbNew')}
         subtitle={t('wordLists')}
         actions={
-          detail && (
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={toggleArchived}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary"
+              onClick={exportPdf}
+              disabled={rows.length === 0}
+              className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary disabled:opacity-40"
             >
-              {archived ? t('vlUnarchive') : t('vlArchive')}
+              {t('vlPdfExport')}
             </button>
-          )
+            {detail && (
+              <button
+                type="button"
+                onClick={toggleArchived}
+                className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary"
+              >
+                {archived ? t('vlUnarchive') : t('vlArchive')}
+              </button>
+            )}
+          </div>
         }
       />
 
@@ -266,6 +294,7 @@ export default function TeacherVocabListPage() {
         </p>
       )}
       {archiveError && <p className="text-sm text-red-600">{t('vlArchiveFailed')}</p>}
+      {pdfBlocked && <p className="text-sm text-red-600">{t('vlPdfBlocked')}</p>}
 
       <div className="space-y-3 rounded-2xl border border-border bg-card p-5">
         <h2 className="font-medium text-foreground">{t('vlDetails')}</h2>

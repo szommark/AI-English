@@ -1,5 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useLanguage } from '../../lib/i18n'
+import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
+import { printWordlistPdf } from '../../lib/vocabPdf'
+import WordSpeakButton from '../WordSpeakButton'
 import { VocabRequestError } from '../../lib/vocabListsApi'
 import {
   addBankWords,
@@ -70,6 +73,7 @@ export default function WordlistView({
   const { t } = useLanguage()
   const listTitle = useListTitle()
   const topicLabel = useTopicLabel()
+  const speech = useSpeechSynthesis()
   const [detail, setDetail] = useState<WordlistDetail | null>(initial)
   const [loadFailed, setLoadFailed] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
@@ -78,6 +82,7 @@ export default function WordlistView({
   const [renaming, setRenaming] = useState(false)
   const [adding, setAdding] = useState(false)
   const [title, setTitle] = useState('')
+  const [pdfBlocked, setPdfBlocked] = useState(false)
 
   useEffect(() => {
     if (initial) return
@@ -169,6 +174,22 @@ export default function WordlistView({
       },
       (err) => (err instanceof VocabRequestError && err.status === 429 ? t('vcCompileLimit', { n: COMPILES_PER_DAY }) : t('vcCompileFailed')),
     )
+  }
+
+  function exportPdf() {
+    const ok = printWordlistPdf(
+      listTitle(list),
+      words.map((w) => ({
+        term: w.term,
+        meaningHu: w.meaningHu,
+        definitionEn: w.definitionEn,
+        exampleEn: w.exampleEn,
+        cefrLevel: w.cefrLevel,
+      })),
+      { term: t('vlTerm'), meaning: t('vlMeaning'), definition: t('vlDefinition'), example: t('vlExample'), level: t('vlLevel') },
+      list.teacher?.description ?? null,
+    )
+    setPdfBlocked(!ok)
   }
 
   function remove() {
@@ -286,6 +307,9 @@ export default function WordlistView({
               {t('vcTestStart', { n: testSize(list.wordCount) })}
             </button>
           )}
+          <button type="button" onClick={exportPdf} disabled={words.length === 0} className={actionButton}>
+            {t('vlPdfExport')}
+          </button>
           {custom && (
             <button
               type="button"
@@ -341,6 +365,11 @@ export default function WordlistView({
             {error}
           </p>
         )}
+        {pdfBlocked && (
+          <p className="text-sm text-red-600" role="alert">
+            {t('vlPdfBlocked')}
+          </p>
+        )}
       </div>
 
       {custom && adding && (
@@ -367,9 +396,15 @@ export default function WordlistView({
                     <span className="break-words font-medium text-foreground">{w.term}</span>
                     <span className="text-muted-foreground">
                       {' — '}
-                      {w.meaningHu ?? <em className="text-xs">{t('vcMeaningPending')}</em>}
+                      {w.meaningHu ?? w.definitionEn ?? <em className="text-xs">{t('vcMeaningPending')}</em>}
                     </span>
+                    {w.meaningHu && w.definitionEn && (
+                      <span className="block text-xs text-muted-foreground">{w.definitionEn}</span>
+                    )}
                   </span>
+                  {speech.supported && (
+                    <WordSpeakButton label={`${t('vlSpeak')}: ${w.term}`} onSpeak={() => speech.speak(w.term)} />
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <CardBadge card={w.card} />
