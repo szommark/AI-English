@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ChevronRight, FileText, GraduationCap, Languages } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, GraduationCap, Languages } from 'lucide-react'
 import PageHeading from '../components/PageHeading'
 import { getFeature } from '../data/features'
 import { EXAM_LANGUAGES, EXAM_TYPES, examCatalog, getExamPaperMeta, type ExamCell } from '../data/exams/catalog'
@@ -12,6 +13,7 @@ const TYPE_ICON = { erettsegi: GraduationCap, nyelvvizsga: Languages } as const
 function CellCard({ cell }: { cell: ExamCell }) {
   const { t } = useLanguage()
   const level = examLevelLabel(t, cell.level)
+  const [open, setOpen] = useState(false)
 
   if (cell.paperIds.length === 0) {
     return (
@@ -27,8 +29,18 @@ function CellCard({ cell }: { cell: ExamCell }) {
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
-      <h4 className="font-semibold text-foreground">{level}</h4>
-      <ul className="mt-3 space-y-2">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <h4 className="font-semibold text-foreground">
+          {level} <span className="text-sm font-normal text-muted-foreground">({cell.paperIds.length})</span>
+        </h4>
+        <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      <ul className={`mt-3 space-y-2 ${open ? '' : 'hidden'}`}>
         {cell.paperIds.map((id) => {
           const paper = getExamPaperMeta(id)!
           return (
