@@ -64,7 +64,7 @@ function YearGroup({ year, ids }: { year: string; ids: string[] }) {
 function groupByYear(ids: string[]): { year: string | null; ids: string[] }[] {
   const groups: { year: string | null; ids: string[] }[] = []
   for (const id of ids) {
-    const year = getExamPaperMeta(id)!.sittingLabelHu.match(/^(d{4})/)?.[1] ?? null
+    const year = getExamPaperMeta(id)!.sittingLabelHu.match(/^([0-9]{4})/)?.[1] ?? null
     const last = groups[groups.length - 1]
     const g = year === null ? last?.year === null && last : groups.find((x) => x.year === year)
     if (g) g.ids.push(id)

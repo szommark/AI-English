@@ -77,13 +77,23 @@ const loaders: Record<string, () => Promise<{ default: ExamPaper }>> = {
   'nyelvvizsga-en-b1-minta-01': () => import('./papers/nyelvvizsga-en-b1-minta-01.ts'),
 }
 
+/** Sort key: year*100 + month, so 2026 május sorts after 2025 október. Samples without a year sort last. */
+function sittingOrder(p: ExamPaperMeta): number {
+  const year = Number(p.sittingLabelHu.match(/^([0-9]{4})/)?.[1] ?? 0)
+  const month = p.sittingLabelHu.includes('október') ? 10 : p.sittingLabelHu.includes('május') ? 5 : 0
+  return year * 100 + month
+}
+
 export const examCatalog: ExamCell[] = EXAM_TYPES.flatMap((type) =>
   EXAM_LANGUAGES.flatMap((language) =>
     LEVELS_BY_TYPE[type].map((level) => ({
       type,
       language,
       level,
-      paperIds: examPapers.filter((p) => p.type === type && p.language === language && p.level === level).map((p) => p.id),
+      paperIds: examPapers
+        .filter((p) => p.type === type && p.language === language && p.level === level)
+        .sort((a, b) => sittingOrder(b) - sittingOrder(a))
+        .map((p) => p.id),
     })),
   ),
 )
