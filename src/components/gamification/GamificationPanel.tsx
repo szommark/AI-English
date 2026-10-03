@@ -82,6 +82,23 @@ export default function GamificationPanel() {
         )}
       </div>
 
+      {data.teacherBonuses.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-base font-semibold text-foreground">{C.gamBonusesHeading}</h3>
+          <ul className="divide-y divide-border">
+            {data.teacherBonuses.map((b) => (
+              <li key={b.createdAt} className="flex items-start justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-base text-foreground">„{b.reason}”</p>
+                  <p className="text-sm text-muted-foreground">{LONG_DATE.format(new Date(b.createdAt))}</p>
+                </div>
+                <span className="shrink-0 text-base font-semibold text-foreground">{C.gamBonusAmount(b.amount)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <WeekHistory weeks={data.weeks} />
       <BadgeWall badges={data.badges} />
     </section>

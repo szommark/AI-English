@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Flame } from 'lucide-react'
 import { useAuth } from '../../lib/AuthContext'
 import { useLanguage } from '../../lib/i18n'
-import { fetchGamificationMe } from '../../lib/gamificationApi'
-import { subscribeXpResults } from '../../lib/gamification/xpEvents'
+import { fetchGamificationMe, markTeacherBonusesSeen } from '../../lib/gamificationApi'
+import { publishTeacherBonuses, subscribeXpResults } from '../../lib/gamification/xpEvents'
 import type { GamificationMe } from '../../lib/gamification/types'
 import WeekPanel from './WeekPanel'
 
@@ -26,9 +26,19 @@ export default function LevelChip() {
     setOpen(false)
     if (!userId) return
     let cancelled = false
+    // Teacher bonuses not seen yet are toasted once, then acknowledged. The set guards
+    // against a reload landing before the acknowledgement has been saved.
+    const toasted = new Set<string>()
     const load = () =>
       fetchGamificationMe().then((next) => {
-        if (!cancelled && next) setMe(next)
+        if (cancelled || !next) return
+        setMe(next)
+        const fresh = (next.unseenTeacherBonuses ?? []).filter((b) => !toasted.has(b.createdAt))
+        if (fresh.length > 0) {
+          fresh.forEach((b) => toasted.add(b.createdAt))
+          publishTeacherBonuses(fresh)
+          void markTeacherBonusesSeen()
+        }
       })
     load()
     const unsubscribe = subscribeXpResults(load)

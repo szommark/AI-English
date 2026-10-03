@@ -1,20 +1,42 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
-import { awardXp, getActivityType } from './_lib/gamification.js'
+import {
+  awardXp,
+  getActivityType,
+  giveTeacherBonus,
+  loadTeacherBonuses,
+  teacherBonusRemaining,
+} from './_lib/gamification.js'
+import { getUserRole } from './_lib/roles.js'
 import {
   CLIENT_AWARD_RATE_LIMIT_PER_MINUTE,
+  TEACHER_BONUS_LIST_LIMIT,
+  TEACHER_BONUS_REASON_MAX,
+  TEACHER_BONUS_REASON_MIN,
+  TEACHER_BONUS_WEEKLY_CAP,
   WEEK_HISTORY_WEEKS,
   WEEKLY_GOAL_MAX_DAYS,
   WEEKLY_GOAL_MIN_DAYS,
 } from '../src/lib/gamification/constants.js'
 import { progressInLevel } from '../src/lib/gamification/levels.js'
 import { loadBadgeWall } from './_lib/badges.js'
-import type { GamificationMe, GamificationOverview, XpLanguage } from '../src/lib/gamification/types.js'
+import type {
+  ClassGamification,
+  ClassStudentGamification,
+  GamificationMe,
+  GamificationOverview,
+  StudentGamification,
+  TeacherBonusResult,
+  WeekHistoryItem,
+  XpLanguage,
+} from '../src/lib/gamification/types.js'
 
-// Single Vercel function for the whole /api/gamification surface (award for browser-completed
-// activities, the learner's level/week/streaks, the weekly goal, the progress-page overview
-// with badges), multiplexed by ?action= to stay under Vercel Hobby's
-// 12-serverless-function cap — do not add new files directly under api/.
+// Single Vercel function for the whole /api/gamification surface, multiplexed by ?action= to
+// stay under Vercel Hobby's 12-serverless-function cap — do not add new files directly
+// under api/.
+//   learner: award (browser-completed activities), me (level/week/streaks + unseen teacher
+//            bonuses), bonus-seen, goal (weekly goal), overview ("Az én fejlődésem" panel)
+//   teacher: class (connected students), student (one student), bonus (give bonus XP)
 
 const ALLOWED_AWARD_FIELDS = new Set(['activityType', 'itemRef', 'language', 'performanceScore'])
 const MAX_ITEM_REF_LENGTH = 200
@@ -108,8 +130,8 @@ interface GamificationStateRow {
   streak_restarted_today: boolean
 }
 
-/** The learner's level, week and streaks. gamification_state() closes finished weeks first. */
-async function loadMe(userId: string): Promise<GamificationMe> {
+/** Level, week and streaks. gamification_state() closes finished weeks first. */
+async function loadState(userId: string): Promise<Omit<GamificationMe, 'unseenTeacherBonuses'>> {
   const { data, error } = await supabaseAdmin.rpc('gamification_state', { p_user_id: userId })
   if (error) throw error
   const row = (data as GamificationStateRow[])[0]
@@ -131,6 +153,40 @@ async function loadMe(userId: string): Promise<GamificationMe> {
   }
 }
 
+/** The learner's own state, plus teacher bonuses they haven't seen yet. */
+async function loadMe(userId: string): Promise<GamificationMe> {
+  const [state, seen] = await Promise.all([
+    loadState(userId),
+    supabaseAdmin.from('learner_gamification').select('bonus_seen_at').eq('user_id', userId).maybeSingle(),
+  ])
+  if (seen.error) throw seen.error
+  const unseenTeacherBonuses = await loadTeacherBonuses(userId, {
+    since: (seen.data?.bonus_seen_at as string | null | undefined) ?? null,
+    limit: TEACHER_BONUS_LIST_LIMIT,
+  })
+  return { ...state, unseenTeacherBonuses }
+}
+
+async function loadXpBySection(userId: string): Promise<{ section: string; xp: number }[]> {
+  const { data, error } = await supabaseAdmin.rpc('gamification_xp_by_section', { p_user_id: userId })
+  if (error) throw error
+  return ((data ?? []) as { section: string; xp: number }[]).map((r) => ({ section: r.section, xp: r.xp }))
+}
+
+/** Call after loadState/loadMe, which close finished weeks. */
+async function loadWeeks(userId: string): Promise<WeekHistoryItem[]> {
+  const { data, error } = await supabaseAdmin
+    .from('weekly_progress')
+    .select('week_start, active_days, goal_days, goal_met, xp')
+    .eq('user_id', userId)
+    .order('week_start', { ascending: false })
+    .limit(WEEK_HISTORY_WEEKS)
+  if (error) throw error
+  return ((data ?? []) as { week_start: string; active_days: number; goal_days: number; goal_met: boolean | null; xp: number }[]).map(
+    (w) => ({ weekStart: w.week_start, activeDays: w.active_days, goalDays: w.goal_days, goalMet: w.goal_met, xp: w.xp }),
+  )
+}
+
 async function handleMe(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' })
@@ -145,6 +201,25 @@ async function handleMe(req: VercelRequest, res: VercelResponse, userId: string)
   }
 }
 
+// The learner has seen their teacher bonuses (the one-time toast); later ones show again.
+async function handleBonusSeen(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+
+  const { error } = await supabaseAdmin
+    .from('learner_gamification')
+    .update({ bonus_seen_at: new Date().toISOString() })
+    .eq('user_id', userId)
+  if (error) {
+    console.error('Failed to mark teacher bonuses as seen', error)
+    res.status(502).json({ error: 'Failed to save' })
+    return
+  }
+  res.status(200).json({ ok: true })
+}
+
 // Everything the "Az én fejlődésem" panel shows. Loading the badge wall also grants badges
 // based on current state (design §9.1), so a learner's first visit after launch credits what
 // they have already achieved (no XP for it).
@@ -157,27 +232,13 @@ async function handleOverview(req: VercelRequest, res: VercelResponse, userId: s
   try {
     // loadMe closes finished weeks first, so the history below is up to date.
     const me = await loadMe(userId)
-    const [sections, weeks, badges] = await Promise.all([
-      supabaseAdmin.rpc('gamification_xp_by_section', { p_user_id: userId }),
-      supabaseAdmin
-        .from('weekly_progress')
-        .select('week_start, active_days, goal_days, goal_met, xp')
-        .eq('user_id', userId)
-        .order('week_start', { ascending: false })
-        .limit(WEEK_HISTORY_WEEKS),
+    const [xpBySection, weeks, badges, teacherBonuses] = await Promise.all([
+      loadXpBySection(userId),
+      loadWeeks(userId),
       loadBadgeWall(userId),
+      loadTeacherBonuses(userId, { limit: TEACHER_BONUS_LIST_LIMIT }),
     ])
-    if (sections.error) throw sections.error
-    if (weeks.error) throw weeks.error
-
-    const body: GamificationOverview = {
-      me,
-      xpBySection: ((sections.data ?? []) as { section: string; xp: number }[]).map((r) => ({ section: r.section, xp: r.xp })),
-      weeks: (
-        (weeks.data ?? []) as { week_start: string; active_days: number; goal_days: number; goal_met: boolean | null; xp: number }[]
-      ).map((w) => ({ weekStart: w.week_start, activeDays: w.active_days, goalDays: w.goal_days, goalMet: w.goal_met, xp: w.xp })),
-      badges,
-    }
+    const body: GamificationOverview = { me, xpBySection, weeks, badges, teacherBonuses }
     res.status(200).json(body)
   } catch (err) {
     console.error('Failed to load the gamification overview', err)
@@ -208,6 +269,166 @@ async function handleGoal(req: VercelRequest, res: VercelResponse, userId: strin
   }
 }
 
+// --- Teacher side (design §7) ------------------------------------------------------------
+
+/** Responds 403 and returns false unless the user is a teacher. */
+async function requireTeacher(res: VercelResponse, userId: string): Promise<boolean> {
+  if ((await getUserRole(userId)) === 'teacher') return true
+  res.status(403).json({ error: 'Forbidden' })
+  return false
+}
+
+/**
+ * Responds 404 and returns false unless the teacher is actively connected to the student —
+ * the same 404 whether the student doesn't exist or isn't theirs (as api/connect.ts does).
+ */
+async function requireConnection(res: VercelResponse, teacherId: string, studentId: unknown): Promise<boolean> {
+  if (typeof studentId !== 'string' || !studentId) {
+    res.status(400).json({ error: 'Missing studentId' })
+    return false
+  }
+  const { data, error } = await supabaseAdmin
+    .from('teacher_student_links')
+    .select('id')
+    .eq('teacher_id', teacherId)
+    .eq('student_id', studentId)
+    .eq('status', 'active')
+    .maybeSingle()
+  if (error || !data) {
+    res.status(404).json({ error: 'Not found' })
+    return false
+  }
+  return true
+}
+
+interface ClassRow {
+  student_id: string
+  total_xp: number
+  level: number
+  week_goal_days: number
+  week_active_days: number
+  week_xp: number
+  week_streak: number
+  best_week_streak: number
+  daily_streak: number
+  last_active_date: string | null
+  last_week_goal_met: boolean | null
+}
+
+async function handleClass(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  if (!(await requireTeacher(res, userId))) return
+
+  const { data, error } = await supabaseAdmin.rpc('teacher_class_gamification', { p_teacher_id: userId })
+  if (error) {
+    console.error('Failed to load class gamification', error)
+    res.status(502).json({ error: 'Failed to load' })
+    return
+  }
+
+  const students: ClassStudentGamification[] = ((data ?? []) as ClassRow[]).map((r) => {
+    const thisWeekMet = r.week_active_days >= r.week_goal_days
+    return {
+      studentId: r.student_id,
+      totalXp: r.total_xp,
+      level: r.level,
+      week: { goalDays: r.week_goal_days, activeDays: r.week_active_days, xp: r.week_xp },
+      weekStreak: r.week_streak + (thisWeekMet ? 1 : 0),
+      bestWeekStreak: Math.max(r.best_week_streak, r.week_streak + (thisWeekMet ? 1 : 0)),
+      dailyStreak: r.daily_streak,
+      lastActiveDate: r.last_active_date,
+      lastWeekGoalMet: r.last_week_goal_met,
+    }
+  })
+  const body: ClassGamification = {
+    students,
+    summary: {
+      students: students.length,
+      activeThisWeek: students.filter((s) => s.week.activeDays > 0).length,
+      goalMetThisWeek: students.filter((s) => s.week.activeDays >= s.week.goalDays).length,
+      xpThisWeek: students.reduce((sum, s) => sum + s.week.xp, 0),
+      goalMetLastWeek: students.filter((s) => s.lastWeekGoalMet === true).length,
+      lastWeekOnRecord: students.filter((s) => s.lastWeekGoalMet !== null).length,
+    },
+  }
+  res.status(200).json(body)
+}
+
+async function handleStudent(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  if (!(await requireTeacher(res, userId))) return
+  if (!(await requireConnection(res, userId, req.query.studentId))) return
+  const studentId = req.query.studentId as string
+
+  try {
+    const me = await loadState(studentId)
+    const [xpBySection, weeks, wall, bonuses, bonusRemaining] = await Promise.all([
+      loadXpBySection(studentId),
+      loadWeeks(studentId),
+      loadBadgeWall(studentId),
+      loadTeacherBonuses(studentId, { limit: TEACHER_BONUS_LIST_LIMIT }),
+      teacherBonusRemaining(studentId),
+    ])
+    const body: StudentGamification = {
+      me,
+      xpBySection,
+      weeks,
+      badges: wall.filter((b) => b.earned).sort((a, b) => (b.earnedAt ?? '').localeCompare(a.earnedAt ?? '')),
+      bonuses,
+      bonusRemaining,
+    }
+    res.status(200).json(body)
+  } catch (err) {
+    console.error("Failed to load a student's gamification", err)
+    res.status(502).json({ error: 'Failed to load' })
+  }
+}
+
+// Bonus XP for a connected student: 1..TEACHER_BONUS_WEEKLY_CAP, a reason is required, and
+// it must fit this week's remaining allowance — otherwise nothing is given (given: false).
+async function handleBonus(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  if (!(await requireTeacher(res, userId))) return
+
+  const body = (req.body ?? {}) as { studentId?: unknown; amount?: unknown; reason?: unknown }
+  const amount = body.amount
+  const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
+  if (
+    typeof amount !== 'number' ||
+    !Number.isInteger(amount) ||
+    amount < 1 ||
+    amount > TEACHER_BONUS_WEEKLY_CAP ||
+    reason.length < TEACHER_BONUS_REASON_MIN ||
+    reason.length > TEACHER_BONUS_REASON_MAX
+  ) {
+    res.status(400).json({ error: 'Invalid bonus' })
+    return
+  }
+  if (!(await requireConnection(res, userId, body.studentId))) return
+
+  try {
+    const result: TeacherBonusResult = await giveTeacherBonus({
+      teacherId: userId,
+      studentId: body.studentId as string,
+      amount,
+      reason,
+    })
+    res.status(result.given ? 200 : 409).json(result)
+  } catch (err) {
+    console.error('Failed to give teacher bonus', err)
+    res.status(502).json({ error: 'Failed to save' })
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await getUserFromRequest(req)
   if (!user) {
@@ -224,11 +445,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     case 'me':
       await handleMe(req, res, user.id)
       return
+    case 'bonus-seen':
+      await handleBonusSeen(req, res, user.id)
+      return
     case 'goal':
       await handleGoal(req, res, user.id)
       return
     case 'overview':
       await handleOverview(req, res, user.id)
+      return
+    case 'class':
+      await handleClass(req, res, user.id)
+      return
+    case 'student':
+      await handleStudent(req, res, user.id)
+      return
+    case 'bonus':
+      await handleBonus(req, res, user.id)
       return
     default:
       res.status(404).json({ error: 'Not found' })

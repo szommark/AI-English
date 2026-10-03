@@ -72,6 +72,55 @@ export interface GamificationOverview {
   /** Most recent first, the current week included. */
   weeks: WeekHistoryItem[]
   badges: BadgeWallItem[]
+  /** Most recent first. */
+  teacherBonuses: TeacherBonus[]
+}
+
+/** One connected student's row in the teacher's class view (GET ?action=class). */
+export interface ClassStudentGamification {
+  studentId: string
+  totalXp: number
+  level: number
+  week: { goalDays: number; activeDays: number; xp: number }
+  weekStreak: number
+  bestWeekStreak: number
+  dailyStreak: number
+  /** YYYY-MM-DD, Europe/Budapest; null if the student has never practised. */
+  lastActiveDate: string | null
+  /** Null when last week isn't on record (the student hadn't started yet). */
+  lastWeekGoalMet: boolean | null
+}
+
+export interface ClassGamification {
+  students: ClassStudentGamification[]
+  summary: {
+    students: number
+    activeThisWeek: number
+    goalMetThisWeek: number
+    xpThisWeek: number
+    goalMetLastWeek: number
+    /** Students with last week on record (the denominator for goalMetLastWeek). */
+    lastWeekOnRecord: number
+  }
+}
+
+/** One student's gamification for their teacher (GET ?action=student). */
+export interface StudentGamification {
+  me: Omit<GamificationMe, 'unseenTeacherBonuses'>
+  xpBySection: { section: string; xp: number }[]
+  weeks: WeekHistoryItem[]
+  /** Earned badges only, most recent first. */
+  badges: BadgeWallItem[]
+  bonuses: TeacherBonus[]
+  /** Bonus XP the student can still receive this week. */
+  bonusRemaining: number
+}
+
+/** POST ?action=bonus reply. */
+export interface TeacherBonusResult {
+  /** False when the amount was over this week's remaining allowance (nothing was given). */
+  given: boolean
+  bonusRemaining: number
 }
 
 export type XpLanguage = 'en' | 'de'
@@ -98,4 +147,13 @@ export interface GamificationMe {
   activeToday: boolean
   /** A streak of 2+ days lapsed and a new one started today. */
   streakRestartedToday: boolean
+  /** Teacher bonuses the learner hasn't seen yet (shown once as a toast, then acknowledged). */
+  unseenTeacherBonuses: TeacherBonus[]
+}
+
+/** Bonus XP a teacher gave, with the teacher's reason. */
+export interface TeacherBonus {
+  amount: number
+  reason: string
+  createdAt: string
 }

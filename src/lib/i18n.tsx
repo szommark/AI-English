@@ -93,6 +93,11 @@ const messages = {
     de: 'Eine neue Serie hat begonnen – schön, dass du da bist.',
   },
   badgeEarned: { hu: 'Új jelvény', en: 'New badge', de: 'Neues Abzeichen' },
+  teacherBonusToast: {
+    hu: 'Tanári jutalom: +{n} XP',
+    en: 'Teacher bonus: +{n} XP',
+    de: 'Bonus von deiner Lehrkraft: +{n} XP',
+  },
   weeklyGoalMetToast: {
     hu: 'Teljesítetted a heti célodat!',
     en: "You've met your weekly goal!",

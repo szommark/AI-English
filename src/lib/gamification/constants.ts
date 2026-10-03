@@ -48,3 +48,14 @@ export const MAX_FREEZES = 2
 export const SOUND_MASTERY_THRESHOLD = 80
 /** Weeks of history shown on "Az én fejlődésem". */
 export const WEEK_HISTORY_WEEKS = 8
+
+// Teacher tools (design §7).
+
+/** Most bonus XP a student can receive from their teachers in one week (Mon–Sun, Europe/Budapest). */
+export const TEACHER_BONUS_WEEKLY_CAP = 50
+/** A bonus needs a reason of this many characters (trimmed)… */
+export const TEACHER_BONUS_REASON_MIN = 3
+/** …and at most this many. */
+export const TEACHER_BONUS_REASON_MAX = 200
+/** Recent bonuses listed on the student's progress page and the teacher's student page. */
+export const TEACHER_BONUS_LIST_LIMIT = 10
