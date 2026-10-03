@@ -8,8 +8,9 @@ const TOAST_MS = 5000
 
 /**
  * End-of-activity XP feedback, mounted once in AppLayout: a short toast for each award
- * (base + bonus, or the plain "cap reached" note) and the level-up dialog. A 0 XP result
- * from a repeat — not a cap — shows nothing.
+ * (base + bonus, or the plain "cap reached" note, plus a line when this activity met the
+ * weekly goal) and the level-up dialog. A 0 XP result from a repeat — not a cap — shows
+ * nothing, unless it is the activity that met the weekly goal.
  */
 export default function XpNotifications() {
   const { t } = useLanguage()
@@ -19,7 +20,7 @@ export default function XpNotifications() {
   useEffect(
     () =>
       subscribeXpResults((result) => {
-        if (result.capped || result.totalAwarded > 0) setToast({ id: Date.now(), result })
+        if (result.capped || result.totalAwarded > 0 || result.weeklyGoalMet) setToast({ id: Date.now(), result })
         if (result.leveledUp) setLevelUp(result.level)
       }),
     [],
@@ -39,6 +40,9 @@ export default function XpNotifications() {
         {toast && (
           <div key={toast.id} className="pointer-events-auto flex max-w-sm items-start gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-lg">
             <div className="min-w-0">
+              {toast.result.weeklyGoalMet && (
+                <p className="text-base font-semibold text-foreground">{t('weeklyGoalMetToast')}</p>
+              )}
               {toast.result.totalAwarded > 0 && (
                 <p className="text-base font-semibold text-foreground">{t('xpGained', { n: toast.result.totalAwarded })}</p>
               )}

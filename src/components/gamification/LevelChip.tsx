@@ -1,55 +1,123 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Flame } from 'lucide-react'
 import { useAuth } from '../../lib/AuthContext'
 import { useLanguage } from '../../lib/i18n'
 import { fetchGamificationMe } from '../../lib/gamificationApi'
-import { progressInLevel, type LevelProgress } from '../../lib/gamification/levels'
 import { subscribeXpResults } from '../../lib/gamification/xpEvents'
+import type { GamificationMe } from '../../lib/gamification/types'
+import WeekPanel from './WeekPanel'
 
 /**
- * "Szint N" with a thin bar toward the next level, for the header. Loads once per signed-in
- * user and then follows every award result, so it updates without a refetch. Renders nothing
- * while signed out or if the level can't be loaded.
+ * Header chip: "Szint N" with a thin bar toward the next level, a small ring for this
+ * week's goal and a flame with the daily streak. Tapping it opens WeekPanel (details and the
+ * weekly-goal picker). Loads once per signed-in user and reloads after every XP award.
+ * Renders nothing while signed out or if the state can't be loaded.
  */
 export default function LevelChip() {
   const { user } = useAuth()
   const { t } = useLanguage()
-  const [progress, setProgress] = useState<LevelProgress | null>(null)
+  const [me, setMe] = useState<GamificationMe | null>(null)
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
   const userId = user?.id ?? null
 
   useEffect(() => {
-    setProgress(null)
+    setMe(null)
+    setOpen(false)
     if (!userId) return
     let cancelled = false
-    fetchGamificationMe().then((me) => {
-      if (!cancelled && me) setProgress(progressInLevel(me.totalXp))
-    })
-    const unsubscribe = subscribeXpResults((result) => setProgress(progressInLevel(result.totalXp)))
+    const load = () =>
+      fetchGamificationMe().then((next) => {
+        if (!cancelled && next) setMe(next)
+      })
+    load()
+    const unsubscribe = subscribeXpResults(load)
     return () => {
       cancelled = true
       unsubscribe()
     }
   }, [userId])
 
-  if (!userId || !progress) return null
+  // Close on a click outside or Escape.
+  useEffect(() => {
+    if (!open) return
+    const onPointer = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onPointer)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onPointer)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open])
 
-  const label = t('xpToNextLevel', { into: progress.xpIntoLevel, next: progress.xpForNextLevel })
-  const percent = progress.xpForNextLevel > 0 ? Math.min(100, (progress.xpIntoLevel / progress.xpForNextLevel) * 100) : 0
+  if (!userId || !me) return null
+
+  const levelPercent = me.xpForNextLevel > 0 ? Math.min(100, (me.xpIntoLevel / me.xpForNextLevel) * 100) : 0
+  const weekRatio = Math.min(1, me.week.activeDays / me.week.goalDays)
 
   return (
-    // Focusable so the tooltip also opens on tap (touch screens have no hover).
-    <span tabIndex={0} title={label} aria-label={`${t('xpLevel', { n: progress.level })} — ${label}`} className="group relative inline-flex flex-col gap-1 rounded-full border border-border bg-card px-3 py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring">
-      <span aria-hidden="true" className="text-xs font-semibold leading-none text-foreground">
-        {t('xpLevel', { n: progress.level })}
-      </span>
-      <span aria-hidden="true" className="block h-1 w-14 overflow-hidden rounded-full bg-muted">
-        <span className="block h-full rounded-full bg-[var(--teal-accent)]" style={{ width: `${percent}%` }} />
-      </span>
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground shadow-sm group-hover:block group-focus:block"
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-label={t('progressChipLabel', { n: me.level, active: me.week.activeDays, goal: me.week.goalDays })}
+        title={t('xpToNextLevel', { into: me.xpIntoLevel, next: me.xpForNextLevel })}
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-2.5 rounded-full border border-border bg-card px-3 py-1 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        {label}
-      </span>
-    </span>
+        <span aria-hidden="true" className="flex flex-col gap-1">
+          <span className="text-xs font-semibold leading-none text-foreground">{t('xpLevel', { n: me.level })}</span>
+          <span className="block h-1 w-14 overflow-hidden rounded-full bg-muted">
+            <span className="block h-full rounded-full bg-[var(--teal-accent)]" style={{ width: `${levelPercent}%` }} />
+          </span>
+        </span>
+        <WeekRing ratio={weekRatio} />
+        {me.dailyStreak > 0 && (
+          <span aria-hidden="true" className="inline-flex items-center gap-0.5 text-xs font-semibold text-foreground">
+            <Flame className="h-3.5 w-3.5 text-amber-500" />
+            {me.dailyStreak}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div
+          role="dialog"
+          aria-label={t('weekPanelTitle')}
+          className="fixed inset-x-4 top-16 z-50 max-h-[calc(100vh-5rem)] overflow-y-auto rounded-xl border border-border bg-card p-5 shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80"
+        >
+          <WeekPanel me={me} onChange={setMe} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** This week's goal as a small ring (full when the goal is met). */
+function WeekRing({ ratio }: { ratio: number }) {
+  const r = 7
+  const c = 2 * Math.PI * r
+  return (
+    <svg aria-hidden="true" viewBox="0 0 18 18" className="h-[18px] w-[18px] -rotate-90">
+      <circle cx="9" cy="9" r={r} fill="none" strokeWidth="2.5" className="stroke-muted" />
+      {ratio > 0 && (
+        <circle
+          cx="9"
+          cy="9"
+          r={r}
+          fill="none"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeDasharray={`${c * ratio} ${c}`}
+          style={{ stroke: 'var(--teal-accent)' }}
+        />
+      )}
+    </svg>
   )
 }

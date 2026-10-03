@@ -28,5 +28,15 @@ export const CLIENT_AWARD_RATE_LIMIT_PER_MINUTE = 30
 /** weekly_cap_group shared by all mock-exam activity types (seeded, not yet enabled). */
 export const EXAM_WEEKLY_XP_CAP_GROUP = 'exam'
 
-/** Calendar days and weeks for caps. SQL copy: xp_award_context(). */
+/** Calendar days and weeks for caps, active days and streaks. SQL copies: every gamification function. */
 export const GAMIFICATION_TIMEZONE = 'Europe/Budapest'
+
+// Weekly goal and streaks (design §5). SQL copies: 20261003150000_gamification_streaks.sql
+// (column checks, gamification_close_weeks, gamification_state, set_weekly_goal).
+
+/** Active days per week a learner can choose as their goal. */
+export const WEEKLY_GOAL_MIN_DAYS = 2
+export const WEEKLY_GOAL_MAX_DAYS = 5
+export const DEFAULT_WEEKLY_GOAL_DAYS = 3
+/** Freezes a learner can hold; one is earned per week with the goal met, each covers one missed day. */
+export const MAX_FREEZES = 2

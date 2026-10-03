@@ -1,12 +1,16 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { awardXp, getActivityType } from './_lib/gamification.js'
-import { CLIENT_AWARD_RATE_LIMIT_PER_MINUTE } from '../src/lib/gamification/constants.js'
+import {
+  CLIENT_AWARD_RATE_LIMIT_PER_MINUTE,
+  WEEKLY_GOAL_MAX_DAYS,
+  WEEKLY_GOAL_MIN_DAYS,
+} from '../src/lib/gamification/constants.js'
 import { progressInLevel } from '../src/lib/gamification/levels.js'
 import type { GamificationMe, XpLanguage } from '../src/lib/gamification/types.js'
 
 // Single Vercel function for the whole /api/gamification surface (award for browser-completed
-// activities, the learner's level), multiplexed by ?action= to stay under Vercel Hobby's
+// activities, the learner's level/week/streaks, the weekly goal), multiplexed by ?action= to stay under Vercel Hobby's
 // 12-serverless-function cap — do not add new files directly under api/.
 
 const ALLOWED_AWARD_FIELDS = new Set(['activityType', 'itemRef', 'language', 'performanceScore'])
@@ -88,25 +92,77 @@ async function handleAward(req: VercelRequest, res: VercelResponse, userId: stri
   res.status(200).json({ xp })
 }
 
+interface GamificationStateRow {
+  total_xp: number
+  weekly_goal_days: number
+  week_goal_days: number
+  week_active_days: number
+  week_streak: number
+  best_week_streak: number
+  daily_streak: number
+  freezes: number
+  active_today: boolean
+  streak_restarted_today: boolean
+}
+
+/** The learner's level, week and streaks. gamification_state() closes finished weeks first. */
+async function loadMe(userId: string): Promise<GamificationMe> {
+  const { data, error } = await supabaseAdmin.rpc('gamification_state', { p_user_id: userId })
+  if (error) throw error
+  const row = (data as GamificationStateRow[])[0]
+  if (!row) throw new Error('gamification_state returned no row')
+
+  const thisWeekMet = row.week_active_days >= row.week_goal_days
+  return {
+    totalXp: row.total_xp,
+    ...progressInLevel(row.total_xp),
+    weeklyGoalDays: row.weekly_goal_days,
+    week: { goalDays: row.week_goal_days, activeDays: row.week_active_days },
+    // week_streak counts closed weeks only; a week whose goal is already met counts too.
+    weekStreak: row.week_streak + (thisWeekMet ? 1 : 0),
+    bestWeekStreak: Math.max(row.best_week_streak, row.week_streak + (thisWeekMet ? 1 : 0)),
+    dailyStreak: row.daily_streak,
+    freezes: row.freezes,
+    activeToday: row.active_today,
+    streakRestartedToday: row.streak_restarted_today,
+  }
+}
+
 async function handleMe(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' })
     return
   }
 
-  const { data, error } = await supabaseAdmin
-    .from('learner_gamification')
-    .select('total_xp')
-    .eq('user_id', userId)
-    .maybeSingle()
-  if (error) {
-    res.status(502).json({ error: error.message })
+  try {
+    res.status(200).json(await loadMe(userId))
+  } catch (err) {
+    console.error('Failed to load gamification state', err)
+    res.status(502).json({ error: 'Failed to load' })
+  }
+}
+
+// The weekly goal applies from next week (the current week keeps its goal; see set_weekly_goal()).
+async function handleGoal(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
     return
   }
 
-  const totalXp = data?.total_xp ?? 0
-  const body: GamificationMe = { totalXp, ...progressInLevel(totalXp) }
-  res.status(200).json(body)
+  const days = (req.body as { days?: unknown } | undefined)?.days
+  if (typeof days !== 'number' || !Number.isInteger(days) || days < WEEKLY_GOAL_MIN_DAYS || days > WEEKLY_GOAL_MAX_DAYS) {
+    res.status(400).json({ error: 'Invalid goal' })
+    return
+  }
+
+  try {
+    const { error } = await supabaseAdmin.rpc('set_weekly_goal', { p_user_id: userId, p_days: days })
+    if (error) throw error
+    res.status(200).json(await loadMe(userId))
+  } catch (err) {
+    console.error('Failed to set weekly goal', err)
+    res.status(502).json({ error: 'Failed to save' })
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -124,6 +180,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     case 'me':
       await handleMe(req, res, user.id)
+      return
+    case 'goal':
+      await handleGoal(req, res, user.id)
       return
     default:
       res.status(404).json({ error: 'Not found' })

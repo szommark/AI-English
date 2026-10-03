@@ -8,7 +8,7 @@ async function authHeader(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-/** The learner's XP total and level; null if it can't be loaded (the chip then stays hidden). */
+/** The learner's level, week and streaks; null if it can't be loaded (the chip then stays hidden). */
 export async function fetchGamificationMe(): Promise<GamificationMe | null> {
   try {
     const headers = await authHeader()
@@ -18,6 +18,18 @@ export async function fetchGamificationMe(): Promise<GamificationMe | null> {
   } catch {
     return null
   }
+}
+
+/** Saves the weekly goal (applies from next week) and returns the updated state. Throws on failure. */
+export async function setWeeklyGoal(days: number): Promise<GamificationMe> {
+  const headers = await authHeader()
+  const res = await fetch('/api/gamification?action=goal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({ days }),
+  })
+  if (!res.ok) throw new Error('Failed to save the weekly goal')
+  return (await res.json()) as GamificationMe
 }
 
 /**
