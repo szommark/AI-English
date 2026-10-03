@@ -93,7 +93,9 @@ export async function awardXp(args: {
       p_capped: award.capped,
     })
     if (recordError) throw recordError
-    const totals = (recordRows as Array<{ total_xp: number; level: number; previous_level: number }>)[0]
+    const totals = (
+      recordRows as Array<{ total_xp: number; level: number; previous_level: number; weekly_goal_met: boolean }>
+    )[0]
     if (!totals) throw new Error('record_xp_event returned no row')
 
     return {
@@ -106,6 +108,7 @@ export async function awardXp(args: {
       level: totals.level,
       previousLevel: totals.previous_level,
       leveledUp: totals.level > totals.previous_level,
+      weeklyGoalMet: totals.weekly_goal_met === true,
     }
   } catch (err) {
     console.error(`Failed to award XP for ${args.activityType}`, err)
