@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLanguage } from '../../lib/i18n'
-import { subscribeXpResults } from '../../lib/gamification/xpEvents'
-import type { AwardResult } from '../../lib/gamification/types'
+import { subscribeTeacherBonuses, subscribeXpResults } from '../../lib/gamification/xpEvents'
+import type { AwardResult, TeacherBonus } from '../../lib/gamification/types'
 import LevelUpDialog from './LevelUpDialog'
 import BadgeMedal from './BadgeMedal'
 
@@ -20,6 +20,15 @@ export default function XpNotifications() {
   const { lang, t } = useLanguage()
   const [toast, setToast] = useState<{ id: number; result: AwardResult } | null>(null)
   const [levelUp, setLevelUp] = useState<number | null>(null)
+  const [bonusToast, setBonusToast] = useState<{ id: number; bonuses: TeacherBonus[] } | null>(null)
+
+  useEffect(() => subscribeTeacherBonuses((bonuses) => setBonusToast({ id: Date.now(), bonuses })), [])
+
+  useEffect(() => {
+    if (!bonusToast) return
+    const timer = setTimeout(() => setBonusToast(null), BADGE_TOAST_MS)
+    return () => clearTimeout(timer)
+  }, [bonusToast])
 
   useEffect(
     () =>
@@ -43,7 +52,28 @@ export default function XpNotifications() {
 
   return (
     <>
-      <div aria-live="polite" role="status" className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex justify-center sm:inset-x-auto sm:right-6 sm:justify-end">
+      <div aria-live="polite" role="status" className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:items-end">
+        {bonusToast && (
+          <div key={bonusToast.id} className="pointer-events-auto flex max-w-sm items-start gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-lg">
+            <div className="min-w-0 space-y-2">
+              {bonusToast.bonuses.map((b) => (
+                <div key={b.createdAt}>
+                  <p className="text-base font-semibold text-foreground">{t('teacherBonusToast', { n: b.amount })}</p>
+                  {b.reason && (
+                    <p className="text-sm text-muted-foreground">{lang === 'en' ? `“${b.reason}”` : `„${b.reason}”`}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setBonusToast(null)}
+              aria-label={t('dismiss')}
+              className="shrink-0 text-muted-foreground hover:text-foreground"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {toast && (
           <div key={toast.id} className="pointer-events-auto flex max-w-sm items-start gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-lg">
             <div className="min-w-0 space-y-3">

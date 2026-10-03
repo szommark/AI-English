@@ -1,7 +1,8 @@
 import { supabaseAdmin } from './supabaseAdmin.js'
 import { computeAward, type RepeatRule } from './xpCalc.js'
 import { evaluateBadges } from './badges.js'
-import type { AwardResult, XpLanguage } from '../../src/lib/gamification/types.js'
+import { TEACHER_BONUS_WEEKLY_CAP } from '../../src/lib/gamification/constants.js'
+import type { AwardResult, TeacherBonus, XpLanguage } from '../../src/lib/gamification/types.js'
 
 // Single server-side entry point for XP (docs/gamification-design.md §9.2). Only API
 // routes call this; the browser never sends an XP amount, only an activity type, an item
@@ -119,4 +120,75 @@ export async function awardXp(args: {
     console.error(`Failed to award XP for ${args.activityType}`, err)
     return null
   }
+}
+
+// --- Teacher bonus XP (design §7.2) -------------------------------------------------------
+
+const TEACHER_BONUS_TYPE = 'teacher.bonus'
+
+/** A student's teacher bonuses, most recent first; only those after `since` when given. */
+export async function loadTeacherBonuses(studentId: string, opts: { since?: string | null; limit: number }): Promise<TeacherBonus[]> {
+  let query = supabaseAdmin
+    .from('xp_events')
+    .select('base_xp, reason, created_at')
+    .eq('user_id', studentId)
+    .eq('activity_type', TEACHER_BONUS_TYPE)
+  if (opts.since) query = query.gt('created_at', opts.since)
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(opts.limit)
+  if (error) throw error
+  return ((data ?? []) as { base_xp: number; reason: string | null; created_at: string }[]).map((r) => ({
+    amount: r.base_xp,
+    reason: r.reason ?? '',
+    createdAt: r.created_at,
+  }))
+}
+
+/** Bonus XP the student can still receive this week, from all their teachers together. */
+export async function teacherBonusRemaining(studentId: string): Promise<number> {
+  const { data, error } = await supabaseAdmin.rpc('xp_award_context', {
+    p_user_id: studentId,
+    p_activity_type: TEACHER_BONUS_TYPE,
+    p_item_ref: null,
+  })
+  if (error) throw error
+  const awardedWeek = (data as { awarded_week: number }[])[0]?.awarded_week ?? 0
+  return Math.max(0, TEACHER_BONUS_WEEKLY_CAP - awardedWeek)
+}
+
+/**
+ * Gives a connected student bonus XP (the caller has checked the teacher and the
+ * connection, and validated amount and reason). Refuses — gives nothing — when the amount is
+ * over this week's remaining allowance. Like caps elsewhere, two bonuses at the same moment
+ * could both pass the check; accepted, the overshoot is at most one bonus.
+ * Throws on database errors: the teacher gets an error, no learner flow is involved.
+ */
+export async function giveTeacherBonus(args: {
+  teacherId: string
+  studentId: string
+  amount: number
+  reason: string
+}): Promise<{ given: boolean; bonusRemaining: number }> {
+  const type = await getActivityType(TEACHER_BONUS_TYPE)
+  if (!type?.enabled) throw new Error('teacher.bonus is not enabled')
+
+  const remaining = await teacherBonusRemaining(args.studentId)
+  if (args.amount > remaining) return { given: false, bonusRemaining: remaining }
+
+  const { error } = await supabaseAdmin.rpc('record_xp_event', {
+    p_user_id: args.studentId,
+    p_activity_type: TEACHER_BONUS_TYPE,
+    p_item_ref: null,
+    p_language: 'en',
+    p_base_xp: args.amount,
+    p_bonus_xp: 0,
+    p_performance_score: null,
+    p_capped: false,
+    p_awarded_by: args.teacherId,
+    p_reason: args.reason,
+  })
+  if (error) throw error
+
+  // A bonus can lift the student into a level badge; never fails the bonus.
+  await evaluateBadges(args.studentId)
+  return { given: true, bonusRemaining: remaining - args.amount }
 }

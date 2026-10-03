@@ -77,6 +77,8 @@ export const MY_PROGRESS_COPY = {
   gamBadgeEarnedOn: (date: string) => `Megszerezve: ${date}`, // Earned: DATE
   gamBadgeHowTo: 'Így szerezheted meg:', // How to earn it:
   gamListen: 'Meghallgatás', // Listen (play-button label)
+  gamBonusesHeading: 'Tanári jutalmak', // Teacher bonuses (bonus XP from the learner's teacher, with the reason)
+  gamBonusAmount: (n: number) => `+${n} XP`, // +N XP
   gamLoadError: 'A pontjaidat most nem sikerült betölteni.', // Couldn't load your points right now.
 
   // Transparency line (only with an active teacher connection)

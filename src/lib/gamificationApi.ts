@@ -1,6 +1,14 @@
 import { supabase } from './supabase'
 import { publishXpResult } from './gamification/xpEvents'
-import type { AwardResult, GamificationMe, GamificationOverview, XpLanguage } from './gamification/types'
+import type {
+  AwardResult,
+  ClassGamification,
+  GamificationMe,
+  GamificationOverview,
+  StudentGamification,
+  TeacherBonusResult,
+  XpLanguage,
+} from './gamification/types'
 
 async function authHeader(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession()
@@ -26,6 +34,49 @@ export async function fetchGamificationOverview(): Promise<GamificationOverview>
   const res = await fetch('/api/gamification?action=overview', { headers })
   if (!res.ok) throw new Error('Failed to load the gamification overview')
   return (await res.json()) as GamificationOverview
+}
+
+/** Marks the learner's teacher bonuses as seen, so the toast doesn't repeat. Never throws. */
+export async function markTeacherBonusesSeen(): Promise<void> {
+  try {
+    const headers = await authHeader()
+    await fetch('/api/gamification?action=bonus-seen', { method: 'POST', headers })
+  } catch {
+    // Worst case the toast shows once more next time.
+  }
+}
+
+// --- Teacher side -------------------------------------------------------------------------
+
+/** Gamification for every connected student, plus a class summary. Throws on failure. */
+export async function fetchClassGamification(): Promise<ClassGamification> {
+  const headers = await authHeader()
+  const res = await fetch('/api/gamification?action=class', { headers })
+  if (!res.ok) throw new Error('Failed to load class gamification')
+  return (await res.json()) as ClassGamification
+}
+
+/** One connected student's gamification. Throws on failure (403/404 included). */
+export async function fetchStudentGamification(studentId: string): Promise<StudentGamification> {
+  const headers = await authHeader()
+  const res = await fetch(`/api/gamification?action=student&studentId=${encodeURIComponent(studentId)}`, { headers })
+  if (!res.ok) throw new Error('Failed to load student gamification')
+  return (await res.json()) as StudentGamification
+}
+
+/**
+ * Gives a connected student bonus XP. Resolves with given: false (nothing given) when the
+ * amount is over this week's remaining allowance; throws on any other failure.
+ */
+export async function giveTeacherBonus(studentId: string, amount: number, reason: string): Promise<TeacherBonusResult> {
+  const headers = await authHeader()
+  const res = await fetch('/api/gamification?action=bonus', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({ studentId, amount, reason }),
+  })
+  if (res.status !== 200 && res.status !== 409) throw new Error('Failed to give bonus XP')
+  return (await res.json()) as TeacherBonusResult
 }
 
 /** Saves the weekly goal (applies from next week) and returns the updated state. Throws on failure. */

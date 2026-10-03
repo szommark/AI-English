@@ -4,6 +4,9 @@ import { useLanguage } from '../lib/i18n'
 import { Link } from 'react-router-dom'
 import { fetchInviteCode, regenerateInviteCode, fetchTeacherRoster, type RosterEntry } from '../lib/teacherApi'
 import WordListsSection from '../components/VocabLists/WordListsSection'
+import ClassSummaryCard, { StudentGamificationLine } from '../components/gamification/ClassSummaryCard'
+import { fetchClassGamification } from '../lib/gamificationApi'
+import type { ClassGamification } from '../lib/gamification/types'
 
 export default function TeacherDashboardPage() {
   const { t } = useLanguage()
@@ -12,6 +15,7 @@ export default function TeacherDashboardPage() {
   const [students, setStudents] = useState<RosterEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [classGamification, setClassGamification] = useState<ClassGamification | null>(null)
 
   useEffect(() => {
     Promise.all([fetchInviteCode(), fetchTeacherRoster()])
@@ -21,7 +25,13 @@ export default function TeacherDashboardPage() {
       })
       .catch(() => setError('Failed to load your dashboard. Please try again.'))
       .finally(() => setLoading(false))
+    // Optional extra: the roster works without it.
+    fetchClassGamification()
+      .then(setClassGamification)
+      .catch((err) => console.error('Failed to load class gamification', err))
   }, [])
+
+  const gamificationByStudent = new Map(classGamification?.students.map((s) => [s.studentId, s]) ?? [])
 
   async function handleRegenerate() {
     if (!window.confirm('Regenerate your invite code? The old code will stop working immediately.')) return
@@ -58,6 +68,8 @@ export default function TeacherDashboardPage() {
               </button>
             </div>
 
+            {classGamification && <ClassSummaryCard summary={classGamification.summary} />}
+
             <div className="space-y-3">
               <h2 className="font-medium text-foreground">Students</h2>
 
@@ -81,6 +93,7 @@ export default function TeacherDashboardPage() {
                         {s.sessionCount} session{s.sessionCount === 1 ? '' : 's'}
                         {s.lastSessionAt && ` · last active ${new Date(s.lastSessionAt).toLocaleDateString()}`}
                       </div>
+                      <StudentGamificationLine student={gamificationByStudent.get(s.studentId)} />
                     </Link>
                   ))}
                 </div>
