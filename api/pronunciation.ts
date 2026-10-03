@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { issueAzureToken } from './_lib/azure.js'
+import { awardXp } from './_lib/gamification.js'
 import { getScenario } from '../src/data/scenarios.js'
 import { getSoundItem } from '../src/data/pronunciationCurriculum.js'
 import { getLessonUnit } from '../src/data/pronunciationLessons/index.js'
@@ -64,6 +65,12 @@ interface PronunciationLogRequestBody {
   audioSeconds: number
 }
 
+/** Azure's overall pronunciation score as 0..1, or null if the logged result doesn't carry one. */
+function deepCheckScore(azureResult: unknown): number | null {
+  const score = (azureResult as { scores?: { pronunciation?: unknown } } | null)?.scores?.pronunciation
+  return typeof score === 'number' && Number.isFinite(score) ? score / 100 : null
+}
+
 async function handleLog(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
@@ -85,7 +92,21 @@ async function handleLog(req: VercelRequest, res: VercelResponse, userId: string
     p_delta: clampedSeconds - DEEP_CHECK_MAX_SECONDS,
   })
 
-  res.status(200).json({ ok: true })
+  // Deep Check XP only for the Sound Bank's sound items (the drill funnel's production
+  // stage); scenario sentences and Stress Patterns / Connected Speech units log here too but
+  // aren't gamified yet. The score is Azure's overall pronunciation score (0–100) as the
+  // browser received it — trusted only within the bonus limit and caps. awardXp never throws.
+  const xp = getSoundItem(body.scenarioId)
+    ? await awardXp({
+        userId,
+        activityType: 'pronunciation-session.deep_check',
+        itemRef: body.scenarioId,
+        language: 'en',
+        performanceScore: deepCheckScore(body.azureResult),
+      })
+    : null
+
+  res.status(200).json({ ok: true, xp })
 }
 
 interface PronunciationProgressRequestBody {

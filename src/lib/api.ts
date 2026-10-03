@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
 import type { ChatMessage, ChatTurnResponse } from './types'
+import { publishXpResult } from './gamification/xpEvents'
+import type { AwardResult } from './gamification/types'
 
 async function authHeader(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession()
@@ -29,7 +31,9 @@ export async function sendChatTurn(params: {
   }
 
   if (!res.ok) throw new Error('Failed to reach the conversation service')
-  return res.json()
+  const body = (await res.json()) as ChatTurnResponse
+  publishXpResult(body.xp)
+  return body
 }
 
 export interface DeepCheckLimitError extends Error {
@@ -73,4 +77,7 @@ export async function logDeepCheck(params: {
   })
 
   if (!res.ok) throw new Error('Failed to log pronunciation check')
+  // Sound Bank deep checks earn XP server-side; the result, if any, drives the toast.
+  const body = (await res.json().catch(() => null)) as { xp?: AwardResult | null } | null
+  publishXpResult(body?.xp)
 }

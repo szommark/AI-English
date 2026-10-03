@@ -3,8 +3,18 @@ import { Volume2 } from 'lucide-react'
 import type { Phoneme, SwipeWord } from '../../data/phonemes'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import type { AccentPreference } from '../../lib/voiceSelection'
+import { awardClientXp } from '../../lib/gamificationApi'
 import DrillCard from '../PronunciationSession/DrillCard'
 import StageSummary, { type RoundResult } from '../PronunciationSession/StageSummary'
+
+/** XP for one finished card set, inside the drill funnel or standalone. Fire-and-forget. */
+export function awardSwipeSetXp(phonemeId: string, results: RoundResult[]) {
+  awardClientXp({
+    activityType: 'pronunciation-session.swipe_set',
+    itemRef: phonemeId,
+    performanceScore: results.filter((r) => r.correct).length / results.length,
+  })
+}
 
 const DECK_SIZE = 6
 const ADVANCE_DELAY_MS = 900
@@ -190,7 +200,10 @@ export default function SwipeCardExercise({
         words={phoneme.swipeWords ?? []}
         ipaSymbol={phoneme.ipaSymbol}
         speak={(word) => synth.speak(word)}
-        onFinish={setResults}
+        onFinish={(finished) => {
+          setResults(finished)
+          if (finished.length > 0) awardSwipeSetXp(phoneme.id, finished)
+        }}
       />
     </DrillCard>
   )
