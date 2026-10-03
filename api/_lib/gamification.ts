@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './supabaseAdmin.js'
 import { computeAward, type RepeatRule } from './xpCalc.js'
+import { evaluateBadges } from './badges.js'
 import type { AwardResult, XpLanguage } from '../../src/lib/gamification/types.js'
 
 // Single server-side entry point for XP (docs/gamification-design.md §9.2). Only API
@@ -98,6 +99,9 @@ export async function awardXp(args: {
     )[0]
     if (!totals) throw new Error('record_xp_event returned no row')
 
+    // The ledger row is written; badges are a bonus on top and never fail the award.
+    const newBadges = await evaluateBadges(args.userId)
+
     return {
       activityType: type.key,
       baseXp: award.baseXp,
@@ -109,6 +113,7 @@ export async function awardXp(args: {
       previousLevel: totals.previous_level,
       leveledUp: totals.level > totals.previous_level,
       weeklyGoalMet: totals.weekly_goal_met === true,
+      newBadges,
     }
   } catch (err) {
     console.error(`Failed to award XP for ${args.activityType}`, err)

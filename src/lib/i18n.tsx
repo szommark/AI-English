@@ -92,6 +92,7 @@ const messages = {
     en: 'A new streak has started — good to see you.',
     de: 'Eine neue Serie hat begonnen – schön, dass du da bist.',
   },
+  badgeEarned: { hu: 'Új jelvény', en: 'New badge', de: 'Neues Abzeichen' },
   weeklyGoalMetToast: {
     hu: 'Teljesítetted a heti célodat!',
     en: "You've met your weekly goal!",

@@ -14,6 +14,64 @@ export interface AwardResult {
   leveledUp: boolean
   /** True only for the activity that reached this week's goal. */
   weeklyGoalMet: boolean
+  /** Badges this activity earned (usually none). */
+  newBadges: EarnedBadge[]
+}
+
+/** A badge's proverb with its Hungarian equivalent (design §6.3). */
+export interface Wisdom {
+  text: string
+  language: 'en' | 'de'
+  hungarian: string
+}
+
+/** A badge just earned, for the celebration toast. */
+export interface EarnedBadge {
+  key: string
+  nameHu: string
+  nameEn: string
+  /** lucide-react icon name (see src/components/gamification/badgeIcons.ts). */
+  icon: string
+  /** Null when the badge has no reviewed wisdom. */
+  wisdom: Wisdom | null
+}
+
+/**
+ * One tile on the badge wall. A hidden badge that isn't earned has no name, criteria or
+ * icon; a locked badge has its criteria but never its wisdom.
+ */
+export interface BadgeWallItem {
+  key: string
+  category: string
+  section: string | null
+  hidden: boolean
+  earned: boolean
+  earnedAt: string | null
+  icon: string | null
+  nameHu: string | null
+  nameEn: string | null
+  criteriaHu: string | null
+  criteriaEn: string | null
+  wisdom: Wisdom | null
+}
+
+export interface WeekHistoryItem {
+  /** Monday, YYYY-MM-DD (Europe/Budapest). */
+  weekStart: string
+  activeDays: number
+  goalDays: number
+  /** Null for the current, still open week. */
+  goalMet: boolean | null
+  xp: number
+}
+
+/** GET /api/gamification?action=overview — the "Az én fejlődésem" panel. */
+export interface GamificationOverview {
+  me: GamificationMe
+  xpBySection: { section: string; xp: number }[]
+  /** Most recent first, the current week included. */
+  weeks: WeekHistoryItem[]
+  badges: BadgeWallItem[]
 }
 
 export type XpLanguage = 'en' | 'de'

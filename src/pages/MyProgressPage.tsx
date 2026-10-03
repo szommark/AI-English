@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import PageHeading from '../components/PageHeading'
 import CefrHistoryLine from '../components/Progress/CefrHistoryLine'
 import MistakeAreaList, { visibleAreas } from '../components/Progress/MistakeAreaList'
+import GamificationPanel from '../components/gamification/GamificationPanel'
 import { MY_PROGRESS_COPY as C } from '../data/myProgressCopy'
 import { getMistakeSubtype } from '../data/mistakeTaxonomy'
 import { getGrammarItem } from '../data/grammarCurriculum'
@@ -217,6 +218,7 @@ export default function MyProgressPage() {
             </Link>
           </div>
         </Card>
+        <GamificationPanel />
         {data.hasTeacher && <TeacherLine />}
       </div>
     )
@@ -243,6 +245,7 @@ export default function MyProgressPage() {
 
       <PronunciationPanel items={data.pronunciation} />
       <VocabularyPanel counts={data.vocabulary} />
+      <GamificationPanel />
       {data.hasTeacher && <TeacherLine />}
     </div>
   )
