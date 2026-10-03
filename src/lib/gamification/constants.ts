@@ -40,3 +40,11 @@ export const WEEKLY_GOAL_MAX_DAYS = 5
 export const DEFAULT_WEEKLY_GOAL_DAYS = 3
 /** Freezes a learner can hold; one is earned per week with the goal met, each covers one missed day. */
 export const MAX_FREEZES = 2
+
+// Badges (design §6). Thresholds that belong to one badge live in its params
+// (badge_definitions); these are the shared definitions behind the metrics.
+
+/** A Sound Bank sound counts as mastered when perception and production are both at least this (0–100). */
+export const SOUND_MASTERY_THRESHOLD = 80
+/** Weeks of history shown on "Az én fejlődésem". */
+export const WEEK_HISTORY_WEEKS = 8

@@ -56,6 +56,29 @@ export const MY_PROGRESS_COPY = {
   vocabMastered: 'Elsajátítva', // Mastered
   vocabLink: 'Szókincsfejlesztő megnyitása', // Open the Vocabulary Builder
 
+  // Gamification panel: level, XP by area, week history, badge wall
+  gamHeading: 'Pontok, szintek és jelvények', // Points, levels and badges
+  gamLevel: (n: number) => `Szint ${n}`, // Level N (same wording as the header chip)
+  gamTotalXp: (n: number) => `${n} XP összesen`, // N XP in total
+  gamToNext: (into: number, next: number) => `${into} / ${next} XP a következő szintig`, // X / Y XP to the next level
+  gamBySectionHeading: 'XP területenként', // XP by area
+  gamBySectionEmpty: 'Még nincs XP. Az első befejezett gyakorlat után itt jelenik meg.', // No XP yet. It appears here after your first finished activity.
+  gamWeeksHeading: 'Heti célod az elmúlt hetekben', // Your weekly goal in recent weeks
+  gamWeeksEmpty: 'Az első gyakorlásod hetétől itt látod, hogyan alakul a heti célod.', // From the week of your first practice, you'll see your weekly goal here.
+  gamWeekLabel: (date: string, active: number, goal: number, state: 'met' | 'missed' | 'open') =>
+    `${date} kezdetű hét: ${active} / ${goal} nap, ${state === 'met' ? 'teljesítve' : state === 'open' ? 'folyamatban' : 'nem teljesült'}`, // Week starting DATE: A / G days, met / in progress / not met (screen-reader label)
+  gamWeekMetLegend: 'teljesített hét', // week with the goal met (legend)
+  gamWeekOpenLegend: 'ez a hét', // this week (legend)
+  gamBadgesHeading: 'Jelvények', // Badges
+  gamBadgesCount: (earned: number, total: number) => `${earned} / ${total} megszerezve`, // E / T earned
+  gamBadgesHint: 'Válassz ki egy jelvényt a részletekhez.', // Pick a badge for details.
+  gamBadgeHiddenName: 'Rejtett jelvény', // Hidden badge
+  gamBadgeHiddenText: 'Akkor derül ki, mi ez, amikor megszerzed.', // You'll find out what it is when you earn it.
+  gamBadgeEarnedOn: (date: string) => `Megszerezve: ${date}`, // Earned: DATE
+  gamBadgeHowTo: 'Így szerezheted meg:', // How to earn it:
+  gamListen: 'Meghallgatás', // Listen (play-button label)
+  gamLoadError: 'A pontjaidat most nem sikerült betölteni.', // Couldn't load your points right now.
+
   // Transparency line (only with an active teacher connection)
   teacherCanSee: 'A tanárod is látja az ezen az oldalon lévő adatokat.', // Your teacher can also see the data on this page.
 

@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { publishXpResult } from './gamification/xpEvents'
-import type { AwardResult, GamificationMe, XpLanguage } from './gamification/types'
+import type { AwardResult, GamificationMe, GamificationOverview, XpLanguage } from './gamification/types'
 
 async function authHeader(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession()
@@ -18,6 +18,14 @@ export async function fetchGamificationMe(): Promise<GamificationMe | null> {
   } catch {
     return null
   }
+}
+
+/** Level, XP by section, week history and the badge wall for "Az én fejlődésem". Throws on failure. */
+export async function fetchGamificationOverview(): Promise<GamificationOverview> {
+  const headers = await authHeader()
+  const res = await fetch('/api/gamification?action=overview', { headers })
+  if (!res.ok) throw new Error('Failed to load the gamification overview')
+  return (await res.json()) as GamificationOverview
 }
 
 /** Saves the weekly goal (applies from next week) and returns the updated state. Throws on failure. */

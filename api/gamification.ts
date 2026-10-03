@@ -3,14 +3,17 @@ import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { awardXp, getActivityType } from './_lib/gamification.js'
 import {
   CLIENT_AWARD_RATE_LIMIT_PER_MINUTE,
+  WEEK_HISTORY_WEEKS,
   WEEKLY_GOAL_MAX_DAYS,
   WEEKLY_GOAL_MIN_DAYS,
 } from '../src/lib/gamification/constants.js'
 import { progressInLevel } from '../src/lib/gamification/levels.js'
-import type { GamificationMe, XpLanguage } from '../src/lib/gamification/types.js'
+import { loadBadgeWall } from './_lib/badges.js'
+import type { GamificationMe, GamificationOverview, XpLanguage } from '../src/lib/gamification/types.js'
 
 // Single Vercel function for the whole /api/gamification surface (award for browser-completed
-// activities, the learner's level/week/streaks, the weekly goal), multiplexed by ?action= to stay under Vercel Hobby's
+// activities, the learner's level/week/streaks, the weekly goal, the progress-page overview
+// with badges), multiplexed by ?action= to stay under Vercel Hobby's
 // 12-serverless-function cap — do not add new files directly under api/.
 
 const ALLOWED_AWARD_FIELDS = new Set(['activityType', 'itemRef', 'language', 'performanceScore'])
@@ -142,6 +145,46 @@ async function handleMe(req: VercelRequest, res: VercelResponse, userId: string)
   }
 }
 
+// Everything the "Az én fejlődésem" panel shows. Loading the badge wall also grants badges
+// based on current state (design §9.1), so a learner's first visit after launch credits what
+// they have already achieved (no XP for it).
+async function handleOverview(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+
+  try {
+    // loadMe closes finished weeks first, so the history below is up to date.
+    const me = await loadMe(userId)
+    const [sections, weeks, badges] = await Promise.all([
+      supabaseAdmin.rpc('gamification_xp_by_section', { p_user_id: userId }),
+      supabaseAdmin
+        .from('weekly_progress')
+        .select('week_start, active_days, goal_days, goal_met, xp')
+        .eq('user_id', userId)
+        .order('week_start', { ascending: false })
+        .limit(WEEK_HISTORY_WEEKS),
+      loadBadgeWall(userId),
+    ])
+    if (sections.error) throw sections.error
+    if (weeks.error) throw weeks.error
+
+    const body: GamificationOverview = {
+      me,
+      xpBySection: ((sections.data ?? []) as { section: string; xp: number }[]).map((r) => ({ section: r.section, xp: r.xp })),
+      weeks: (
+        (weeks.data ?? []) as { week_start: string; active_days: number; goal_days: number; goal_met: boolean | null; xp: number }[]
+      ).map((w) => ({ weekStart: w.week_start, activeDays: w.active_days, goalDays: w.goal_days, goalMet: w.goal_met, xp: w.xp })),
+      badges,
+    }
+    res.status(200).json(body)
+  } catch (err) {
+    console.error('Failed to load the gamification overview', err)
+    res.status(502).json({ error: 'Failed to load' })
+  }
+}
+
 // The weekly goal applies from next week (the current week keeps its goal; see set_weekly_goal()).
 async function handleGoal(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'POST') {
@@ -183,6 +226,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     case 'goal':
       await handleGoal(req, res, user.id)
+      return
+    case 'overview':
+      await handleOverview(req, res, user.id)
       return
     default:
       res.status(404).json({ error: 'Not found' })
