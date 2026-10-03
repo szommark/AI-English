@@ -6,6 +6,7 @@ import { getFeature } from '../data/features'
 import { getGrammarItem, type CefrLevel, type GrammarItem } from '../data/grammarCurriculum'
 import type { GrammarLesson } from '../lib/types'
 import { fetchCachedGrammarLesson, requestGrammarLesson } from '../lib/grammarCoachApi'
+import { awardClientXp } from '../lib/gamificationApi'
 import { useSegmentPlayer } from '../hooks/useSegmentPlayer'
 import type { BoardTheme } from '../components/GrammarCoach/boardTheme'
 import GrammarRail from '../components/GrammarCoach/GrammarRail'
@@ -103,6 +104,16 @@ export default function GrammarCoachPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lesson])
+
+  // A lesson narrated through to its last segment is the finished Grammar Coach activity
+  // (there are no checked answers to score, so no performance bonus). Fire-and-forget.
+  useEffect(() => {
+    if (player.isFinished && lesson && selected) {
+      awardClientXp({ activityType: 'grammar-coach.exercise', itemRef: selected.item.id, performanceScore: null })
+    }
+    // Only the moment the lesson finishes should award.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [player.isFinished])
 
   function handleTogglePlay() {
     if (player.isPlaying) {

@@ -80,6 +80,11 @@ export default function TutorBotSession({ personaId }: { personaId: string }) {
   const emptyStreakRef = useRef(0)
   const endCalledRef = useRef(false)
   const isFirstSessionRef = useRef(typeof window !== 'undefined' ? !window.localStorage.getItem(VISITED_KEY) : true)
+  // One id per conversation, so the server can count learner turns (tutor_sessions) and
+  // award XP once. Without crypto.randomUUID the session simply isn't tracked.
+  const [sessionId] = useState(() =>
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : undefined,
+  )
 
   useEffect(() => {
     statusRef.current = status
@@ -99,6 +104,7 @@ export default function TutorBotSession({ personaId }: { personaId: string }) {
         turnIndex,
         isFirstSession: isFirstSessionRef.current,
         personaId,
+        sessionId,
       })
 
       const assistantMessage: ChatMessage = { role: 'assistant', content: response.reply }
@@ -237,6 +243,7 @@ export default function TutorBotSession({ personaId }: { personaId: string }) {
         turnIndex: 0,
         isFirstSession: isFirstSessionRef.current,
         personaId,
+        sessionId,
       })
       window.localStorage.setItem(VISITED_KEY, '1')
       setMessages([{ role: 'assistant', content: response.reply }])

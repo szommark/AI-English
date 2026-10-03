@@ -1,3 +1,5 @@
+import type { AwardResult } from './gamification/types.js'
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
@@ -84,6 +86,8 @@ export interface ChatTurnResponse {
   reply: string
   done: boolean
   feedback?: FeedbackResult
+  /** XP for the finished conversation, on the final turn only. */
+  xp?: AwardResult | null
 }
 
 export interface PronunciationScores {

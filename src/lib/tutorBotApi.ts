@@ -1,11 +1,15 @@
 import { supabase } from './supabase'
 import type { ChatMessage, FeedbackResult } from './types'
 import type { AddedTutorWord } from './vocab'
+import { publishXpResult } from './gamification/xpEvents'
+import type { AwardResult } from './gamification/types'
 
 export interface TutorChatResponse {
   reply: string
   turnIndex: number
   ended: boolean
+  /** Set on the turn that completes a conversation for XP (TUTOR_MIN_TURNS_FOR_XP). */
+  xp?: AwardResult | null
 }
 
 export interface TutorEndResponse {
@@ -40,6 +44,8 @@ export async function sendTutorTurn(params: {
   turnIndex: number
   isFirstSession?: boolean
   personaId: string
+  /** Identifies the conversation for session tracking (counts only, no text). */
+  sessionId?: string
 }): Promise<TutorChatResponse> {
   const headers = await authHeader()
   const res = await fetch('/api/tutor?action=chat', {
@@ -49,7 +55,9 @@ export async function sendTutorTurn(params: {
   })
 
   if (!res.ok) throw new Error('Failed to reach the tutor bot service')
-  return res.json()
+  const body = (await res.json()) as TutorChatResponse
+  publishXpResult(body.xp)
+  return body
 }
 
 export async function sendTutorEnd(params: { fullTranscript: ChatMessage[] }): Promise<TutorEndResponse> {

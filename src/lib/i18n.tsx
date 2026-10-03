@@ -23,6 +23,34 @@ const messages = {
   connectTeacher: { hu: 'Kapcsolódás tanárhoz', en: 'Connect to teacher', de: 'Mit Lehrer verbinden' },
   teacherDashboard: { hu: 'Tanári felület', en: 'Teacher Dashboard', de: 'Lehrer-Übersicht' },
   admin: { hu: 'Admin', en: 'Admin', de: 'Admin' },
+
+  // Gamification (src/components/gamification/).
+  xpLevel: { hu: 'Szint {n}', en: 'Level {n}', de: 'Stufe {n}' },
+  xpToNextLevel: {
+    hu: '{into} / {next} XP a következő szintig',
+    en: '{into} / {next} XP to the next level',
+    de: '{into} / {next} XP bis zur nächsten Stufe',
+  },
+  xpGained: { hu: '+{n} XP', en: '+{n} XP', de: '+{n} XP' },
+  xpBonusBreakdown: {
+    hu: '{base} + {bonus} teljesítménybónusz',
+    en: '{base} + {bonus} performance bonus',
+    de: '{base} + {bonus} Leistungsbonus',
+  },
+  xpCapped: {
+    hu: 'Mára elérted az XP-keretet ennél a gyakorlatnál — a gyakorlás továbbra is számít.',
+    en: "You've reached today's XP limit for this activity — your practice still counts.",
+    de: 'Für diese Übung hast du das heutige XP-Limit erreicht – dein Üben zählt trotzdem.',
+  },
+  levelUpTitle: { hu: 'Szintlépés!', en: 'Level up!', de: 'Stufenaufstieg!' },
+  // {article} is "a" or "az" in Hungarian (hungarianArticle in LevelUpDialog.tsx).
+  levelUpBody: {
+    hu: 'Elérted {article} {level}. szintet.',
+    en: "You've reached level {level}.",
+    de: 'Du hast Stufe {level} erreicht.',
+  },
+  levelUpContinue: { hu: 'Tovább', en: 'Continue', de: 'Weiter' },
+  dismiss: { hu: 'Bezárás', en: 'Dismiss', de: 'Schließen' },
   language: { hu: 'Nyelv', en: 'Language', de: 'Sprache' },
   loading: { hu: 'Betöltés…', en: 'Loading…', de: 'Wird geladen…' },
 
