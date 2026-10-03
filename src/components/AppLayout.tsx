@@ -5,6 +5,8 @@ import { useLanguage } from '../lib/i18n'
 import { buildTrail } from '../lib/navTrail'
 import AuthModal from './AuthModal'
 import LanguageSwitcher from './LanguageSwitcher'
+import LevelChip from './gamification/LevelChip'
+import XpNotifications from './gamification/XpNotifications'
 
 interface AuthPromptValue {
   /** Opens the sign-in modal; after a successful sign-in the app navigates to `route`. */
@@ -74,6 +76,7 @@ export default function AppLayout() {
             <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 text-sm">
               {user ? (
                 <>
+                  <LevelChip />
                   <span className="text-muted-foreground">{user.email}</span>
                   <Link to="/my-progress" className="font-medium text-primary hover:underline">
                     {t('myProgress')}
@@ -147,6 +150,8 @@ export default function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      {user && <XpNotifications />}
 
       {authOpen && (
         <AuthModal

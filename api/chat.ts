@@ -6,6 +6,8 @@ import { callModel } from './_lib/modelRouter.js'
 import { getModelForFeature } from './_lib/modelSettings.js'
 import { logModelUsage } from './_lib/usageLog.js'
 import { recordFeedbackToPersonalization } from './_lib/personalization.js'
+import { awardXp } from './_lib/gamification.js'
+import { SCENARIO_MIN_TURNS_FOR_XP } from '../src/lib/gamification/constants.js'
 import { getScenario } from '../src/data/scenarios.js'
 import type { ChatMessage } from '../src/lib/types.js'
 
@@ -106,5 +108,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   await recordFeedbackToPersonalization(user.id, feedback, modelId, { id: sessionId, source: 'scenario' })
 
-  res.status(200).json({ reply: chatResult.content, done: true, feedback })
+  // XP for the finished conversation: "Teszt mód" (test) is the live scenario, "Gyakorlás"
+  // (rehearsal) the guided one. The feedback has no numeric score yet, so no performance
+  // bonus. awardXp never throws.
+  const learnerTurns = fullTranscript.filter((m) => m.role === 'user').length
+  const xp =
+    learnerTurns >= SCENARIO_MIN_TURNS_FOR_XP
+      ? await awardXp({
+          userId: user.id,
+          activityType: body.mode === 'test' ? 'conversational-english.scenario_live' : 'conversational-english.rehearsal',
+          itemRef: scenario.id,
+          language: 'en',
+          performanceScore: null,
+        })
+      : null
+
+  res.status(200).json({ reply: chatResult.content, done: true, feedback, xp })
 }

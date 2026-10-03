@@ -6,10 +6,11 @@ import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import { scoreDictation } from '../../lib/wordMatch'
 import { recordPronunciationAttempt } from '../../lib/pronunciationProgressApi'
 import { perceptionScoreFromRatios } from '../../lib/pronunciationScoring'
+import { awardClientXp } from '../../lib/gamificationApi'
 import type { PronunciationCheckResult } from '../../lib/types'
 import DrillCard from './DrillCard'
 import DrillControls from './DrillControls'
-import { SwipeCardDeck } from '../Pronunciation/SwipeCardExercise'
+import { SwipeCardDeck, awardSwipeSetXp } from '../Pronunciation/SwipeCardExercise'
 import ForcedChoiceStage from './ForcedChoiceStage'
 import OddOneOutStage from './OddOneOutStage'
 import DictationStage from './DictationStage'
@@ -43,6 +44,18 @@ const STAGE_INDEX: Record<Exclude<Stage, 'intro' | 'cards' | 'cards-summary'>, n
   dictation: 2,
   production: 3,
   'session-summary': 3,
+}
+
+// XP stage numbers for the free stages (item ref `${soundId}:${stage}`). Production is
+// awarded server-side as a Deep Check (api/pronunciation.ts ?action=log).
+const XP_STAGE = { forcedChoice: 1, oddOneOut: 2, dictation: 3 } as const
+
+function awardStageXp(soundItemId: string, stage: number, accuracy: number) {
+  awardClientXp({
+    activityType: 'pronunciation-session.funnel_stage',
+    itemRef: `${soundItemId}:${stage}`,
+    performanceScore: accuracy,
+  })
 }
 
 function pickRandom<T>(arr: T[]): T {
@@ -170,6 +183,7 @@ export default function DrillFunnel({
     const isCorrect = choiceIndex === fcSpokenIndex
     if (isCorrect) fcCorrectRef.current += 1
     setFcResults((r) => [...r, { word: fcPairs[fcRound].words[fcSpokenIndex], correct: isCorrect }])
+    if (fcRound === ROUNDS - 1) awardStageXp(soundItem.id, XP_STAGE.forcedChoice, fcCorrectRef.current / ROUNDS)
     advanceTimerRef.current = setTimeout(() => {
       if (fcRound < ROUNDS - 1) {
         setFcRound((r) => r + 1)
@@ -193,6 +207,7 @@ export default function DrillFunnel({
     const isCorrect = displayIndex === correctDisplayIndex
     if (isCorrect) ooCorrectRef.current += 1
     setOoResults((r) => [...r, { word: ooSets[ooRound].words[originalOddIndex], correct: isCorrect }])
+    if (ooRound === ROUNDS - 1) awardStageXp(soundItem.id, XP_STAGE.oddOneOut, ooCorrectRef.current / ROUNDS)
     advanceTimerRef.current = setTimeout(() => {
       if (ooRound < ROUNDS - 1) {
         setOoRound((r) => r + 1)
@@ -219,6 +234,7 @@ export default function DrillFunnel({
       keyTotal: dictationSentence.keyWords.length,
     })
     setDictationSubmitted(true)
+    awardStageXp(soundItem.id, XP_STAGE.dictation, dictationRatioRef.current)
   }
 
   function continueFromDictation() {
@@ -293,6 +309,7 @@ export default function DrillFunnel({
             onFinish={(results) => {
               setCardResults(results)
               setStage('cards-summary')
+              if (phoneme && results.length > 0) awardSwipeSetXp(phoneme.id, results)
             }}
           />
         )}
