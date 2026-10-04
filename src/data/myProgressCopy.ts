@@ -108,6 +108,37 @@ export const MY_PROGRESS_COPY = {
   chMissed: 'Lejárt', // Ended (not completed)
   chCancelled: 'A tanárod lezárta', // Your teacher ended it
   chReward: (n: number) => `Jutalom: +${n} XP`, // Reward: +N XP
+
+  // Class comparison (the teacher turned it on for their class)
+  crHeading: 'Az osztályod heti rangsora', // Your class's weekly ranking
+  crIntro: 'Az ezen a héten (hétfőtől vasárnapig) saját gyakorlással szerzett XP alapján. A tanárod kapcsolta be.', // Based on XP earned from your own practice this week (Monday to Sunday). Your teacher turned it on.
+  crTeacher: (label: string) => `Tanár: ${label}`, // Teacher: <email> (shown when the learner has more than one class)
+  crMe: 'Te', // You
+  crClassmate: (n: number) => `Osztálytárs ${n}`, // Classmate N (classmates without a leaderboard nickname)
+
+  // Public leaderboard — DRAFT WORDING for the legal review (design §8.3, GDPR Art. 8 and 12)
+  lbHeading: 'Nyilvános ranglista', // Public leaderboard
+  lbLeague: { alap: 'Alapszint liga (A1–A2)', kozep: 'Középszint liga (B1–B2)', felso: 'Felsőszint liga (C1–C2)' } as Record<string, string>, // Basic / Intermediate / Advanced league
+  lbIntro:
+    'Ha szeretnéd, becenévvel felkerülhetsz a heti ranglistára. A saját szintedhez hasonló tanulókkal versenyzel, a heti, saját gyakorlással szerzett XP alapján. Mások csak a becenevedet, a szintedet és a heti XP-det látják, a neved és az e-mail-címed soha.', // If you like, you can join the weekly leaderboard under a nickname. You compete with learners at a level like yours, on XP from your own practice this week. Others only see your nickname, level and weekly XP — never your name or email address.
+  lbNickname: 'Becenév', // Nickname
+  lbNicknameHint: '3–20 karakter. Ne a valódi neved legyen.', // 3–20 characters. Not your real name.
+  lbAge: 'Elmúltam 16 éves.', // I am 16 or older.
+  lbConsent:
+    'Hozzájárulok, hogy a becenevem, a szintem és a heti XP-m megjelenjen a nyilvános ranglistán. Ezt bármikor visszavonhatom a „Kilépés a ranglistáról” gombbal; ekkor azonnal lekerülök róla, és a becenevemet töröljük.', // I agree that my nickname, level and weekly XP appear on the public leaderboard. I can withdraw this at any time with "Leave the leaderboard"; I'm then removed at once and my nickname is deleted.
+  lbUnder16: 'Ha még nem vagy 16 éves, a nyilvános ranglistához nem csatlakozhatsz. Az osztályod rangsorát (ha a tanárod bekapcsolta) ettől függetlenül látod.', // If you are under 16, you can't join the public leaderboard. You still see your class ranking if your teacher turned it on.
+  lbJoin: 'Csatlakozom', // Join
+  lbNeedBoth: 'A csatlakozáshoz mindkét négyzetet be kell jelölnöd.', // Tick both boxes to join.
+  lbBlocked: 'A tanárod az osztályodnak kikapcsolta a nyilvános ranglistát.', // Your teacher has turned the public leaderboard off for your class.
+  lbEmpty: 'Ezen a héten még senki sem szerzett XP-t ebben a ligában.', // Nobody in this league has earned XP this week yet.
+  lbYou: 'te', // you (after the learner's own nickname)
+  lbLevel: (n: number) => `${n}. szint`, // level N
+  lbChangeNickname: 'Becenév módosítása', // Change nickname
+  lbSave: 'Mentés', // Save
+  lbCancel: 'Mégse', // Cancel
+  lbLeave: 'Kilépés a ranglistáról', // Leave the leaderboard
+  lbLeaveConfirm: 'Biztosan kilépsz? Azonnal lekerülsz a ranglistáról, és a becenevedet töröljük.', // Leave? You're removed at once and your nickname is deleted.
+  lbError: 'Nem sikerült menteni. Próbáld újra.', // Couldn't save. Try again.
   gamLoadError: 'A pontjaidat most nem sikerült betölteni.', // Couldn't load your points right now.
 
   // Transparency line (only with an active teacher connection)

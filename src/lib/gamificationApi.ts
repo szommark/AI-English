@@ -1,8 +1,12 @@
 import { supabase } from './supabase'
 import { publishXpResult } from './gamification/xpEvents'
 import type {
+  AdminGamificationSettings,
   AwardResult,
   ClassGamification,
+  ClassRankingView,
+  LeaderboardView,
+  TeacherClassSettings,
   GamificationMe,
   GamificationOverview,
   NewChallenge,
@@ -90,7 +94,7 @@ export interface TeacherChallengeList {
   maxOpen: number
 }
 
-async function challengeRequest<T>(action: string, method: string, body?: unknown): Promise<T> {
+async function gamificationRequest<T>(action: string, method: string, body?: unknown): Promise<T> {
   const headers = await authHeader()
   const res = await fetch(`/api/gamification?action=${action}`, {
     method,
@@ -103,24 +107,67 @@ async function challengeRequest<T>(action: string, method: string, body?: unknow
 }
 
 export function fetchTeacherChallenges(): Promise<TeacherChallengeList> {
-  return challengeRequest('challenges', 'GET')
+  return gamificationRequest('challenges', 'GET')
 }
 
 /** Throws with the server's message (e.g. a validation error) when refused. */
 export function createChallenge(challenge: NewChallenge): Promise<{ id: string }> {
-  return challengeRequest('challenge', 'POST', challenge)
+  return gamificationRequest('challenge', 'POST', challenge)
 }
 
 export function updateChallengeText(id: string, title: string, description: string | null): Promise<unknown> {
-  return challengeRequest('challenge', 'PATCH', { id, title, description })
+  return gamificationRequest('challenge', 'PATCH', { id, title, description })
 }
 
 export function endChallenge(id: string): Promise<unknown> {
-  return challengeRequest('challenge-end', 'POST', { id })
+  return gamificationRequest('challenge-end', 'POST', { id })
 }
 
 export function deleteChallenge(id: string): Promise<unknown> {
-  return challengeRequest('challenge-delete', 'POST', { id })
+  return gamificationRequest('challenge-delete', 'POST', { id })
+}
+
+// --- Class comparison and the public leaderboard (Phase 5) -----------------------------------
+
+export function fetchLeaderboard(): Promise<LeaderboardView> {
+  return gamificationRequest('leaderboard', 'GET')
+}
+
+/** Joins with the 16+ self-declaration and consent. Throws with the server's (Hungarian) message when refused. */
+export function joinLeaderboard(nickname: string): Promise<LeaderboardView> {
+  return gamificationRequest('leaderboard-join', 'POST', { nickname, age16: true, consent: true })
+}
+
+export function changeLeaderboardNickname(nickname: string): Promise<LeaderboardView> {
+  return gamificationRequest('leaderboard-nickname', 'POST', { nickname })
+}
+
+export function leaveLeaderboard(): Promise<LeaderboardView> {
+  return gamificationRequest('leaderboard-leave', 'POST')
+}
+
+export function fetchClassRanking(): Promise<ClassRankingView> {
+  return gamificationRequest('class-ranking', 'GET')
+}
+
+export function fetchClassSettings(): Promise<TeacherClassSettings> {
+  return gamificationRequest('class-settings', 'GET')
+}
+
+export function saveClassSettings(settings: { classComparison: boolean; leaderboardAllowed: boolean }): Promise<TeacherClassSettings> {
+  return gamificationRequest('class-settings', 'POST', settings)
+}
+
+export function fetchAdminGamification(): Promise<AdminGamificationSettings> {
+  return gamificationRequest('admin-gamification', 'GET')
+}
+
+export function saveAdminGamification(switches: { publicLeaderboard?: boolean; classComparison?: boolean }): Promise<AdminGamificationSettings> {
+  return gamificationRequest('admin-gamification', 'POST', switches)
+}
+
+export function resetLeaderboardNickname(userId: string): Promise<AdminGamificationSettings> {
+  return gamificationRequest('admin-nickname-reset', 'POST', { userId })
 }
 
 /** Saves the weekly goal (applies from next week) and returns the updated state. Throws on failure. */

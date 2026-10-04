@@ -80,3 +80,11 @@ export const CHALLENGE_MAX_TARGET = 10000
 export const CHALLENGE_COMPLETION_GRACE_DAYS = 14
 /** Ended challenges stay on the learner's progress page this long. */
 export const CHALLENGE_HISTORY_DAYS = 28
+
+// Class comparison and the public leaderboard (design §8). SQL copy of the nickname length:
+// learner_gamification check in 20261004150000_gamification_social.sql.
+
+export const NICKNAME_MIN = 3
+export const NICKNAME_MAX = 20
+/** Rows shown per league; the learner's own row is added when they're further down. */
+export const LEADERBOARD_TOP = 20
