@@ -5,14 +5,17 @@ import { normalizeTerm, type WordlistWord } from './vocab'
 export const GRID_SIZES = [3, 4, 5] as const
 export type GridSize = (typeof GRID_SIZES)[number]
 
-/** Words in a game: the N×N matrix plus one row of decoys that belong nowhere. */
-export function gridWordCount(size: number): number {
-  return size * size + size
+/** Words in a game: the N×N matrix, plus (optionally) one row of decoys that belong nowhere. */
+export function gridWordCount(size: number, decoys: boolean): number {
+  return size * size + (decoys ? size : 0)
 }
 
-/** How long the no-hint preview shows the words: longer for bigger grids (12 words → 11 s). */
-export function previewSeconds(size: number): number {
-  return Math.round(5 + gridWordCount(size) / 2)
+/** The shortest list the game can use: a 3×3 grid without decoys. */
+export const GRID_MIN_WORDS = gridWordCount(GRID_SIZES[0], false)
+
+/** How long the no-hint preview shows the words: longer for more words (12 words → 11 s). */
+export function previewSeconds(wordCount: number): number {
+  return Math.round(5 + wordCount / 2)
 }
 
 /**
@@ -34,9 +37,9 @@ export interface GridPuzzle {
   cards: Record<string, GridCard>
   /** The card id that belongs in each cell, row by row. */
   solution: string[]
-  /** The extra row of words that belong in no cell. */
+  /** The extra row of words that belong in no cell; empty when the game has no decoys. */
   decoyIds: string[]
-  /** All the words, mixed, for the no-hint preview: size + 1 rows of size. */
+  /** All the words, mixed, for the no-hint preview: size rows of size, plus a row of decoys. */
   previewOrder: string[]
 }
 
@@ -72,9 +75,15 @@ export function gridEligibleWords(words: readonly WordlistWord[], hints: boolean
 }
 
 /** A random puzzle from the list's words, or null when the list has too few of them. */
-export function createGridPuzzle(words: readonly WordlistWord[], size: number, hints: boolean, rng: Rng = Math.random): GridPuzzle | null {
+export function createGridPuzzle(
+  words: readonly WordlistWord[],
+  size: number,
+  hints: boolean,
+  decoys: boolean,
+  rng: Rng = Math.random,
+): GridPuzzle | null {
   const eligible = gridEligibleWords(words, hints)
-  const count = gridWordCount(size)
+  const count = gridWordCount(size, decoys)
   if (eligible.length < count) return null
   const chosen = shuffle(eligible, rng).slice(0, count)
   const cards: Record<string, GridCard> = {}
@@ -120,7 +129,7 @@ export interface GridState {
   deck: string[]
   /** No hints: the card just drawn, waiting for a cell or the discard pile. */
   hand: string | null
-  /** No hints: cards put aside as not in the matrix, at most one row of them. */
+  /** No hints: cards put aside as not in the matrix, at most as many as there are decoys. */
   discard: string[]
   /** No hints: decoys revealed by a check; out of the game. One may still stand in a cell until replaced. */
   dropped: string[]
@@ -196,7 +205,7 @@ export function canMove(state: GridState, puzzle: GridPuzzle, from: GridLocation
     const occupant = state.board[to.index]
     return !isLocked(state, occupant)
   }
-  if (to.kind === 'discard') return from.kind === 'hand' && state.discard.length < puzzle.size
+  if (to.kind === 'discard') return from.kind === 'hand' && state.discard.length < puzzle.decoyIds.length
   if (to.kind === 'tray') return state.phase === 'arrange' && from.kind === 'cell'
   return false
 }
