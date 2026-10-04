@@ -35,11 +35,19 @@ const ACTIVITY_LABELS: Record<ChallengeActivity, string> = {
   'tutor-bot': 'Tutor Bot conversations',
   'grammar-coach': 'Grammar Coach lessons',
   'pronunciation-session': 'Pronunciation drills',
+  'exam-prep': 'Exam Prep: mock exam sections handed in',
   'vocabulary.fast_practice': 'Vocabulary: fast practice rounds',
   'vocabulary.game': 'Vocabulary: word games played',
   'vocabulary.own_list': 'Vocabulary: own word lists created',
 }
-const COLLECTIVE_ACTIVITIES: ChallengeActivity[] = ['any', 'conversational-english', 'tutor-bot', 'grammar-coach', 'pronunciation-session']
+const COLLECTIVE_ACTIVITIES: ChallengeActivity[] = [
+  'any',
+  'conversational-english',
+  'tutor-bot',
+  'grammar-coach',
+  'pronunciation-session',
+  'exam-prep',
+]
 const INDIVIDUAL_ACTIVITIES: ChallengeActivity[] = [
   ...COLLECTIVE_ACTIVITIES,
   'vocabulary.fast_practice',

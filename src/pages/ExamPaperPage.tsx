@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { Check, Headphones } from 'lucide-react'
 import PageHeading from '../components/PageHeading'
@@ -9,6 +9,7 @@ import { getExamPaperMeta, loadExamPaper } from '../data/exams/catalog'
 import type { ExamPaper, ExamSection } from '../data/exams/types'
 import { clearAttempt, loadAttempt, newAttempt, saveAttempt, type ExamAttempt, type ExamMode } from '../lib/examAttempt'
 import { examPaperLabel } from '../lib/examLabels'
+import { awardExamSectionXp } from '../lib/gamificationApi'
 import { answerKey, scorePaper, scoreSection, type AnswerValue } from '../lib/examScoring'
 import { useLanguage } from '../lib/i18n'
 
@@ -78,6 +79,26 @@ function ExamRunner({ paper }: { paper: ExamPaper }) {
     if (attempt.view.name === 'summary') clearAttempt(paper.id, attempt.mode)
     else saveAttempt(paper.id, attempt)
   }, [attempt, paper.id])
+
+  // Exam Prep XP: each submitted section's answers go to the server once (it re-scores them).
+  // The ref guards against a double effect run before the state update lands.
+  const xpSentRef = useRef(new Set<string>())
+  useEffect(() => {
+    if (!attempt) return
+    // A fresh attempt (started over): its sections are new hand-ins.
+    if (attempt.submitted.length === 0) xpSentRef.current.clear()
+    const unsent = attempt.submitted.filter((id) => !attempt.xpSent?.includes(id) && !xpSentRef.current.has(id))
+    if (unsent.length === 0) return
+    for (const sectionId of unsent) {
+      xpSentRef.current.add(sectionId)
+      const section = paper.sections.find((s) => s.id === sectionId)
+      if (!section) continue
+      const taskIds = new Set(section.tasks.map((t) => t.id))
+      const answers = Object.fromEntries(Object.entries(attempt.answers).filter(([key]) => taskIds.has(key.split('/')[0])))
+      awardExamSectionXp({ paperId: paper.id, sectionId, answers })
+    }
+    setAttempt((a) => (a ? { ...a, xpSent: [...new Set([...(a.xpSent ?? []), ...unsent])] } : a))
+  }, [attempt, paper])
 
   const viewKey = attempt ? JSON.stringify(attempt.view) : 'intro'
   useEffect(() => {

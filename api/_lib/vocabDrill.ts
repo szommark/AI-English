@@ -94,7 +94,7 @@ export async function finishDrill(
   userId: string,
   runId: string,
   now = new Date(),
-): Promise<{ wordCount: number; answers: number; correct: number } | null> {
+): Promise<{ wordCount: number; answers: number; correct: number; wordsAnswered: number } | null> {
   const { data: run, error } = await supabaseAdmin
     .from('vocab_drill_runs')
     .select('id, finished_at, word_count')
@@ -117,9 +117,14 @@ export async function finishDrill(
 
   const { data: answers, error: answersError } = await supabaseAdmin
     .from('vocab_drill_answers')
-    .select('correct')
+    .select('card_id, correct')
     .eq('run_id', runId)
   if (answersError) throw answersError
-  const rows = (answers ?? []) as { correct: boolean }[]
-  return { wordCount: run.word_count as number, answers: rows.length, correct: rows.filter((a) => a.correct).length }
+  const rows = (answers ?? []) as { card_id: string; correct: boolean }[]
+  return {
+    wordCount: run.word_count as number,
+    answers: rows.length,
+    correct: rows.filter((a) => a.correct).length,
+    wordsAnswered: new Set(rows.map((a) => a.card_id)).size,
+  }
 }

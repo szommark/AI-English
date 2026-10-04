@@ -49,6 +49,11 @@ export type BadgeMetric =
   | 'teacher_lists_completed'
   | 'sounds_mastered'
   | 'challenges_completed'
+  | 'words_practised'
+  | 'srs_review_days'
+  | 'exam_papers_de'
+  | 'exam_best_paper_percent'
+  | 'exam_personal_bests'
 
 /** Everything the rules need to know about one learner. */
 export interface BadgeFacts {
@@ -132,6 +137,49 @@ export function isBadgeEarned(badge: Badge, facts: BadgeFacts): boolean {
       return false
     default:
       return false
+  }
+}
+
+/** A finished mock paper (an exam-prep.*_paper_complete event). */
+export interface PaperEvent {
+  /** The paper id, e.g. `erettsegi-en-kozep-2025-majus`. */
+  paperId: string
+  language: string
+  /** Raw score share of the paper's scored sections, 0–1. */
+  score: number | null
+}
+
+/** The exam a paper belongs to: type, language and level (the first three parts of its id). */
+export function paperExam(paperId: string): string {
+  return paperId.split('-').slice(0, 3).join('-')
+}
+
+/**
+ * Exam badge metrics from the learner's finished papers, oldest first: German papers, the
+ * best score as a whole percent, and how many times a paper beat every earlier score in the
+ * same exam (the first paper of an exam sets the bar and is not a personal best).
+ */
+export function examPaperMetrics(papersOldestFirst: PaperEvent[]): {
+  exam_papers_de: number
+  exam_best_paper_percent: number
+  exam_personal_bests: number
+} {
+  const bestByExam = new Map<string, number>()
+  let best = 0
+  let personalBests = 0
+  for (const p of papersOldestFirst) {
+    if (p.score === null) continue
+    const exam = paperExam(p.paperId)
+    const previous = bestByExam.get(exam)
+    if (previous !== undefined && p.score > previous) personalBests++
+    bestByExam.set(exam, Math.max(previous ?? 0, p.score))
+    best = Math.max(best, p.score)
+  }
+  return {
+    exam_papers_de: papersOldestFirst.filter((p) => p.language === 'de').length,
+    // Floored, so 59.6% doesn't pass a 60% threshold.
+    exam_best_paper_percent: Math.floor(best * 100 + 1e-9),
+    exam_personal_bests: personalBests,
   }
 }
 

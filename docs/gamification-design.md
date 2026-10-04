@@ -1,9 +1,17 @@
 # AI-English — Gamification System Design
 
-**Status:** Draft v2.5, agreed for Phase 1
+**Status:** v2.6 — all five phases built; per-word Vocabulary XP and per-task Exam Prep XP added
 **Audience:** 40+ Hungarian learners of English (and, through Exam Prep, some German learners and érettségi candidates of any age, including minors — see §8.3)
 **Scope:** XP, levels, consistency (weekly goal + streaks), badges, teacher tools, social layer
 **Out of scope:** Implementation. That is handed to Claude Code in phase prompts after this doc is agreed.
+
+### Changes in v2.6
+
+- **Vocabulary pays 1 XP per word** worked on, right or wrong, at any ladder step: spaced repetition (one award per session, counted on the server), Fast practice rounds and tests, and word games. No accuracy bonus. Daily caps: spaced repetition 100, Fast practice 50, games 50. The "all due cleared" bonus stays off, as every reviewed word already pays.
+- **Exam Prep pays per task:** 10 XP per task done + up to 5 by the section's raw score, one award per handed-in section; +50 when every section of a paper has been handed in. Writing tasks earn the 10 XP (effort) at 20+ words, as writing isn't graded yet. The server re-scores the answers from its own copy of the answer keys. Retakes earn no score bonus; weekly cap 600 (§3.4).
+- `xp_events.units` stores the words or tasks behind an award.
+- New badges (§6.1): words practised 250 / 1,000 / 5,000; spaced repetition on 7 days; 10 Fast practice rounds; 25 games; first exam section; first full paper; 5 full papers; 60%+ practice result; personal best; a hidden German-paper badge.
+- Teachers can set "Exam Prep sections handed in" as a class-challenge target (§7.3).
 
 ### Changes in v2.5
 
@@ -118,22 +126,22 @@ The performance score is supplied per activity type from existing data. Activiti
 | `pronunciation-session.deep_check` | 5 | Azure score | 50 |
 | `pronunciation-session.stress_drill` *(disabled)* | 10 | Accuracy | 80 |
 | `pronunciation-session.connected_speech_drill` *(disabled)* | 10 | Accuracy | 80 |
-| `vocabulary-builder.fast_practice` (one round) | 5 | Accuracy | 40 |
-| `vocabulary-builder.srs_review` (per 10 due cards) | 10 | Recall rate | 60 |
-| `vocabulary-builder.srs_all_due_cleared` (once/day) | 10 | None | 10 |
-| `vocabulary-builder.game` (one game) | 5 | Game score | 40 |
+| `vocabulary.fast_practice` (a round or test) | 1 per word answered | None | 50 |
+| `vocabulary.srs_review` (a session) | 1 per word reviewed | None | 100 |
+| `vocabulary.srs_all_due_cleared` *(disabled)* | 10 | None | 10 |
+| `vocabulary.game` (one game) | 1 per word on the grid | None | 50 |
 | `vocabulary-builder.teacher_list_completed` | 30 | None | — |
-| `erettsegi-prep.section_complete` (one booklet) | 30 | Raw score % | see §3.4 |
-| `erettsegi-prep.writing_task` | 20 | Rubric score | see §3.4 |
-| `erettsegi-prep.paper_complete` | 50 | None | see §3.4 |
-| `nyelvvizsga-prep.*` | same shapes as érettségi | | see §3.4 |
+| `exam-prep.erettsegi_section_complete` (one booklet) | 10 per task done | Raw score % | see §3.4 |
+| `exam-prep.erettsegi_writing_task` *(disabled: counted in its section)* | 20 | Rubric score | see §3.4 |
+| `exam-prep.erettsegi_paper_complete` | 50 | None | see §3.4 |
+| `exam-prep.nyelvvizsga_*` | same shapes as érettségi | | see §3.4 |
 | `live-events.attended` *(disabled, D12)* | 40 | None | — |
 | `teacher.bonus` | Set by teacher | — | See §7 |
 | `challenge.complete` | Set by challenge | — | — |
 
 A `tutor-bot.conversation` counts only after `TUTOR_MIN_TURNS_FOR_XP = 6` learner turns. This depends on the Tutor Bot session-persistence gap being closed (D8). The same 6-turn rule applies to live scenarios.
 
-**Vocabulary notes.** Spaced repetition earns the most because it carries the most learning value. Fast practice and games are capped lower, so they stay fun extras and don't become the cheapest XP source. The "all due cleared" bonus rewards finishing the reviews the system scheduled, not doing more reviews than needed.
+**Vocabulary notes (v2.6).** Every word worked on earns 1 XP, whatever the module or ladder step. Spaced repetition has the highest daily cap because it carries the most learning value; Fast practice and games are capped lower, so they stay fun extras and don't become the cheapest XP source.
 
 **Target feel:** a focused 15–20 minute practice day earns about 60–80 XP. One full mock paper earns about 200–250 XP, roughly three ordinary days, which matches its 45–90 minutes of effort.
 
@@ -141,7 +149,7 @@ A `tutor-bot.conversation` counts only after `TUTOR_MIN_TURNS_FOR_XP = 6` learne
 
 Mock exams don't fit daily caps or the 24h repeat rule, so they get their own rules:
 
-- **Award per booklet/section, not per paper.** A learner who stops halfway still gets credit for the finished sections. `paper_complete` is a bonus on top.
+- **Award per task, recorded per booklet/section (v2.6), not per paper.** A learner who stops halfway still gets credit for the finished sections. `paper_complete` is a bonus on top.
 - **Weekly cap instead of daily:** `EXAM_WEEKLY_XP_CAP = 600` (about 2–3 full papers). This also matches the exam-prep doc's suggestion of a weekly attempt throttle.
 - **Repeated sitting rule.** Retaking the *same* `sitting_id` earns effort XP only on objective sections (no performance bonus, since the answers may be remembered). Writing tasks still earn the full bonus, because the text is new.
 - **Performance uses the raw "feladatpont" percentage**, in line with the exam-prep recommendation to avoid scaled scores.

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLanguage } from '../../lib/i18n'
-import { submitReview } from '../../lib/vocabPracticeApi'
+import { finishReviewSession, submitReview } from '../../lib/vocabPracticeApi'
 import { chooseExercise } from '../../lib/vocabPractice'
 import type { ExerciseContent, PracticeCard } from '../../lib/vocab'
 import Exercise, { type ExerciseOutcome, type Speech } from './Exercise'
@@ -83,6 +83,8 @@ export default function PracticeSession({
   async function finish() {
     setFinishing(true)
     await Promise.allSettled(pending.current)
+    // Vocabulary XP for the words reviewed (counted on the server); fire-and-forget.
+    if (summary.current.reviewed > summary.current.saveFailures) void finishReviewSession()
     onFinish({ ...summary.current })
   }
 
