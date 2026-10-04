@@ -102,6 +102,14 @@ export function cellFeedback(puzzle: GridPuzzle, cardId: string, cell: number): 
   return 'inMatrix'
 }
 
+/**
+ * The game score for XP (0..1): solved at the first check is a perfect game; every further
+ * check takes a quarter off.
+ */
+export function gridGameScore(checks: number): number {
+  return Math.max(0, 1 - Math.max(0, checks - 1) * 0.25)
+}
+
 // --- Game state ---------------------------------------------------------------------------
 
 /**

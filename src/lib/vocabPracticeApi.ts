@@ -1,4 +1,6 @@
 import { request } from './vocabListsApi'
+import { publishXpResult } from './gamification/xpEvents'
+import type { AwardResult } from './gamification/types'
 import type {
   AddToSrsResult,
   AddWordsResult,
@@ -100,7 +102,9 @@ export async function submitDrillAnswer(input: DrillAnswerInput): Promise<void> 
 }
 
 export async function finishDrill(runId: string): Promise<void> {
-  await request('action=drill-finish', { method: 'POST', body: { runId } })
+  const body = await request<{ xp?: AwardResult | null }>('action=drill-finish', { method: 'POST', body: { runId } })
+  // A finished round earns Vocabulary XP server-side; the result drives the toast.
+  publishXpResult(body?.xp)
 }
 
 // --- Fast practice tests (design §7.1) -----------------------------------------------------

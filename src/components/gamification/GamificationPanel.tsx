@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Volume2 } from 'lucide-react'
 import { MY_PROGRESS_COPY as C } from '../../data/myProgressCopy'
 import { getFeature } from '../../data/features'
-import { fetchGamificationOverview } from '../../lib/gamificationApi'
+import { fetchGamificationOverview, markNoticesSeen } from '../../lib/gamificationApi'
+import { publishMeNotices } from '../../lib/gamification/xpEvents'
+import StudentChallenges from './StudentChallenges'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import { getAccentPreference } from '../../lib/voiceSelection'
 import type { BadgeWallItem, GamificationOverview, WeekHistoryItem } from '../../lib/gamification/types'
@@ -13,6 +15,7 @@ const LONG_DATE = new Intl.DateTimeFormat('hu-HU', { year: 'numeric', month: 'lo
 
 function sectionName(section: string): string {
   if (section === 'teacher') return 'Tanári jutalom' // Teacher bonus (Phase 4)
+  if (section === 'challenge') return 'Kihívások' // Challenge rewards (Phase 4b)
   return getFeature(section)?.titleHu ?? section
 }
 
@@ -28,7 +31,12 @@ export default function GamificationPanel() {
   useEffect(() => {
     let cancelled = false
     fetchGamificationOverview()
-      .then((d) => !cancelled && setData(d))
+      .then((d) => {
+        if (cancelled) return
+        setData(d)
+        // Loading this page can complete a challenge (e.g. the class reached its target).
+        if (publishMeNotices(d.me)) void markNoticesSeen()
+      })
       .catch(() => !cancelled && setError(true))
     return () => {
       cancelled = true
@@ -62,6 +70,8 @@ export default function GamificationPanel() {
         </span>
         <p className="mt-1 text-sm text-muted-foreground">{C.gamToNext(me.xpIntoLevel, me.xpForNextLevel)}</p>
       </div>
+
+      <StudentChallenges challenges={data.challenges ?? []} />
 
       <div className="space-y-2">
         <h3 className="text-base font-semibold text-foreground">{C.gamBySectionHeading}</h3>

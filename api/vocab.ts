@@ -16,6 +16,7 @@ import {
 import { ReviewError, recordReview } from './_lib/vocabPractice.js'
 import { buildListSession, loadOverview } from './_lib/vocabListSession.js'
 import { finishDrill, recordDrillAnswer, startDrill } from './_lib/vocabDrill.js'
+import { awardXp } from './_lib/gamification.js'
 import { finishTest, recordTestAnswer, startTest } from './_lib/vocabTest.js'
 import {
   VocabApiError,
@@ -844,8 +845,21 @@ async function handleDrillFinish(req: VercelRequest, res: VercelResponse, userId
   if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
   const runId = runIdFrom((req.body ?? {}) as Record<string, unknown>)
 
-  await withVocabErrors(() => finishDrill(userId, runId))
-  res.status(200).json({ ok: true })
+  const finished = await withVocabErrors(() => finishDrill(userId, runId))
+  // XP for a finished round: at least one answer per word, so a run ended straight away
+  // earns nothing; the bonus is the share of correct answers. Each run is new words, so no
+  // item ref (no 24-hour repeat rule) — the daily cap limits it. awardXp never throws.
+  const xp =
+    finished && finished.answers >= finished.wordCount
+      ? await awardXp({
+          userId,
+          activityType: 'vocabulary.fast_practice',
+          itemRef: null,
+          language: 'en',
+          performanceScore: finished.correct / finished.answers,
+        })
+      : null
+  res.status(200).json({ ok: true, xp })
 }
 
 // --- Fast practice tests (design §7.1) -------------------------------------------------------

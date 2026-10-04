@@ -59,3 +59,24 @@ export const TEACHER_BONUS_REASON_MIN = 3
 export const TEACHER_BONUS_REASON_MAX = 200
 /** Recent bonuses listed on the student's progress page and the teacher's student page. */
 export const TEACHER_BONUS_LIST_LIMIT = 10
+
+// Class challenges (design §7.3). SQL copies of the reward cap and the length limits:
+// class_challenges checks in 20261004140000_gamification_challenges.sql.
+
+export const CHALLENGE_MAX_REWARD_XP = 50
+/** Challenges a teacher can have running or scheduled at once. */
+export const CHALLENGE_MAX_ACTIVE = 3
+export const CHALLENGE_MIN_WEEKS = 1
+export const CHALLENGE_MAX_WEEKS = 4
+export const CHALLENGE_TITLE_MIN = 3
+export const CHALLENGE_TITLE_MAX = 80
+export const CHALLENGE_DESCRIPTION_MAX = 300
+/** Upper bound for any target number (SQL check: target_value ≤ 10000). */
+export const CHALLENGE_MAX_TARGET = 10000
+/**
+ * A completed challenge is still recorded this many days after it ended, so a learner who
+ * reached the target (or whose class did) gets the reward when they next open the app.
+ */
+export const CHALLENGE_COMPLETION_GRACE_DAYS = 14
+/** Ended challenges stay on the learner's progress page this long. */
+export const CHALLENGE_HISTORY_DAYS = 28

@@ -93,6 +93,13 @@ const messages = {
     de: 'Eine neue Serie hat begonnen – schön, dass du da bist.',
   },
   badgeEarned: { hu: 'Új jelvény', en: 'New badge', de: 'Neues Abzeichen' },
+  challengeNewToast: {
+    hu: 'Új kihívás a tanárodtól',
+    en: 'New challenge from your teacher',
+    de: 'Neue Herausforderung von deiner Lehrkraft',
+  },
+  challengeUntil: { hu: 'Határidő: {date}', en: 'Until {date}', de: 'Bis {date}' },
+  challengeDoneToast: { hu: 'Kihívás teljesítve', en: 'Challenge completed', de: 'Herausforderung geschafft' },
   teacherBonusToast: {
     hu: 'Tanári jutalom: +{n} XP',
     en: 'Teacher bonus: +{n} XP',

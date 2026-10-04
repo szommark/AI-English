@@ -4,6 +4,7 @@ import {
   CalendarCheck,
   CircleHelp,
   Compass,
+  Flag,
   Footprints,
   GraduationCap,
   Library,
@@ -16,6 +17,7 @@ import {
   Plane,
   Sunrise,
   TrendingUp,
+  Trophy,
   UserRound,
   Award,
   type LucideIcon,
@@ -29,6 +31,7 @@ export const BADGE_ICONS: Record<string, LucideIcon> = {
   BookOpen,
   CalendarCheck,
   Compass,
+  Flag,
   Footprints,
   GraduationCap,
   Library,
@@ -41,6 +44,7 @@ export const BADGE_ICONS: Record<string, LucideIcon> = {
   Plane,
   Sunrise,
   TrendingUp,
+  Trophy,
   UserRound,
 }
 

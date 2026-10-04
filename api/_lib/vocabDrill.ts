@@ -85,22 +85,41 @@ export async function recordDrillAnswer(userId: string, input: DrillAnswerInput,
   if (error) throw error
 }
 
-/** Marks the run finished (all done, or ended early). Finishing twice keeps the first time. */
-export async function finishDrill(userId: string, runId: string, now = new Date()): Promise<void> {
+/**
+ * Marks the run finished (all done, or ended early). Finishing twice keeps the first time.
+ * Returns the run's answers when this call finished it (for XP), or null if it was already
+ * finished.
+ */
+export async function finishDrill(
+  userId: string,
+  runId: string,
+  now = new Date(),
+): Promise<{ wordCount: number; answers: number; correct: number } | null> {
   const { data: run, error } = await supabaseAdmin
     .from('vocab_drill_runs')
-    .select('id, finished_at')
+    .select('id, finished_at, word_count')
     .eq('id', runId)
     .eq('user_id', userId)
     .maybeSingle()
   if (error) throw error
   if (!run) throw new VocabApiError(404, 'Not found')
-  if (run.finished_at) return
+  if (run.finished_at) return null
 
-  const { error: updateError } = await supabaseAdmin
+  const { data: updated, error: updateError } = await supabaseAdmin
     .from('vocab_drill_runs')
     .update({ finished_at: now.toISOString() })
     .eq('id', runId)
     .is('finished_at', null)
+    .select('id')
   if (updateError) throw updateError
+  // A concurrent finish got there first.
+  if (!updated || updated.length === 0) return null
+
+  const { data: answers, error: answersError } = await supabaseAdmin
+    .from('vocab_drill_answers')
+    .select('correct')
+    .eq('run_id', runId)
+  if (answersError) throw answersError
+  const rows = (answers ?? []) as { correct: boolean }[]
+  return { wordCount: run.word_count as number, answers: rows.length, correct: rows.filter((a) => a.correct).length }
 }
