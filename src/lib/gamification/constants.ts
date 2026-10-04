@@ -25,8 +25,23 @@ export const REPEAT_THIRD_PLUS_MULTIPLIER = 0
 /** POST /api/gamification?action=award refuses (429) at this many XP events in the last minute. */
 export const CLIENT_AWARD_RATE_LIMIT_PER_MINUTE = 30
 
-/** weekly_cap_group shared by all mock-exam activity types (seeded, not yet enabled). */
+/** weekly_cap_group shared by all mock-exam activity types. */
 export const EXAM_WEEKLY_XP_CAP_GROUP = 'exam'
+
+// Per-unit XP (gamification upgrade): Vocabulary pays base_xp (1) per word worked on and Exam
+// Prep pays base_xp (10) per task done, stored as xp_events.units. Caps and base values are in
+// the registry (20261005120000_gamification_exam_vocab_xp.sql).
+
+/** Most words one word-grid game can report (the largest grid, 5 × 5). */
+export const GAME_MAX_WORDS_PER_AWARD = 25
+/**
+ * Spaced repetition: a finished session pays for the words reviewed since the last award,
+ * but never for reviews older than this (an abandoned session from long ago, or reviews
+ * made before word XP existed).
+ */
+export const SRS_REVIEW_LOOKBACK_HOURS = 12
+/** A writing task counts as done (effort XP; writing isn't graded) at this many words. */
+export const EXAM_WRITING_MIN_WORDS_FOR_XP = 20
 
 /** Calendar days and weeks for caps, active days and streaks. SQL copies: every gamification function. */
 export const GAMIFICATION_TIMEZONE = 'Europe/Budapest'

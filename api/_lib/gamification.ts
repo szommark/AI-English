@@ -1,5 +1,5 @@
 import { supabaseAdmin } from './supabaseAdmin.js'
-import { computeAward, type RepeatRule } from './xpCalc.js'
+import { clampUnits, computeAward, type RepeatRule } from './xpCalc.js'
 import { evaluateBadges } from './badges.js'
 import { evaluateChallenges } from './challenges.js'
 import { TEACHER_BONUS_WEEKLY_CAP } from '../../src/lib/gamification/constants.js'
@@ -43,6 +43,8 @@ export async function awardXp(args: {
   itemRef?: string | null
   language?: XpLanguage
   performanceScore?: number | null
+  /** Per-unit types: the words worked on or exam tasks done (stored, and multiplies base_xp). */
+  units?: number | null
 }): Promise<AwardResult | null> {
   try {
     const type = await getActivityType(args.activityType)
@@ -76,6 +78,7 @@ export async function awardXp(args: {
       },
       hasItemRef: itemRef !== null,
       performanceScore: args.performanceScore,
+      units: args.units,
       context: {
         repeats24h: context?.repeats_24h ?? 0,
         hasPrevious: context?.has_previous ?? false,
@@ -94,6 +97,7 @@ export async function awardXp(args: {
       p_bonus_xp: award.bonusXp,
       p_performance_score: award.performanceScore,
       p_capped: award.capped,
+      p_units: args.units == null ? null : clampUnits(args.units),
     })
     if (recordError) throw recordError
     const totals = (

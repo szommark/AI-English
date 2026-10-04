@@ -5,7 +5,6 @@ import {
   canMove,
   checkBoard,
   drawCard,
-  gridGameScore,
   initialGridState,
   isFreeCell,
   moveCard,
@@ -78,11 +77,12 @@ export default function GridGame({
     return () => window.clearTimeout(timer)
   }, [state.phase, secondsLeft])
 
-  // A solved puzzle is one finished game: Vocabulary XP, fire-and-forget. Each puzzle is a new
-  // draw of words, so no item ref (no 24-hour repeat rule); the daily cap limits it.
+  // A solved puzzle is one finished game: Vocabulary XP, 1 per word placed on the grid,
+  // fire-and-forget. Each puzzle is a new draw of words, so no item ref (no 24-hour repeat
+  // rule); the daily cap limits it.
   useEffect(() => {
     if (state.phase === 'solved') {
-      awardClientXp({ activityType: 'vocabulary.game', performanceScore: gridGameScore(state.checks) })
+      awardClientXp({ activityType: 'vocabulary.game', units: puzzle.solution.length })
     }
     // Only the moment the puzzle is solved should award.
     // eslint-disable-next-line react-hooks/exhaustive-deps

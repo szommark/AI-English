@@ -182,6 +182,46 @@ export async function setWeeklyGoal(days: number): Promise<GamificationMe> {
   return (await res.json()) as GamificationMe
 }
 
+/** Two awards recorded one after the other, shown as one. */
+function mergeAwards(first: AwardResult, second: AwardResult): AwardResult {
+  return {
+    ...second,
+    baseXp: first.baseXp + second.baseXp,
+    bonusXp: first.bonusXp + second.bonusXp,
+    totalAwarded: first.totalAwarded + second.totalAwarded,
+    capped: first.capped || second.capped,
+    previousLevel: first.previousLevel,
+    leveledUp: second.level > first.previousLevel,
+    weeklyGoalMet: first.weeklyGoalMet || second.weeklyGoalMet,
+    newBadges: [...(first.newBadges ?? []), ...(second.newBadges ?? [])],
+    completedChallenges: [...(first.completedChallenges ?? []), ...(second.completedChallenges ?? [])],
+  }
+}
+
+/**
+ * Hands a mock-exam section's answers to the server, which re-scores them and awards Exam
+ * Prep XP (and the paper bonus when this section completes the paper). Fire-and-forget,
+ * like awardClientXp: results go to the header chip and toast; failures stay silent.
+ */
+export function awardExamSectionXp(params: { paperId: string; sectionId: string; answers: Record<string, unknown> }): void {
+  void (async () => {
+    try {
+      const headers = await authHeader()
+      const res = await fetch('/api/gamification?action=exam-section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify(params),
+      })
+      if (!res.ok) return
+      const body = (await res.json()) as { xp?: AwardResult | null; paperXp?: AwardResult | null }
+      // One toast for the section and the paper bonus together (a second would replace the first).
+      publishXpResult(body.xp && body.paperXp ? mergeAwards(body.xp, body.paperXp) : body.xp)
+    } catch {
+      // XP is a bonus on top of learning; a failure here is deliberately silent.
+    }
+  })()
+}
+
 /**
  * Reports a browser-completed activity (drill stage, card set, lesson). Fire-and-forget:
  * call it without awaiting. The server decides the XP; a result, if any, is published to the
@@ -192,6 +232,8 @@ export function awardClientXp(params: {
   itemRef?: string
   language?: XpLanguage
   performanceScore?: number | null
+  /** Per-word activities (word games): the words worked on. */
+  units?: number
 }): void {
   void (async () => {
     try {

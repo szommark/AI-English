@@ -3,7 +3,7 @@
 //
 // Deliberately not built on wordMatch.ts: that compares dictation word by word and strips
 // punctuation, while the érettségi key says misspelled words are not accepted.
-import type { ExamItem, ExamPaper, ExamSection, ExamTask, TextAnswer } from '../data/exams/types'
+import type { ExamItem, ExamPaper, ExamSection, ExamTask, TextAnswer } from '../data/exams/types.js'
 
 /** A choice key, a typed answer or a text; true/false; or the ticked option keys. */
 export type AnswerValue = string | boolean | string[]

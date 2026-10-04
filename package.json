@@ -10,6 +10,7 @@
     "lint": "tsc -b --noEmit",
     "check:grammar": "node scripts/check-grammar-points.ts",
     "check:exams": "node scripts/check-exam-papers.ts",
+    "gen:exam-keys": "node scripts/build-exam-keys.ts",
     "check:pronunciation": "node scripts/check-pronunciation-lessons.ts",
     "preview": "vite preview",
     "wordbank:check": "node scripts/import-word-bank.ts --dry-run",

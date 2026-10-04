@@ -1,6 +1,7 @@
 import { supabaseAdmin } from './supabaseAdmin.js'
 import { getUserRole } from './roles.js'
 import {
+  examPaperMetrics,
   expandBadges,
   hasCefrLevelUp,
   isBadgeEarned,
@@ -24,6 +25,9 @@ import type { BadgeWallItem, EarnedBadge, Wisdom } from '../../src/lib/gamificat
 // duplicates), and only the evaluation that actually inserted a badge reports it.
 
 const DAY_MS = 24 * 60 * 60 * 1000
+
+/** Finished mock papers (exam badges). */
+const EXAM_PAPER_TYPES = ['exam-prep.erettsegi_paper_complete', 'exam-prep.nyelvvizsga_paper_complete']
 
 interface WisdomRow {
   id: string
@@ -69,7 +73,7 @@ async function count(query: PromiseLike<{ count: number | null; error: unknown }
 }
 
 async function loadFacts(userId: string, enabledPersonas: Persona[]): Promise<BadgeFacts> {
-  const [eventRows, learner, wordsMastered, listsCompleted, challengesCompleted, pronunciation, tutorSessions, cefr, latestEvents] = await Promise.all([
+  const [eventRows, learner, wordsMastered, listsCompleted, challengesCompleted, pronunciation, tutorSessions, cefr, latestEvents, extraMetrics, papers] = await Promise.all([
     supabaseAdmin.rpc('gamification_event_counts', { p_user_id: userId }),
     supabaseAdmin.from('learner_gamification').select('level, best_week_streak').eq('user_id', userId).maybeSingle(),
     count(
@@ -102,10 +106,28 @@ async function loadFacts(userId: string, enabledPersonas: Persona[]): Promise<Ba
       .is('awarded_by', null)
       .order('created_at', { ascending: false })
       .limit(2),
+    supabaseAdmin.rpc('gamification_badge_metrics', { p_user_id: userId }),
+    supabaseAdmin
+      .from('xp_events')
+      .select('item_ref, language, performance_score')
+      .eq('user_id', userId)
+      .in('activity_type', EXAM_PAPER_TYPES)
+      .order('created_at', { ascending: true }),
   ])
-  for (const result of [eventRows, learner, pronunciation, tutorSessions, cefr, latestEvents]) {
+  for (const result of [eventRows, learner, pronunciation, tutorSessions, cefr, latestEvents, extraMetrics, papers]) {
     if (result.error) throw result.error
   }
+  const extra = ((extraMetrics.data ?? []) as { words_practised: number; srs_review_days: number }[])[0]
+  const paperMetrics = examPaperMetrics(
+    ((papers.data ?? []) as { item_ref: string | null; language: string; performance_score: number | string | null }[])
+      .filter((r) => r.item_ref)
+      .map((r) => ({
+        paperId: r.item_ref as string,
+        language: r.language,
+        // numeric columns can arrive as strings.
+        score: r.performance_score === null ? null : Number(r.performance_score),
+      })),
+  )
 
   const eventCounts: Record<string, number> = {}
   for (const row of (eventRows.data ?? []) as { activity_type: string; events: number }[]) eventCounts[row.activity_type] = row.events
@@ -133,6 +155,9 @@ async function loadFacts(userId: string, enabledPersonas: Persona[]): Promise<Ba
       teacher_lists_completed: listsCompleted,
       sounds_mastered: soundsMastered,
       challenges_completed: challengesCompleted,
+      words_practised: extra?.words_practised ?? 0,
+      srs_review_days: extra?.srs_review_days ?? 0,
+      ...paperMetrics,
     },
     personaSessions,
     enabledPersonas,

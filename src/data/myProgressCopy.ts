@@ -90,6 +90,7 @@ export const MY_PROGRESS_COPY = {
     'tutor-bot': 'beszélgetés az Oktató bottal', // Tutor Bot conversation
     'grammar-coach': 'nyelvtani lecke', // grammar lesson
     'pronunciation-session': 'kiejtésgyakorlat', // pronunciation drill
+    'exam-prep': 'beadott vizsgarész (Érettségi és nyelvvizsga)', // mock exam section handed in (Exam Prep)
     'vocabulary.fast_practice': 'gyors gyakorlás a Szótanulóban', // Fast practice round (Vocabulary)
     'vocabulary.game': 'szójáték', // word game
     'vocabulary.own_list': 'saját szólista', // own word list created

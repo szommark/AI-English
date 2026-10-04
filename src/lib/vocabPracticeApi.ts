@@ -35,6 +35,19 @@ export function submitReview(input: ReviewInput): Promise<ReviewResult> {
   return request('action=review', { method: 'POST', body: input })
 }
 
+/**
+ * A review session ended (finished or left early): the server pays Vocabulary XP for the
+ * words reviewed and the result drives the toast. Never throws — XP is a bonus on top.
+ */
+export async function finishReviewSession(): Promise<void> {
+  try {
+    const body = await request<{ xp?: AwardResult | null }>('action=review-finish', { method: 'POST' })
+    publishXpResult(body?.xp)
+  } catch (err) {
+    console.error('Failed to finish the review session', err)
+  }
+}
+
 /** Deletes a Tutor Bot / student card (also the undo on the Tutor Bot feedback card). */
 export async function removeCard(cardId: string): Promise<void> {
   await request('action=remove', { method: 'POST', body: { cardId } })
@@ -118,6 +131,12 @@ export async function submitTestAnswer(input: TestAnswerInput): Promise<void> {
   await request('action=test-answer', { method: 'POST', body: input })
 }
 
-export function finishTest(testId: string): Promise<TestResult> {
-  return request('action=test-finish', { method: 'POST', body: { testId } })
+export async function finishTest(testId: string): Promise<TestResult> {
+  const { xp, ...result } = await request<TestResult & { xp?: AwardResult | null }>('action=test-finish', {
+    method: 'POST',
+    body: { testId },
+  })
+  // A finished test earns Vocabulary XP server-side, like a Fast practice round.
+  publishXpResult(xp)
+  return result
 }

@@ -59,17 +59,26 @@ function applyCap(base: number, bonus: number, cap: number | null, alreadyAwarde
   return { base, bonus: remaining - base, capped: true }
 }
 
+/** Words or tasks in one award: a whole number ≥ 1, or 1 when not given. */
+export function clampUnits(units: number | null | undefined): number {
+  if (typeof units !== 'number' || !Number.isFinite(units)) return 1
+  return Math.max(1, Math.floor(units))
+}
+
 export function computeAward(args: {
   rules: ActivityTypeRules
   hasItemRef: boolean
   performanceScore: number | null | undefined
+  /** Per-unit types (a word, an exam task): base_xp is paid this many times. Default 1. */
+  units?: number | null
   context: AwardContext
 }): ComputedAward {
   const { rules, hasItemRef, context } = args
   const score = clampScore(args.performanceScore)
+  const units = clampUnits(args.units)
 
-  let base = rules.baseXp
-  let bonus = rules.bonusSource !== null && score !== null ? Math.round(rules.baseXp * BONUS_MAX_RATIO * score) : 0
+  let base = rules.baseXp * units
+  let bonus = rules.bonusSource !== null && score !== null ? Math.round(base * BONUS_MAX_RATIO * score) : 0
 
   if (hasItemRef) {
     if (rules.repeatRule === '24h_diminishing') {

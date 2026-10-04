@@ -17,7 +17,10 @@ import { ReviewError, recordReview } from './_lib/vocabPractice.js'
 import { buildListSession, loadOverview } from './_lib/vocabListSession.js'
 import { finishDrill, recordDrillAnswer, startDrill } from './_lib/vocabDrill.js'
 import { awardXp } from './_lib/gamification.js'
+import { SRS_REVIEW_LOOKBACK_HOURS } from '../src/lib/gamification/constants.js'
 import { finishTest, recordTestAnswer, startTest } from './_lib/vocabTest.js'
+
+const SRS_REVIEW_ACTIVITY = 'vocabulary.srs_review'
 import {
   VocabApiError,
   addBankWords,
@@ -846,17 +849,16 @@ async function handleDrillFinish(req: VercelRequest, res: VercelResponse, userId
   const runId = runIdFrom((req.body ?? {}) as Record<string, unknown>)
 
   const finished = await withVocabErrors(() => finishDrill(userId, runId))
-  // XP for a finished round: at least one answer per word, so a run ended straight away
-  // earns nothing; the bonus is the share of correct answers. Each run is new words, so no
-  // item ref (no 24-hour repeat rule) — the daily cap limits it. awardXp never throws.
+  // Vocabulary XP: 1 per word answered, right or wrong, so a run ended straight away earns
+  // nothing. No item ref (no 24-hour repeat rule) — the daily cap limits it. awardXp never throws.
   const xp =
-    finished && finished.answers >= finished.wordCount
+    finished && finished.wordsAnswered > 0
       ? await awardXp({
           userId,
           activityType: 'vocabulary.fast_practice',
           itemRef: null,
           language: 'en',
-          performanceScore: finished.correct / finished.answers,
+          units: finished.wordsAnswered,
         })
       : null
   res.status(200).json({ ok: true, xp })
@@ -891,7 +893,47 @@ async function handleTestAnswer(req: VercelRequest, res: VercelResponse, userId:
 async function handleTestFinish(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
   const testId = testIdFrom((req.body ?? {}) as Record<string, unknown>)
-  res.status(200).json(await withVocabErrors(() => finishTest(userId, testId)))
+  const { result, wordsAnswered } = await withVocabErrors(() => finishTest(userId, testId))
+  // A test is a Fast practice round for XP: 1 per word answered, paid once.
+  const xp = wordsAnswered
+    ? await awardXp({ userId, activityType: 'vocabulary.fast_practice', itemRef: null, language: 'en', units: wordsAnswered })
+    : null
+  res.status(200).json({ ...result, xp })
+}
+
+// --- Spaced repetition XP ----------------------------------------------------------------------
+
+/**
+ * POST review-finish — a review session ended (finished or left early). Pays 1 XP per word
+ * reviewed since the last spaced-repetition award, at any ladder step, right or wrong. The
+ * words are counted from vocab_reviews, never taken from the browser, and a session left
+ * without this call is picked up by the next one (within SRS_REVIEW_LOOKBACK_HOURS).
+ */
+async function handleReviewFinish(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+
+  const { data: last, error: lastError } = await supabaseAdmin
+    .from('xp_events')
+    .select('created_at')
+    .eq('user_id', userId)
+    .eq('activity_type', SRS_REVIEW_ACTIVITY)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (lastError) throw lastError
+  const lookback = new Date(Date.now() - SRS_REVIEW_LOOKBACK_HOURS * 60 * 60 * 1000).toISOString()
+  const since = last && (last.created_at as string) > lookback ? (last.created_at as string) : lookback
+
+  const { data: reviews, error } = await supabaseAdmin
+    .from('vocab_reviews')
+    .select('card_id')
+    .eq('user_id', userId)
+    .gt('reviewed_at', since)
+  if (error) throw error
+  const words = new Set(((reviews ?? []) as { card_id: string }[]).map((r) => r.card_id)).size
+
+  const xp = words > 0 ? await awardXp({ userId, activityType: SRS_REVIEW_ACTIVITY, itemRef: null, language: 'en', units: words }) : null
+  res.status(200).json({ ok: true, xp })
 }
 
 // --- Cards (Phase 4) -----------------------------------------------------------------------
@@ -987,6 +1029,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'session':
         await handleSession(req, res, user.id)
+        return
+      case 'review-finish':
+        await handleReviewFinish(req, res, user.id)
         return
       case 'review':
         await handleReview(req, res, user.id)

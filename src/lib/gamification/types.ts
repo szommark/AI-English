@@ -31,6 +31,7 @@ export type ChallengeActivity =
   | 'tutor-bot'
   | 'grammar-coach'
   | 'pronunciation-session'
+  | 'exam-prep'
   | 'vocabulary.fast_practice'
   | 'vocabulary.game'
   | 'vocabulary.own_list'

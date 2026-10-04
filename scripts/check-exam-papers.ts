@@ -12,6 +12,8 @@ import {
 import { answerKey, matchText, scorePaper, scoreTask, type ExamAnswers } from '../src/lib/examScoring.ts'
 import type { ExamItem, ExamPaper, ExamTask } from '../src/data/exams/types.ts'
 import { examKeys } from './exam-keys.ts'
+import { buildExamKeys, examKeysFile } from './build-exam-keys.ts'
+import { readFileSync } from 'node:fs'
 
 const errors: string[] = []
 const fail = (msg: string) => errors.push(msg)
@@ -487,6 +489,15 @@ for (const [id, key] of Object.entries(examKeys)) {
 for (const id of papers.keys()) {
   if (id !== 'erettsegi-de-kozep-2025-majus' && id !== 'nyelvvizsga-en-b1-minta-01' && !examKeys[id]) fail(`${id}: no answer-key fixture`)
 }
+
+// The server's copy of the answer keys (exam XP) must match the papers.
+let generated = ''
+try {
+  generated = readFileSync(examKeysFile, 'utf8').replace(/\r\n/g, '\n')
+} catch {
+  // Reported below.
+}
+if (generated !== (await buildExamKeys())) fail('api/_lib/generated/examScoringPapers.ts is out of date: run npm run gen:exam-keys')
 
 if (errors.length) {
   console.error(errors.join('\n'))

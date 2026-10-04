@@ -8,12 +8,14 @@ import {
   teacherBonusRemaining,
 } from './_lib/gamification.js'
 import { getUserRole } from './_lib/roles.js'
+import { awardExamSection, ExamXpError } from './_lib/examXp.js'
 import {
   CHALLENGE_DESCRIPTION_MAX,
   CHALLENGE_MAX_ACTIVE,
   CHALLENGE_TITLE_MAX,
   CHALLENGE_TITLE_MIN,
   CLIENT_AWARD_RATE_LIMIT_PER_MINUTE,
+  GAME_MAX_WORDS_PER_AWARD,
   TEACHER_BONUS_LIST_LIMIT,
   TEACHER_BONUS_REASON_MAX,
   TEACHER_BONUS_REASON_MIN,
@@ -69,7 +71,8 @@ import type {
 // Single Vercel function for the whole /api/gamification surface, multiplexed by ?action= to
 // stay under Vercel Hobby's 12-serverless-function cap — do not add new files directly
 // under api/.
-//   learner: award (browser-completed activities), me (level/week/streaks + one-time notices:
+//   learner: award (browser-completed activities), exam-section (a mock-exam section handed
+//            in, re-scored here), me (level/week/streaks + one-time notices:
 //            teacher bonuses, new and completed challenges), seen, goal (weekly goal),
 //            overview ("Az én fejlődésem" panel)
 //            leaderboard, leaderboard-join, leaderboard-nickname, leaderboard-leave,
@@ -79,14 +82,17 @@ import type {
 //            class-settings
 //   admin:   admin-gamification (switches + leaderboard members), admin-nickname-reset
 
-const ALLOWED_AWARD_FIELDS = new Set(['activityType', 'itemRef', 'language', 'performanceScore'])
+const ALLOWED_AWARD_FIELDS = new Set(['activityType', 'itemRef', 'language', 'performanceScore', 'units'])
 const MAX_ITEM_REF_LENGTH = 200
+/** Browser-completed types that pay per word, and the most words one award may claim. */
+const CLIENT_MAX_UNITS: Record<string, number> = { 'vocabulary.game': GAME_MAX_WORDS_PER_AWARD }
 
 interface AwardRequestBody {
   activityType: string
   itemRef?: string | null
   language?: XpLanguage
   performanceScore?: number | null
+  units?: number | null
 }
 
 function parseAwardBody(raw: unknown): AwardRequestBody | null {
@@ -99,6 +105,13 @@ function parseAwardBody(raw: unknown): AwardRequestBody | null {
   if (body.language != null && body.language !== 'en' && body.language !== 'de') return null
   if (body.performanceScore != null && (typeof body.performanceScore !== 'number' || !Number.isFinite(body.performanceScore))) {
     return null
+  }
+  // Units only for per-word types, as a whole number within that type's limit.
+  if (body.units != null) {
+    const max = CLIENT_MAX_UNITS[body.activityType]
+    if (max === undefined || typeof body.units !== 'number' || !Number.isInteger(body.units) || body.units < 1 || body.units > max) {
+      return null
+    }
   }
   return body as unknown as AwardRequestBody
 }
@@ -132,6 +145,21 @@ async function handleAward(req: VercelRequest, res: VercelResponse, userId: stri
     return
   }
 
+  if (await refusedByRateLimit(res, userId)) return
+
+  const xp = await awardXp({
+    userId,
+    activityType: type.key,
+    itemRef: body.itemRef ?? null,
+    language: body.language ?? 'en',
+    performanceScore: body.performanceScore ?? null,
+    units: body.units ?? null,
+  })
+  res.status(200).json({ xp })
+}
+
+/** Answers 429 (or 502) and returns true when the learner has had too many XP events in the last minute. */
+async function refusedByRateLimit(res: VercelResponse, userId: string): Promise<boolean> {
   const since = new Date(Date.now() - 60_000).toISOString()
   const { count, error: countError } = await supabaseAdmin
     .from('xp_events')
@@ -141,21 +169,43 @@ async function handleAward(req: VercelRequest, res: VercelResponse, userId: stri
   if (countError) {
     console.error('Failed to check the XP award rate limit', countError)
     res.status(502).json({ error: 'Rate limit check failed' })
-    return
+    return true
   }
   if ((count ?? 0) >= CLIENT_AWARD_RATE_LIMIT_PER_MINUTE) {
     res.status(429).json({ error: 'Too many requests' })
+    return true
+  }
+  return false
+}
+
+const EXAM_ID_RE = /^[a-z0-9-]{1,80}$/
+const EXAM_SECTION_ID_RE = /^[A-Za-z0-9_-]{1,20}$/
+
+// POST exam-section { paperId, sectionId, answers } — a mock-exam section was handed in. The
+// answers are re-scored on the server (api/_lib/examXp.ts); the response carries the section
+// XP and, when this section completed the paper, the paper bonus.
+async function handleExamSection(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
     return
   }
+  const body = (req.body ?? {}) as Record<string, unknown>
+  const { paperId, sectionId } = body
+  if (typeof paperId !== 'string' || !EXAM_ID_RE.test(paperId) || typeof sectionId !== 'string' || !EXAM_SECTION_ID_RE.test(sectionId)) {
+    res.status(400).json({ error: 'Invalid request' })
+    return
+  }
+  if (await refusedByRateLimit(res, userId)) return
 
-  const xp = await awardXp({
-    userId,
-    activityType: type.key,
-    itemRef: body.itemRef ?? null,
-    language: body.language ?? 'en',
-    performanceScore: body.performanceScore ?? null,
-  })
-  res.status(200).json({ xp })
+  try {
+    res.status(200).json(await awardExamSection({ userId, paperId, sectionId, answers: body.answers }))
+  } catch (err) {
+    if (err instanceof ExamXpError) {
+      res.status(err.status).json({ error: err.message })
+      return
+    }
+    throw err
+  }
 }
 
 interface GamificationStateRow {
@@ -790,6 +840,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   switch (action) {
     case 'award':
       await handleAward(req, res, user.id)
+      return
+    case 'exam-section':
+      await handleExamSection(req, res, user.id)
       return
     case 'me':
       await handleMe(req, res, user.id)

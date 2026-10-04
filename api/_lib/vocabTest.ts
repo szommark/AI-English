@@ -112,20 +112,25 @@ export async function recordTestAnswer(userId: string, input: TestAnswerInput, n
 /**
  * POST test-finish: scores the test from its saved answers — words left unanswered (the
  * student ended early) count as wrong. Finishing twice returns the first result.
+ * `wordsAnswered` is set only for the call that finished the test (it pays the XP).
  */
-export async function finishTest(userId: string, testId: string, now = new Date()): Promise<TestResult> {
+export async function finishTest(
+  userId: string,
+  testId: string,
+  now = new Date(),
+): Promise<{ result: TestResult; wordsAnswered: number | null }> {
   const test = await loadOwnTest(userId, testId)
   if (test.finished_at && test.correct_count !== null) {
-    return { correct: test.correct_count, total: test.word_count, score: testScore(test.correct_count, test.word_count) }
+    return {
+      result: { correct: test.correct_count, total: test.word_count, score: testScore(test.correct_count, test.word_count) },
+      wordsAnswered: null,
+    }
   }
 
-  const { count, error } = await supabaseAdmin
-    .from('vocab_test_answers')
-    .select('item_id', { count: 'exact', head: true })
-    .eq('test_id', test.id)
-    .eq('correct', true)
+  const { data: answers, error } = await supabaseAdmin.from('vocab_test_answers').select('correct').eq('test_id', test.id)
   if (error) throw error
-  const correct = Math.min(count ?? 0, test.word_count)
+  const rows = (answers ?? []) as { correct: boolean }[]
+  const correct = Math.min(rows.filter((a) => a.correct).length, test.word_count)
 
   const { data: updated, error: updateError } = await supabaseAdmin
     .from('vocab_tests')
@@ -136,5 +141,5 @@ export async function finishTest(userId: string, testId: string, now = new Date(
   if (updateError) throw updateError
   // Lost a race with a concurrent finish: report what that one stored.
   if (!updated || updated.length === 0) return finishTest(userId, testId, now)
-  return { correct, total: test.word_count, score: testScore(correct, test.word_count) }
+  return { result: { correct, total: test.word_count, score: testScore(correct, test.word_count) }, wordsAnswered: rows.length }
 }

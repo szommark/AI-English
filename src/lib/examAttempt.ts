@@ -19,6 +19,8 @@ export interface ExamAttempt {
   sectionStartedAt: Record<string, number>
   /** Exam mode: when each section's recording was started (ms since epoch). */
   audioStartedAt: Record<string, number>
+  /** Submitted sections already sent for XP, so a refresh doesn't send them again. */
+  xpSent?: string[]
 }
 
 const key = (paperId: string, mode: ExamMode) => `ai-english:exam:${paperId}:${mode}`
