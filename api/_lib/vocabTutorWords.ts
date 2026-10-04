@@ -3,7 +3,7 @@ import { enrichTerms } from './vocabEnrichment.js'
 import { newCardFields } from './vocabScheduler.js'
 import type { CefrLevel } from './prompts.js'
 import type { VocabularyNote, VocabularyReason } from '../../src/lib/types.js'
-import { MAX_TUTOR_ITEMS_PER_SESSION, normalizeTerm, termKind, type AddedTutorWord } from '../../src/lib/vocab.js'
+import { MAX_TUTOR_ITEMS_PER_SESSION, normalizeTerm, termKind, tidyHyphens, type AddedTutorWord } from '../../src/lib/vocab.js'
 
 // Tutor Bot words → cards, automatically (design decision 2, §5.2). No confirmation
 // screen: noise is kept down by the per-session cap, dedup against the student's deck,
@@ -61,7 +61,7 @@ export async function addTutorWords(
   const { data: items, error: itemsError } = await supabaseAdmin.rpc('ensure_global_vocab_items', {
     p_items: fresh.map((n) => {
       const termNormalized = normalizeTerm(n.term)
-      return { term: n.term, term_normalized: termNormalized, kind: termKind(termNormalized), origin: 'tutor' }
+      return { term: tidyHyphens(n.term), term_normalized: termNormalized, kind: termKind(termNormalized), origin: 'tutor' }
     }),
   })
   if (itemsError) throw itemsError

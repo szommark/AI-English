@@ -29,6 +29,7 @@ import {
   mixedLevels,
   normalizeTerm,
   termKind,
+  tidyHyphens,
   type AddToSrsResult,
   type AddWordsResult,
   type CompileInput,
@@ -675,7 +676,7 @@ async function ensureItems(terms: { term: string; origin: VocabOrigin }[]): Prom
   const { data, error } = await supabaseAdmin.rpc('ensure_global_vocab_items', {
     p_items: terms.map(({ term, origin }) => {
       const termNormalized = normalizeTerm(term)
-      return { term, term_normalized: termNormalized, kind: termKind(termNormalized), origin }
+      return { term: tidyHyphens(term), term_normalized: termNormalized, kind: termKind(termNormalized), origin }
     }),
   })
   if (error) throw error

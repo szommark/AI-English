@@ -71,13 +71,33 @@ export interface EnrichResult {
 const EDGE_PUNCTUATION = /^[\p{P}\p{S}\s]+|[\p{P}\p{S}\s]+$/gu
 
 /**
+ * Characters that look like "-" but aren't: the Unicode hyphen (U+2010), the
+ * non-breaking hyphen (U+2011, which the enrichment model sometimes writes), the minus
+ * sign and full-width / small hyphen-minus.
+ */
+const HYPHEN_LOOKALIKES = /[‐‑−﹣－]/g
+/** Dashes that phone keyboards substitute for "-" (figure and en dash). Only folded in terms and answers. */
+const TERM_DASHES = /[‒–]/g
+
+/** Hyphen look-alikes as a plain "-", soft hyphens (U+00AD) dropped. Safe on any text, sentences included. */
+export function tidyHyphens(text: string): string {
+  return text.replace(HYPHEN_LOOKALIKES, '-').replace(/­/g, '')
+}
+
+/** tidyHyphens plus figure / en dashes as "-": for a single term or a typed answer, never a sentence. */
+export function foldDashes(text: string): string {
+  return tidyHyphens(text).replace(TERM_DASHES, '-')
+}
+
+/**
  * Canonical form used for dedup and cache lookups: trimmed, lowercased, internal
  * whitespace collapsed, surrounding punctuation stripped. Internal apostrophes and
  * hyphens survive ("don't", "well-known"); typographic apostrophes become ASCII ones
- * so "don’t" and "don't" are the same term. Returns '' for punctuation-only input.
+ * so "don’t" and "don't" are the same term, and hyphen look-alikes and dashes become
+ * "-" (foldDashes). Returns '' for punctuation-only input.
  */
 export function normalizeTerm(raw: string): string {
-  return raw
+  return foldDashes(raw)
     .replace(/[‘’ʼ]/g, "'")
     .toLowerCase()
     .replace(/\s+/g, ' ')

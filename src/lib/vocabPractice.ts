@@ -1,4 +1,4 @@
-import type { ExerciseContent, PracticeCard, PracticeExercise } from './vocab'
+import { foldDashes, type ExerciseContent, type PracticeCard, type PracticeExercise } from './vocab'
 
 // Pure helpers for the student practice session (design §7). Steps 1–4 are rendered and
 // checked in the browser; only the result goes to the server for scheduling.
@@ -7,9 +7,13 @@ import type { ExerciseContent, PracticeCard, PracticeExercise } from './vocab'
  *  are too easily a different word ("go" / "do"). */
 export const TYPO_MIN_LENGTH = 4
 
-/** Lowercase, straight apostrophes, collapsed spaces, no surrounding punctuation. */
+/**
+ * Lowercase, straight apostrophes, plain hyphens (a stored "English‑speaking" may hold a
+ * non-breaking hyphen; a phone may type an en dash), collapsed spaces, no surrounding
+ * punctuation.
+ */
 export function normalizeAnswer(text: string): string {
-  return text
+  return foldDashes(text)
     .replace(/[‘’ʼ]/g, "'")
     .toLowerCase()
     .replace(/\s+/g, ' ')
@@ -125,7 +129,12 @@ function escapeRegExp(s: string): string {
 export function gapSentence(sentence: string | null, term: string): GapSentence | null {
   if (!sentence) return null
   for (const alternative of termAlternatives(term)) {
-    const words = alternative.trim().split(/\s+/).filter(Boolean).map(escapeRegExp)
+    // A "-" in the term matches any hyphen look-alike or dash in the sentence.
+    const words = foldDashes(alternative)
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => escapeRegExp(w).replace(/-/g, '[-\\u2010-\\u2013\\u2212]'))
     if (words.length === 0) continue
     const re = new RegExp(`(^|[^\\p{L}\\p{N}'])(${words.join('\\s+')})(?=$|[^\\p{L}\\p{N}'])`, 'iu')
     const m = re.exec(sentence)

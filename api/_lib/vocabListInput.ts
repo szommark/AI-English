@@ -8,6 +8,7 @@ import {
   VOCAB_POS,
   normalizeTerm,
   termKind,
+  tidyHyphens,
   type VocabKind,
   type VocabPos,
 } from '../../src/lib/vocab.js'
@@ -92,7 +93,7 @@ export function prepareListItems(raw: unknown): Prepared<PreparedListItem[]> {
     if (!isRecord(entry) || typeof entry.term !== 'string') {
       return { ok: false, error: 'Each item needs a term string' }
     }
-    const term = entry.term.trim().replace(/\s+/g, ' ')
+    const term = tidyHyphens(entry.term.trim().replace(/\s+/g, ' '))
     const termNormalized = normalizeTerm(term)
     if (!termNormalized || seen.has(termNormalized)) continue
     seen.add(termNormalized)
