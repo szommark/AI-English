@@ -9,6 +9,7 @@ import {
   ENRICH_BATCH_SIZE,
   LIST_MAX_ITEMS,
   normalizeTerm,
+  tidyHyphens,
   termKind,
   type EnrichResult,
   type VocabOrigin,
@@ -40,7 +41,7 @@ function uniqueTerms(terms: string[]): UniqueTerm[] {
   for (const raw of terms) {
     const termNormalized = normalizeTerm(raw)
     if (!termNormalized || seen.has(termNormalized)) continue
-    seen.set(termNormalized, { term: raw.trim().replace(/\s+/g, ' '), termNormalized })
+    seen.set(termNormalized, { term: tidyHyphens(raw.trim().replace(/\s+/g, ' ')), termNormalized })
   }
   return [...seen.values()].slice(0, LIST_MAX_ITEMS)
 }
@@ -94,15 +95,17 @@ async function writeToCache(entries: VocabEnrichmentEntry[], modelId: ModelId, o
   if (entries.length === 0) return
   const providerModelId = getModelEntry(modelId).providerModelId
   const { error } = await supabaseAdmin.rpc('upsert_global_vocab_items', {
+    // Models sometimes write a non-breaking hyphen (U+2011) that looks like "-" but
+    // doesn't match a typed one: stored text gets plain hyphens.
     p_items: entries.map((e) => ({
-      term: e.term,
+      term: tidyHyphens(e.term),
       term_normalized: e.termNormalized,
       kind: e.kind,
       pos: e.pos,
       cefr_level: e.cefrLevel,
-      meaning_hu: e.meaningHu,
-      definition_en: e.definitionEn,
-      example_en: e.exampleEn,
+      meaning_hu: e.meaningHu && tidyHyphens(e.meaningHu),
+      definition_en: e.definitionEn && tidyHyphens(e.definitionEn),
+      example_en: e.exampleEn && tidyHyphens(e.exampleEn),
       origin,
       enrichment_model_id: providerModelId,
     })),
