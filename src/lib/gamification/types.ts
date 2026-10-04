@@ -103,6 +103,72 @@ export interface TeacherChallenge {
   total: number
 }
 
+// --- Class comparison and the public leaderboard (design §8) ---
+
+/** CEFR bands: A1–A2, B1–B2, C1–C2 (no estimate yet: alap). */
+export type LeagueKey = 'alap' | 'kozep' | 'felso'
+
+export interface LeaderboardEntry {
+  /** 1-based; equal XP shares a rank. */
+  rank: number
+  nickname: string
+  level: number
+  xp: number
+  isMe: boolean
+}
+
+/** GET ?action=leaderboard */
+export interface LeaderboardView {
+  /** The admin switch; when false nothing else is filled in. */
+  enabled: boolean
+  /** A teacher of the learner has turned the public leaderboard off for their class. */
+  blockedByTeacher: boolean
+  optedIn: boolean
+  nickname: string | null
+  /** The learner's league (from their latest CEFR estimate). */
+  league: LeagueKey
+  /** This week's top of the league, learners with XP only. */
+  entries: LeaderboardEntry[]
+  /** The learner's own row when they are on the leaderboard but not in `entries`. */
+  me: LeaderboardEntry | null
+  /** Learners in the league with XP this week. */
+  participants: number
+}
+
+export interface ClassRankingEntry {
+  rank: number
+  xp: number
+  isMe: boolean
+  /** Set only for classmates on the public leaderboard. */
+  nickname: string | null
+  /** For classmates shown as "Osztálytárs N" (no nickname, not the learner). */
+  classmateNo: number | null
+}
+
+/** GET ?action=class-ranking */
+export interface ClassRankingView {
+  enabled: boolean
+  /** One per teacher who turned class comparison on. */
+  classes: { teacherLabel: string; entries: ClassRankingEntry[] }[]
+}
+
+/** GET/POST ?action=class-settings (teacher) */
+export interface TeacherClassSettings {
+  classComparison: boolean
+  leaderboardAllowed: boolean
+  /** The admin switches, so the teacher knows whether their settings have any effect yet. */
+  globalClassComparison: boolean
+  globalLeaderboard: boolean
+}
+
+/** GET ?action=admin-gamification */
+export interface AdminGamificationSettings {
+  publicLeaderboard: boolean
+  classComparison: boolean
+  /** Everyone on the public leaderboard, for nickname moderation. */
+  participants: { userId: string; nickname: string; email: string; optInAt: string | null }[]
+}
+
 /** POST ?action=challenge body. */
 export interface NewChallenge {
   title: string

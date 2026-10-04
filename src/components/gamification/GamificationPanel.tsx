@@ -5,6 +5,7 @@ import { getFeature } from '../../data/features'
 import { fetchGamificationOverview, markNoticesSeen } from '../../lib/gamificationApi'
 import { publishMeNotices } from '../../lib/gamification/xpEvents'
 import StudentChallenges from './StudentChallenges'
+import { ClassRankingSection, LeaderboardSection } from './SocialSections'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import { getAccentPreference } from '../../lib/voiceSelection'
 import type { BadgeWallItem, GamificationOverview, WeekHistoryItem } from '../../lib/gamification/types'
@@ -111,6 +112,8 @@ export default function GamificationPanel() {
 
       <WeekHistory weeks={data.weeks} />
       <BadgeWall badges={data.badges} />
+      <ClassRankingSection />
+      <LeaderboardSection />
     </section>
   )
 }

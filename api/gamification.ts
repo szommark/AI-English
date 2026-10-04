@@ -40,6 +40,20 @@ import {
   updateChallengeText,
 } from './_lib/challenges.js'
 import { validateNewChallenge } from './_lib/challengeRules.js'
+import {
+  changeNickname,
+  isLeaderboardBlocked,
+  joinLeaderboard,
+  leaveLeaderboard,
+  loadAdminGamification,
+  loadClassRankings,
+  loadLeaderboard,
+  loadSwitches,
+  loadTeacherClassSettings,
+  saveTeacherClassSettings,
+  setSwitch,
+} from './_lib/social.js'
+import { validateNickname } from './_lib/socialRules.js'
 import type {
   ClassGamification,
   ClassStudentGamification,
@@ -58,8 +72,12 @@ import type {
 //   learner: award (browser-completed activities), me (level/week/streaks + one-time notices:
 //            teacher bonuses, new and completed challenges), seen, goal (weekly goal),
 //            overview ("Az én fejlődésem" panel)
+//            leaderboard, leaderboard-join, leaderboard-nickname, leaderboard-leave,
+//            class-ranking (Phase 5, behind the admin switches)
 //   teacher: class (connected students), student (one student), bonus (give bonus XP),
-//            challenge(s) (list / create / edit text), challenge-end, challenge-delete
+//            challenge(s) (list / create / edit text), challenge-end, challenge-delete,
+//            class-settings
+//   admin:   admin-gamification (switches + leaderboard members), admin-nickname-reset
 
 const ALLOWED_AWARD_FIELDS = new Set(['activityType', 'itemRef', 'language', 'performanceScore'])
 const MAX_ITEM_REF_LENGTH = 200
@@ -574,6 +592,192 @@ async function handleChallengeDelete(req: VercelRequest, res: VercelResponse, us
   }
 }
 
+// --- Class comparison and the public leaderboard (design §8) -----------------------------
+// Behind the admin switches in gamification_settings; with a switch off, reads return
+// { enabled: false } and joining is refused.
+
+async function handleLeaderboard(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  try {
+    res.status(200).json(await loadLeaderboard(userId))
+  } catch (err) {
+    console.error('Failed to load the leaderboard', err)
+    res.status(502).json({ error: 'Failed to load' })
+  }
+}
+
+// POST { nickname, age16: true, consent: true }: join (or change the nickname when already in).
+async function handleLeaderboardJoin(req: VercelRequest, res: VercelResponse, userId: string, email: string | undefined) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  try {
+    if (!(await loadSwitches()).public_leaderboard) {
+      res.status(403).json({ error: 'A ranglista jelenleg nem elérhető.' })
+      return
+    }
+    const body = (req.body ?? {}) as { nickname?: unknown; age16?: unknown; consent?: unknown }
+    // The 16+ self-declaration and the consent are both required (design §8.3).
+    if (body.age16 !== true || body.consent !== true) {
+      res.status(400).json({ error: 'A csatlakozáshoz meg kell erősítened, hogy elmúltál 16 éves, és hozzá kell járulnod a megjelenéshez.' })
+      return
+    }
+    if (await isLeaderboardBlocked(userId)) {
+      res.status(403).json({ error: 'A tanárod az osztályodnak kikapcsolta a nyilvános ranglistát.' })
+      return
+    }
+    const checked = validateNickname(body.nickname, email)
+    if (!checked.ok) {
+      res.status(400).json({ error: checked.error })
+      return
+    }
+    if ((await joinLeaderboard(userId, checked.nickname)) === 'taken') {
+      res.status(409).json({ error: 'Ezt a becenevet már valaki más használja.' })
+      return
+    }
+    res.status(200).json(await loadLeaderboard(userId))
+  } catch (err) {
+    console.error('Failed to join the leaderboard', err)
+    res.status(502).json({ error: 'Failed to save' })
+  }
+}
+
+// POST { nickname }: change the nickname while on the leaderboard.
+async function handleLeaderboardNickname(req: VercelRequest, res: VercelResponse, userId: string, email: string | undefined) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  try {
+    const checked = validateNickname((req.body ?? {}).nickname, email)
+    if (!checked.ok) {
+      res.status(400).json({ error: checked.error })
+      return
+    }
+    const result = await changeNickname(userId, checked.nickname)
+    if (result === 'taken') {
+      res.status(409).json({ error: 'Ezt a becenevet már valaki más használja.' })
+      return
+    }
+    if (result === 'not-joined') {
+      res.status(409).json({ error: 'Nem vagy a ranglistán.' })
+      return
+    }
+    res.status(200).json(await loadLeaderboard(userId))
+  } catch (err) {
+    console.error('Failed to change the nickname', err)
+    res.status(502).json({ error: 'Failed to save' })
+  }
+}
+
+// POST: leave at once (works even with the switch off, so nobody is ever stuck on it).
+async function handleLeaderboardLeave(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  try {
+    await leaveLeaderboard(userId)
+    res.status(200).json(await loadLeaderboard(userId))
+  } catch (err) {
+    console.error('Failed to leave the leaderboard', err)
+    res.status(502).json({ error: 'Failed to save' })
+  }
+}
+
+async function handleClassRanking(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  try {
+    res.status(200).json(await loadClassRankings(userId))
+  } catch (err) {
+    console.error('Failed to load class rankings', err)
+    res.status(502).json({ error: 'Failed to load' })
+  }
+}
+
+// Teacher: GET / POST { classComparison, leaderboardAllowed } for their class.
+async function handleClassSettings(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (!(await requireTeacher(res, userId))) return
+  try {
+    if (req.method === 'POST') {
+      const body = (req.body ?? {}) as { classComparison?: unknown; leaderboardAllowed?: unknown }
+      if (typeof body.classComparison !== 'boolean' || typeof body.leaderboardAllowed !== 'boolean') {
+        res.status(400).json({ error: 'Invalid settings' })
+        return
+      }
+      await saveTeacherClassSettings(userId, { classComparison: body.classComparison, leaderboardAllowed: body.leaderboardAllowed })
+    } else if (req.method !== 'GET') {
+      res.status(405).json({ error: 'Method not allowed' })
+      return
+    }
+    res.status(200).json(await loadTeacherClassSettings(userId))
+  } catch (err) {
+    console.error('Class settings request failed', err)
+    res.status(502).json({ error: 'Failed' })
+  }
+}
+
+// Admin: GET the switches and leaderboard members / POST { publicLeaderboard?, classComparison? }.
+async function handleAdminGamification(req: VercelRequest, res: VercelResponse, userId: string) {
+  if ((await getUserRole(userId)) !== 'admin') {
+    res.status(403).json({ error: 'Forbidden' })
+    return
+  }
+  try {
+    if (req.method === 'POST') {
+      const body = (req.body ?? {}) as { publicLeaderboard?: unknown; classComparison?: unknown }
+      if (body.publicLeaderboard !== undefined && typeof body.publicLeaderboard !== 'boolean') {
+        res.status(400).json({ error: 'Invalid settings' })
+        return
+      }
+      if (body.classComparison !== undefined && typeof body.classComparison !== 'boolean') {
+        res.status(400).json({ error: 'Invalid settings' })
+        return
+      }
+      if (typeof body.publicLeaderboard === 'boolean') await setSwitch('public_leaderboard', body.publicLeaderboard, userId)
+      if (typeof body.classComparison === 'boolean') await setSwitch('class_comparison', body.classComparison, userId)
+    } else if (req.method !== 'GET') {
+      res.status(405).json({ error: 'Method not allowed' })
+      return
+    }
+    res.status(200).json(await loadAdminGamification())
+  } catch (err) {
+    console.error('Admin gamification request failed', err)
+    res.status(502).json({ error: 'Failed' })
+  }
+}
+
+// Admin: POST { userId } takes a learner off the leaderboard and clears their nickname (moderation).
+async function handleAdminNicknameReset(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  if ((await getUserRole(userId)) !== 'admin') {
+    res.status(403).json({ error: 'Forbidden' })
+    return
+  }
+  const target = (req.body ?? {}).userId
+  if (typeof target !== 'string' || !target) {
+    res.status(400).json({ error: 'Missing userId' })
+    return
+  }
+  try {
+    await leaveLeaderboard(target)
+    res.status(200).json(await loadAdminGamification())
+  } catch (err) {
+    console.error('Failed to reset a nickname', err)
+    res.status(502).json({ error: 'Failed' })
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await getUserFromRequest(req)
   if (!user) {
@@ -618,6 +822,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     case 'challenge-delete':
       await handleChallengeDelete(req, res, user.id)
+      return
+    case 'leaderboard':
+      await handleLeaderboard(req, res, user.id)
+      return
+    case 'leaderboard-join':
+      await handleLeaderboardJoin(req, res, user.id, user.email)
+      return
+    case 'leaderboard-nickname':
+      await handleLeaderboardNickname(req, res, user.id, user.email)
+      return
+    case 'leaderboard-leave':
+      await handleLeaderboardLeave(req, res, user.id)
+      return
+    case 'class-ranking':
+      await handleClassRanking(req, res, user.id)
+      return
+    case 'class-settings':
+      await handleClassSettings(req, res, user.id)
+      return
+    case 'admin-gamification':
+      await handleAdminGamification(req, res, user.id)
+      return
+    case 'admin-nickname-reset':
+      await handleAdminNicknameReset(req, res, user.id)
       return
     default:
       res.status(404).json({ error: 'Not found' })
