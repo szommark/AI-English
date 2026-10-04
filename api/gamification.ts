@@ -9,6 +9,10 @@ import {
 } from './_lib/gamification.js'
 import { getUserRole } from './_lib/roles.js'
 import {
+  CHALLENGE_DESCRIPTION_MAX,
+  CHALLENGE_MAX_ACTIVE,
+  CHALLENGE_TITLE_MAX,
+  CHALLENGE_TITLE_MIN,
   CLIENT_AWARD_RATE_LIMIT_PER_MINUTE,
   TEACHER_BONUS_LIST_LIMIT,
   TEACHER_BONUS_REASON_MAX,
@@ -19,12 +23,29 @@ import {
   WEEKLY_GOAL_MIN_DAYS,
 } from '../src/lib/gamification/constants.js'
 import { progressInLevel } from '../src/lib/gamification/levels.js'
-import { loadBadgeWall } from './_lib/badges.js'
+import { evaluateBadges, loadBadgeWall } from './_lib/badges.js'
+import {
+  budapestDate,
+  challengeStatus,
+  countOpenChallenges,
+  createChallenge,
+  deleteChallenge,
+  endChallenge,
+  evaluateChallenges,
+  loadChallengeAnnouncements,
+  loadChallengeContext,
+  loadOwnChallenge,
+  loadStudentChallenges,
+  loadTeacherChallenges,
+  updateChallengeText,
+} from './_lib/challenges.js'
+import { validateNewChallenge } from './_lib/challengeRules.js'
 import type {
   ClassGamification,
   ClassStudentGamification,
   GamificationMe,
   GamificationOverview,
+  GamificationState,
   StudentGamification,
   TeacherBonusResult,
   WeekHistoryItem,
@@ -34,9 +55,11 @@ import type {
 // Single Vercel function for the whole /api/gamification surface, multiplexed by ?action= to
 // stay under Vercel Hobby's 12-serverless-function cap — do not add new files directly
 // under api/.
-//   learner: award (browser-completed activities), me (level/week/streaks + unseen teacher
-//            bonuses), bonus-seen, goal (weekly goal), overview ("Az én fejlődésem" panel)
-//   teacher: class (connected students), student (one student), bonus (give bonus XP)
+//   learner: award (browser-completed activities), me (level/week/streaks + one-time notices:
+//            teacher bonuses, new and completed challenges), seen, goal (weekly goal),
+//            overview ("Az én fejlődésem" panel)
+//   teacher: class (connected students), student (one student), bonus (give bonus XP),
+//            challenge(s) (list / create / edit text), challenge-end, challenge-delete
 
 const ALLOWED_AWARD_FIELDS = new Set(['activityType', 'itemRef', 'language', 'performanceScore'])
 const MAX_ITEM_REF_LENGTH = 200
@@ -131,7 +154,7 @@ interface GamificationStateRow {
 }
 
 /** Level, week and streaks. gamification_state() closes finished weeks first. */
-async function loadState(userId: string): Promise<Omit<GamificationMe, 'unseenTeacherBonuses'>> {
+async function loadState(userId: string): Promise<GamificationState> {
   const { data, error } = await supabaseAdmin.rpc('gamification_state', { p_user_id: userId })
   if (error) throw error
   const row = (data as GamificationStateRow[])[0]
@@ -153,18 +176,29 @@ async function loadState(userId: string): Promise<Omit<GamificationMe, 'unseenTe
   }
 }
 
-/** The learner's own state, plus teacher bonuses they haven't seen yet. */
+/**
+ * The learner's own state, plus their one-time notices: teacher bonuses and new challenges
+ * they haven't seen, and challenges completed just now — e.g. their class reached a
+ * collective target while they were away (with any badge that brings).
+ */
 async function loadMe(userId: string): Promise<GamificationMe> {
+  // Completions first, so the state below already includes any reward XP.
+  const completedChallenges = await evaluateChallenges(userId)
+  const newBadges = completedChallenges.length > 0 ? await evaluateBadges(userId) : []
+
   const [state, seen] = await Promise.all([
     loadState(userId),
-    supabaseAdmin.from('learner_gamification').select('bonus_seen_at').eq('user_id', userId).maybeSingle(),
+    supabaseAdmin.from('learner_gamification').select('bonus_seen_at, challenges_seen_at').eq('user_id', userId).maybeSingle(),
   ])
   if (seen.error) throw seen.error
-  const unseenTeacherBonuses = await loadTeacherBonuses(userId, {
-    since: (seen.data?.bonus_seen_at as string | null | undefined) ?? null,
-    limit: TEACHER_BONUS_LIST_LIMIT,
-  })
-  return { ...state, unseenTeacherBonuses }
+  const [unseenTeacherBonuses, newChallenges] = await Promise.all([
+    loadTeacherBonuses(userId, {
+      since: (seen.data?.bonus_seen_at as string | null | undefined) ?? null,
+      limit: TEACHER_BONUS_LIST_LIMIT,
+    }),
+    loadChallengeAnnouncements(userId, (seen.data?.challenges_seen_at as string | null | undefined) ?? null),
+  ])
+  return { ...state, unseenTeacherBonuses, newChallenges, completedChallenges, newBadges }
 }
 
 async function loadXpBySection(userId: string): Promise<{ section: string; xp: number }[]> {
@@ -201,17 +235,20 @@ async function handleMe(req: VercelRequest, res: VercelResponse, userId: string)
   }
 }
 
-// The learner has seen their teacher bonuses (the one-time toast); later ones show again.
-async function handleBonusSeen(req: VercelRequest, res: VercelResponse, userId: string) {
+// The learner has seen their teacher bonuses and new challenges (the one-time toasts);
+// later ones show again. ('bonus-seen' is the Phase 4a name, kept for open tabs.)
+async function handleSeen(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return
   }
 
+  // Upsert: a learner who hasn't practised yet has no row, but can already have been told
+  // about a challenge.
+  const now = new Date().toISOString()
   const { error } = await supabaseAdmin
     .from('learner_gamification')
-    .update({ bonus_seen_at: new Date().toISOString() })
-    .eq('user_id', userId)
+    .upsert({ user_id: userId, bonus_seen_at: now, challenges_seen_at: now }, { onConflict: 'user_id' })
   if (error) {
     console.error('Failed to mark teacher bonuses as seen', error)
     res.status(502).json({ error: 'Failed to save' })
@@ -232,13 +269,14 @@ async function handleOverview(req: VercelRequest, res: VercelResponse, userId: s
   try {
     // loadMe closes finished weeks first, so the history below is up to date.
     const me = await loadMe(userId)
-    const [xpBySection, weeks, badges, teacherBonuses] = await Promise.all([
+    const [xpBySection, weeks, badges, teacherBonuses, challenges] = await Promise.all([
       loadXpBySection(userId),
       loadWeeks(userId),
       loadBadgeWall(userId),
       loadTeacherBonuses(userId, { limit: TEACHER_BONUS_LIST_LIMIT }),
+      loadStudentChallenges(userId),
     ])
-    const body: GamificationOverview = { me, xpBySection, weeks, badges, teacherBonuses }
+    const body: GamificationOverview = { me, xpBySection, weeks, badges, teacherBonuses, challenges }
     res.status(200).json(body)
   } catch (err) {
     console.error('Failed to load the gamification overview', err)
@@ -429,6 +467,113 @@ async function handleBonus(req: VercelRequest, res: VercelResponse, userId: stri
   }
 }
 
+// --- Class challenges (design §7.3) ------------------------------------------------------
+
+// GET: the teacher's challenges with progress. POST: create one. PATCH { id, title,
+// description }: edit the text (any time). A new challenge is refused (409) when the
+// teacher already has CHALLENGE_MAX_ACTIVE running or scheduled.
+async function handleChallenge(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (!(await requireTeacher(res, userId))) return
+
+  try {
+    if (req.method === 'GET') {
+      const [challenges, open] = await Promise.all([loadTeacherChallenges(userId), countOpenChallenges(userId)])
+      res.status(200).json({ challenges, openCount: open, maxOpen: CHALLENGE_MAX_ACTIVE })
+      return
+    }
+
+    if (req.method === 'POST') {
+      if ((await countOpenChallenges(userId)) >= CHALLENGE_MAX_ACTIVE) {
+        res.status(409).json({ error: `You can have at most ${CHALLENGE_MAX_ACTIVE} running or scheduled challenges.` })
+        return
+      }
+      const context = await loadChallengeContext(userId)
+      const checked = validateNewChallenge(req.body, { today: budapestDate(), ...context })
+      if (!checked.ok) {
+        res.status(400).json({ error: checked.error })
+        return
+      }
+      const id = await createChallenge(userId, checked.row)
+      res.status(201).json({ id })
+      return
+    }
+
+    if (req.method === 'PATCH') {
+      const body = (req.body ?? {}) as { id?: unknown; title?: unknown; description?: unknown }
+      const challenge = await loadOwnChallenge(userId, body.id)
+      if (!challenge) {
+        res.status(404).json({ error: 'Not found' })
+        return
+      }
+      const title = typeof body.title === 'string' ? body.title.trim() : ''
+      const description = typeof body.description === 'string' && body.description.trim() ? body.description.trim() : null
+      if (title.length < CHALLENGE_TITLE_MIN || title.length > CHALLENGE_TITLE_MAX || (description?.length ?? 0) > CHALLENGE_DESCRIPTION_MAX) {
+        res.status(400).json({ error: 'Invalid title or description' })
+        return
+      }
+      await updateChallengeText(challenge.id, title, description)
+      res.status(200).json({ ok: true })
+      return
+    }
+
+    res.status(405).json({ error: 'Method not allowed' })
+  } catch (err) {
+    console.error('Challenge request failed', err)
+    res.status(502).json({ error: 'Failed' })
+  }
+}
+
+// POST { id }: end a running or scheduled challenge early (no completions after this).
+async function handleChallengeEnd(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  if (!(await requireTeacher(res, userId))) return
+  try {
+    const challenge = await loadOwnChallenge(userId, (req.body ?? {}).id)
+    if (!challenge) {
+      res.status(404).json({ error: 'Not found' })
+      return
+    }
+    const status = challengeStatus(challenge, budapestDate())
+    if (status !== 'active' && status !== 'upcoming') {
+      res.status(409).json({ error: 'This challenge has already ended.' })
+      return
+    }
+    await endChallenge(challenge.id)
+    res.status(200).json({ ok: true })
+  } catch (err) {
+    console.error('Failed to end challenge', err)
+    res.status(502).json({ error: 'Failed' })
+  }
+}
+
+// POST { id }: delete a challenge that hasn't started yet.
+async function handleChallengeDelete(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  if (!(await requireTeacher(res, userId))) return
+  try {
+    const challenge = await loadOwnChallenge(userId, (req.body ?? {}).id)
+    if (!challenge) {
+      res.status(404).json({ error: 'Not found' })
+      return
+    }
+    if (challengeStatus(challenge, budapestDate()) !== 'upcoming') {
+      res.status(409).json({ error: 'Only a challenge that hasn’t started can be deleted. End it instead.' })
+      return
+    }
+    await deleteChallenge(challenge.id)
+    res.status(200).json({ ok: true })
+  } catch (err) {
+    console.error('Failed to delete challenge', err)
+    res.status(502).json({ error: 'Failed' })
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await getUserFromRequest(req)
   if (!user) {
@@ -445,8 +590,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     case 'me':
       await handleMe(req, res, user.id)
       return
+    case 'seen':
     case 'bonus-seen':
-      await handleBonusSeen(req, res, user.id)
+      await handleSeen(req, res, user.id)
       return
     case 'goal':
       await handleGoal(req, res, user.id)
@@ -462,6 +608,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     case 'bonus':
       await handleBonus(req, res, user.id)
+      return
+    case 'challenges':
+    case 'challenge':
+      await handleChallenge(req, res, user.id)
+      return
+    case 'challenge-end':
+      await handleChallengeEnd(req, res, user.id)
+      return
+    case 'challenge-delete':
+      await handleChallengeDelete(req, res, user.id)
       return
     default:
       res.status(404).json({ error: 'Not found' })

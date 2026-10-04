@@ -5,8 +5,10 @@ import type {
   ClassGamification,
   GamificationMe,
   GamificationOverview,
+  NewChallenge,
   StudentGamification,
   TeacherBonusResult,
+  TeacherChallenge,
   XpLanguage,
 } from './gamification/types'
 
@@ -36,11 +38,11 @@ export async function fetchGamificationOverview(): Promise<GamificationOverview>
   return (await res.json()) as GamificationOverview
 }
 
-/** Marks the learner's teacher bonuses as seen, so the toast doesn't repeat. Never throws. */
-export async function markTeacherBonusesSeen(): Promise<void> {
+/** Marks the learner's teacher bonuses and new challenges as seen, so the toasts don't repeat. Never throws. */
+export async function markNoticesSeen(): Promise<void> {
   try {
     const headers = await authHeader()
-    await fetch('/api/gamification?action=bonus-seen', { method: 'POST', headers })
+    await fetch('/api/gamification?action=seen', { method: 'POST', headers })
   } catch {
     // Worst case the toast shows once more next time.
   }
@@ -77,6 +79,48 @@ export async function giveTeacherBonus(studentId: string, amount: number, reason
   })
   if (res.status !== 200 && res.status !== 409) throw new Error('Failed to give bonus XP')
   return (await res.json()) as TeacherBonusResult
+}
+
+// --- Class challenges (teacher) --------------------------------------------------------------
+
+export interface TeacherChallengeList {
+  challenges: TeacherChallenge[]
+  /** Running or scheduled now. */
+  openCount: number
+  maxOpen: number
+}
+
+async function challengeRequest<T>(action: string, method: string, body?: unknown): Promise<T> {
+  const headers = await authHeader()
+  const res = await fetch(`/api/gamification?action=${action}`, {
+    method,
+    headers: body === undefined ? headers : { 'Content-Type': 'application/json', ...headers },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  const json = (await res.json().catch(() => ({}))) as { error?: string }
+  if (!res.ok) throw new Error(json.error ?? 'Request failed')
+  return json as T
+}
+
+export function fetchTeacherChallenges(): Promise<TeacherChallengeList> {
+  return challengeRequest('challenges', 'GET')
+}
+
+/** Throws with the server's message (e.g. a validation error) when refused. */
+export function createChallenge(challenge: NewChallenge): Promise<{ id: string }> {
+  return challengeRequest('challenge', 'POST', challenge)
+}
+
+export function updateChallengeText(id: string, title: string, description: string | null): Promise<unknown> {
+  return challengeRequest('challenge', 'PATCH', { id, title, description })
+}
+
+export function endChallenge(id: string): Promise<unknown> {
+  return challengeRequest('challenge-end', 'POST', { id })
+}
+
+export function deleteChallenge(id: string): Promise<unknown> {
+  return challengeRequest('challenge-delete', 'POST', { id })
 }
 
 /** Saves the weekly goal (applies from next week) and returns the updated state. Throws on failure. */

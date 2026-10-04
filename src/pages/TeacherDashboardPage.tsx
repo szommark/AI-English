@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import { fetchInviteCode, regenerateInviteCode, fetchTeacherRoster, type RosterEntry } from '../lib/teacherApi'
 import WordListsSection from '../components/VocabLists/WordListsSection'
 import ClassSummaryCard, { StudentGamificationLine } from '../components/gamification/ClassSummaryCard'
+import ChallengesSection from '../components/gamification/ChallengesSection'
 import { fetchClassGamification } from '../lib/gamificationApi'
 import type { ClassGamification } from '../lib/gamification/types'
 
@@ -99,6 +100,8 @@ export default function TeacherDashboardPage() {
                 </div>
               )}
             </div>
+
+            <ChallengesSection students={students} />
 
             <WordListsSection />
           </>

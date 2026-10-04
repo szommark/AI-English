@@ -1,6 +1,7 @@
 import { supabaseAdmin } from './supabaseAdmin.js'
 import { computeAward, type RepeatRule } from './xpCalc.js'
 import { evaluateBadges } from './badges.js'
+import { evaluateChallenges } from './challenges.js'
 import { TEACHER_BONUS_WEEKLY_CAP } from '../../src/lib/gamification/constants.js'
 import type { AwardResult, TeacherBonus, XpLanguage } from '../../src/lib/gamification/types.js'
 
@@ -100,7 +101,9 @@ export async function awardXp(args: {
     )[0]
     if (!totals) throw new Error('record_xp_event returned no row')
 
-    // The ledger row is written; badges are a bonus on top and never fail the award.
+    // The ledger row is written; challenges and badges are a bonus on top and never fail the
+    // award. Challenges first, so a challenge badge is granted with the completion.
+    const completedChallenges = await evaluateChallenges(args.userId)
     const newBadges = await evaluateBadges(args.userId)
 
     return {
@@ -115,6 +118,7 @@ export async function awardXp(args: {
       leveledUp: totals.level > totals.previous_level,
       weeklyGoalMet: totals.weekly_goal_met === true,
       newBadges,
+      completedChallenges,
     }
   } catch (err) {
     console.error(`Failed to award XP for ${args.activityType}`, err)

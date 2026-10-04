@@ -5,6 +5,7 @@ import {
   canMove,
   checkBoard,
   drawCard,
+  gridGameScore,
   initialGridState,
   isFreeCell,
   moveCard,
@@ -16,6 +17,7 @@ import {
   type GridPuzzle,
   type GridState,
 } from '../../lib/vocabGrid'
+import { awardClientXp } from '../../lib/gamificationApi'
 
 const FEEDBACK_STYLE: Record<GridFeedback, string> = {
   exact: 'border-emerald-500 bg-emerald-100 text-emerald-900',
@@ -75,6 +77,16 @@ export default function GridGame({
     const timer = window.setTimeout(() => setSecondsLeft((n) => n - 1), 1000)
     return () => window.clearTimeout(timer)
   }, [state.phase, secondsLeft])
+
+  // A solved puzzle is one finished game: Vocabulary XP, fire-and-forget. Each puzzle is a new
+  // draw of words, so no item ref (no 24-hour repeat rule); the daily cap limits it.
+  useEffect(() => {
+    if (state.phase === 'solved') {
+      awardClientXp({ activityType: 'vocabulary.game', performanceScore: gridGameScore(state.checks) })
+    }
+    // Only the moment the puzzle is solved should award.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phase])
 
   function apply(next: GridState) {
     setState(next)

@@ -79,6 +79,35 @@ export const MY_PROGRESS_COPY = {
   gamListen: 'Meghallgatás', // Listen (play-button label)
   gamBonusesHeading: 'Tanári jutalmak', // Teacher bonuses (bonus XP from the learner's teacher, with the reason)
   gamBonusAmount: (n: number) => `+${n} XP`, // +N XP
+
+  // Class challenges (set by the learner's teacher)
+  chHeading: 'Kihívások', // Challenges
+  chCollective: 'Közös kihívás', // Shared (whole-class) challenge
+  chIndividual: 'Egyéni kihívás', // Personal challenge
+  chActivity: {
+    any: 'gyakorlat', // activities (any)
+    'conversational-english': 'élethelyzet (Társalgási angol)', // scenario (Conversational English)
+    'tutor-bot': 'beszélgetés az Oktató bottal', // Tutor Bot conversation
+    'grammar-coach': 'nyelvtani lecke', // grammar lesson
+    'pronunciation-session': 'kiejtésgyakorlat', // pronunciation drill
+    'vocabulary.fast_practice': 'gyors gyakorlás a Szótanulóban', // Fast practice round (Vocabulary)
+    'vocabulary.game': 'szójáték', // word game
+    'vocabulary.own_list': 'saját szólista', // own word list created
+  } as Record<string, string>,
+  chTargetDays: (n: number, collective: boolean) => (collective ? `${n} gyakorlásos nap együtt` : `${n} nap gyakorlás`), // N practice days together / N practice days
+  chTargetActivities: (n: number, what: string) => `${n} × ${what}`, // N × <activity>
+  chTargetXp: (n: number) => `${n} XP gyűjtése`, // Earn N XP
+  chTargetList: (list: string) => `A(z) „${list}” szólista megtanulása`, // Learn the "<list>" word list
+  chTargetListCollective: (n: number, list: string) => `${n} diák tanulja meg a(z) „${list}” szólistát`, // N students learn the "<list>" word list
+  chDeletedList: 'törölt szólista', // deleted word list
+  chMine: (value: number, target: number) => `${value} / ${target}`, // your progress
+  chClass: (total: number, target: number, mine: number) => `Az osztály: ${total} / ${target} · a te részed: ${mine}`, // Class: T / N · your part: M
+  chDaysLeft: (n: number) => (n <= 1 ? 'Ma az utolsó nap' : `Még ${n} nap`), // Last day today / N days left
+  chStarts: (date: string) => `Indul: ${date}`, // Starts: DATE
+  chDone: 'Teljesítve', // Completed
+  chMissed: 'Lejárt', // Ended (not completed)
+  chCancelled: 'A tanárod lezárta', // Your teacher ended it
+  chReward: (n: number) => `Jutalom: +${n} XP`, // Reward: +N XP
   gamLoadError: 'A pontjaidat most nem sikerült betölteni.', // Couldn't load your points right now.
 
   // Transparency line (only with an active teacher connection)

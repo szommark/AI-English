@@ -69,7 +69,7 @@ async function count(query: PromiseLike<{ count: number | null; error: unknown }
 }
 
 async function loadFacts(userId: string, enabledPersonas: Persona[]): Promise<BadgeFacts> {
-  const [eventRows, learner, wordsMastered, listsCompleted, pronunciation, tutorSessions, cefr, latestEvents] = await Promise.all([
+  const [eventRows, learner, wordsMastered, listsCompleted, challengesCompleted, pronunciation, tutorSessions, cefr, latestEvents] = await Promise.all([
     supabaseAdmin.rpc('gamification_event_counts', { p_user_id: userId }),
     supabaseAdmin.from('learner_gamification').select('level, best_week_streak').eq('user_id', userId).maybeSingle(),
     count(
@@ -86,6 +86,7 @@ async function loadFacts(userId: string, enabledPersonas: Persona[]): Promise<Ba
         .eq('student_id', userId)
         .not('completed_at', 'is', null),
     ),
+    count(supabaseAdmin.from('challenge_completions').select('user_id', { count: 'exact', head: true }).eq('user_id', userId)),
     supabaseAdmin
       .from('pronunciation_progress')
       .select('sound_item_id')
@@ -131,6 +132,7 @@ async function loadFacts(userId: string, enabledPersonas: Persona[]): Promise<Ba
       words_mastered: wordsMastered,
       teacher_lists_completed: listsCompleted,
       sounds_mastered: soundsMastered,
+      challenges_completed: challengesCompleted,
     },
     personaSessions,
     enabledPersonas,

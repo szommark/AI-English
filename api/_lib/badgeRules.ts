@@ -42,7 +42,13 @@ export interface Persona {
   displayName: string
 }
 
-export type BadgeMetric = 'level' | 'best_week_streak' | 'words_mastered' | 'teacher_lists_completed' | 'sounds_mastered'
+export type BadgeMetric =
+  | 'level'
+  | 'best_week_streak'
+  | 'words_mastered'
+  | 'teacher_lists_completed'
+  | 'sounds_mastered'
+  | 'challenges_completed'
 
 /** Everything the rules need to know about one learner. */
 export interface BadgeFacts {
