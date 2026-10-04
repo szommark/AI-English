@@ -655,9 +655,9 @@ const messages = {
   // Vocabulary: Word grid game (Games tab, src/lib/vocabGrid.ts)
   vgTitle: { hu: 'Szórács', en: 'Word grid', de: 'Wortgitter' },
   vgIntro: {
-    hu: 'Találd meg minden szó helyét a rácsban. Egy sornyi szó nem tartozik a rácsba — azokat ki kell szűrnöd.',
-    en: "Find each word's place in the grid. One row's worth of words doesn't belong in it — sort those out.",
-    de: 'Finde den Platz jedes Wortes im Gitter. Eine Reihe von Wörtern gehört nicht hinein — sortiere sie aus.',
+    hu: 'Találd meg minden szó helyét a rácsban.',
+    en: "Find each word's place in the grid.",
+    de: 'Finde den Platz jedes Wortes im Gitter.',
   },
   vgList: { hu: 'Lista', en: 'List', de: 'Liste' },
   vgSize: { hu: 'Méret', en: 'Size', de: 'Größe' },
@@ -675,6 +675,16 @@ const messages = {
     hu: 'Néhány másodpercig látod a szavakat, aztán egy pakliból húzod őket. A színek megmutatják, mennyire vagy közel.',
     en: 'You see the words for a few seconds, then draw them from a deck. Colours show how close you are.',
     de: 'Du siehst die Wörter ein paar Sekunden lang und ziehst sie dann von einem Stapel. Farben zeigen, wie nah du bist.',
+  },
+  vgDecoys: {
+    hu: 'Csaliszavak: +{n} szó, ami nem tartozik a rácsba',
+    en: "Decoys: +{n} words that don't belong in the grid",
+    de: 'Köder: +{n} Wörter, die nicht ins Gitter gehören',
+  },
+  vgDecoysHint: {
+    hu: 'Egy sornyi plusz szó a listából — ki kell szűrnöd őket.',
+    en: 'One extra row of words from the list — sort them out.',
+    de: 'Eine zusätzliche Reihe Wörter aus der Liste — sortiere sie aus.',
   },
   vgStart: { hu: 'Játék indítása', en: 'Start game', de: 'Spiel starten' },
   vgNoLists: {
@@ -701,6 +711,11 @@ const messages = {
     hu: 'Húzz egy kártyát, és tedd egy cellába vagy a „Nincs a rácsban” helyre. Húzd az egérrel, vagy koppints a kártyára, majd a helyére.',
     en: 'Draw a card and put it in a cell or on “Not in the grid”. Drag it, or tap the card and then its place.',
     de: 'Ziehe eine Karte und lege sie in ein Feld oder auf „Nicht im Gitter“. Ziehe sie oder tippe auf die Karte und dann auf ihren Platz.',
+  },
+  vgDrawHintNoDecoys: {
+    hu: 'Húzz egy kártyát, és tedd egy cellába. Húzd az egérrel, vagy koppints a kártyára, majd a helyére.',
+    en: 'Draw a card and put it in a cell. Drag it, or tap the card and then its place.',
+    de: 'Ziehe eine Karte und lege sie in ein Feld. Ziehe sie oder tippe auf die Karte und dann auf ihren Platz.',
   },
   vgArrangeHint: {
     hu: 'Rendezd át a kártyákat, majd ellenőrizz. A zöldek már a helyükön vannak.',

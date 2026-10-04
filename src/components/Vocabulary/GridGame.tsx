@@ -20,9 +20,10 @@ import { awardClientXp } from '../../lib/gamificationApi'
 
 const FEEDBACK_STYLE: Record<GridFeedback, string> = {
   exact: 'border-emerald-500 bg-emerald-100 text-emerald-900',
-  row: 'border-sky-500 bg-sky-100 text-sky-900',
+  // Brown, so a right row never reads as green; Tailwind has no brown scale.
+  row: 'border-[#8b5a2b] bg-[#efe0cf] text-[#5b3a1e]',
   column: 'border-violet-500 bg-violet-100 text-violet-900',
-  inMatrix: 'border-amber-400 bg-amber-100 text-amber-900',
+  inMatrix: 'border-yellow-400 bg-yellow-100 text-yellow-900',
   notInMatrix: 'border-red-400 bg-red-50 text-red-800',
   wrong: 'border-red-400 bg-red-50 text-red-800',
 }
@@ -64,8 +65,9 @@ export default function GridGame({
   const [state, setState] = useState<GridState>(() => initialGridState(puzzle))
   /** The card being dragged, or tapped and waiting for its place. */
   const [selected, setSelected] = useState<GridLocation | null>(null)
-  const [secondsLeft, setSecondsLeft] = useState(() => previewSeconds(puzzle.size))
+  const [secondsLeft, setSecondsLeft] = useState(() => previewSeconds(puzzle.previewOrder.length))
   const { size, hints } = puzzle
+  const decoyCount = puzzle.decoyIds.length
 
   useEffect(() => {
     if (state.phase !== 'preview') return
@@ -221,9 +223,11 @@ export default function GridGame({
     </div>
   )
 
+  // Without decoys nothing can be red.
+  const legendItems = LEGEND[hints ? 'hints' : 'plain'].filter((f) => f !== 'notInMatrix' || decoyCount > 0)
   const legend = (
     <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-      {LEGEND[hints ? 'hints' : 'plain'].map((f) => (
+      {legendItems.map((f) => (
         <li key={f} className="flex items-center gap-1.5">
           <span className={`inline-block h-3 w-3 rounded border-2 ${FEEDBACK_STYLE[f]}`} />
           {t(FEEDBACK_LABEL[f])}
@@ -257,13 +261,13 @@ export default function GridGame({
       </div>
 
       {state.phase === 'arrange' && hints && state.checks === 0 && <p className="text-sm text-muted-foreground">{t('vgHintsOn')}</p>}
-      {state.phase === 'draw' && <p className="text-sm text-muted-foreground">{t('vgDrawHint')}</p>}
+      {state.phase === 'draw' && <p className="text-sm text-muted-foreground">{t(decoyCount > 0 ? 'vgDrawHint' : 'vgDrawHintNoDecoys')}</p>}
       {state.phase === 'arrange' && state.checks > 0 && <p className="text-sm text-muted-foreground">{t('vgArrangeHint')}</p>}
 
       {board}
 
       {state.phase === 'draw' && (
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className={`grid gap-2 sm:gap-3 ${decoyCount > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <button
             type="button"
             onClick={draw}
@@ -279,24 +283,26 @@ export default function GridGame({
             <p className="text-center text-xs text-muted-foreground">{t('vgHand')}</p>
             {state.hand ? card(state.hand, { kind: 'hand' }) : <div className="min-h-[3rem] rounded-lg border-2 border-dashed border-border" />}
           </div>
-          <div
-            {...dropTarget({ kind: 'discard' })}
-            onClick={() => tap({ kind: 'discard' })}
-            className={`space-y-1 rounded-xl border-2 border-dashed p-1.5 ${
-              selected?.kind === 'hand' && state.discard.length < size ? 'border-red-400 bg-red-50' : 'border-border'
-            }`}
-          >
-            <p className="text-center text-xs text-muted-foreground">
-              {t('vgDiscard')} ({state.discard.length}/{size})
-            </p>
-            <ul className="space-y-0.5">
-              {state.discard.map((id) => (
-                <li key={id} className="truncate rounded bg-secondary px-1.5 py-0.5 text-center text-xs text-foreground">
-                  {puzzle.cards[id].term}
-                </li>
-              ))}
-            </ul>
-          </div>
+          {decoyCount > 0 && (
+            <div
+              {...dropTarget({ kind: 'discard' })}
+              onClick={() => tap({ kind: 'discard' })}
+              className={`space-y-1 rounded-xl border-2 border-dashed p-1.5 ${
+                selected?.kind === 'hand' && state.discard.length < decoyCount ? 'border-red-400 bg-red-50' : 'border-border'
+              }`}
+            >
+              <p className="text-center text-xs text-muted-foreground">
+                {t('vgDiscard')} ({state.discard.length}/{decoyCount})
+              </p>
+              <ul className="space-y-0.5">
+                {state.discard.map((id) => (
+                  <li key={id} className="truncate rounded bg-secondary px-1.5 py-0.5 text-center text-xs text-foreground">
+                    {puzzle.cards[id].term}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
