@@ -106,6 +106,11 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
     const paper = getExamPaperMeta(m.params.paperId!)
     return finish(paper ? [exams, { label: examPaperLabel(t, paper) }] : [exams])
   }
+  if ((m = at('/exams/:paperId/written') ?? at('/exams/:paperId/speaking'))) {
+    const paper = getExamPaperMeta(m.params.paperId!)
+    const part = { label: t(m.pathname.endsWith('/speaking') ? 'exSpeaking' : 'exWritten') }
+    return finish(paper ? [exams, { label: examPaperLabel(t, paper), to: `/exams/${paper.id}` }, part] : [exams])
+  }
 
   const pronunciationRoot: Crumb = { label: t('crumbPronunciation'), to: '/pronunciation' }
   const soundBank: Crumb = { label: t('crumbSoundBank'), to: '/pronunciation/sound-bank' }

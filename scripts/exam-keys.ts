@@ -261,4 +261,12 @@ export const examKeys: Record<string, PaperKey> = {
     'III-2': { first: 9, keys: 'B A C C B C B B' },
     'III-3': { first: 17, keys: 'B C A B B A B C B' },
   },
+  // Zöld Út B1 Economics and management, minta 1 (megoldókulcs).
+  'nyelvvizsga-en-b1-gazdasagi-minta-01': {
+    'R-1': { text: { '1': ['£13.17', '13.17'], '2': ['£3,000', '3000'], '3': ['cost of a 3-year degree course', 'cost of a degree'], '4': ['expected percent growth of university costs in 2005', 'rise in university costs'], '5': ['2/3', 'two thirds'], '6': ['expected debt on graduation in 2009', 'debt on graduation'], '7': ['rise of total cost of gaining a degree this year', 'rise in cost'], '8': ['87', '87%'], '9': ['£17.97', '17.97'], '10': ['8', '8%', 'eight per cent'] } },
+    'R-2': { first: 11, keys: 'T T F T T' },
+    'R-3': { multi: { '1': '1 2 3', '2': '1 3', '3': '2', '4': '1', '5': '3', '6': '2 3', '7': '1 3', '8': '3', '9': '2 3' } },
+    'L-1': { first: 1, keys: 'T T F F T' },
+    'L-2': { text: { '1': ['part-time', 'full time'], '2': ['artist', 'artists'], '3': ['customer', 'interested customers'], '4': ['knitting', 'crochet', 'painting', 'sculpting'], '5': ['woodwork', 'iron work', 'glass work', 'anything original'], '6': ['what you are good at', 'what you are passionate about'], '7': ['cost of material', 'materials'], '8': ['time', 'your time'], '9': ['unused', 'neglected websites'], '10': ['173,000', '173 000 dollars'] } },
+  },
 }

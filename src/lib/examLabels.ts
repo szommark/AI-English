@@ -1,4 +1,4 @@
-import type { ExamLanguage, ExamLevel, ExamPaperMeta, ExamType } from '../data/exams/types'
+import type { ExamLanguage, ExamLevel, ExamPaperMeta, ExamTrack, ExamType } from '../data/exams/types'
 import type { MessageKey } from './i18n'
 
 type T = (key: MessageKey, vars?: Record<string, string | number>) => string
@@ -14,17 +14,20 @@ const LEVEL_KEY: Record<ExamLevel, MessageKey> = {
   C1: 'exLevelC1',
 }
 
+const TRACK_KEY: Record<ExamTrack, MessageKey> = { general: 'exTrackGeneral', business: 'exTrackBusiness' }
+
 export const examTypeLabel = (t: T, type: ExamType) => t(TYPE_KEY[type])
 export const examTypeDescription = (t: T, type: ExamType) => t(TYPE_DESC_KEY[type])
 export const examLanguageLabel = (t: T, language: ExamLanguage) => t(LANGUAGE_KEY[language])
 export const examLevelLabel = (t: T, level: ExamLevel) => t(LEVEL_KEY[level])
+export const examTrackLabel = (t: T, track: ExamTrack) => t(TRACK_KEY[track])
 
-/** e.g. "Érettségi – Német, Középszint · 2025. május". */
+/** e.g. "Érettségi – Német, Középszint · 2025. május", "Nyelvvizsga – Angol, B1 (alapfok) · Gazdasági · Minta 1.". */
 export function examPaperLabel(t: T, paper: ExamPaperMeta): string {
   return t('exPaperLabel', {
     type: examTypeLabel(t, paper.type),
     lang: examLanguageLabel(t, paper.language),
     level: examLevelLabel(t, paper.level),
-    sitting: paper.sittingLabelHu,
+    sitting: paper.track ? `${examTrackLabel(t, paper.track)} · ${paper.sittingLabelHu}` : paper.sittingLabelHu,
   })
 }

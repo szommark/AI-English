@@ -1,6 +1,7 @@
 import { CircleCheck, CircleX } from 'lucide-react'
 import type { ExamItem, ExamPaper, ExamSection } from '../../data/exams/types'
 import type { ItemResult, SectionResult, TaskResult } from '../../lib/examScoring'
+import { composeStarterText } from '../../lib/examWriting'
 import { useLanguage } from '../../lib/i18n'
 
 function Mark({ correct }: { correct: boolean }) {
@@ -91,7 +92,13 @@ function WritingResult({ item, text, language }: { item: ExamItem; text: string;
         <p className="mb-1 text-sm font-semibold text-foreground">{t('exYourText')}</p>
         <div lang={language} className="whitespace-pre-wrap rounded-xl bg-muted p-4 text-base leading-relaxed">
           {item.opening && <p className="mb-2">{item.opening}</p>}
-          {text.trim() || <span className="text-muted-foreground">{t('exNoAnswer')}</span>}
+          {!text.trim() ? (
+            <span className="text-muted-foreground">{t('exNoAnswer')}</span>
+          ) : item.sentenceStarters ? (
+            composeStarterText(item.sentenceStarters, text)
+          ) : (
+            text.trim()
+          )}
         </div>
       </div>
       {item.modelAnswer && (

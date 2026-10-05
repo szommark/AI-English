@@ -7,6 +7,8 @@ export type ExamType = 'erettsegi' | 'nyelvvizsga'
 export type ExamLanguage = 'en' | 'de'
 export type ExamLevel = 'kozep' | 'emelt' | 'B1' | 'B2' | 'C1'
 export type SectionKind = 'reading' | 'language-use' | 'listening' | 'writing'
+/** Nyelvvizsga: general English or a professional language (gazdasági = economics and management). */
+export type ExamTrack = 'general' | 'business'
 
 /** What the picker, the breadcrumb and the catalog need, without loading the paper's content. */
 export interface ExamPaperMeta {
@@ -16,6 +18,8 @@ export interface ExamPaperMeta {
   level: ExamLevel
   /** The paper's own label, e.g. `2025. május`, `Minta 1.` */
   sittingLabelHu: string
+  /** Nyelvvizsga only: which exam of the centre the paper belongs to. */
+  track?: ExamTrack
 }
 
 export interface ExamPaper extends ExamPaperMeta {
@@ -70,6 +74,15 @@ export interface PassageBlock {
   itemId?: string
 }
 
+export interface DataTable {
+  title?: string
+  caption?: string
+  head: string[]
+  rows: string[][]
+  /** Columns (by index) whose cells are numbers, right-aligned. */
+  numericColumns?: number[]
+}
+
 export interface BankOption {
   key: string
   text: string
@@ -103,6 +116,8 @@ export interface ExamTask {
   booleanLabels?: [string, string]
   /** Answer options shared by every `mcq` item in the task that has none of its own (A/B/C true/false/not stated). */
   options?: BankOption[]
+  /** A data table printed with the task (e.g. the table a writing task describes). */
+  table?: DataTable
   /** Worked examples, shown pre-filled and read-only. */
   examples?: ExamItem[]
   items: ExamItem[]
@@ -203,7 +218,17 @@ export interface MultiSelectItem extends ItemBase {
   pick: number
 }
 
-export type WritingRegister = 'formal-email' | 'informal-message' | 'forum-post'
+export type WritingRegister = 'formal-email' | 'formal-letter' | 'informal-message' | 'forum-post' | 'description'
+
+/**
+ * A "complete the sentences" writing task: the paper prints the opening of each sentence and
+ * the learner continues it. The answer is the continuations, one per line, in order.
+ */
+export interface SentenceStarters {
+  /** The worked example sentence, printed in full. */
+  example: string
+  starters: string[]
+}
 
 export interface ProductionItem extends ItemBase {
   type: 'production'
@@ -217,6 +242,8 @@ export interface ProductionItem extends ItemBase {
   maxWords: number
   /** Pre-printed salutation; not editable and excluded from the word count. */
   opening?: string
+  /** Sentence openings to continue, instead of one free text; only the learner's words count. */
+  sentenceStarters?: SentenceStarters
   register: WritingRegister
   rubricId: string
   /** The scoring criteria printed under the task, when the paper prints them. */

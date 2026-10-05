@@ -1,7 +1,8 @@
 import type { ProductionItem as ProductionItemData } from '../../data/exams/types'
 import { countWords } from '../../lib/examScoring'
 import { useLanguage } from '../../lib/i18n'
-import type { ItemProps } from './itemProps'
+import { setStarterLine, starterLines } from '../../lib/examWriting'
+import { fieldClass, type ItemProps } from './itemProps'
 
 /** A writing task: prompt, content points, the pre-printed greeting and a text area with a word counter. */
 export default function ProductionItem({ item, value, onChange }: ItemProps<ProductionItemData>) {
@@ -11,37 +12,69 @@ export default function ProductionItem({ item, value, onChange }: ItemProps<Prod
   const inRange = words >= item.minWords && words <= item.maxWords
   const counterColour = words === 0 ? 'text-muted-foreground' : inRange ? 'text-emerald-700' : 'text-amber-700'
 
+  const starters = item.sentenceStarters
+
   return (
     <div className="space-y-4">
       <div className="space-y-2 text-base leading-relaxed text-foreground">
         {item.prompt.map((p) => (
           <p key={p}>{p}</p>
         ))}
-        <ol className="list-decimal space-y-1 pl-6">
-          {item.contentPoints.map((p) => (
-            <li key={p}>{p}</li>
-          ))}
-        </ol>
+        {item.contentPoints.length > 0 && (
+          <ol className="list-decimal space-y-1 pl-6">
+            {item.contentPoints.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ol>
+        )}
         {item.promptAfter?.map((p) => (
           <p key={p}>{p}</p>
         ))}
       </div>
 
-      <div className="rounded-xl border border-border bg-card">
-        {item.opening && (
-          <p className="border-b border-border px-4 py-3 text-base font-medium text-foreground" title={t('exOpeningNote')}>
-            {item.opening}
-          </p>
-        )}
-        <textarea
-          aria-label={item.opening ?? item.prompt[0]}
-          value={text}
-          onChange={(e) => onChange(e.target.value)}
-          rows={12}
-          spellCheck={false}
-          className="block w-full resize-y rounded-b-xl bg-transparent px-4 py-3 text-base leading-relaxed text-foreground focus:outline-none focus:ring-2 focus:ring-[var(--teal-accent)]"
-        />
-      </div>
+      {starters ? (
+        <ol className="space-y-3">
+          <li className="flex gap-2 text-base leading-relaxed text-muted-foreground">
+            <span className="w-7 shrink-0 font-semibold tabular-nums">0.</span>
+            <span>
+              <span className="mr-2 text-xs font-semibold uppercase tracking-wide">{t('exExample')}</span>
+              {starters.example}
+            </span>
+          </li>
+          {starterLines(text, starters.starters.length).map((line, i) => (
+            <li key={i} className="flex gap-2">
+              <span className="w-7 shrink-0 pt-2 font-semibold tabular-nums text-muted-foreground">{i + 1}.</span>
+              <label className="flex-1 space-y-1">
+                <span className="block text-base leading-relaxed text-foreground">{starters.starters[i]} …</span>
+                <input
+                  type="text"
+                  value={line}
+                  onChange={(e) => onChange(setStarterLine(text, starters.starters.length, i, e.target.value))}
+                  autoComplete="off"
+                  spellCheck={false}
+                  className={`${fieldClass} w-full`}
+                />
+              </label>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <div className="rounded-xl border border-border bg-card">
+          {item.opening && (
+            <p className="border-b border-border px-4 py-3 text-base font-medium text-foreground" title={t('exOpeningNote')}>
+              {item.opening}
+            </p>
+          )}
+          <textarea
+            aria-label={item.opening ?? item.prompt[0]}
+            value={text}
+            onChange={(e) => onChange(e.target.value)}
+            rows={12}
+            spellCheck={false}
+            className="block w-full resize-y rounded-b-xl bg-transparent px-4 py-3 text-base leading-relaxed text-foreground focus:outline-none focus:ring-2 focus:ring-[var(--teal-accent)]"
+          />
+        </div>
+      )}
       <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
         <span className={`font-semibold tabular-nums ${counterColour}`} aria-live="polite">
           {t('exWordCount', { n: words })}

@@ -4,8 +4,8 @@ import { ChevronDown, ChevronRight, FileText, GraduationCap, Languages } from 'l
 import PageHeading from '../components/PageHeading'
 import { getFeature } from '../data/features'
 import { EXAM_LANGUAGES, EXAM_TYPES, examCatalog, getExamPaperMeta, type ExamCell } from '../data/exams/catalog'
-import type { ExamType } from '../data/exams/types'
-import { examLanguageLabel, examLevelLabel, examTypeDescription, examTypeLabel } from '../lib/examLabels'
+import type { ExamTrack, ExamType } from '../data/exams/types'
+import { examLanguageLabel, examLevelLabel, examTrackLabel, examTypeDescription, examTypeLabel } from '../lib/examLabels'
 import { localizeFeature, useLanguage } from '../lib/i18n'
 
 const TYPE_ICON = { erettsegi: GraduationCap, nyelvvizsga: Languages } as const
@@ -73,6 +73,27 @@ function groupByYear(ids: string[]): { year: string | null; ids: string[] }[] {
   return groups
 }
 
+const TRACK_ORDER: ExamTrack[] = ['general', 'business']
+
+/** Nyelvvizsga papers grouped by track (general first); papers without a track form one unlabelled group. */
+function groupByTrack(ids: string[]): { track: ExamTrack | null; ids: string[] }[] {
+  const untracked = ids.filter((id) => !getExamPaperMeta(id)!.track)
+  return [
+    ...(untracked.length ? [{ track: null, ids: untracked }] : []),
+    ...TRACK_ORDER.map((track) => ({ track, ids: ids.filter((id) => getExamPaperMeta(id)!.track === track) })).filter((g) => g.ids.length),
+  ]
+}
+
+function PaperGroups({ ids }: { ids: string[] }) {
+  return (
+    <>
+      {groupByYear(ids).map(({ year, ids }) =>
+        year === null ? <PaperList key="other" ids={ids} /> : <YearGroup key={year} year={year} ids={ids} />,
+      )}
+    </>
+  )
+}
+
 function CellCard({ cell }: { cell: ExamCell }) {
   const { t } = useLanguage()
   const level = examLevelLabel(t, cell.level)
@@ -103,14 +124,13 @@ function CellCard({ cell }: { cell: ExamCell }) {
         </h4>
         <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      <div className={`mt-3 space-y-2 ${open ? '' : 'hidden'}`}>
-        {groupByYear(cell.paperIds).map(({ year, ids }) =>
-          year === null ? (
-            <PaperList key="other" ids={ids} />
-          ) : (
-            <YearGroup key={year} year={year} ids={ids} />
-          ),
-        )}
+      <div className={`mt-3 space-y-4 ${open ? '' : 'hidden'}`}>
+        {groupByTrack(cell.paperIds).map(({ track, ids }) => (
+          <div key={track ?? 'all'} className="space-y-2">
+            {track && <h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{examTrackLabel(t, track)}</h5>}
+            <PaperGroups ids={ids} />
+          </div>
+        ))}
       </div>
     </div>
   )

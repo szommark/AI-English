@@ -29,7 +29,7 @@ export const featureDe: Record<string, { title: string; description: string }> =
   'exam-prep': {
     title: 'Prüfungsvorbereitung',
     description:
-      'Schriftliche Prüfungen: érettségi (Abitur) Englisch/Deutsch auf mittlerem und erhöhtem Niveau sowie Sprachprüfungen B1, B2 und C1 in Englisch/Deutsch.',
+      'Schriftliche Prüfungen für das érettségi (Abitur) Englisch/Deutsch auf mittlerem und erhöhtem Niveau; schriftliche und mündliche Sprachprüfungen B1, B2 und C1 in Englisch/Deutsch.',
   },
   'live-events': {
     title: 'Live-Online-Events',
