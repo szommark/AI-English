@@ -48,7 +48,8 @@ export const examPapers: ExamPaperMeta[] = [
   { id: 'erettsegi-de-kozep-2022-majus', type: 'erettsegi', language: 'de', level: 'kozep', sittingLabelHu: '2022. május' },
   { id: 'erettsegi-de-kozep-2021-oktober', type: 'erettsegi', language: 'de', level: 'kozep', sittingLabelHu: '2021. október' },
   { id: 'erettsegi-de-kozep-2021-majus', type: 'erettsegi', language: 'de', level: 'kozep', sittingLabelHu: '2021. május' },
-  { id: 'nyelvvizsga-en-b1-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Minta 1.' },
+  { id: 'nyelvvizsga-en-b1-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Minta 1.', track: 'general' },
+  { id: 'nyelvvizsga-en-b1-gazdasagi-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Minta 1.', track: 'business' },
 ]
 
 const loaders: Record<string, () => Promise<{ default: ExamPaper }>> = {
@@ -75,6 +76,7 @@ const loaders: Record<string, () => Promise<{ default: ExamPaper }>> = {
   'erettsegi-de-kozep-2021-oktober': () => import('./papers/erettsegi-de-kozep-2021-oktober.ts'),
   'erettsegi-de-kozep-2021-majus': () => import('./papers/erettsegi-de-kozep-2021-majus.ts'),
   'nyelvvizsga-en-b1-minta-01': () => import('./papers/nyelvvizsga-en-b1-minta-01.ts'),
+  'nyelvvizsga-en-b1-gazdasagi-minta-01': () => import('./papers/nyelvvizsga-en-b1-gazdasagi-minta-01.ts'),
 }
 
 /** Sort key: year*100 + month, so 2026 május sorts after 2025 október. Samples without a year sort last. */

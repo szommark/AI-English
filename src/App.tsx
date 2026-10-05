@@ -34,6 +34,7 @@ const TeacherVocabListPage = lazy(() => import('./pages/TeacherVocabListPage'))
 const VocabularyPage = lazy(() => import('./pages/VocabularyPage'))
 const ExamPrepPage = lazy(() => import('./pages/ExamPrepPage'))
 const ExamPaperPage = lazy(() => import('./pages/ExamPaperPage'))
+const ExamSpeakingPage = lazy(() => import('./pages/ExamSpeakingPage'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -157,6 +158,26 @@ function AppRoutes() {
           <ProtectedRoute>
             <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
               <ExamPaperPage />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/exams/:paperId/written"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <ExamPaperPage part="written" />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/exams/:paperId/speaking"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <ExamSpeakingPage />
             </Suspense>
           </ProtectedRoute>
         }

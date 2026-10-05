@@ -13,7 +13,8 @@ import { answerKey, matchText, scorePaper, scoreTask, type ExamAnswers } from '.
 import type { ExamItem, ExamPaper, ExamTask } from '../src/data/exams/types.ts'
 import { examKeys } from './exam-keys.ts'
 import { buildExamKeys, examKeysFile } from './build-exam-keys.ts'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { SPEAKING_CRITERIA, SPEAKING_EXAMS } from '../src/data/exams/speaking.ts'
 
 const errors: string[] = []
 const fail = (msg: string) => errors.push(msg)
@@ -87,7 +88,9 @@ function checkItem(where: string, task: ExamTask, item: ExamItem, isExample: boo
     }
     case 'production':
       if (!(item.minWords > 0 && item.maxWords > item.minWords)) fail(`${where}: bad word range`)
-      if (!item.contentPoints.length) fail(`${where}: no content points`)
+      if (item.sentenceStarters) {
+        if (!item.sentenceStarters.starters.length || item.sentenceStarters.starters.some((x) => !x.trim())) fail(`${where}: empty sentence starter`)
+      } else if (!item.contentPoints.length) fail(`${where}: no content points`)
       break
   }
 }
@@ -142,7 +145,7 @@ function checkTask(paper: ExamPaper, task: ExamTask) {
 function checkPaper(paper: ExamPaper) {
   const meta = examPapers.find((m) => m.id === paper.id)
   if (!meta) return fail(`${paper.id}: no catalog metadata`)
-  for (const k of ['type', 'language', 'level', 'sittingLabelHu'] as const) {
+  for (const k of ['type', 'language', 'level', 'sittingLabelHu', 'track'] as const) {
     if (meta[k] !== paper[k]) fail(`${paper.id}: ${k} is ${paper[k]} in the paper but ${meta[k]} in the catalog`)
   }
   const sectionIds = new Set<string>()
@@ -192,6 +195,39 @@ function checkPaper(paper: ExamPaper) {
   for (const s of result.sections) {
     if (s.raw !== s.max) fail(`${paper.id} ${s.sectionId}: the key itself scores ${s.raw}/${s.max}`)
     if (s.scaled !== s.scaledMax) fail(`${paper.id} ${s.sectionId}: the key itself scales to ${s.scaled}/${s.scaledMax}`)
+  }
+}
+
+// --- Speaking exams -------------------------------------------------------------------
+
+function checkSpeaking() {
+  if (SPEAKING_CRITERIA.length !== 4) fail('speaking: expected 4 criteria')
+  for (const [id, exam] of Object.entries(SPEAKING_EXAMS)) {
+    const meta = examPapers.find((m) => m.id === id)
+    if (exam.paperId !== id) fail(`speaking ${id}: keyed under another paper id (${exam.paperId})`)
+    if (!meta) fail(`speaking ${id}: no paper with this id in the catalog`)
+    else if (meta.type !== 'nyelvvizsga') fail(`speaking ${id}: only nyelvvizsga papers have a speaking exam`)
+    else if (meta.track !== exam.track) fail(`speaking ${id}: track ${exam.track}, the catalog says ${meta.track}`)
+    if (!exam.tasks.length) fail(`speaking ${id}: no tasks`)
+    const ids = new Set<string>()
+    for (const t of exam.tasks) {
+      const where = `speaking ${id} ${t.id}`
+      if (ids.has(t.id)) fail(`${where}: duplicate task id`)
+      ids.add(t.id)
+      if (!t.examinerBrief.trim()) fail(`${where}: no examiner brief`)
+      if (!(t.minutes > 0 && t.maxLearnerTurns > 1)) fail(`${where}: bad minutes or turn limit`)
+      if (t.kind === 'role-play' && !t.examineeCard?.points?.length) fail(`${where}: role-play without a role card`)
+      if ((t.kind === 'picture' || t.kind === 'graph') && !t.image) fail(`${where}: ${t.kind} task without an image`)
+      if (t.kind === 'interview' && !t.instructions?.length) fail(`${where}: interview without instructions for the learner`)
+      if (t.image) {
+        if (t.image.alt.length < 40) fail(`${where}: image description too short for the AI examiner`)
+        if (!existsSync(new URL(`../src/assets/exams/${t.image.asset}`, import.meta.url))) fail(`${where}: missing image src/assets/exams/${t.image.asset}`)
+      }
+    }
+  }
+  for (const meta of examPapers) {
+    if (meta.type === 'nyelvvizsga' && !meta.track) fail(`${meta.id}: nyelvvizsga paper without a track`)
+    if (meta.type !== 'nyelvvizsga' && meta.track) fail(`${meta.id}: only nyelvvizsga papers have a track`)
   }
 }
 
@@ -471,6 +507,7 @@ for (const [id, load] of Object.entries(examPaperLoaders)) {
   papers.set(id, paper)
   checkPaper(paper)
 }
+checkSpeaking()
 const de = papers.get('erettsegi-de-kozep-2025-majus')
 const b1 = papers.get('nyelvvizsga-en-b1-minta-01')
 if (de) checkErettsegiDe(de)

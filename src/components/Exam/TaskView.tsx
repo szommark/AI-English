@@ -3,6 +3,7 @@ import { answerKey, isTickTable, type AnswerValue, type ExamAnswers } from '../.
 import { useLanguage } from '../../lib/i18n'
 import BooleanItem from './BooleanItem'
 import CorrectionItem from './CorrectionItem'
+import DataTableView from './DataTableView'
 import McqItem from './McqItem'
 import MultiSelectItem from './MultiSelectItem'
 import OrderItem from './OrderItem'
@@ -74,6 +75,8 @@ export default function TaskView({
         ) : (
           passage
         ))}
+
+      {task.table && <DataTableView table={task.table} />}
 
       {task.bank && (
         <div className="rounded-xl bg-muted px-4 py-3">

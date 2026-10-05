@@ -14,9 +14,21 @@ import { TUTOR_MIN_TURNS_FOR_XP } from '../src/lib/gamification/constants.js'
 import type { AwardResult } from '../src/lib/gamification/types.js'
 import type { ChatMessage, FeedbackResult } from '../src/lib/types.js'
 import type { AddedTutorWord } from '../src/lib/vocab.js'
+import { getSpeakingExam } from '../src/data/exams/speaking.js'
+import type { SpeakingAssessRequest, SpeakingTurnRequest, SpeakingTurnResponse } from '../src/lib/examSpeakingTypes.js'
+import {
+  KICKOFF_MESSAGE as EXAM_KICKOFF_MESSAGE,
+  buildAssessmentPrompt,
+  buildExaminerSystemPrompt,
+  learnerTurns,
+  parseAssessment,
+  parseExaminerReply,
+  sanitizeHistory,
+} from './_lib/examSpeaking.js'
 
 // Single Vercel function for the whole /api/tutor surface (conversation turn,
-// end-of-session feedback), multiplexed by ?action= to stay under Vercel Hobby's
+// end-of-session feedback, and the nyelvvizsga speaking exam's examiner turns and
+// assessment), multiplexed by ?action= to stay under Vercel Hobby's
 // 12-serverless-function cap — do not add new files directly under api/.
 
 const HISTORY_WINDOW = 4
@@ -205,6 +217,79 @@ async function handleEnd(req: VercelRequest, res: VercelResponse, userId: string
   res.status(200).json({ feedback, addedWords })
 }
 
+/**
+ * Speaking exam: one examiner turn of one task. The task text comes from the server's copy
+ * (src/data/exams/speaking.ts); the browser sends only ids and this task's conversation.
+ */
+async function handleExamTurn(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  const body = (req.body ?? {}) as Partial<SpeakingTurnRequest>
+  const exam = typeof body.paperId === 'string' ? getSpeakingExam(body.paperId) : undefined
+  const task = exam?.tasks.find((t) => t.id === body.taskId)
+  if (!exam || !task) {
+    res.status(404).json({ error: 'Not found' })
+    return
+  }
+
+  const history = sanitizeHistory(body.history)
+  const turns = learnerTurns(history)
+  // A turn arriving after the limit (or a stuck client) gets the examiner's closing line.
+  const closeNow = turns >= task.maxLearnerTurns
+  const systemPrompt = buildExaminerSystemPrompt({ exam, task, isOpening: history.length === 0, closeNow })
+  const modelId = await getModelForFeature('tutorBot')
+
+  let result
+  try {
+    result = await callModel(modelId, systemPrompt, history.length > 0 ? history : [EXAM_KICKOFF_MESSAGE])
+  } catch (err) {
+    res.status(502).json({ error: err instanceof Error ? err.message : 'Model request failed' })
+    return
+  }
+  await logModelUsage({ userId, scenarioId: 'exam-speaking', callType: 'tutor_chat', modelId, usage: result.usage })
+
+  const parsed = parseExaminerReply(result.content)
+  const response: SpeakingTurnResponse = {
+    reply: parsed.reply || "Thank you, that's the end of this task.",
+    taskDone: parsed.taskDone || closeNow,
+  }
+  res.status(200).json(response)
+}
+
+/** Speaking exam: the AI's estimated scores and feedback for the whole exam. Nothing is stored. */
+async function handleExamAssess(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  const body = (req.body ?? {}) as Partial<SpeakingAssessRequest>
+  const exam = typeof body.paperId === 'string' ? getSpeakingExam(body.paperId) : undefined
+  if (!exam) {
+    res.status(404).json({ error: 'Not found' })
+    return
+  }
+  const rawTranscripts = body.transcripts && typeof body.transcripts === 'object' ? body.transcripts : {}
+  const transcripts = Object.fromEntries(exam.tasks.map((t) => [t.id, sanitizeHistory(rawTranscripts[t.id])]))
+  if (exam.tasks.every((t) => learnerTurns(transcripts[t.id]) === 0)) {
+    res.status(400).json({ error: 'Nothing to assess' })
+    return
+  }
+  const uiLang = body.uiLang === 'en' || body.uiLang === 'de' ? body.uiLang : 'hu'
+  const modelId = await getModelForFeature('tutorBot')
+
+  try {
+    const { systemPrompt, messages } = buildAssessmentPrompt({ exam, transcripts, uiLang })
+    const result = await callModel(modelId, systemPrompt, messages)
+    await logModelUsage({ userId, scenarioId: 'exam-speaking', callType: 'feedback', modelId, usage: result.usage })
+    res.status(200).json(parseAssessment(result.content, exam, transcripts))
+  } catch (err) {
+    console.error('Speaking exam assessment failed', err)
+    res.status(502).json({ error: 'Assessment failed' })
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await getUserFromRequest(req)
   if (!user) {
@@ -220,6 +305,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     case 'end':
       await handleEnd(req, res, user.id, user.email)
+      return
+    case 'exam-turn':
+      await handleExamTurn(req, res, user.id)
+      return
+    case 'exam-assess':
+      await handleExamAssess(req, res, user.id)
       return
     default:
       res.status(404).json({ error: 'Not found' })

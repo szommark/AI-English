@@ -14,6 +14,7 @@ import TutorAvatar, { TUTOR_MOUTH_ANCHOR, TUTOR_VOICE_GENDER } from './TutorBot/
 import StateIndicator, { type IndicatorState } from './TutorBot/StateIndicator'
 import LiveCaptions from './TutorBot/LiveCaptions'
 import BottomBar from './TutorBot/BottomBar'
+import { LISTEN_START_DELAY_MS, looksLikeEcho } from '../lib/tutorTurnTaking'
 
 // Cheap client-side "have they used Tutor Bot before" signal for isFirstSession —
 // no per-learner backend profile is wired up yet (see api/tutor.ts).
@@ -26,36 +27,7 @@ const REPROMPT_LINES = [
 
 const APOLOGY_LINE = "Sorry, I had trouble there — could you say that again?"
 
-// Without headphones, the tutor's own TTS audio can leak back into the mic (no echo
-// cancellation on the Web Speech API's capture, unlike a WebRTC call). Waiting a beat
-// before reopening the mic lets any trailing playback/room reverb settle first.
-const LISTEN_START_DELAY_MS = 500
-
-// Second line of defense against that same leak: if the mic capture is suspiciously
-// similar to what the tutor itself just said, treat it as echo rather than a real turn.
-// Kept conservative (high overlap, longer minimum) — learners often echo back words
-// from the tutor's own question as part of a natural answer, so this should only catch
-// near-verbatim repeats, not just shared vocabulary.
-const ECHO_OVERLAP_THRESHOLD = 0.85
-const ECHO_MIN_WORDS = 6
-
-function normalizeWords(text: string): string[] {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter(Boolean)
-}
-
-function looksLikeEcho(candidate: string, lastAssistantText: string | undefined): boolean {
-  if (!lastAssistantText) return false
-  const candidateWords = normalizeWords(candidate)
-  if (candidateWords.length < ECHO_MIN_WORDS) return false
-  const assistantWords = new Set(normalizeWords(lastAssistantText))
-  if (assistantWords.size === 0) return false
-  const shared = candidateWords.filter((w) => assistantWords.has(w)).length
-  return shared / candidateWords.length >= ECHO_OVERLAP_THRESHOLD
-}
+// Echo guard and mic reopen delay: lib/tutorTurnTaking.ts.
 
 type Status = 'idle' | 'listening' | 'thinking' | 'speaking' | 'muted' | 'ended'
 

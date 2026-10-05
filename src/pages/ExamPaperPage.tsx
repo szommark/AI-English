@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { Check, Headphones } from 'lucide-react'
 import PageHeading from '../components/PageHeading'
+import ExamPartsHub from '../components/Exam/ExamPartsHub'
 import ExamSummary from '../components/Exam/ExamSummary'
+import { getSpeakingExam } from '../data/exams/speaking'
 import SectionResults from '../components/Exam/SectionResults'
 import SectionView from '../components/Exam/SectionView'
 import { getExamPaperMeta, loadExamPaper } from '../data/exams/catalog'
@@ -13,10 +15,16 @@ import { awardExamSectionXp } from '../lib/gamificationApi'
 import { answerKey, scorePaper, scoreSection, type AnswerValue } from '../lib/examScoring'
 import { useLanguage } from '../lib/i18n'
 
-export default function ExamPaperPage() {
+/**
+ * `/exams/:paperId`: the paper itself, or — for a paper with a speaking part — the choice
+ * between the written exam (`/exams/:paperId/written`, part="written") and the speaking exam.
+ */
+export default function ExamPaperPage({ part }: { part?: 'written' }) {
   const { paperId } = useParams()
   const meta = paperId ? getExamPaperMeta(paperId) : undefined
   if (!meta) return <Navigate to="/exams" replace />
+  const speaking = getSpeakingExam(meta.id)
+  if (speaking && part !== 'written') return <ExamPartsHub meta={meta} speaking={speaking} />
   return <PaperLoader key={meta.id} id={meta.id} />
 }
 
