@@ -3,6 +3,7 @@ import { useLanguage, type MessageKey } from '../../lib/i18n'
 import {
   canCheck,
   canMove,
+  cardStatus,
   checkBoard,
   drawCard,
   initialGridState,
@@ -26,6 +27,22 @@ const FEEDBACK_STYLE: Record<GridFeedback, string> = {
   inMatrix: 'border-yellow-400 bg-yellow-100 text-yellow-900',
   notInMatrix: 'border-red-400 bg-red-50 text-red-800',
   wrong: 'border-red-400 bg-red-50 text-red-800',
+}
+
+/** A moved card: its last colour on the left half (border included), white on the right. */
+const FEEDBACK_HALF: Record<GridFeedback, string> = {
+  exact: 'border-emerald-500 from-emerald-100',
+  row: 'border-[#8b5a2b] from-[#efe0cf]',
+  column: 'border-violet-500 from-violet-100',
+  inMatrix: 'border-yellow-400 from-yellow-100',
+  notInMatrix: 'border-red-400 from-red-50',
+  wrong: 'border-red-400 from-red-50',
+}
+
+/** The light on a moved card: green when its new cell fits every clue, red when it can't. */
+const SPOT_STYLE = {
+  possible: 'bg-green-500 shadow-[0_0_6px_2px_rgba(34,197,94,0.75)]',
+  impossible: 'bg-red-500 shadow-[0_0_6px_2px_rgba(239,68,68,0.75)]',
 }
 
 const FEEDBACK_LABEL: Record<GridFeedback, MessageKey> = {
@@ -125,14 +142,22 @@ export default function GridGame({
 
   function card(cardId: string, at: GridLocation, opts: { dropped?: boolean; small?: boolean } = {}): ReactNode {
     const word = puzzle.cards[cardId]
-    const feedback = state.feedback[cardId]
+    const status = cardStatus(state, puzzle, cardId, at.kind === 'cell' ? at.index : null)
     const movable = movableCard(state, at) !== null
     const isSelected = sameLocation(selected, at)
     const colour = opts.dropped
       ? 'border-red-300 bg-red-50 text-red-700 line-through opacity-70'
-      : feedback
-        ? FEEDBACK_STYLE[feedback]
-        : 'border-border bg-card text-foreground'
+      : !status
+        ? 'border-border bg-card text-foreground'
+        : status.moved
+          ? `${FEEDBACK_HALF[status.feedback]} bg-gradient-to-r from-50% to-white to-50% text-foreground`
+          : FEEDBACK_STYLE[status.feedback]
+    const spot = status?.possible == null ? null : status.possible ? 'possible' : 'impossible'
+    const statusText = status
+      ? [t(FEEDBACK_LABEL[status.feedback]), spot && t(spot === 'possible' ? 'vgSpotPossible' : 'vgSpotImpossible')]
+          .filter(Boolean)
+          .join(' · ')
+      : null
     return (
       <button
         type="button"
@@ -145,14 +170,16 @@ export default function GridGame({
         onDragEnd={() => setSelected((s) => (sameLocation(s, at) ? null : s))}
         onClick={() => tap(at)}
         aria-pressed={isSelected}
-        title={feedback ? t(FEEDBACK_LABEL[feedback]) : undefined}
-        className={`flex w-full flex-col items-center justify-center rounded-lg border-2 px-1 text-center font-medium leading-tight [overflow-wrap:anywhere] ${
+        title={statusText ?? undefined}
+        className={`relative flex w-full flex-col items-center justify-center rounded-lg border-2 px-1 text-center font-medium leading-tight [overflow-wrap:anywhere] ${
           opts.small ? 'min-h-[2.25rem] py-1 text-xs' : 'h-full min-h-[3rem] py-1.5 text-xs sm:text-sm'
         } ${colour} ${movable ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'} ${
           isSelected ? 'ring-2 ring-[var(--teal-accent)] ring-offset-1' : ''
         }`}
       >
-        <span>{word.term}</span>
+        {spot && <span aria-hidden className={`absolute right-1 top-1 h-2.5 w-2.5 rounded-full ${SPOT_STYLE[spot]}`} />}
+        <span className={spot ? 'px-2' : undefined}>{word.term}</span>
+        {statusText && <span className="sr-only">{statusText}</span>}
         {state.phase === 'solved' && !hints && word.meaningHu && (
           <span className="mt-0.5 text-[10px] font-normal opacity-80 sm:text-xs">{word.meaningHu}</span>
         )}
@@ -231,6 +258,12 @@ export default function GridGame({
         <li key={f} className="flex items-center gap-1.5">
           <span className={`inline-block h-3 w-3 rounded border-2 ${FEEDBACK_STYLE[f]}`} />
           {t(FEEDBACK_LABEL[f])}
+        </li>
+      ))}
+      {(['possible', 'impossible'] as const).map((s) => (
+        <li key={s} className="flex items-center gap-1.5">
+          <span className={`inline-block h-2.5 w-2.5 rounded-full ${SPOT_STYLE[s]}`} />
+          {t(s === 'possible' ? 'vgSpotPossible' : 'vgSpotImpossible')}
         </li>
       ))}
     </ul>
