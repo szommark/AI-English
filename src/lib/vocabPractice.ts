@@ -108,6 +108,59 @@ export function checkTypedAnswer(expected: string, given: string): AnswerCheck {
   return result
 }
 
+/** A misspelt answer and its correction, each split around the letters that differ. */
+export interface SpellingFix {
+  typed: { before: string; wrong: string; after: string }
+  fixed: { before: string; right: string; after: string }
+}
+
+/** normalizeAnswer without the lowercasing, so the student sees their own capitals. */
+function displayForm(text: string): string {
+  return foldDashes(text)
+    .replace(/[‘’ʼ]/g, "'")
+    .replace(/\s+/g, ' ')
+    .replace(/^[\p{P}\p{S}\s]+|[\p{P}\p{S}\s]+$/gu, '')
+}
+
+/**
+ * Where a one-letter typo differs from the expected form: the common start and end are
+ * kept, the rest is the mistake. A wrong letter or a swap marks letters on both sides; an
+ * extra letter only on the typed side ("tablle"); a missing one only on the right side
+ * ("tble"), where `wrong` is empty.
+ */
+function spellingFix(expected: string, given: string): SpellingFix {
+  const e = displayForm(expected)
+  const g = displayForm(given)
+  const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
+  const shorter = Math.min(e.length, g.length)
+  let start = 0
+  while (start < shorter && same(e[start], g[start])) start++
+  let end = 0
+  while (end < shorter - start && same(e[e.length - 1 - end], g[g.length - 1 - end])) end++
+  return {
+    typed: { before: g.slice(0, start), wrong: g.slice(start, g.length - end), after: g.slice(g.length - end) },
+    fixed: { before: e.slice(0, start), right: e.slice(start, e.length - end), after: e.slice(e.length - end) },
+  }
+}
+
+/**
+ * The corrections to show for an answer checkTypedAnswer rated a typo: one per misspelt
+ * word. With alternatives ("big / large"), each typed part is set against the alternative
+ * it misspells; parts that are already right are left out.
+ */
+export function spellingFixes(expected: string, given: string): SpellingFix[] {
+  const alternatives = termAlternatives(expected)
+  if (alternatives.length === 1) return checkOne(expected, given) === 'typo' ? [spellingFix(expected, given)] : []
+  const fixes: SpellingFix[] = []
+  for (const part of given.split(/[,/]/).map((p) => p.trim()).filter(Boolean)) {
+    const checks = alternatives.map((alt) => checkOne(alt, part))
+    if (checks.includes('exact')) continue
+    const typoOf = checks.indexOf('typo')
+    if (typoOf !== -1) fixes.push(spellingFix(alternatives[typoOf], part))
+  }
+  return fixes
+}
+
 export interface GapSentence {
   before: string
   after: string

@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useLanguage } from '../../lib/i18n'
-import { answerHint, checkTypedAnswer, gapSentence, practiceSentence, shuffle, type AnswerCheck } from '../../lib/vocabPractice'
+import {
+  answerHint,
+  checkTypedAnswer,
+  gapSentence,
+  practiceSentence,
+  shuffle,
+  spellingFixes,
+  type AnswerCheck,
+  type SpellingFix,
+} from '../../lib/vocabPractice'
 import type { ExerciseContent, PracticeExercise } from '../../lib/vocab'
 import { SpeakerIcon } from '../icons/AudioIcons'
 
@@ -10,6 +19,8 @@ export interface ExerciseOutcome {
   usedHint: boolean
   responseMs: number
   check: AnswerCheck
+  /** For a typo: what was typed against the right spelling, to show the mistake. */
+  spelling: SpellingFix[]
 }
 
 export interface Speech {
@@ -84,6 +95,7 @@ function Recognition({ card, speech, onDone }: { card: ExerciseContent; speech: 
                 usedHint: false,
                 responseMs: performance.now() - started.current,
                 check: correct ? 'exact' : 'wrong',
+                spelling: [],
               })
             }}
             className="rounded-xl border border-border bg-card px-4 py-3 text-left text-sm text-foreground hover:border-[var(--teal-accent)] hover:bg-[var(--teal-accent-soft)]"
@@ -135,6 +147,7 @@ function Typed({
       usedHint: hintShown || retrying || check === 'typo',
       responseMs: performance.now() - started.current,
       check,
+      spelling: check === 'typo' ? spellingFixes(expected, value) : [],
     })
   }
 
