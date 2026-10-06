@@ -376,13 +376,6 @@ export default function WordlistView({
         <AddWordsPanel busy={busy} compilesLeft={compilesLeft} onAddTyped={addTyped} onAddFromBank={addFromBank} />
       )}
 
-      {list.inSrs > 0 && (
-        <div className="space-y-3 rounded-2xl border border-border bg-card p-5 sm:p-6">
-          <h3 className="text-base font-semibold text-foreground">{t('vcListSrsTitle')}</h3>
-          <ListSrsPanel list={list} starting={starting} onStart={() => onStartReview(list)} />
-        </div>
-      )}
-
       {words.length === 0 ? (
         <p className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">{t('vcListNoWords')}</p>
       ) : (
@@ -437,6 +430,13 @@ export default function WordlistView({
             </li>
           ))}
         </ul>
+      )}
+
+      {list.inSrs > 0 && (
+        <div className="space-y-3 rounded-2xl border border-border bg-card p-5 sm:p-6">
+          <h3 className="text-base font-semibold text-foreground">{t('vcListSrsTitle')}</h3>
+          <ListSrsPanel list={list} starting={starting} onStart={() => onStartReview(list)} />
+        </div>
       )}
     </div>
   )

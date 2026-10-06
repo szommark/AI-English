@@ -116,7 +116,7 @@ export default function ListSrsPanel({
   onStart,
 }: {
   list: WordlistSummary
-  /** The Spaced repetition tab: the stage pipeline only. */
+  /** The Spaced repetition tab: the stage pipeline only, in a box that opens when there is work. */
   compact?: boolean
   starting: boolean
   onStart: () => void
@@ -125,11 +125,27 @@ export default function ListSrsPanel({
   const { srs } = list
   const practisable = srs.dueCount + srs.newAvailable
   const session = hasSrsSession(list)
+  const stagePipeline = (
+    <Pipeline caption="vcPipeByStage" steps={stageSteps(srs.stages, list.kind === 'custom' ? list.wordCount - list.inSrs : null)} />
+  )
 
   return (
     <div className="space-y-3">
-      <Pipeline caption="vcPipeByStage" steps={stageSteps(srs.stages, list.kind === 'custom' ? list.wordCount - list.inSrs : null)} />
-      {!compact && <Pipeline caption="vcPipeByExercise" steps={exerciseSteps(srs.exercises)} />}
+      {compact ? (
+        // Open while the list has words to review, closed when there is nothing to do. Only
+        // the prop's changes reach the DOM, so a student's own open/close sticks until then.
+        <details open={session && practisable > 0} className="rounded-xl border border-border px-4 py-2.5">
+          <summary className="cursor-pointer text-sm font-medium text-foreground marker:text-muted-foreground">
+            {t('vcPipelineTitle')}
+          </summary>
+          <div className="mt-2">{stagePipeline}</div>
+        </details>
+      ) : (
+        <>
+          {stagePipeline}
+          <Pipeline caption="vcPipeByExercise" steps={exerciseSteps(srs.exercises)} />
+        </>
+      )}
       {/* Without a session (too few words) nothing here comes up, so due / new counts would mislead. */}
       {session && (
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
