@@ -99,9 +99,8 @@ export function createGridPuzzle(
   }
 }
 
-/** Feedback for a card standing in a cell. */
-export function cellFeedback(puzzle: GridPuzzle, cardId: string, cell: number): GridFeedback {
-  const target = puzzle.solution.indexOf(cardId)
+/** The feedback a card whose place is `target` (-1: a decoy) gets in `cell`. */
+function feedbackFor(puzzle: GridPuzzle, target: number, cell: number): GridFeedback {
   if (target === cell) return 'exact'
   if (puzzle.hints) return 'wrong'
   if (target < 0) return 'notInMatrix'
@@ -109,6 +108,17 @@ export function cellFeedback(puzzle: GridPuzzle, cardId: string, cell: number): 
   if (Math.floor(target / size) === Math.floor(cell / size)) return 'row'
   if (target % size === cell % size) return 'column'
   return 'inMatrix'
+}
+
+/** Feedback for a card standing in a cell. */
+export function cellFeedback(puzzle: GridPuzzle, cardId: string, cell: number): GridFeedback {
+  return feedbackFor(puzzle, puzzle.solution.indexOf(cardId), cell)
+}
+
+/** What one check told about a card: its colour, and the cell it stood in (null: back from the discard pile). */
+export interface GridClue {
+  cell: number | null
+  feedback: GridFeedback
 }
 
 // --- Game state ---------------------------------------------------------------------------
@@ -133,8 +143,8 @@ export interface GridState {
   discard: string[]
   /** No hints: decoys revealed by a check; out of the game. One may still stand in a cell until replaced. */
   dropped: string[]
-  /** The last check's colour of each card, kept until the card moves. */
-  feedback: Record<string, GridFeedback>
+  /** Every check's clue about each card, oldest first. Cards a check never saw have none. */
+  clues: Record<string, GridClue[]>
   /** Checks done so far; the draw counts as the first round. */
   checks: number
 }
@@ -155,7 +165,7 @@ export function initialGridState(puzzle: GridPuzzle, rng: Rng = Math.random): Gr
     hand: null,
     discard: [],
     dropped: [],
-    feedback: {},
+    clues: {},
     checks: 0,
   }
 }
@@ -171,7 +181,40 @@ export function drawCard(state: GridState): GridState {
   return { ...state, hand: state.deck[0], deck: state.deck.slice(1) }
 }
 
-const isLocked = (state: GridState, cardId: string | null) => cardId !== null && state.feedback[cardId] === 'exact'
+/** A card's colour from the last check that saw it, or null. */
+export function lastFeedback(state: GridState, cardId: string): GridFeedback | null {
+  return state.clues[cardId]?.at(-1)?.feedback ?? null
+}
+
+/** Green cards never move, so a card whose last clue is exact still stands in that cell. */
+const isLocked = (state: GridState, cardId: string | null) => cardId !== null && lastFeedback(state, cardId) === 'exact'
+
+/**
+ * Whether a card could belong in a cell, given every clue it has had: for each check, the
+ * cell would have given the colour the card got there. A yellow card at A1 that was brown
+ * at B3 fits row B, outside columns 1 and 3.
+ */
+export function cellPossible(state: GridState, puzzle: GridPuzzle, cardId: string, cell: number): boolean {
+  return (state.clues[cardId] ?? []).every((clue) =>
+    clue.cell === null ? clue.feedback !== 'notInMatrix' : feedbackFor(puzzle, cell, clue.cell) === clue.feedback,
+  )
+}
+
+/**
+ * How a card shows after a check. Standing where the last check saw it: that colour, whole.
+ * Moved since: half that colour, and — on the board — whether its new cell is still possible.
+ */
+export function cardStatus(
+  state: GridState,
+  puzzle: GridPuzzle,
+  cardId: string,
+  cell: number | null,
+): { feedback: GridFeedback; moved: boolean; possible: boolean | null } | null {
+  const last = state.clues[cardId]?.at(-1)
+  if (!last) return null
+  const moved = cell === null || last.cell !== cell
+  return { feedback: last.feedback, moved, possible: moved && cell !== null ? cellPossible(state, puzzle, cardId, cell) : null }
+}
 const isDropped = (state: GridState, cardId: string | null) => cardId !== null && state.dropped.includes(cardId)
 
 /** The card at a location that can be picked up, or null (empty, green or dropped). */
@@ -213,7 +256,7 @@ export function canMove(state: GridState, puzzle: GridPuzzle, from: GridLocation
 /**
  * Moves a card. Onto a cell holding another card, the two swap (a card from the tray or
  * the hand sends the occupant to the tray or the hand); a dropped decoy is simply replaced.
- * Moved cards lose their colour. In the draw phase the last card triggers the check, and in
+ * Moved cards keep their clues (see cardStatus). In the draw phase the last card triggers the check, and in
  * hint mode so does filling the last cell before the first check.
  */
 export function moveCard(state: GridState, puzzle: GridPuzzle, from: GridLocation, to: GridLocation): GridState {
@@ -223,15 +266,12 @@ export function moveCard(state: GridState, puzzle: GridPuzzle, from: GridLocatio
   let tray = state.tray.filter((id) => id !== cardId)
   let hand = from.kind === 'hand' ? null : state.hand
   let discard = state.discard
-  const feedback = { ...state.feedback }
-  delete feedback[cardId]
   if (from.kind === 'cell') board[from.index] = null
 
   if (to.kind === 'cell') {
     const occupant = board[to.index]
     board[to.index] = cardId
     if (occupant !== null && !isDropped(state, occupant)) {
-      delete feedback[occupant]
       if (from.kind === 'cell') board[from.index] = occupant
       else if (from.kind === 'tray') tray = [...tray, occupant]
       else hand = occupant
@@ -242,7 +282,7 @@ export function moveCard(state: GridState, puzzle: GridPuzzle, from: GridLocatio
     tray = [...tray, cardId]
   }
 
-  const next: GridState = { ...state, board, tray, hand, discard, feedback }
+  const next: GridState = { ...state, board, tray, hand, discard }
   const lastCardDrawn = next.phase === 'draw' && next.deck.length === 0 && next.hand === null
   const firstFill = puzzle.hints && next.checks === 0 && boardComplete(next)
   return lastCardDrawn || firstFill ? checkBoard(next, puzzle) : next
@@ -254,12 +294,13 @@ export function moveCard(state: GridState, puzzle: GridPuzzle, from: GridLocatio
  */
 export function checkBoard(state: GridState, puzzle: GridPuzzle): GridState {
   if (!boardComplete(state) || (!puzzle.hints && state.tray.length > 0)) return state
-  const feedback: Record<string, GridFeedback> = {}
+  const clues = { ...state.clues }
+  const addClue = (cardId: string, clue: GridClue) => (clues[cardId] = [...(clues[cardId] ?? []), clue])
   state.board.forEach((cardId, cell) => {
-    if (cardId !== null) feedback[cardId] = cellFeedback(puzzle, cardId, cell)
+    if (cardId !== null && !state.dropped.includes(cardId)) addClue(cardId, { cell, feedback: cellFeedback(puzzle, cardId, cell) })
   })
   const tray = puzzle.hints ? state.tray : state.discard.filter((id) => !puzzle.decoyIds.includes(id))
-  if (!puzzle.hints) for (const id of tray) feedback[id] = 'inMatrix'
+  if (!puzzle.hints) for (const id of tray) addClue(id, { cell: null, feedback: 'inMatrix' })
   const solved = state.board.every((id, cell) => id === puzzle.solution[cell])
   return {
     ...state,
@@ -268,7 +309,7 @@ export function checkBoard(state: GridState, puzzle: GridPuzzle): GridState {
     discard: [],
     // Every card has been placed or discarded by the first check, so all decoys are known.
     dropped: puzzle.hints ? [] : [...puzzle.decoyIds],
-    feedback,
+    clues,
     checks: state.checks + 1,
   }
 }
