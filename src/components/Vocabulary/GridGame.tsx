@@ -1,17 +1,18 @@
 import { useEffect, useState, type DragEvent, type ReactNode } from 'react'
+import { RotateCcw } from 'lucide-react'
 import { useLanguage, type MessageKey } from '../../lib/i18n'
 import {
   canCheck,
   canMove,
   cardStatus,
   checkBoard,
-  drawCard,
+  dealCards,
+  endPreview,
   initialGridState,
   isFreeCell,
   moveCard,
   movableCard,
   previewSeconds,
-  startDrawing,
   type GridFeedback,
   type GridLocation,
   type GridPuzzle,
@@ -82,6 +83,8 @@ export default function GridGame({
   const [state, setState] = useState<GridState>(() => initialGridState(puzzle))
   /** The card being dragged, or tapped and waiting for its place. */
   const [selected, setSelected] = useState<GridLocation | null>(null)
+  /** No hints: cards turned over to show their Hungarian meaning. */
+  const [flipped, setFlipped] = useState<Set<string>>(() => new Set())
   const [secondsLeft, setSecondsLeft] = useState(() => previewSeconds(puzzle.previewOrder.length))
   const { size, hints } = puzzle
   const decoyCount = puzzle.decoyIds.length
@@ -89,7 +92,7 @@ export default function GridGame({
   useEffect(() => {
     if (state.phase !== 'preview') return
     if (secondsLeft <= 0) {
-      setState((s) => startDrawing(s))
+      setState((s) => endPreview(s))
       return
     }
     const timer = window.setTimeout(() => setSecondsLeft((n) => n - 1), 1000)
@@ -114,7 +117,7 @@ export default function GridGame({
 
   /** A tap on a card or a place: finish a pending move there, or pick this card up. */
   function tap(at: GridLocation) {
-    if (selected && canMove(state, puzzle, selected, at)) {
+    if (selected && canMove(state, selected, at)) {
       apply(moveCard(state, puzzle, selected, at))
     } else if (sameLocation(selected, at)) {
       setSelected(null)
@@ -123,22 +126,56 @@ export default function GridGame({
     }
   }
 
-  function draw() {
-    const next = drawCard(state)
-    setState(next)
-    if (next.hand) setSelected({ kind: 'hand' })
+  function toggleFlip(cardId: string) {
+    setFlipped((prev) => {
+      const next = new Set(prev)
+      if (next.has(cardId)) next.delete(cardId)
+      else next.add(cardId)
+      return next
+    })
   }
 
   /** Drag-and-drop handlers for a place cards can be dropped on. */
   const dropTarget = (at: GridLocation) => ({
     onDragOver: (e: DragEvent) => {
-      if (selected && canMove(state, puzzle, selected, at)) e.preventDefault()
+      if (selected && canMove(state, selected, at)) e.preventDefault()
     },
     onDrop: (e: DragEvent) => {
       e.preventDefault()
-      if (selected && canMove(state, puzzle, selected, at)) apply(moveCard(state, puzzle, selected, at))
+      if (selected && canMove(state, selected, at)) apply(moveCard(state, puzzle, selected, at))
     },
   })
+
+  /** No hints: a card's word can be turned over to its Hungarian meaning (hint mode shows those in the cells). */
+  const canFlip = (cardId: string) => !hints && state.phase !== 'solved' && Boolean(puzzle.cards[cardId].meaningHu)
+
+  /** The word on a card's face: the English term, or its Hungarian meaning when turned over. */
+  function face(cardId: string): ReactNode {
+    const word = puzzle.cards[cardId]
+    return canFlip(cardId) && flipped.has(cardId) ? <span className="italic">{word.meaningHu}</span> : word.term
+  }
+
+  /** The small round button at a card's bottom right corner that turns it over. */
+  function flipButton(cardId: string): ReactNode {
+    if (!canFlip(cardId)) return null
+    const isFlipped = flipped.has(cardId)
+    return (
+      <button
+        type="button"
+        onClick={() => toggleFlip(cardId)}
+        aria-pressed={isFlipped}
+        aria-label={t(isFlipped ? 'vgFlipBack' : 'vgFlip')}
+        title={t(isFlipped ? 'vgFlipBack' : 'vgFlip')}
+        className={`absolute bottom-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full border shadow-sm ${
+          isFlipped
+            ? 'border-[var(--teal-accent-strong)] bg-[var(--teal-accent)] text-primary'
+            : 'border-border bg-white text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        <RotateCcw className="h-3 w-3" aria-hidden />
+      </button>
+    )
+  }
 
   function card(cardId: string, at: GridLocation, opts: { dropped?: boolean; small?: boolean } = {}): ReactNode {
     const word = puzzle.cards[cardId]
@@ -158,32 +195,36 @@ export default function GridGame({
           .filter(Boolean)
           .join(' · ')
       : null
+    const flip = opts.dropped ? null : flipButton(cardId)
     return (
-      <button
-        type="button"
-        draggable={movable}
-        onDragStart={(e) => {
-          e.dataTransfer.setData('text/plain', word.term)
-          e.dataTransfer.effectAllowed = 'move'
-          setSelected(at)
-        }}
-        onDragEnd={() => setSelected((s) => (sameLocation(s, at) ? null : s))}
-        onClick={() => tap(at)}
-        aria-pressed={isSelected}
-        title={statusText ?? undefined}
-        className={`relative flex w-full flex-col items-center justify-center rounded-lg border-2 px-1 text-center font-medium leading-tight [overflow-wrap:anywhere] ${
-          opts.small ? 'min-h-[2.25rem] py-1 text-xs' : 'h-full min-h-[3rem] py-1.5 text-xs sm:text-sm'
-        } ${colour} ${movable ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'} ${
-          isSelected ? 'ring-2 ring-[var(--teal-accent)] ring-offset-1' : ''
-        }`}
-      >
-        {spot && <span aria-hidden className={`absolute right-1 top-1 h-2.5 w-2.5 rounded-full ${SPOT_STYLE[spot]}`} />}
-        <span className={spot ? 'px-2' : undefined}>{word.term}</span>
-        {statusText && <span className="sr-only">{statusText}</span>}
-        {state.phase === 'solved' && !hints && word.meaningHu && (
-          <span className="mt-0.5 text-[10px] font-normal opacity-80 sm:text-xs">{word.meaningHu}</span>
-        )}
-      </button>
+      <div className={`relative ${opts.small ? '' : 'h-full'}`}>
+        <button
+          type="button"
+          draggable={movable}
+          onDragStart={(e) => {
+            e.dataTransfer.setData('text/plain', word.term)
+            e.dataTransfer.effectAllowed = 'move'
+            setSelected(at)
+          }}
+          onDragEnd={() => setSelected((s) => (sameLocation(s, at) ? null : s))}
+          onClick={() => tap(at)}
+          aria-pressed={isSelected}
+          title={statusText ?? undefined}
+          className={`relative flex w-full flex-col items-center justify-center rounded-lg border-2 px-1 text-center font-medium leading-tight [overflow-wrap:anywhere] ${
+            opts.small ? 'min-h-[2.25rem] py-1 text-xs' : 'h-full min-h-[3rem] py-1.5 text-xs sm:text-sm'
+          } ${colour} ${movable ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'} ${
+            isSelected ? 'ring-2 ring-[var(--teal-accent)] ring-offset-1' : ''
+          }`}
+        >
+          {spot && <span aria-hidden className={`absolute right-1 top-1 h-2.5 w-2.5 rounded-full ${SPOT_STYLE[spot]}`} />}
+          <span className={spot || flip ? 'px-2' : undefined}>{opts.dropped ? word.term : face(cardId)}</span>
+          {statusText && <span className="sr-only">{statusText}</span>}
+          {state.phase === 'solved' && !hints && word.meaningHu && (
+            <span className="mt-0.5 text-[10px] font-normal opacity-80 sm:text-xs">{word.meaningHu}</span>
+          )}
+        </button>
+        {flip}
+      </div>
     )
   }
 
@@ -196,7 +237,7 @@ export default function GridGame({
           <p className="text-sm font-medium text-foreground">{t('vgPreview', { n: secondsLeft })}</p>
           <button
             type="button"
-            onClick={() => setState((s) => startDrawing(s))}
+            onClick={() => setState((s) => endPreview(s))}
             className="rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)]"
           >
             {t('vgReady')}
@@ -204,11 +245,11 @@ export default function GridGame({
         </div>
         <div className="grid gap-1.5 sm:gap-2" style={gridStyle}>
           {puzzle.previewOrder.map((id) => (
-            <div
-              key={id}
-              className="flex min-h-[3rem] items-center justify-center rounded-lg border-2 border-border bg-card px-1 py-1.5 text-center text-xs font-medium leading-tight text-foreground [overflow-wrap:anywhere] sm:text-sm"
-            >
-              {puzzle.cards[id].term}
+            <div key={id} className="relative">
+              <div className="flex h-full min-h-[3rem] items-center justify-center rounded-lg border-2 border-border bg-card px-1 py-1.5 text-center text-xs font-medium leading-tight text-foreground [overflow-wrap:anywhere] sm:text-sm">
+                <span className={canFlip(id) ? 'px-2' : undefined}>{face(id)}</span>
+              </div>
+              {flipButton(id)}
             </div>
           ))}
         </div>
@@ -222,7 +263,7 @@ export default function GridGame({
         const at: GridLocation = { kind: 'cell', index }
         const meaning = hints ? puzzle.cards[puzzle.solution[index]].meaningHu : null
         const dropped = cardId !== null && state.dropped.includes(cardId)
-        const pending = selected !== null && canMove(state, puzzle, selected, at)
+        const pending = selected !== null && canMove(state, selected, at)
         return (
           <div
             key={index}
@@ -294,48 +335,25 @@ export default function GridGame({
       </div>
 
       {state.phase === 'arrange' && hints && state.checks === 0 && <p className="text-sm text-muted-foreground">{t('vgHintsOn')}</p>}
-      {state.phase === 'draw' && <p className="text-sm text-muted-foreground">{t(decoyCount > 0 ? 'vgDrawHint' : 'vgDrawHintNoDecoys')}</p>}
+      {state.phase === 'deal' && (
+        <p className="text-sm text-muted-foreground">{decoyCount > 0 ? t('vgDealHint', { n: decoyCount }) : t('vgDealHintNoDecoys')}</p>
+      )}
       {state.phase === 'arrange' && state.checks > 0 && <p className="text-sm text-muted-foreground">{t('vgArrangeHint')}</p>}
 
       {board}
 
-      {state.phase === 'draw' && (
-        <div className={`grid gap-2 sm:gap-3 ${decoyCount > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+      {state.phase === 'deal' && (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex h-14 w-11 items-center justify-center rounded-lg border-2 border-[var(--teal-accent-strong)] bg-[var(--teal-accent)] text-sm font-semibold tabular-nums text-primary shadow-[2px_2px_0_0_rgba(0,0,0,0.15)]" title={t('vgDeck')}>
+            {state.deck.length}
+          </div>
           <button
             type="button"
-            onClick={draw}
-            disabled={state.hand !== null || state.deck.length === 0}
-            className="flex min-h-[4.5rem] flex-col items-center justify-center rounded-xl border-2 border-[var(--teal-accent-strong)] bg-[var(--teal-accent)] text-primary shadow-sm disabled:opacity-40"
+            onClick={() => apply(dealCards(state, puzzle))}
+            className="rounded-lg bg-[var(--teal-accent)] px-5 py-2.5 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)]"
           >
-            <span className="text-sm font-semibold">{t('vgDraw')}</span>
-            <span className="text-xs">
-              {t('vgDeck')}: {state.deck.length}
-            </span>
+            {t('vgDeal')}
           </button>
-          <div className="space-y-1">
-            <p className="text-center text-xs text-muted-foreground">{t('vgHand')}</p>
-            {state.hand ? card(state.hand, { kind: 'hand' }) : <div className="min-h-[3rem] rounded-lg border-2 border-dashed border-border" />}
-          </div>
-          {decoyCount > 0 && (
-            <div
-              {...dropTarget({ kind: 'discard' })}
-              onClick={() => tap({ kind: 'discard' })}
-              className={`space-y-1 rounded-xl border-2 border-dashed p-1.5 ${
-                selected?.kind === 'hand' && state.discard.length < decoyCount ? 'border-red-400 bg-red-50' : 'border-border'
-              }`}
-            >
-              <p className="text-center text-xs text-muted-foreground">
-                {t('vgDiscard')} ({state.discard.length}/{decoyCount})
-              </p>
-              <ul className="space-y-0.5">
-                {state.discard.map((id) => (
-                  <li key={id} className="truncate rounded bg-secondary px-1.5 py-0.5 text-center text-xs text-foreground">
-                    {puzzle.cards[id].term}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
       )}
 
