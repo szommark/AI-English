@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLanguage } from '../../lib/i18n'
 import { finishReviewSession, submitReview } from '../../lib/vocabPracticeApi'
-import { chooseExercise } from '../../lib/vocabPractice'
+import { chooseExercise, type SpellingFix } from '../../lib/vocabPractice'
 import type { ExerciseContent, PracticeCard } from '../../lib/vocab'
 import Exercise, { type ExerciseOutcome, type Speech } from './Exercise'
 import ProgressBar from '../VocabLists/ProgressBar'
@@ -145,6 +145,31 @@ export default function PracticeSession({
   )
 }
 
+/**
+ * "tabel → table": the typed answer with the wrong letters in red, then the right
+ * spelling in green with the corrected letters marked. A missing letter shows as a red gap.
+ */
+function SpellingCorrection({ fix }: { fix: SpellingFix }) {
+  const { typed, fixed } = fix
+  return (
+    <p className="flex flex-wrap items-baseline gap-x-2 text-xl font-medium">
+      <span className="text-foreground">
+        {typed.before}
+        <mark className="rounded-sm bg-red-100 px-px text-red-700">{typed.wrong || '_'}</mark>
+        {typed.after}
+      </span>
+      <span aria-hidden="true" className="text-muted-foreground">
+        →
+      </span>
+      <span className="text-emerald-700">
+        {fixed.before}
+        {fixed.right && <mark className="rounded-sm bg-emerald-100 px-px font-bold text-emerald-700">{fixed.right}</mark>}
+        {fixed.after}
+      </span>
+    </p>
+  )
+}
+
 /** The right answer after an exercise, with how it went and whether it was saved. */
 export function FeedbackPanel({ card, feedback, speech }: { card: ExerciseContent; feedback: Feedback; speech: Speech }) {
   const { t } = useLanguage()
@@ -163,6 +188,9 @@ export function FeedbackPanel({ card, feedback, speech }: { card: ExerciseConten
       <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${tone}`}>
         {check === 'exact' ? t('vcCorrect') : strictTypo ? t('vcTestTypo') : check === 'typo' ? t('vcTypo') : t('vcWrong')}
       </div>
+      {feedback.outcome.spelling.map((fix, i) => (
+        <SpellingCorrection key={i} fix={fix} />
+      ))}
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-2xl font-semibold text-foreground">{card.term}</p>
