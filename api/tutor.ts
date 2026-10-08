@@ -152,8 +152,15 @@ async function handleChat(req: VercelRequest, res: VercelResponse, userId: strin
   res.status(200).json({ reply: chatResult.content, turnIndex: body.turnIndex, ended: false, xp })
 }
 
+// Personas whose sessions are drills rather than conversation: the grammar/vocab review
+// would "correct" bare practice words and add drill pairs (vine, sink) to the
+// Vocabulary deck, so their sessions are saved without it.
+const PERSONAS_WITHOUT_LANGUAGE_REVIEW = new Set(['pronunciation-trainer'])
+
 interface TutorEndRequestBody {
   fullTranscript: ChatMessage[]
+  /** Absent from older clients, which always get the review. */
+  personaId?: string
 }
 
 async function handleEnd(req: VercelRequest, res: VercelResponse, userId: string, userEmail: string | undefined) {
@@ -165,6 +172,20 @@ async function handleEnd(req: VercelRequest, res: VercelResponse, userId: string
   const body = req.body as TutorEndRequestBody
   const modelId = await getModelForFeature('tutorBot')
   const fullTranscript = Array.isArray(body.fullTranscript) ? body.fullTranscript : []
+  const skipReview = typeof body.personaId === 'string' && PERSONAS_WITHOUT_LANGUAGE_REVIEW.has(body.personaId)
+
+  if (skipReview) {
+    const { error } = await supabaseAdmin.from('sessions').insert({
+      user_id: userId,
+      scenario_id: null,
+      mode: 'tutor',
+      transcript: fullTranscript,
+      feedback: { strengths: [], corrections: [] },
+    })
+    if (error) console.error('Failed to save tutor session', error)
+    res.status(200).json({ feedback: { strengths: [], corrections: [] }, addedWords: [], feedbackSkipped: true })
+    return
+  }
 
   let feedback: FeedbackResult
   try {

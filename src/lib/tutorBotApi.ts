@@ -16,6 +16,8 @@ export interface TutorEndResponse {
   feedback: FeedbackResult
   /** Words added to the student's Vocabulary deck from this session (Phase 4). */
   addedWords?: AddedTutorWord[]
+  /** True for drill personas (pronunciation): no grammar/vocab review was run. */
+  feedbackSkipped?: boolean
 }
 
 export interface TutorPersonaSummary {
@@ -60,7 +62,7 @@ export async function sendTutorTurn(params: {
   return body
 }
 
-export async function sendTutorEnd(params: { fullTranscript: ChatMessage[] }): Promise<TutorEndResponse> {
+export async function sendTutorEnd(params: { fullTranscript: ChatMessage[]; personaId: string }): Promise<TutorEndResponse> {
   const headers = await authHeader()
   const res = await fetch('/api/tutor?action=end', {
     method: 'POST',
