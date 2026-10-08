@@ -45,6 +45,7 @@ export default function TutorBotSession({ personaId }: { personaId: string }) {
   const [feedback, setFeedback] = useState<FeedbackResult | null>(null)
   const [addedWords, setAddedWords] = useState<AddedTutorWord[]>([])
   const [feedbackLoading, setFeedbackLoading] = useState(false)
+  const [feedbackSkipped, setFeedbackSkipped] = useState(false)
 
   const statusRef = useRef(status)
   const pendingEndRef = useRef(false)
@@ -183,8 +184,9 @@ export default function TutorBotSession({ personaId }: { personaId: string }) {
     if (status !== 'ended' || messages.length === 0 || endCalledRef.current) return
     endCalledRef.current = true
     setFeedbackLoading(true)
-    sendTutorEnd({ fullTranscript: messages })
+    sendTutorEnd({ fullTranscript: messages, personaId })
       .then((response) => {
+        setFeedbackSkipped(Boolean(response.feedbackSkipped))
         setFeedback(response.feedback)
         setAddedWords(response.addedWords ?? [])
       })
@@ -268,7 +270,14 @@ export default function TutorBotSession({ personaId }: { personaId: string }) {
 
         {feedbackLoading && <p className="text-sm text-slate-500">Preparing your feedback...</p>}
 
-        {feedback && <FeedbackCard feedback={feedback} />}
+        {feedbackSkipped ? (
+          <p className="text-sm text-slate-500">
+            Pronunciation sessions don't get a grammar review — your tutor gave you feedback on your sounds during the
+            conversation.
+          </p>
+        ) : (
+          feedback && <FeedbackCard feedback={feedback} />
+        )}
 
         <AddedWordsCard words={addedWords} />
 
