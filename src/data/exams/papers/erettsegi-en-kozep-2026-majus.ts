@@ -96,7 +96,7 @@ const paper: ExamPaper = {
           ],
           unusedBankCount: 3,
           examples: choices(0, 'C'),
-          items: choices(9, 'L G B I F|K K E'),
+          items: choices(9, 'L G B I F K E'),
         },
         {
           id: 'I-3',

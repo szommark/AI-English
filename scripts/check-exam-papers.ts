@@ -134,6 +134,11 @@ function checkTask(paper: ExamPaper, task: ExamTask) {
     const itemAnswers = task.items.filter((i) => i.type === 'choice').map((i) => (i as { answer: string }).answer)
     if (new Set(itemAnswers).size !== itemAnswers.length) fail(`${where}: a bank option is the answer to two items`)
     const used = new Set([...itemAnswers, ...(task.examples ?? []).filter((e) => e.type === 'choice').map((e) => (e as { answer: string }).answer)])
+    // Each bank letter fits one gap, so an alternative can't be another item's (or the example's) answer.
+    for (const item of task.items) {
+      if (item.type !== 'choice') continue
+      for (const alt of item.alsoAccept ?? []) if (used.has(alt)) fail(`${where}: item ${item.id} also accepts ${alt}, which answers another item`)
+    }
     const unused = keys.filter((k) => !used.has(k)).length
     if (task.unusedBankCount === undefined) fail(`${where}: bank without unusedBankCount`)
     else if (unused !== task.unusedBankCount) fail(`${where}: ${unused} bank options unused, instructions say ${task.unusedBankCount}`)
