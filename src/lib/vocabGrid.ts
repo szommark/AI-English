@@ -13,16 +13,16 @@ export function gridWordCount(size: number, decoys: boolean): number {
 /** The shortest list the game can use: a 3×3 grid without decoys. */
 export const GRID_MIN_WORDS = gridWordCount(GRID_SIZES[0], false)
 
-/** How long the no-hint preview shows the words: longer for more words (12 words → 11 s). */
+/** How long the preview shows the words: longer for more words (12 words → 11 s). */
 export function previewSeconds(wordCount: number): number {
   return Math.round(5 + wordCount / 2)
 }
 
 /**
- * Where a card sits after a check. Hint mode only uses exact / wrong; without hints:
- * exact cell, right row, right column, somewhere else in the matrix, or a decoy.
+ * Where a card sits after a check: exact cell, right row, right column, somewhere else in
+ * the matrix, or a decoy.
  */
-export type GridFeedback = 'exact' | 'row' | 'column' | 'inMatrix' | 'notInMatrix' | 'wrong'
+export type GridFeedback = 'exact' | 'row' | 'column' | 'inMatrix' | 'notInMatrix'
 
 export interface GridCard {
   id: string
@@ -32,14 +32,12 @@ export interface GridCard {
 
 export interface GridPuzzle {
   size: number
-  /** Hint mode: each cell shows its word's Hungarian meaning. */
-  hints: boolean
   cards: Record<string, GridCard>
   /** The card id that belongs in each cell, row by row. */
   solution: string[]
   /** The extra row of words that belong in no cell; empty when the game has no decoys. */
   decoyIds: string[]
-  /** All the words, mixed, for the no-hint preview: size rows of size, plus a row of decoys. */
+  /** All the words, mixed, for the preview: size rows of size, plus a row of decoys. */
   previewOrder: string[]
 }
 
@@ -54,21 +52,14 @@ export function shuffle<T>(items: readonly T[], rng: Rng = Math.random): T[] {
   return out
 }
 
-/**
- * The list's words a game can use: one per term, and in hint mode only words with a
- * Hungarian meaning, one per meaning — so every cell's hint points at exactly one word.
- */
-export function gridEligibleWords(words: readonly WordlistWord[], hints: boolean): WordlistWord[] {
+/** The list's words a game can use: one per term. */
+export function gridEligibleWords(words: readonly WordlistWord[]): WordlistWord[] {
   const terms = new Set<string>()
-  const meanings = new Set<string>()
   const out: WordlistWord[] = []
   for (const w of words) {
     const term = normalizeTerm(w.term)
-    const meaning = normalizeTerm(w.meaningHu ?? '')
     if (!term || terms.has(term)) continue
-    if (hints && (!meaning || meanings.has(meaning))) continue
     terms.add(term)
-    meanings.add(meaning)
     out.push(w)
   }
   return out
@@ -78,11 +69,10 @@ export function gridEligibleWords(words: readonly WordlistWord[], hints: boolean
 export function createGridPuzzle(
   words: readonly WordlistWord[],
   size: number,
-  hints: boolean,
   decoys: boolean,
   rng: Rng = Math.random,
 ): GridPuzzle | null {
-  const eligible = gridEligibleWords(words, hints)
+  const eligible = gridEligibleWords(words)
   const count = gridWordCount(size, decoys)
   if (eligible.length < count) return null
   const chosen = shuffle(eligible, rng).slice(0, count)
@@ -91,7 +81,6 @@ export function createGridPuzzle(
   const ids = chosen.map((w) => w.itemId)
   return {
     size,
-    hints,
     cards,
     solution: ids.slice(0, size * size),
     decoyIds: ids.slice(size * size),
@@ -102,7 +91,6 @@ export function createGridPuzzle(
 /** The feedback a card whose place is `target` (-1: a decoy) gets in `cell`. */
 function feedbackFor(puzzle: GridPuzzle, target: number, cell: number): GridFeedback {
   if (target === cell) return 'exact'
-  if (puzzle.hints) return 'wrong'
   if (target < 0) return 'notInMatrix'
   const { size } = puzzle
   if (Math.floor(target / size) === Math.floor(cell / size)) return 'row'
@@ -124,7 +112,7 @@ export interface GridClue {
 // --- Game state ---------------------------------------------------------------------------
 
 /**
- * preview: the no-hint words on show; deal: the shuffled deck waits for the Deal button;
+ * preview: the words on show; deal: the shuffled deck waits for the Deal button;
  * arrange: the cards are rearranged between checks; solved: every cell is green.
  */
 export type GridPhase = 'preview' | 'deal' | 'arrange' | 'solved'
@@ -133,11 +121,11 @@ export interface GridState {
   phase: GridPhase
   /** The card id in each cell, or null. */
   board: (string | null)[]
-  /** Cards off the board: hint mode's word pool, or the no-hint words to place again. */
+  /** Cards off the board: words the deal put aside, or taken off the board, to place again. */
   tray: string[]
-  /** No hints: the face-down deck, until it is dealt. */
+  /** The face-down deck, until it is dealt. */
   deck: string[]
-  /** No hints: decoys revealed by a check; out of the game. One may still stand in a cell until replaced. */
+  /** Decoys revealed by a check; out of the game. One may still stand in a cell until replaced. */
   dropped: string[]
   /** Every check's clue about each card, oldest first. Cards a check never saw have none. */
   clues: Record<string, GridClue[]>
@@ -150,10 +138,10 @@ export type GridLocation = { kind: 'cell'; index: number } | { kind: 'tray'; car
 export function initialGridState(puzzle: GridPuzzle, rng: Rng = Math.random): GridState {
   const all = [...puzzle.solution, ...puzzle.decoyIds]
   return {
-    phase: puzzle.hints ? 'arrange' : 'preview',
+    phase: 'preview',
     board: Array.from({ length: puzzle.size * puzzle.size }, () => null),
-    tray: puzzle.hints ? shuffle(all, rng) : [],
-    deck: puzzle.hints ? [] : shuffle(all, rng),
+    tray: [],
+    deck: shuffle(all, rng),
     dropped: [],
     clues: {},
     checks: 0,
@@ -167,7 +155,7 @@ export function endPreview(state: GridState, rng: Rng = Math.random): GridState 
 }
 
 /**
- * The first no-hint round, in one go: the deck fills the cells in order, the cards left
+ * The first round, in one go: the deck fills the cells in order, the cards left
  * over (as many as there are decoys) go to "not in the grid", and the board is checked.
  */
 export function dealCards(state: GridState, puzzle: GridPuzzle): GridState {
@@ -249,9 +237,9 @@ export function canMove(state: GridState, from: GridLocation, to: GridLocation):
 /**
  * Moves a card. Onto a cell holding another card, the two swap (a card from the tray sends
  * the occupant to the tray); a dropped decoy is simply replaced. Moved cards keep their
- * clues (see cardStatus). In hint mode, filling the last cell before the first check checks.
+ * clues (see cardStatus).
  */
-export function moveCard(state: GridState, puzzle: GridPuzzle, from: GridLocation, to: GridLocation): GridState {
+export function moveCard(state: GridState, from: GridLocation, to: GridLocation): GridState {
   if (!canMove(state, from, to)) return state
   const cardId = movableCard(state, from)!
   const board = [...state.board]
@@ -269,38 +257,36 @@ export function moveCard(state: GridState, puzzle: GridPuzzle, from: GridLocatio
     tray = [...tray, cardId]
   }
 
-  const next: GridState = { ...state, board, tray }
-  const firstFill = puzzle.hints && next.checks === 0 && boardComplete(next)
-  return firstFill ? checkBoard(next, puzzle) : next
+  return { ...state, board, tray }
 }
 
 /**
- * Colours every card on the board. Without hints, decoys are dropped — on the board they
+ * Colours every card on the board. Decoys are dropped — on the board they
  * stay red until replaced — and words the deal put aside (`discarded`) come back to the
  * tray, yellow.
  */
 export function checkBoard(state: GridState, puzzle: GridPuzzle, discarded: readonly string[] = []): GridState {
-  if (!boardComplete(state) || (!puzzle.hints && state.tray.length > 0)) return state
+  if (!boardComplete(state) || state.tray.length > 0) return state
   const clues = { ...state.clues }
   const addClue = (cardId: string, clue: GridClue) => (clues[cardId] = [...(clues[cardId] ?? []), clue])
   state.board.forEach((cardId, cell) => {
     if (cardId !== null && !state.dropped.includes(cardId)) addClue(cardId, { cell, feedback: cellFeedback(puzzle, cardId, cell) })
   })
-  const tray = puzzle.hints ? state.tray : discarded.filter((id) => !puzzle.decoyIds.includes(id))
-  if (!puzzle.hints) for (const id of tray) addClue(id, { cell: null, feedback: 'inMatrix' })
+  const tray = discarded.filter((id) => !puzzle.decoyIds.includes(id))
+  for (const id of tray) addClue(id, { cell: null, feedback: 'inMatrix' })
   const solved = state.board.every((id, cell) => id === puzzle.solution[cell])
   return {
     ...state,
     phase: solved ? 'solved' : 'arrange',
     tray,
     // Every card has been dealt to a cell or put aside by the first check, so all decoys are known.
-    dropped: puzzle.hints ? [] : [...puzzle.decoyIds],
+    dropped: [...puzzle.decoyIds],
     clues,
     checks: state.checks + 1,
   }
 }
 
-/** Ready for the Check button: arranging, every cell filled, nothing left in the no-hint tray. */
-export function canCheck(state: GridState, puzzle: GridPuzzle): boolean {
-  return state.phase === 'arrange' && boardComplete(state) && (puzzle.hints || state.tray.length === 0)
+/** Ready for the Check button: arranging, every cell filled, nothing left in the tray. */
+export function canCheck(state: GridState): boolean {
+  return state.phase === 'arrange' && boardComplete(state) && state.tray.length === 0
 }
