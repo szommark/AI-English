@@ -178,7 +178,7 @@ const paper: ExamPaper = {
           ],
           unusedBankCount: 2,
           examples: choices(0, 'C'),
-          items: choices(20, 'E|K K B L I A H F'),
+          items: choices(20, 'E K B L I A H F'),
         },
       ],
     },
