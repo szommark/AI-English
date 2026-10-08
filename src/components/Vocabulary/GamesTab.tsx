@@ -20,9 +20,8 @@ const keyOf = (l: WordlistRef) => `${l.kind}-${l.id}`
 const fits = (l: WordlistSummary, size: number, decoys: boolean) => l.wordCount >= gridWordCount(size, decoys)
 
 /**
- * Games tab: the word grid game. Pick a list, a size, whether the cells show the Hungarian
- * meanings and whether a row of decoys is mixed in; the words are drawn at random from the
- * list. Nothing is saved.
+ * Games tab: the word grid game. Pick a list, a size and whether a row of decoys is mixed
+ * in; the words are drawn at random from the list. Nothing is saved.
  */
 export default function GamesTab({ data }: { data: WordlistsResponse }) {
   const { t } = useLanguage()
@@ -30,7 +29,6 @@ export default function GamesTab({ data }: { data: WordlistsResponse }) {
   const playable = data.lists.filter((l) => l.wordCount >= GRID_MIN_WORDS)
   const [listKey, setListKey] = useState(() => (playable[0] ? keyOf(playable[0]) : ''))
   const [size, setSize] = useState<GridSize>(3)
-  const [hints, setHints] = useState(true)
   /** One extra row of words that belong nowhere; on by default when the first list has the words. */
   const [decoys, setDecoys] = useState(() => !playable[0] || fits(playable[0], GRID_SIZES[0], true))
   const [detail, setDetail] = useState<WordlistDetail | null>(null)
@@ -51,12 +49,12 @@ export default function GamesTab({ data }: { data: WordlistsResponse }) {
     try {
       const words = detail && keyOf(detail.list) === listKey ? detail : await fetchWordlist({ kind: list.kind, id: list.id })
       setDetail(words)
-      const next = createGridPuzzle(words.words, size, hints, decoys)
+      const next = createGridPuzzle(words.words, size, decoys)
       if (next) {
         setPuzzle(next)
         setGameNo((n) => n + 1)
       } else {
-        setError(t('vgNotEnough', { have: gridEligibleWords(words.words, hints).length, size, need: gridWordCount(size, decoys) }))
+        setError(t('vgNotEnough', { have: gridEligibleWords(words.words).length, size, need: gridWordCount(size, decoys) }))
       }
     } catch {
       setError(t('vcLoadFailed'))
@@ -134,19 +132,6 @@ export default function GamesTab({ data }: { data: WordlistsResponse }) {
               })}
             </div>
           </fieldset>
-
-          <label className="flex cursor-pointer items-start gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
-              checked={hints}
-              onChange={(e) => setHints(e.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-[var(--teal-accent)]"
-            />
-            <span>
-              {t('vgHints')}
-              <span className="block text-xs text-muted-foreground">{t(hints ? 'vgHintsOn' : 'vgHintsOff')}</span>
-            </span>
-          </label>
 
           <label
             className={`flex items-start gap-2 text-sm text-foreground ${decoysUnavailable ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}

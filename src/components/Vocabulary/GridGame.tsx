@@ -27,7 +27,6 @@ const FEEDBACK_STYLE: Record<GridFeedback, string> = {
   column: 'border-violet-500 bg-violet-100 text-violet-900',
   inMatrix: 'border-yellow-400 bg-yellow-100 text-yellow-900',
   notInMatrix: 'border-red-400 bg-red-50 text-red-800',
-  wrong: 'border-red-400 bg-red-50 text-red-800',
 }
 
 /** A moved card: its last colour on the left half (border included), white on the right. */
@@ -37,7 +36,6 @@ const FEEDBACK_HALF: Record<GridFeedback, string> = {
   column: 'border-violet-500 from-violet-100',
   inMatrix: 'border-yellow-400 from-yellow-100',
   notInMatrix: 'border-red-400 from-red-50',
-  wrong: 'border-red-400 from-red-50',
 }
 
 /** The light on a moved card: green when its new cell fits every clue, red when it can't. */
@@ -52,13 +50,9 @@ const FEEDBACK_LABEL: Record<GridFeedback, MessageKey> = {
   column: 'vgFbColumn',
   inMatrix: 'vgFbInMatrix',
   notInMatrix: 'vgFbNotInMatrix',
-  wrong: 'vgFbWrong',
 }
 
-const LEGEND: Record<'hints' | 'plain', GridFeedback[]> = {
-  hints: ['exact', 'wrong'],
-  plain: ['exact', 'row', 'column', 'inMatrix', 'notInMatrix'],
-}
+const LEGEND: GridFeedback[] = ['exact', 'row', 'column', 'inMatrix', 'notInMatrix']
 
 const sameLocation = (a: GridLocation | null, b: GridLocation) =>
   a !== null &&
@@ -83,10 +77,10 @@ export default function GridGame({
   const [state, setState] = useState<GridState>(() => initialGridState(puzzle))
   /** The card being dragged, or tapped and waiting for its place. */
   const [selected, setSelected] = useState<GridLocation | null>(null)
-  /** No hints: cards turned over to show their Hungarian meaning. */
+  /** Cards turned over to show their Hungarian meaning. */
   const [flipped, setFlipped] = useState<Set<string>>(() => new Set())
   const [secondsLeft, setSecondsLeft] = useState(() => previewSeconds(puzzle.previewOrder.length))
-  const { size, hints } = puzzle
+  const { size } = puzzle
   const decoyCount = puzzle.decoyIds.length
 
   useEffect(() => {
@@ -118,7 +112,7 @@ export default function GridGame({
   /** A tap on a card or a place: finish a pending move there, or pick this card up. */
   function tap(at: GridLocation) {
     if (selected && canMove(state, selected, at)) {
-      apply(moveCard(state, puzzle, selected, at))
+      apply(moveCard(state, selected, at))
     } else if (sameLocation(selected, at)) {
       setSelected(null)
     } else if (movableCard(state, at)) {
@@ -142,12 +136,12 @@ export default function GridGame({
     },
     onDrop: (e: DragEvent) => {
       e.preventDefault()
-      if (selected && canMove(state, selected, at)) apply(moveCard(state, puzzle, selected, at))
+      if (selected && canMove(state, selected, at)) apply(moveCard(state, selected, at))
     },
   })
 
-  /** No hints: a card's word can be turned over to its Hungarian meaning (hint mode shows those in the cells). */
-  const canFlip = (cardId: string) => !hints && state.phase !== 'solved' && Boolean(puzzle.cards[cardId].meaningHu)
+  /** A card's word can be turned over to its Hungarian meaning (the solved grid shows both). */
+  const canFlip = (cardId: string) => state.phase !== 'solved' && Boolean(puzzle.cards[cardId].meaningHu)
 
   /** The word on a card's face: the English term, or its Hungarian meaning when turned over. */
   function face(cardId: string): ReactNode {
@@ -219,7 +213,7 @@ export default function GridGame({
           {spot && <span aria-hidden className={`absolute right-1 top-1 h-2.5 w-2.5 rounded-full ${SPOT_STYLE[spot]}`} />}
           <span className={spot || flip ? 'px-2' : undefined}>{opts.dropped ? word.term : face(cardId)}</span>
           {statusText && <span className="sr-only">{statusText}</span>}
-          {state.phase === 'solved' && !hints && word.meaningHu && (
+          {state.phase === 'solved' && word.meaningHu && (
             <span className="mt-0.5 text-[10px] font-normal opacity-80 sm:text-xs">{word.meaningHu}</span>
           )}
         </button>
@@ -261,18 +255,16 @@ export default function GridGame({
     <div className="grid gap-1.5 sm:gap-2" style={gridStyle}>
       {state.board.map((cardId, index) => {
         const at: GridLocation = { kind: 'cell', index }
-        const meaning = hints ? puzzle.cards[puzzle.solution[index]].meaningHu : null
         const dropped = cardId !== null && state.dropped.includes(cardId)
         const pending = selected !== null && canMove(state, selected, at)
         return (
           <div
             key={index}
             {...dropTarget(at)}
-            className={`flex flex-col gap-1 rounded-xl p-1 ${hints ? 'bg-secondary' : ''} ${
+            className={`flex flex-col rounded-xl p-1 ${
               pending && isFreeCell(state, index) ? 'outline outline-2 outline-dashed outline-[var(--teal-accent)]' : ''
             }`}
           >
-            {meaning && <p className="px-0.5 text-center text-[11px] leading-tight text-muted-foreground [overflow-wrap:anywhere] sm:text-xs">{meaning}</p>}
             <div className="flex-1">
               {cardId !== null ? (
                 card(cardId, at, { dropped })
@@ -292,7 +284,7 @@ export default function GridGame({
   )
 
   // Without decoys nothing can be red.
-  const legendItems = LEGEND[hints ? 'hints' : 'plain'].filter((f) => f !== 'notInMatrix' || decoyCount > 0)
+  const legendItems = LEGEND.filter((f) => f !== 'notInMatrix' || decoyCount > 0)
   const legend = (
     <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
       {legendItems.map((f) => (
@@ -334,7 +326,6 @@ export default function GridGame({
         {state.checks > 0 && legend}
       </div>
 
-      {state.phase === 'arrange' && hints && state.checks === 0 && <p className="text-sm text-muted-foreground">{t('vgHintsOn')}</p>}
       {state.phase === 'deal' && (
         <p className="text-sm text-muted-foreground">{decoyCount > 0 ? t('vgDealHint', { n: decoyCount }) : t('vgDealHintNoDecoys')}</p>
       )}
@@ -357,9 +348,9 @@ export default function GridGame({
         </div>
       )}
 
-      {state.phase === 'arrange' && (hints || state.tray.length > 0) && trayZone(t(hints ? 'vgPool' : 'vgTray'))}
+      {state.phase === 'arrange' && state.tray.length > 0 && trayZone(t('vgTray'))}
 
-      {!hints && state.dropped.length > 0 && (
+      {state.dropped.length > 0 && (
         <div className="space-y-1">
           <p className="text-xs font-medium text-muted-foreground">{t('vgDropped')}</p>
           <ul className="flex flex-wrap gap-1.5">
@@ -383,7 +374,7 @@ export default function GridGame({
           <button
             type="button"
             onClick={() => apply(checkBoard(state, puzzle))}
-            disabled={!canCheck(state, puzzle)}
+            disabled={!canCheck(state)}
             className="rounded-lg bg-[var(--teal-accent)] px-5 py-2.5 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40"
           >
             {t('vgCheck')}

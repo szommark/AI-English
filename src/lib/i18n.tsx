@@ -655,27 +655,12 @@ const messages = {
   // Vocabulary: Word grid game (Games tab, src/lib/vocabGrid.ts)
   vgTitle: { hu: 'Szórács', en: 'Word grid', de: 'Wortgitter' },
   vgIntro: {
-    hu: 'Találd meg minden szó helyét a rácsban.',
-    en: "Find each word's place in the grid.",
-    de: 'Finde den Platz jedes Wortes im Gitter.',
+    hu: 'Találd meg minden szó helyét a rácsban. Néhány másodpercig látod a szavakat, aztán egy gombnyomásra kiosztjuk őket a rácsba. A színek megmutatják, mennyire vagy közel.',
+    en: "Find each word's place in the grid. You see the words for a few seconds, then one button deals them into the grid. Colours show how close you are.",
+    de: 'Finde den Platz jedes Wortes im Gitter. Du siehst die Wörter ein paar Sekunden lang, dann teilt ein Knopf sie ins Gitter aus. Farben zeigen, wie nah du bist.',
   },
   vgList: { hu: 'Lista', en: 'List', de: 'Liste' },
   vgSize: { hu: 'Méret', en: 'Size', de: 'Größe' },
-  vgHints: {
-    hu: 'Magyar jelentések a cellákban (segítség)',
-    en: 'Hungarian meanings in the cells (hints)',
-    de: 'Ungarische Bedeutungen in den Feldern (Hilfe)',
-  },
-  vgHintsOn: {
-    hu: 'Húzd minden angol szót a jelentéséhez. Az utolsó után a jó helyen lévők zöldek, a rosszak pirosak.',
-    en: 'Drag each English word to its meaning. After the last one, words in the right cell turn green, wrong ones red.',
-    de: 'Ziehe jedes englische Wort zu seiner Bedeutung. Nach dem letzten werden richtige grün, falsche rot.',
-  },
-  vgHintsOff: {
-    hu: 'Néhány másodpercig látod a szavakat, aztán egy gombnyomásra kiosztjuk őket a rácsba. A színek megmutatják, mennyire vagy közel.',
-    en: 'You see the words for a few seconds, then one button deals them into the grid. Colours show how close you are.',
-    de: 'Du siehst die Wörter ein paar Sekunden lang, dann teilt ein Knopf sie ins Gitter aus. Farben zeigen, wie nah du bist.',
-  },
   vgDecoys: {
     hu: 'Csaliszavak: +{n} szó, ami nem tartozik a rácsba',
     en: "Decoys: +{n} words that don't belong in the grid",
@@ -725,7 +710,6 @@ const messages = {
   vgSpotPossible: { hu: 'itt lehet', en: 'can go here', de: 'kann hierhin' },
   vgSpotImpossible: { hu: 'itt nem lehet', en: "can't go here", de: 'kann nicht hierhin' },
   vgTray: { hu: 'Elhelyezendő szavak', en: 'Words to place', de: 'Zu platzierende Wörter' },
-  vgPool: { hu: 'Szavak', en: 'Words', de: 'Wörter' },
   vgDropped: { hu: 'Kiesett — nincsenek a rácsban', en: 'Out — not in the grid', de: 'Raus — nicht im Gitter' },
   vgCheck: { hu: 'Ellenőrzés', en: 'Check', de: 'Prüfen' },
   vgRound: { hu: '{n}. kör', en: 'Round {n}', de: 'Runde {n}' },
@@ -742,7 +726,6 @@ const messages = {
   vgFbColumn: { hu: 'jó oszlop', en: 'right column', de: 'richtige Spalte' },
   vgFbInMatrix: { hu: 'a rácsban van, máshol', en: 'in the grid, elsewhere', de: 'im Gitter, woanders' },
   vgFbNotInMatrix: { hu: 'nincs a rácsban', en: 'not in the grid', de: 'nicht im Gitter' },
-  vgFbWrong: { hu: 'rossz hely', en: 'wrong place', de: 'falscher Platz' },
   vcFastTitle: { hu: 'Gyakorolj egy listát', en: 'Practise a list', de: 'Eine Liste üben' },
   vcFastHint: {
     hu: 'Bármelyik listádat végigveheted az összes feladattal, bármikor — akkor is, ha már megtanultad. Az ismétlések ütemezését nem változtatja meg.',
