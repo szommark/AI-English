@@ -2,8 +2,8 @@ import { supabaseAdmin } from './supabaseAdmin.js'
 import { callModel } from './modelRouter.js'
 import { getModelForFeature } from './modelSettings.js'
 import { logModelUsage } from './usageLog.js'
-import { buildVocabEnrichmentPrompt, type CefrLevel } from './prompts.js'
-import { parseVocabEnrichmentJson, type VocabEnrichmentEntry } from './groq.js'
+import { buildHuToEnTermPrompt, buildVocabEnrichmentPrompt, type CefrLevel } from './prompts.js'
+import { parseHuTermJson, parseVocabEnrichmentJson, type VocabEnrichmentEntry } from './groq.js'
 import { getModelEntry, type ModelId } from '../../src/lib/models.js'
 import {
   ENRICH_BATCH_SIZE,
@@ -112,6 +112,30 @@ async function writeToCache(entries: VocabEnrichmentEntry[], modelId: ModelId, o
   })
   // Not surfaced to the caller: the enrichment itself succeeded, it just won't be cached.
   if (error) console.error('Failed to write vocab enrichment cache', error)
+}
+
+/**
+ * The English term for a Hungarian meaning typed without one (list editor's "Add word").
+ * Not cached: one Hungarian word can stand for several English ones, and the definition or
+ * example picks the sense. Returns null when the model gives no usable term.
+ */
+export async function translateHuTerm(
+  input: { meaningHu: string; definitionEn?: string; exampleEn?: string },
+  userId: string,
+): Promise<string | null> {
+  const modelId = await getModelForFeature('vocabulary')
+  const { systemPrompt, messages } = buildHuToEnTermPrompt(input)
+  const result = await callModel(modelId, systemPrompt, messages)
+  // Logged as vocab_enrich (groq_usage_log.call_type is check-constrained): it is the first
+  // step of enriching the word.
+  await logModelUsage({ userId, scenarioId: 'vocabulary', callType: 'vocab_enrich', modelId, usage: result.usage })
+  try {
+    const term = parseHuTermJson(result.content)
+    return term && tidyHyphens(term)
+  } catch (err) {
+    console.error('Hungarian term lookup returned no JSON', { meaningHu: input.meaningHu, error: err })
+    return null
+  }
 }
 
 /** `origin` is stored on new global cache rows; 'catalog' is reserved for reviewed catalog items (design decision 9). */

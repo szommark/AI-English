@@ -3,6 +3,7 @@ import { useLanguage } from '../../lib/i18n'
 import { parsePastedTerms, type ImportedRow } from '../../lib/vocabImport'
 import type { AddOutcome } from '../../lib/vocabDraft'
 import { LIST_MAX_ITEMS } from '../../lib/vocab'
+import { translateHuTerm } from '../../lib/vocabListsApi'
 
 type Mode = 'word' | 'paste' | 'upload'
 
@@ -83,24 +84,74 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
   const [meaning, setMeaning] = useState('')
   const [definition, setDefinition] = useState('')
   const [example, setExample] = useState('')
-  const [error, setError] = useState<AddWordError | null>(null)
+  const [error, setError] = useState<AddWordError | 'translate' | null>(null)
+  const [translating, setTranslating] = useState(false)
+  const [translated, setTranslated] = useState<{ hu: string; term: string } | null>(null)
   const termRef = useRef<HTMLInputElement>(null)
+  // The lookup awaits: by then the editor may have re-rendered (enrichment filling rows),
+  // so add through the latest callback, not the one this submit started with.
+  const onAddWordRef = useRef(onAddWord)
+  onAddWordRef.current = onAddWord
 
-  function submit(e: FormEvent) {
+  /** No English word but a Hungarian meaning: look the English one up first. */
+  async function lookUpTerm(): Promise<string> {
+    setTranslating(true)
+    try {
+      const found = await translateHuTerm({
+        meaningHu: meaning.trim(),
+        definitionEn: definition.trim() || undefined,
+        exampleEn: example.trim() || undefined,
+      })
+      return found ?? ''
+    } catch (err) {
+      console.error('Hungarian word lookup failed', err)
+      return ''
+    } finally {
+      setTranslating(false)
+    }
+  }
+
+  async function submit(e: FormEvent) {
     e.preventDefault()
-    const result = term.trim() ? onAddWord({ term, meaningHu: meaning, definitionEn: definition, exampleEn: example }) : 'empty'
+    if (translating) return
+    setTranslated(null)
+    let word = term.trim()
+    const fromHu = !word && meaning.trim() ? meaning.trim() : null
+    if (fromHu) {
+      word = await lookUpTerm()
+      if (!word) {
+        setError('translate')
+        termRef.current?.focus()
+        return
+      }
+      // Shown in the field, so a "duplicate" or "full" error names the word that was found.
+      setTerm(word)
+    }
+
+    const result = word
+      ? onAddWordRef.current({ term: word, meaningHu: meaning, definitionEn: definition, exampleEn: example })
+      : 'empty'
     setError(result)
     if (result === null) {
       setTerm('')
       setMeaning('')
       setDefinition('')
       setExample('')
+      if (fromHu) setTranslated({ hu: fromHu, term: word })
     }
     termRef.current?.focus()
   }
 
   const errorText =
-    error === 'empty' ? t('vlErrEmptyTerm') : error === 'duplicate' ? t('vlErrDuplicate') : error === 'full' ? t('vlErrFull', { max: LIST_MAX_ITEMS }) : null
+    error === 'empty'
+      ? t('vlErrEmptyTerm')
+      : error === 'duplicate'
+        ? t('vlErrDuplicate')
+        : error === 'full'
+          ? t('vlErrFull', { max: LIST_MAX_ITEMS })
+          : error === 'translate'
+            ? t('vlErrTranslate')
+            : null
 
   return (
     <form onSubmit={submit} className="space-y-2" noValidate>
@@ -115,6 +166,7 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
           placeholder={t('vlTerm')}
           aria-label={t('vlTerm')}
           aria-invalid={error !== null}
+          readOnly={translating}
           className={`${inputClass} ${error ? 'border-red-400' : ''}`}
         />
         <input
@@ -122,6 +174,7 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
           onChange={(e) => setMeaning(e.target.value)}
           placeholder={t('vlMeaningOptional')}
           aria-label={t('vlMeaningOptional')}
+          readOnly={translating}
           className={inputClass}
         />
         <input
@@ -129,6 +182,7 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
           onChange={(e) => setDefinition(e.target.value)}
           placeholder={t('vlDefinitionOptional')}
           aria-label={t('vlDefinitionOptional')}
+          readOnly={translating}
           className={inputClass}
         />
         <input
@@ -136,19 +190,28 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
           onChange={(e) => setExample(e.target.value)}
           placeholder={t('vlExampleOptional')}
           aria-label={t('vlExampleOptional')}
+          readOnly={translating}
           className={inputClass}
         />
         <button
           type="submit"
-          className="rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)]"
+          disabled={translating}
+          className="rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-60"
         >
-          {t('vlAdd')}
+          {translating ? t('vlTranslating') : t('vlAdd')}
         </button>
       </div>
-      <p className="text-xs text-muted-foreground">{t('vlMeaningOrDefinition')}</p>
+      <p className="text-xs text-muted-foreground">
+        {t('vlMeaningOrDefinition')} {t('vlHuLookupHint')}
+      </p>
       {errorText && (
         <p className="text-sm text-red-600" role="alert">
           {errorText}
+        </p>
+      )}
+      {translated && (
+        <p className="text-sm text-muted-foreground" role="status">
+          {t('vlTranslated', translated)}
         </p>
       )}
     </form>

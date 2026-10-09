@@ -163,7 +163,8 @@ export default function TeacherVocabListPage() {
     if (!norm) return 'empty'
     if (rows.some((r) => normalizeTerm(r.term) === norm)) return 'duplicate'
     if (rows.length >= LIST_MAX_ITEMS) return 'full'
-    setRows(addImportedRows(rows, [row]).rows)
+    // Functional: "Add word" may call this after an awaited Hungarian lookup.
+    setRows((rs) => addImportedRows(rs, [row]).rows)
     edited()
     return null
   }

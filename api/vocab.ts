@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { getUserRole } from './_lib/roles.js'
-import { enrichTerms } from './_lib/vocabEnrichment.js'
+import { enrichTerms, translateHuTerm } from './_lib/vocabEnrichment.js'
 import { CEFR_LEVELS, prepareListItems, prepareListMeta, type PreparedListItem } from './_lib/vocabListInput.js'
 import {
   computeListProgress,
@@ -40,6 +40,7 @@ import {
   COMPILE_MIN_WORDS,
   CUSTOM_TOPIC_MAX_LENGTH,
   DRILL_MAX_WORDS,
+  ITEM_FIELD_MAX_LENGTH,
   LIST_MAX_ITEMS,
   LIST_TITLE_MAX_LENGTH,
   MIXED_LEVEL,
@@ -68,6 +69,8 @@ import {
 // Hobby's 12-serverless-function cap — same pattern as api/connect.ts.
 //
 // Phase 1: enrich (teachers and admins).
+//   POST   translate                    { meaningHu, definitionEn?, exampleEn? } — the English
+//                                        term for a Hungarian meaning (teachers and admins)
 // Phase 2 (teacher-only; everyone else gets 403):
 //   GET    lists[&archived=true]        the caller's lists (active by default, or archived)
 //   GET    list&id=                     one list: items, assignments, per-student progress
@@ -161,7 +164,33 @@ async function handleEnrich(req: VercelRequest, res: VercelResponse, userId: str
   res.status(200).json({ items })
 }
 
-// --- Teacher word lists (Phase 2) --------------------------------------------------------
+interface TranslateRequestBody {
+  meaningHu?: unknown
+  definitionEn?: unknown
+  exampleEn?: unknown
+}
+
+/** POST translate { meaningHu, definitionEn?, exampleEn? } → { term } (null when there is no usable one). */
+async function handleTranslate(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const role = await getUserRole(userId)
+  if (role !== 'teacher' && role !== 'admin') throw new HttpError(403, { error: 'Forbidden' })
+
+  const body = (req.body ?? {}) as TranslateRequestBody
+  const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim().replace(/\s+/g, ' ') : undefined)
+  const meaningHu = text(body.meaningHu)
+  if (!meaningHu) throw new HttpError(400, { error: 'meaningHu is required' })
+  const definitionEn = text(body.definitionEn)
+  const exampleEn = text(body.exampleEn)
+  if ([meaningHu, definitionEn, exampleEn].some((f) => f !== undefined && f.length > ITEM_FIELD_MAX_LENGTH)) {
+    throw new HttpError(400, { error: `Fields can be at most ${ITEM_FIELD_MAX_LENGTH} characters` })
+  }
+
+  const term = await translateHuTerm({ meaningHu, definitionEn, exampleEn }, userId)
+  res.status(200).json({ term })
+}
+
+// --- Teacher word lists (Phase 2)--------------------------------------------------------
 
 interface ListRow {
   id: string
@@ -1011,6 +1040,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     switch (req.query.action) {
       case 'enrich':
         await handleEnrich(req, res, user.id)
+        return
+      case 'translate':
+        await handleTranslate(req, res, user.id)
         return
       case 'lists':
         await handleLists(req, res, user.id)
