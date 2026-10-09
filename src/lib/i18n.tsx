@@ -315,6 +315,11 @@ const messages = {
     en: 'One is enough: a Hungarian meaning or an English definition.',
     de: 'Eines genügt: eine ungarische Bedeutung oder eine englische Definition.',
   },
+  vlHuLookupHint: {
+    hu: 'Csak a magyar szó van meg? Hagyd üresen az angol mezőt, és kikeressük.',
+    en: "Only have the Hungarian? Leave the English word empty and we'll look it up.",
+    de: 'Nur das ungarische Wort? Lass das englische Feld leer, wir schlagen es nach.',
+  },
   vlPdfExport: { hu: 'Mentés PDF-be', en: 'Export as PDF', de: 'Als PDF exportieren' },
   vlPdfBlocked: {
     hu: 'A böngésző letiltotta az új ablakot. Engedélyezd a felugró ablakokat, és próbáld újra.',
@@ -325,7 +330,22 @@ const messages = {
   vlExample: { hu: 'Példamondat', en: 'Example sentence', de: 'Beispielsatz' },
   vlExampleOptional: { hu: 'Példamondat (nem kötelező)', en: 'Example sentence (optional)', de: 'Beispielsatz (optional)' },
   vlAdd: { hu: 'Hozzáadás', en: 'Add', de: 'Hinzufügen' },
-  vlErrEmptyTerm: { hu: 'Írj be egy szót.', en: 'Enter a word.', de: 'Gib ein Wort ein.' },
+  vlErrEmptyTerm: {
+    hu: 'Írj be egy angol szót vagy egy magyar jelentést.',
+    en: 'Enter an English word or a Hungarian meaning.',
+    de: 'Gib ein englisches Wort oder eine ungarische Bedeutung ein.',
+  },
+  vlErrTranslate: {
+    hu: 'Nem találtuk meg az angol szót. Kérlek, írd be.',
+    en: "We couldn't find the English word. Please type it in.",
+    de: 'Das englische Wort wurde nicht gefunden. Bitte gib es ein.',
+  },
+  vlTranslating: { hu: 'Keresés…', en: 'Looking up…', de: 'Suche…' },
+  vlTranslated: {
+    hu: '„{hu}”: „{term}” hozzáadva. A lenti listában átírhatod.',
+    en: '"{hu}": added "{term}". You can change it in the list below.',
+    de: '„{hu}“: „{term}“ hinzugefügt. Du kannst es in der Liste unten ändern.',
+  },
   vlErrDuplicate: {
     hu: 'Ez a szó már szerepel a listán.',
     en: 'This word is already in the list.',

@@ -98,6 +98,12 @@ export async function fetchStudentVocabLists(studentId: string): Promise<VocabSt
   return body.lists
 }
 
+/** The English term for a Hungarian meaning; null when the model found none. */
+export async function translateHuTerm(input: { meaningHu: string; definitionEn?: string; exampleEn?: string }): Promise<string | null> {
+  const body = await request<{ term: string | null }>('action=translate', { method: 'POST', body: input })
+  return body.term
+}
+
 /** One chunk — the editor calls this ENRICH_BATCH_SIZE terms at a time. */
 export async function enrichVocabTerms(terms: string[], cefrHint?: CefrLevel | null): Promise<EnrichResult[]> {
   const body = await request<{ items: EnrichResult[] }>('action=enrich', {

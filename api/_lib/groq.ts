@@ -323,6 +323,19 @@ export function parseGrammarLessonJson(raw: string, lang: LessonLanguage = 'hu')
  * terms longer than WORD_PICK_MAX_WORDS_PER_TERM and duplicates (by normalizeTerm).
  * Throws only when the reply isn't JSON at all.
  */
+/** The term from buildHuToEnTermPrompt's reply, or null when it gave none or an unusable one. Throws only when the reply isn't JSON. */
+export function parseHuTermJson(raw: string): string | null {
+  const cleaned = raw.trim().replace(/^```(json)?/i, '').replace(/```$/, '').trim()
+  const parsed: unknown = JSON.parse(cleaned)
+  const value = typeof parsed === 'string' ? parsed : typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>).term : null
+  if (typeof value !== 'string') return null
+  const term = value.trim().replace(/\s+/g, ' ')
+  const normalized = normalizeTerm(term)
+  if (!normalized || term.length > TERM_MAX_LENGTH) return null
+  if (normalized.split(' ').length > WORD_PICK_MAX_WORDS_PER_TERM) return null
+  return term
+}
+
 export function parseWordPickJson(raw: string): string[] {
   const cleaned = raw.trim().replace(/^```(json)?/i, '').replace(/```$/, '').trim()
   const parsed: unknown = JSON.parse(cleaned)
