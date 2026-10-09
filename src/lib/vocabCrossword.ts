@@ -21,8 +21,12 @@ const ANSWER_MAX = 12
 const SOLUTION_MIN = 5
 const SOLUTION_MAX = 9
 
-/** The grid never grows wider or taller than this, so it fits a phone screen. */
-export const CROSSWORD_MAX_SPAN = 13
+/**
+ * The grid's size limits. Columns set the square size on a phone screen (12 across a 375 px
+ * screen ≈ 23 px squares); rows only make the page longer.
+ */
+export const CROSSWORD_MAX_COLS = 12
+export const CROSSWORD_MAX_ROWS = 13
 
 /** Layouts tried per puzzle; the best one is kept. */
 const ATTEMPTS = 40
@@ -157,8 +161,8 @@ function fit(layout: Layout, answer: string, row: number, col: number, direction
   if (layout.placed.length > 0) {
     const endRow = row + dr * (len - 1)
     const endCol = col + dc * (len - 1)
-    if (Math.max(layout.maxRow, endRow) - Math.min(layout.minRow, row) + 1 > CROSSWORD_MAX_SPAN) return -1
-    if (Math.max(layout.maxCol, endCol) - Math.min(layout.minCol, col) + 1 > CROSSWORD_MAX_SPAN) return -1
+    if (Math.max(layout.maxRow, endRow) - Math.min(layout.minRow, row) + 1 > CROSSWORD_MAX_ROWS) return -1
+    if (Math.max(layout.maxCol, endCol) - Math.min(layout.minCol, col) + 1 > CROSSWORD_MAX_COLS) return -1
   }
   let crossings = 0
   for (let i = 0; i < len; i++) {
