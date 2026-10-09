@@ -11,6 +11,7 @@ import {
   type GridPuzzle,
   type GridSize,
 } from '../../lib/vocabGrid'
+import CrosswordTab from './CrosswordTab'
 import GridGame from './GridGame'
 import { useListTitle } from './wordlistLabels'
 
@@ -19,11 +20,47 @@ const keyOf = (l: WordlistRef) => `${l.kind}-${l.id}`
 /** Whether a list has enough words for this size, with or without decoys. */
 const fits = (l: WordlistSummary, size: number, decoys: boolean) => l.wordCount >= gridWordCount(size, decoys)
 
+type Game = 'grid' | 'crossword'
+
 /**
- * Games tab: the word grid game. Pick a list, a size and whether a row of decoys is mixed
- * in; the words are drawn at random from the list. Nothing is saved.
+ * Games tab: the word grid and the crossword, picked with a switch. Both stay mounted, so
+ * switching doesn't lose a game in progress.
  */
 export default function GamesTab({ data }: { data: WordlistsResponse }) {
+  const { t } = useLanguage()
+  const [game, setGame] = useState<Game>('grid')
+  return (
+    <div className="space-y-3">
+      <div className="inline-flex rounded-lg bg-secondary p-0.5" role="group" aria-label={t('vgPickGame')}>
+        {(['grid', 'crossword'] as const).map((g) => (
+          <button
+            key={g}
+            type="button"
+            onClick={() => setGame(g)}
+            aria-pressed={game === g}
+            className={`rounded-md px-4 py-1.5 text-sm ${
+              game === g ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {t(g === 'grid' ? 'vgTitle' : 'cwTitle')}
+          </button>
+        ))}
+      </div>
+      <div hidden={game !== 'grid'}>
+        <WordGridGame data={data} />
+      </div>
+      <div hidden={game !== 'crossword'}>
+        <CrosswordTab data={data} />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * The word grid game. Pick a list, a size and whether a row of decoys is mixed in; the
+ * words are drawn at random from the list. Nothing is saved.
+ */
+function WordGridGame({ data }: { data: WordlistsResponse }) {
   const { t } = useLanguage()
   const listTitle = useListTitle()
   const playable = data.lists.filter((l) => l.wordCount >= GRID_MIN_WORDS)
