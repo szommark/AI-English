@@ -2,6 +2,7 @@ import type { ChatMessage, LessonLanguage } from '../../src/lib/types.js'
 import type { GrammarItem } from '../../src/data/grammarCurriculum.js'
 import { MAX_TUTOR_ITEMS_PER_SESSION } from '../../src/lib/vocab.js'
 import { buildTaxonomyPromptBlock } from '../../src/data/mistakeTaxonomy.js'
+import { EXERCISES_PER_TYPE } from '../../src/lib/grammarExercises.js'
 
 export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
 
@@ -200,6 +201,50 @@ Don't use the same widget type in two consecutive segments. "narration" is a sho
 ${languageRule}`
 
   return { systemPrompt, messages: [{ role: 'user', content: `Generate the lesson for "${item.title}" now.` }] }
+}
+
+/**
+ * Grammar Coach written practice: word order, form (gap fill) and transformation, five of
+ * each. Same language rule as the lesson — only the two instructions are ever written in
+ * the support language; every exercise sentence is English. Parse the reply with
+ * parseGrammarExercisesJson (api/_lib/groq.ts).
+ */
+export function buildGrammarExercisesPrompt(
+  item: GrammarItem,
+  cefrLevel: CefrLevel,
+  lang: LessonLanguage = 'hu',
+): PromptWithMessages {
+  const useSupportLanguage = lang !== 'en' && SUPPORT_LANGUAGE_LEVELS.includes(cefrLevel)
+  const instructionLanguage = useSupportLanguage ? LANGUAGE_NAMES[lang] : 'ENGLISH'
+  const hintLine = item.hint && lang === 'hu' ? `\nHungarian-learner focus: ${item.hint}\n` : ''
+  const learnerDescription = lang === 'hu' ? 'a Hungarian learner' : lang === 'de' ? 'a German-speaking learner' : 'a learner'
+
+  const systemPrompt = `You are an English grammar teacher writing a written exercise sheet for ${learnerDescription} on the grammar point "${item.title}" (CEFR level ${cefrLevel}). Every sentence must practise this exact grammar point, with vocabulary appropriate to the level.
+${hintLine}
+Respond with ONLY valid JSON (no markdown, no code fences) matching EXACTLY this shape:
+{"formInstruction":"...","transformInstruction":"...","order":[{"answer":"...","alternatives":["..."],"extra":"..."}],"form":[{"sentence":"...","cue":"...","answers":["..."]}],"transform":[{"source":"...","cue":"...","answers":["..."]}]}
+
+There are three exercise types, exactly ${EXERCISES_PER_TYPE} items each, ordered from easier to harder:
+
+1. "order" — the learner rebuilds a sentence from its shuffled words plus one extra word that does not belong.
+- "answer": the correct sentence (4 to 12 words) with its final punctuation. It must not start with a name or other proper noun.
+- "extra": ONE word that a learner who gets this grammar point wrong might wrongly use (e.g. for the passive: "is" in a past passive sentence, or "by" when there is no agent). It must not appear anywhere in "answer".
+- "alternatives": other word orders of exactly the same words that are also correct (e.g. a moved time adverbial); [] if there are none.
+
+2. "form" — a sentence with ONE gap, written as ___ (three underscores), and a cue the learner turns into the right form.
+- "cue": the base form shown in brackets after the gap, e.g. the infinitive of the verb ("build") for tenses and the passive, the adjective ("big") for comparatives, the pronoun ("I") for object pronouns. If this grammar point has no base form to change (e.g. prepositions, articles, this/that/these/those), the cue lists the options instead ("in / on / at").
+- "answers": every correct way to fill the gap — include both the contracted and the full form where both are correct ("wasn't built", "was not built").
+- "formInstruction": one short instruction for this section, e.g. "Put the verbs in brackets into the passive."
+
+3. "transform" — the learner rewrites a whole sentence so that it uses the grammar point.
+- "source": the sentence to rewrite, e.g. an active sentence to turn into the passive, a statement to turn into a question, direct speech to report, two sentences to join with a relative pronoun.
+- "cue": optional short hint shown in brackets, e.g. a word to use or how the new sentence starts; "" if none is needed.
+- "answers": the complete correct rewritten sentences — 1 to 3 versions, covering contracted/full forms and other natural correct variants.
+- "transformInstruction": one short instruction for this section, e.g. "Rewrite the sentences in the passive."
+
+Write "formInstruction" and "transformInstruction" in ${instructionLanguage}. Every exercise sentence, cue and answer is in ENGLISH. Keep each answer unambiguous: a learner who knows this grammar point should be able to produce exactly one of the listed answers.`
+
+  return { systemPrompt, messages: [{ role: 'user', content: `Generate the exercise sheet for "${item.title}" now.` }] }
 }
 
 /**

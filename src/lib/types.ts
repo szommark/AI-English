@@ -173,3 +173,36 @@ export interface GrammarLesson {
   segments: GrammarSegment[]
   practice: GrammarPracticeLine[]
 }
+
+/** Word order: the sentence's words are shuffled together with one extra word that doesn't belong. */
+export interface GrammarOrderExercise {
+  /** The correct sentence, final punctuation included. */
+  answer: string
+  /** Other correct word orders of the same words, if any. */
+  alternatives?: string[]
+  extra: string
+}
+
+/** Form: one "___" gap, filled with the right form of the cue shown in brackets. */
+export interface GrammarFormExercise {
+  sentence: string
+  cue: string
+  answers: string[]
+}
+
+/** Transformation: rewrite the source sentence (e.g. active → passive). */
+export interface GrammarTransformExercise {
+  source: string
+  /** Optional hint shown in brackets, e.g. a word to use or how to start. */
+  cue?: string
+  answers: string[]
+}
+
+/** Grammar Coach written practice for one grammar point; cached like GrammarLesson. */
+export interface GrammarExerciseSet {
+  formInstruction: string
+  transformInstruction: string
+  order: GrammarOrderExercise[]
+  form: GrammarFormExercise[]
+  transform: GrammarTransformExercise[]
+}
