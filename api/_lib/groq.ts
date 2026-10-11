@@ -1,6 +1,7 @@
 import type {
   ChatMessage,
   FeedbackResult,
+  GrammarExerciseSet,
   GrammarLesson,
   GrammarWidget,
   LessonLanguage,
@@ -20,6 +21,7 @@ import {
   type VocabKind,
   type VocabPos,
 } from '../../src/lib/vocab.js'
+import { EXERCISES_PER_TYPE, GAP, sameWords, sentenceTiles } from '../../src/lib/grammarExercises.js'
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
@@ -315,6 +317,74 @@ export function parseGrammarLessonJson(raw: string, lang: LessonLanguage = 'hu')
   }
 
   return parsed as GrammarLesson
+}
+
+/** Non-empty, trimmed strings of an answers array; throws when none are left. */
+function answerList(value: unknown, what: string): string[] {
+  const answers = Array.isArray(value) ? value.filter(isNonEmptyString).map((a) => a.trim()) : []
+  if (answers.length === 0) throw new Error(`Grammar ${what} has no answers`)
+  return answers
+}
+
+/** The first EXERCISES_PER_TYPE items of a section; throws when there are fewer. */
+function exerciseItems(value: unknown, section: string): Record<string, unknown>[] {
+  if (!Array.isArray(value) || value.length < EXERCISES_PER_TYPE) {
+    throw new Error(`Grammar exercises need ${EXERCISES_PER_TYPE} "${section}" items`)
+  }
+  return value.slice(0, EXERCISES_PER_TYPE).map((item) => {
+    if (typeof item !== 'object' || item === null) throw new Error(`Grammar "${section}" item is not an object`)
+    return item as Record<string, unknown>
+  })
+}
+
+/**
+ * Strict parse+validate for buildGrammarExercisesPrompt's reply, rebuilt field by field so
+ * nothing unexpected reaches the cache. Throws on any item that couldn't be played as an
+ * exercise (api/grammar-lesson.ts retries once, like the lesson). Word-order alternatives
+ * that don't use exactly the answer's words are dropped rather than failing the set.
+ */
+export function parseGrammarExercisesJson(raw: string): GrammarExerciseSet {
+  const cleaned = raw.trim().replace(/^```(json)?/i, '').replace(/```$/, '').trim()
+  const parsed = JSON.parse(cleaned)
+  if (typeof parsed !== 'object' || parsed === null) throw new Error('Grammar exercises JSON is not an object')
+  if (!isNonEmptyString(parsed.formInstruction) || !isNonEmptyString(parsed.transformInstruction)) {
+    throw new Error('Grammar exercises are missing an instruction')
+  }
+
+  const order = exerciseItems(parsed.order, 'order').map((item) => {
+    if (!isNonEmptyString(item.answer) || !isNonEmptyString(item.extra)) throw new Error('Grammar order item is missing answer/extra')
+    const answer = item.answer.trim()
+    const extra = item.extra.trim()
+    const tiles = sentenceTiles(answer)
+    if (tiles.length < 3 || /\s/.test(extra)) throw new Error('Grammar order item has too few words or a multi-word extra')
+    // An extra that is also one of the sentence's words would make two tile choices right.
+    if (tiles.some((t) => t.toLowerCase() === extra.toLowerCase())) throw new Error('Grammar order extra word is in the sentence')
+    const alternatives = Array.isArray(item.alternatives)
+      ? item.alternatives.filter(isNonEmptyString).map((a) => a.trim()).filter((a) => sameWords(a, answer))
+      : []
+    return { answer, extra, ...(alternatives.length ? { alternatives } : {}) }
+  })
+
+  const form = exerciseItems(parsed.form, 'form').map((item) => {
+    if (!isNonEmptyString(item.sentence) || !isNonEmptyString(item.cue)) throw new Error('Grammar form item is missing sentence/cue')
+    const sentence = item.sentence.trim().replace(/_{2,}/g, GAP)
+    if (sentence.split(GAP).length !== 2) throw new Error('Grammar form item needs exactly one gap')
+    return { sentence, cue: item.cue.trim(), answers: answerList(item.answers, 'form item') }
+  })
+
+  const transform = exerciseItems(parsed.transform, 'transform').map((item) => {
+    if (!isNonEmptyString(item.source)) throw new Error('Grammar transform item is missing its source sentence')
+    const cue = isNonEmptyString(item.cue) ? item.cue.trim() : undefined
+    return { source: item.source.trim(), ...(cue ? { cue } : {}), answers: answerList(item.answers, 'transform item') }
+  })
+
+  return {
+    formInstruction: parsed.formInstruction.trim(),
+    transformInstruction: parsed.transformInstruction.trim(),
+    order,
+    form,
+    transform,
+  }
 }
 
 /**

@@ -4,8 +4,13 @@ import PageHeading from '../components/PageHeading'
 import { localizeFeature, useLanguage } from '../lib/i18n'
 import { getFeature } from '../data/features'
 import { getGrammarItem, type CefrLevel, type GrammarItem } from '../data/grammarCurriculum'
-import type { GrammarLesson } from '../lib/types'
-import { fetchCachedGrammarLesson, requestGrammarLesson } from '../lib/grammarCoachApi'
+import type { GrammarExerciseSet, GrammarLesson } from '../lib/types'
+import {
+  fetchCachedGrammarExercises,
+  fetchCachedGrammarLesson,
+  requestGrammarExercises,
+  requestGrammarLesson,
+} from '../lib/grammarCoachApi'
 import { awardClientXp } from '../lib/gamificationApi'
 import { useSegmentPlayer } from '../hooks/useSegmentPlayer'
 import type { BoardTheme } from '../components/GrammarCoach/boardTheme'
@@ -13,7 +18,7 @@ import GrammarRail from '../components/GrammarCoach/GrammarRail'
 import ChalkBoard from '../components/GrammarCoach/ChalkBoard'
 import GrammarWidgetView from '../components/GrammarCoach/GrammarWidgetView'
 import VoiceBar from '../components/GrammarCoach/VoiceBar'
-import PracticeCheck from '../components/GrammarCoach/PracticeCheck'
+import PracticePanel, { type PracticeMode } from '../components/GrammarCoach/PracticePanel'
 import { boardThemes } from '../components/GrammarCoach/boardTheme'
 
 const grammarFeature = getFeature('grammar-coach')!
@@ -33,6 +38,9 @@ export default function GrammarCoachPage() {
   const [lesson, setLesson] = useState<GrammarLesson | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [theme, setTheme] = useState<BoardTheme>('green')
+  const [practiceMode, setPracticeMode] = useState<PracticeMode>('written')
+  const [exercises, setExercises] = useState<GrammarExerciseSet | null>(null)
+  const [isExercisesLoading, setIsExercisesLoading] = useState(false)
 
   // Guards against a stale async response landing after the learner has already picked
   // a different grammar item (fast clicks, slow network, etc.).
@@ -57,10 +65,16 @@ export default function GrammarCoachPage() {
     setSelected({ level, item })
     setLesson(null)
     setIsGenerating(false)
+    setExercises(null)
+    setIsExercisesLoading(false)
 
     fetchCachedGrammarLesson(level, item.id, lang).then((cached) => {
       if (selectionTokenRef.current !== token || !cached) return
       setLesson(cached)
+    })
+    fetchCachedGrammarExercises(level, item.id, lang).then((cached) => {
+      if (selectionTokenRef.current !== token || !cached) return
+      setExercises(cached)
     })
     // player.reset intentionally omitted from deps — it's stable enough for this handler's purpose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,16 +87,23 @@ export default function GrammarCoachPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang])
 
-  const handlePlay = useCallback(async () => {
+  // Generates the lesson on a cache miss. Play starts it straight away; the speaking
+  // practice only needs its sentences, so it loads without playing.
+  const loadLesson = useCallback(async (autoPlay: boolean) => {
     if (!selected) return
 
     if (lesson) {
-      player.play()
+      if (autoPlay) player.play()
+      return
+    }
+    if (isGenerating) {
+      // Already on its way (e.g. requested from the practice panel): just play it when it lands.
+      if (autoPlay) pendingAutoPlayRef.current = true
       return
     }
 
     const token = selectionTokenRef.current
-    pendingAutoPlayRef.current = true
+    pendingAutoPlayRef.current = autoPlay
     setIsGenerating(true)
     try {
       const generated = await requestGrammarLesson(selected.level, selected.item.id, lang)
@@ -95,7 +116,29 @@ export default function GrammarCoachPage() {
     } finally {
       if (selectionTokenRef.current === token) setIsGenerating(false)
     }
-  }, [selected, lesson, player])
+  }, [selected, lesson, player, isGenerating, lang])
+
+  const handlePlay = useCallback(() => loadLesson(true), [loadLesson])
+
+  const handlePrepareExercises = useCallback(async () => {
+    if (!selected || exercises || isExercisesLoading) return
+    const token = selectionTokenRef.current
+    setIsExercisesLoading(true)
+    try {
+      const generated = await requestGrammarExercises(selected.level, selected.item.id, lang)
+      if (selectionTokenRef.current === token) setExercises(generated)
+    } catch (err) {
+      // Fails silently like the lesson: the start button simply comes back.
+      console.error('Grammar exercises request failed', err)
+    } finally {
+      if (selectionTokenRef.current === token) setIsExercisesLoading(false)
+    }
+  }, [selected, exercises, isExercisesLoading, lang])
+
+  function handleWrittenComplete(score: number) {
+    if (!selected) return
+    awardClientXp({ activityType: 'grammar-coach.exercise', itemRef: `${selected.item.id}/written`, performanceScore: score })
+  }
 
   useEffect(() => {
     if (lesson && pendingAutoPlayRef.current) {
@@ -171,7 +214,20 @@ export default function GrammarCoachPage() {
             onSetRate={player.setRate}
           />
 
-          {player.isFinished && lesson && <PracticeCheck practice={lesson.practice} />}
+          {selected && (
+            <PracticePanel
+              key={`${selected.item.id}/${lang}`}
+              mode={practiceMode}
+              onModeChange={setPracticeMode}
+              lesson={lesson}
+              isLessonLoading={isGenerating}
+              onPrepareLesson={() => loadLesson(false)}
+              exercises={exercises}
+              isExercisesLoading={isExercisesLoading}
+              onPrepareExercises={handlePrepareExercises}
+              onWrittenComplete={handleWrittenComplete}
+            />
+          )}
 
           {!selected && (
             <p className="text-center text-sm text-slate-400">{tr('pickGrammarPoint')}</p>

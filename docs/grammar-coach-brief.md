@@ -66,3 +66,10 @@ Native `speechSynthesis` has no real seek/scrub and no known duration ahead of t
 - **Play/pause** uses real `speechSynthesis.pause()`/`.resume()` — fine on desktop Chrome/Edge.
 - **Progress is a stepped/chapter indicator** (one dot per segment), not a continuous scrubber — "back"/"forward" mean previous/next segment.
 - **Speed control** maps directly to `utterance.rate` (0.75 / 1 / 1.25).
+
+## Practice panel: speaking + written (added 2026-10-11)
+
+The "Your turn" index card now sits under the board as soon as a grammar point is picked; the lesson does not have to be played first. It has two tabs, both kept mounted so switching keeps the learner's answers:
+
+- **Speaking** — unchanged: the lesson's `practice` sentences with `PracticeSentence`. If the lesson isn't loaded yet, "Prepare the sentences" generates it without starting playback.
+- **Writing** — a separately generated and cached set (`grammar_exercises` table, same key as `grammar_lessons`; `POST /api/grammar-lesson` with `kind: "exercises"`): 5 × word order (shuffled tiles plus one extra word), 5 × form (one `___` gap + a cue in brackets, e.g. the infinitive), 5 × transformation (e.g. active → passive). The model writes the form/transformation instructions per grammar point, which generalizes the three types to every curriculum item. Answers are checked in the browser against accepted-answer lists (`src/lib/grammarExercises.ts`: case, commas, curly apostrophes and the final mark don't count). Finishing all 15 awards `grammar-coach.exercise` XP with `itemRef` `<item id>/written` and the share correct as the score.
