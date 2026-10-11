@@ -5,6 +5,7 @@ export default {
     extend: {
       fontFamily: {
         hand: ['"Patrick Hand"', 'cursive'],
+        brand: ['"EB Garamond"', 'Georgia', 'serif'],
       },
       colors: {
         background: 'var(--background)',
