@@ -114,6 +114,14 @@ const messages = {
   language: { hu: 'Nyelv', en: 'Language', de: 'Sprache' },
   loading: { hu: 'Betöltés…', en: 'Loading…', de: 'Wird geladen…' },
 
+  // Avalon intro (src/components/BrandIntro.tsx).
+  introSubtitle: {
+    hu: 'Adaptív angoltanulási platform és klub',
+    en: 'Adaptive English learning platform and club',
+    de: 'Adaptive Englisch-Lernplattform und Club',
+  },
+  introSkip: { hu: 'Kihagyás', en: 'Skip', de: 'Überspringen' },
+
   landingKicker: { hu: 'Gyakorlás', en: 'Practice', de: 'Üben' },
   landingHeading: {
     hu: 'Válaszd ki, hogyan szeretnél ma gyakorolni',

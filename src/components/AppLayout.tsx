@@ -1,9 +1,10 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext'
 import { useLanguage } from '../lib/i18n'
 import { buildTrail } from '../lib/navTrail'
 import AuthModal from './AuthModal'
+import BrandIntro, { shouldShowBrandIntro } from './BrandIntro'
 import LanguageSwitcher from './LanguageSwitcher'
 import LevelChip from './gamification/LevelChip'
 import XpNotifications from './gamification/XpNotifications'
@@ -57,9 +58,13 @@ export default function AppLayout() {
 
   const trail = useMemo(() => buildTrail(pathname, lang, t), [pathname, lang, t])
   const isHome = pathname === '/'
+  // Decided once on mount: the intro plays only when a session starts on the home page.
+  const [showIntro, setShowIntro] = useState(() => isHome && shouldShowBrandIntro())
+  const hideIntro = useCallback(() => setShowIntro(false), [])
 
   return (
     <AuthPromptContext.Provider value={promptValue}>
+      {showIntro && <BrandIntro onDone={hideIntro} />}
       <div className="min-h-screen bg-background">
         <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
           <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">

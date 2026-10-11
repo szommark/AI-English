@@ -31,3 +31,123 @@
   --shadow-elegant: 0 20px 60px -25px oklch(0.24 0.07 255 / 0.35);
   --shadow-card: 0 8px 30px -12px oklch(0.24 0.07 255 / 0.18);
 }
+
+/* Avalon intro (src/components/BrandIntro.tsx): "AVLN" parts and the missing A and O fade in. */
+.brand-intro {
+  --brand-navy: #0a1f44;
+  --brand-gold: #c9a227;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: #fff;
+  color: var(--brand-navy);
+  cursor: pointer;
+  transition: opacity 600ms ease;
+}
+.brand-intro[data-leaving] {
+  opacity: 0;
+  pointer-events: none;
+}
+.brand-intro:not([data-ready]) .brand-intro__stage {
+  visibility: hidden;
+}
+.brand-intro__stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.brand-intro__word {
+  display: flex;
+  margin: 0;
+  font-family: 'EB Garamond', Georgia, 'Times New Roman', serif;
+  font-weight: 600;
+  font-size: clamp(3.25rem, 15vw, 8.5rem);
+  line-height: 1;
+}
+.brand-intro__letter {
+  display: inline-block;
+  padding-inline: 0.035em;
+}
+.brand-intro__rule {
+  width: min(16rem, 60vw);
+  height: 2px;
+  margin-top: 1.75rem;
+  background: var(--brand-gold);
+  transform-origin: center;
+}
+.brand-intro__subtitle {
+  margin-top: 1.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.6;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.brand-intro__slogan {
+  margin-top: 0.75rem;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-style: italic;
+  font-size: clamp(1.05rem, 2.6vw, 1.35rem);
+  color: rgb(10 31 68 / 0.7);
+}
+.brand-intro__skip {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid rgb(10 31 68 / 0.2);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: rgb(10 31 68 / 0.75);
+  background: transparent;
+}
+.brand-intro__skip:hover {
+  background: rgb(10 31 68 / 0.05);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .brand-intro[data-ready] .brand-intro__letter {
+    animation:
+      brand-intro-in 600ms ease-out calc(var(--i) * 70ms) both,
+      brand-intro-spread 900ms cubic-bezier(0.65, 0, 0.35, 1) 1000ms both;
+  }
+  .brand-intro[data-ready] .brand-intro__letter--added {
+    animation: brand-intro-added 900ms ease-out 1700ms both;
+  }
+  .brand-intro[data-ready] .brand-intro__rule {
+    animation: brand-intro-rule 700ms cubic-bezier(0.22, 1, 0.36, 1) 2500ms both;
+  }
+  .brand-intro[data-ready] .brand-intro__subtitle {
+    animation: brand-intro-rise 600ms ease-out 2800ms both;
+  }
+  .brand-intro[data-ready] .brand-intro__slogan {
+    animation: brand-intro-rise 600ms ease-out 3100ms both;
+  }
+}
+
+@keyframes brand-intro-in {
+  from { opacity: 0; translate: 0 0.15em; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes brand-intro-spread {
+  from { transform: translateX(var(--shift)); }
+  to { transform: none; }
+}
+@keyframes brand-intro-added {
+  0% { opacity: 0; color: var(--brand-gold); translate: 0 -0.12em; }
+  55% { opacity: 1; color: var(--brand-gold); translate: 0 0; }
+  100% { opacity: 1; color: var(--brand-navy); translate: 0 0; }
+}
+@keyframes brand-intro-rule {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes brand-intro-rise {
+  from { opacity: 0; translate: 0 0.5rem; }
+  to { opacity: 1; translate: 0 0; }
+}
