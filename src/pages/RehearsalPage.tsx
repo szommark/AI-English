@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
+import { Volume2 } from 'lucide-react'
 import { getScenario } from '../data/scenarios'
 import { getCategoryForScenario } from '../data/categories'
 import ConversationSession from '../components/ConversationSession'
@@ -7,6 +8,7 @@ import MouthBubbleLayer from '../components/SpeechBubble/MouthBubbleLayer'
 import TranscriptLines from '../components/SpeechBubble/TranscriptLines'
 import PracticeSentence from '../components/PracticeSentence'
 import { scenarioPhotos } from '../assets/scenarioPhotos'
+import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { localizeCategory, localizeScenario, useLanguage, withGloss } from '../lib/i18n'
 import { lineGloss, phraseGloss } from '../lib/scenarioGloss'
 
@@ -17,6 +19,10 @@ export default function RehearsalPage() {
   const [started, setStarted] = useState(false)
   const [revealedIndex, setRevealedIndex] = useState(0)
   const photoContainerRef = useRef<HTMLDivElement>(null)
+  // The character's sample lines are read aloud as they appear (the learner's are left to them).
+  const synthesis = useSpeechSynthesis(scenario?.voiceGender)
+
+  useEffect(() => synthesis.cancel, [synthesis.cancel])
 
   if (!scenario) return <Navigate to="/" replace />
 
@@ -32,6 +38,14 @@ export default function RehearsalPage() {
     text: l.line,
   }))
   const isEnded = script.length > 0 && revealedIndex >= script.length
+
+  function revealNext() {
+    const line = script[revealedIndex]
+    if (!line) return
+    if (line.speaker !== 'You') synthesis.speak(line.line)
+    else synthesis.cancel()
+    setRevealedIndex((i) => i + 1)
+  }
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -88,16 +102,25 @@ export default function RehearsalPage() {
               </div>
 
               {/* z-10 keeps the Next button clickable above the live bubble exchange. */}
-              <div className="relative z-10">
+              <div className="relative z-10 flex flex-wrap items-center gap-2">
                 {revealedIndex < script.length ? (
                   <button
-                    onClick={() => setRevealedIndex((i) => i + 1)}
+                    onClick={revealNext}
                     className="rounded-lg border border-indigo-600 text-indigo-600 text-sm px-4 py-2 hover:bg-indigo-50"
                   >
                     {t('next')}
                   </button>
                 ) : (
                   <p className="text-xs text-slate-400">{t('sampleEnded')}</p>
+                )}
+                {lastCharacterLine && synthesis.supported && (
+                  <button
+                    onClick={() => synthesis.speak(lastCharacterLine)}
+                    className="inline-flex items-center gap-1.5 rounded-lg text-sm text-indigo-600 px-3 py-2 hover:bg-indigo-50"
+                  >
+                    <Volume2 className="h-4 w-4" />
+                    {t('listenAgain')}
+                  </button>
                 )}
               </div>
 
@@ -106,7 +129,10 @@ export default function RehearsalPage() {
             </div>
 
             <button
-              onClick={() => setStarted(true)}
+              onClick={() => {
+                synthesis.cancel()
+                setStarted(true)
+              }}
               className="relative z-10 w-full rounded-lg bg-indigo-600 text-white py-2.5 text-sm font-medium hover:bg-indigo-700"
             >
               {t('startMyTry')}

@@ -187,6 +187,7 @@ const messages = {
   usefulPhrases: { hu: 'Hasznos kifejezések', en: 'Useful phrases', de: 'Nützliche Ausdrücke' },
   sampleConversation: { hu: 'Minta beszélgetés', en: 'Sample conversation', de: 'Beispielgespräch' },
   next: { hu: 'Következő', en: 'Next', de: 'Weiter' },
+  listenAgain: { hu: 'Meghallgatom újra', en: 'Listen again', de: 'Nochmal anhören' },
   sampleEnded: { hu: 'Vége a minta beszélgetésnek.', en: 'End of the sample conversation.', de: 'Ende des Beispielgesprächs.' },
   startMyTry: { hu: 'Kezdem a saját próbámat', en: 'Start my own try', de: 'Ich starte meinen eigenen Versuch' },
   practiceConversation: { hu: 'Gyakorold a beszélgetést', en: 'Practice the conversation', de: 'Übe das Gespräch' },
@@ -1419,6 +1420,45 @@ const messages = {
   exSpkCorrections: { hu: 'Javítandó mondatok', en: 'Sentences to fix', de: 'Sätze zum Verbessern' },
   exSpkConversation: { hu: 'A beszélgetés', en: 'The conversation', de: 'Das Gespräch' },
   exSpkExaminerCard: { hu: 'A vizsgáztató szerepkártyája', en: "The examiner's role card", de: 'Rollenkarte des Prüfers' },
+  exSpkModeExamDesc: {
+    hu: 'Az összes feladat egymás után, segítség nélkül, ahogy a vizsgán. A végén becsült pontszámot kapsz a teljes szóbelire.',
+    en: 'All the tasks in a row, without help, as in the exam. At the end you get an estimated score for the whole speaking exam.',
+    de: 'Alle Aufgaben nacheinander, ohne Hilfe, wie in der Prüfung. Am Ende bekommst du eine geschätzte Punktzahl für die ganze mündliche Prüfung.',
+  },
+  exSpkModePracticeDesc: {
+    hu: 'Feladatonként külön gyakorolsz. Gyakorlás: hasznos kifejezések, egy felolvasott minta beszélgetés, aztán a saját próbád a vizsgáztatóval. Teszt mód: segítség nélkül, a végén pontszámmal erre a feladatra.',
+    en: 'Practise each task on its own. Rehearsal: useful phrases, a sample conversation read aloud, then your own try with the examiner. Test mode: no help, and a score for that task at the end.',
+    de: 'Übe jede Aufgabe einzeln. Probe: nützliche Ausdrücke, ein vorgelesenes Beispielgespräch, dann dein eigener Versuch mit dem Prüfer. Testmodus: ohne Hilfe, am Ende mit einer Punktzahl für diese Aufgabe.',
+  },
+  exSpkPracticeHowItWorks: {
+    hu: 'A vizsgáztató elindítja a feladatot. Hangosan válaszolj (vagy gépelj); a feladatlapot végig látod. A végén becsült pontszámot kapsz erre a feladatra.',
+    en: 'The examiner starts the task. Answer out loud (or type); the task sheet stays on the screen. At the end you get an estimated score for this task.',
+    de: 'Der Prüfer beginnt die Aufgabe. Antworte laut (oder tippe); das Aufgabenblatt bleibt auf dem Bildschirm. Am Ende bekommst du eine geschätzte Punktzahl für diese Aufgabe.',
+  },
+  exSpkRehearsalIntro: {
+    hu: 'Nézd át a hasznos kifejezéseket és a minta beszélgetést (a vizsgáztató mondatait fel is olvassuk), aztán próbáld ki te magad. Ha elakadsz, a vizsgáztató segít.',
+    en: "Look through the useful phrases and the sample conversation (the examiner's lines are read aloud), then try it yourself. If you get stuck, the examiner helps you out.",
+    de: 'Sieh dir die nützlichen Ausdrücke und das Beispielgespräch an (die Sätze des Prüfers werden vorgelesen) und probier es dann selbst. Wenn du nicht weiterkommst, hilft dir der Prüfer.',
+  },
+  exSpkTestIntro: {
+    hu: 'Most segítség nélkül, ahogy a vizsgán. A végén becsült pontszámot kapsz erre a feladatra.',
+    en: 'Now without help, as in the exam. At the end you get an estimated score for this task.',
+    de: 'Jetzt ohne Hilfe, wie in der Prüfung. Am Ende bekommst du eine geschätzte Punktzahl für diese Aufgabe.',
+  },
+  exSpkSampleStart: {
+    hu: 'Kattints a „Következő” gombra, és sorról sorra megjelenik a minta beszélgetés.',
+    en: 'Click “Next” to go through the sample conversation line by line.',
+    de: 'Klicke auf „Weiter“, um das Beispielgespräch Zeile für Zeile durchzugehen.',
+  },
+  exSpkPracticeTabs: { hu: 'Gyakorlás vagy teszt', en: 'Rehearsal or test', de: 'Probe oder Test' },
+  exSpkTryAgain: { hu: 'Újra próbálom', en: 'Try this task again', de: 'Aufgabe wiederholen' },
+  exSpkToTest: { hu: 'Tovább a teszt módra', en: 'On to test mode', de: 'Weiter zum Testmodus' },
+  exSpkTaskResult: { hu: '{task} — eredmény', en: '{task} — result', de: '{task} — Ergebnis' },
+  exSpkPracticeNothingSaid: {
+    hu: 'Ebben a feladatban nem válaszoltál, így nincs mit értékelni.',
+    en: "You didn't answer in this task, so there is nothing to assess.",
+    de: 'Du hast in dieser Aufgabe nicht geantwortet, daher gibt es nichts zu bewerten.',
+  },
 } as const satisfies Record<string, Record<Lang, string>>
 
 export type MessageKey = keyof typeof messages

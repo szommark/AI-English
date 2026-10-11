@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { Check, Mic } from 'lucide-react'
+import { Check, ChevronRight, Mic } from 'lucide-react'
 import PageHeading from '../components/PageHeading'
 import ExaminerSession from '../components/ExamSpeaking/ExaminerSession'
+import SpeakingPracticeRunner from '../components/ExamSpeaking/SpeakingPractice'
 import SpeakingResults from '../components/ExamSpeaking/SpeakingResults'
 import SpeakingTaskSheet from '../components/ExamSpeaking/SpeakingTaskSheet'
+import { Elapsed, PrimaryButton, SecondaryButton, StepPill } from '../components/ExamSpeaking/SpeakingControls'
 import { getExamPaperMeta } from '../data/exams/catalog'
 import { getSpeakingExam, type SpeakingExam } from '../data/exams/speaking'
 import type { ExamPaperMeta } from '../data/exams/types'
@@ -12,74 +14,218 @@ import { examPaperLabel } from '../lib/examLabels'
 import { assessSpeakingExam } from '../lib/examSpeakingApi'
 import {
   clearSpeakingAttempt,
+  clearSpeakingPractice,
   loadSpeakingAttempt,
+  loadSpeakingMode,
+  loadSpeakingPractice,
   newSpeakingAttempt,
+  newSpeakingPractice,
   saveSpeakingAttempt,
+  saveSpeakingMode,
+  saveSpeakingPractice,
   type SpeakingAttempt,
+  type SpeakingPageMode,
 } from '../lib/examSpeakingAttempt'
 import { useLanguage } from '../lib/i18n'
 import type { ChatMessage } from '../lib/types'
 
-/** `/exams/:paperId/speaking`: a nyelvvizsga speaking exam with the AI examiner. */
+/**
+ * `/exams/:paperId/speaking`: a nyelvvizsga speaking exam with the AI examiner — either the
+ * whole exam in a row (exam mode) or each task on its own with a rehearsal and a test
+ * (practice mode).
+ */
 export default function ExamSpeakingPage() {
   const { paperId } = useParams()
   const meta = paperId ? getExamPaperMeta(paperId) : undefined
   const exam = meta ? getSpeakingExam(meta.id) : undefined
   if (!meta || !exam) return <Navigate to={meta ? `/exams/${meta.id}` : '/exams'} replace />
-  return <SpeakingRunner key={meta.id} meta={meta} exam={exam} />
-}
-
-function PrimaryButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} className="min-h-12 rounded-xl bg-primary px-6 text-base font-semibold text-primary-foreground hover:opacity-90">
-      {children}
-    </button>
-  )
-}
-
-function SecondaryButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} className="min-h-12 rounded-xl border border-border bg-card px-6 text-base font-medium text-foreground hover:bg-muted">
-      {children}
-    </button>
-  )
-}
-
-/** Time spent on a task so far, against roughly how long it takes in the exam. */
-function Elapsed({ since, minutes }: { since: number; minutes: number }) {
-  const { t } = useLanguage()
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(id)
-  }, [])
-  const sec = Math.max(0, Math.floor((now - since) / 1000))
-  const time = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
-  return (
-    <span className={`text-sm tabular-nums ${sec > minutes * 60 ? 'text-amber-700' : 'text-muted-foreground'}`}>
-      {t('exSpkElapsed', { time, n: minutes })}
-    </span>
-  )
+  return <SpeakingPage key={meta.id} meta={meta} exam={exam} />
 }
 
 function hasLearnerTurns(turns: ChatMessage[] | undefined): boolean {
   return !!turns?.some((m) => m.role === 'user')
 }
 
-function SpeakingRunner({ meta, exam }: { meta: ExamPaperMeta; exam: SpeakingExam }) {
-  const { t, lang } = useLanguage()
-  const [attempt, setAttempt] = useState<SpeakingAttempt>(() => {
-    const saved = loadSpeakingAttempt(meta.id)
-    if (!saved) return newSpeakingAttempt()
-    // A saved task that is no longer in the exam: back to the overview.
-    const view = saved.view
-    return view.name === 'task' && !exam.tasks.some((x) => x.id === view.taskId) ? { ...saved, view: { name: 'overview' } } : saved
+/** Where a saved exam attempt picks up: its first unfinished task, or the results. */
+function resumeExam(attempt: SpeakingAttempt, exam: SpeakingExam): { attempt: SpeakingAttempt; autoStart: string | null } {
+  const view = attempt.view
+  if (view.name === 'results' || (view.name === 'task' && exam.tasks.some((x) => x.id === view.taskId))) return { attempt, autoStart: null }
+  const firstOpen = exam.tasks.find((task) => !attempt.done.includes(task.id))
+  if (!firstOpen) return { attempt: { ...attempt, view: { name: 'results' } }, autoStart: null }
+  return {
+    attempt: {
+      ...attempt,
+      view: { name: 'task', taskId: firstOpen.id },
+      startedAt: attempt.startedAt[firstOpen.id] ? attempt.startedAt : { ...attempt.startedAt, [firstOpen.id]: Date.now() },
+    },
+    autoStart: firstOpen.id,
+  }
+}
+
+function SpeakingPage({ meta, exam }: { meta: ExamPaperMeta; exam: SpeakingExam }) {
+  const { t } = useLanguage()
+  const [mode, setModeState] = useState<SpeakingPageMode | null>(() => {
+    const saved = loadSpeakingMode(meta.id)
+    if (saved === 'exam' && !loadSpeakingAttempt(meta.id)) return null
+    if (saved === 'practice' && !loadSpeakingPractice(meta.id)) return null
+    return saved
   })
-  // The task the learner just clicked into: it starts by itself (speech needs a click first).
-  const [autoStart, setAutoStart] = useState<string | null>(null)
+  // The exam task the learner just clicked into: it starts by itself (speech needs a click first).
+  const [examAutoStart, setExamAutoStart] = useState<string | null>(null)
+  const title = examPaperLabel(t, meta)
+
+  function setMode(next: SpeakingPageMode | null) {
+    saveSpeakingMode(meta.id, next)
+    setModeState(next)
+    window.scrollTo({ top: 0 })
+  }
+
+  function startExam(fresh: boolean) {
+    if (fresh) clearSpeakingAttempt(meta.id)
+    const { attempt, autoStart } = resumeExam((!fresh && loadSpeakingAttempt(meta.id)) || newSpeakingAttempt(), exam)
+    saveSpeakingAttempt(meta.id, attempt)
+    setExamAutoStart(autoStart)
+    setMode('exam')
+  }
+
+  function startPractice(taskId: string) {
+    const saved = loadSpeakingPractice(meta.id)
+    saveSpeakingPractice(meta.id, saved ? { ...saved, taskId, tab: 'rehearsal' } : newSpeakingPractice(taskId))
+    setMode('practice')
+  }
+
+  if (mode === 'exam') {
+    return <SpeakingRunner meta={meta} exam={exam} title={title} initialAutoStart={examAutoStart} onExit={() => setMode(null)} />
+  }
+  if (mode === 'practice') {
+    return <SpeakingPracticeRunner paperId={meta.id} title={title} language={meta.language} exam={exam} onExit={() => setMode(null)} />
+  }
+  return <SpeakingIntro meta={meta} exam={exam} title={title} onExam={startExam} onPractice={startPractice} />
+}
+
+// --- Intro: the speaking exam at a glance, and the choice of mode ------------------------
+function SpeakingIntro({
+  meta,
+  exam,
+  title,
+  onExam,
+  onPractice,
+}: {
+  meta: ExamPaperMeta
+  exam: SpeakingExam
+  title: string
+  onExam: (fresh: boolean) => void
+  onPractice: (taskId: string) => void
+}) {
+  const { t } = useLanguage()
+  const [savedExam, setSavedExam] = useState(() => loadSpeakingAttempt(meta.id))
+  const [savedPractice, setSavedPractice] = useState(() => loadSpeakingPractice(meta.id))
+  const examInProgress = !!savedExam && (Object.values(savedExam.transcripts).some((m) => m.length > 0) || !!savedExam.assessment)
+  const practised = (taskId: string) => !!savedPractice?.runs[`${taskId}:test`]?.assessment
+  const totalMinutes = exam.tasks.reduce((n, task) => n + task.minutes, 0)
+
+  return (
+    <div className="space-y-6">
+      <PageHeading title={title} subtitle={t('exSpeaking')} />
+      <section className="space-y-3 rounded-2xl border border-border bg-card p-5 sm:p-6">
+        <h2 className="font-semibold text-foreground">{t('exSpkOverviewTitle')}</h2>
+        <p className="text-base leading-relaxed text-foreground">{t('exSpkHowItWorks')}</p>
+        <p className="flex items-start gap-2 text-sm text-muted-foreground">
+          <Mic className="mt-0.5 h-4 w-4 shrink-0" />
+          {t('exSpkMicNote')}
+        </p>
+        <p className="text-sm font-medium text-foreground">{t('exSpeakingTaskCount', { n: exam.tasks.length, min: totalMinutes })}</p>
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <section className="flex flex-col rounded-2xl border border-border bg-card p-5 sm:p-6">
+          <h2 className="text-lg font-semibold text-foreground">{t('exModeExam')}</h2>
+          <p className="mt-2 flex-1 text-sm text-muted-foreground">{t('exSpkModeExamDesc')}</p>
+          {examInProgress && <p className="mt-3 text-sm font-medium text-sky-800">{t('exSavedProgress')}</p>}
+          <div className="mt-4 flex flex-col gap-2">
+            <PrimaryButton onClick={() => onExam(false)}>
+              {savedExam?.assessment ? t('exSpkResults') : examInProgress ? t('exContinue') : t('exSpkStart')}
+            </PrimaryButton>
+            {examInProgress && (
+              <SecondaryButton
+                onClick={() => {
+                  clearSpeakingAttempt(meta.id)
+                  setSavedExam(null)
+                }}
+              >
+                {t('exStartOver')}
+              </SecondaryButton>
+            )}
+          </div>
+        </section>
+
+        <section className="flex flex-col rounded-2xl border border-border bg-card p-5 sm:p-6">
+          <h2 className="text-lg font-semibold text-foreground">{t('exModePractice')}</h2>
+          <p className="mt-2 flex-1 text-sm text-muted-foreground">{t('exSpkModePracticeDesc')}</p>
+          <ul className="mt-4 space-y-2">
+            {exam.tasks.map((task) => (
+              <li key={task.id}>
+                <button
+                  type="button"
+                  onClick={() => onPractice(task.id)}
+                  className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-border px-4 py-2 text-left transition-colors hover:border-sky-200 hover:bg-sky-50"
+                >
+                  <span className="flex items-center gap-2 text-base text-foreground">
+                    {practised(task.id) && <Check className="h-4 w-4 text-emerald-600" aria-label={t('exSubmitted')} />}
+                    <span>
+                      {task.label}: <span lang={meta.language}>{task.title}</span>
+                    </span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-sky-700 transition-transform group-hover:translate-x-0.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+          {savedPractice && (
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  clearSpeakingPractice(meta.id)
+                  setSavedPractice(null)
+                }}
+                className="min-h-11 text-sm font-medium text-muted-foreground underline-offset-2 hover:underline"
+              >
+                {t('exStartOver')}
+              </button>
+            </div>
+          )}
+        </section>
+      </div>
+
+      <div className="space-y-4">
+        {exam.tasks.map((task) => (
+          <SpeakingTaskSheet key={task.id} task={task} language={meta.language} compact headingLevel="h3" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// --- Exam mode: every task in a row, then the assessment --------------------------------
+function SpeakingRunner({
+  meta,
+  exam,
+  title,
+  initialAutoStart,
+  onExit,
+}: {
+  meta: ExamPaperMeta
+  exam: SpeakingExam
+  title: string
+  initialAutoStart: string | null
+  onExit: () => void
+}) {
+  const { t, lang } = useLanguage()
+  const [attempt, setAttempt] = useState<SpeakingAttempt>(() => resumeExam(loadSpeakingAttempt(meta.id) ?? newSpeakingAttempt(), exam).attempt)
+  const [autoStart, setAutoStart] = useState<string | null>(initialAutoStart)
   const [assessing, setAssessing] = useState(false)
   const [assessError, setAssessError] = useState<'failed' | 'empty' | null>(null)
-  const title = examPaperLabel(t, meta)
   const language = meta.language
 
   useEffect(() => saveSpeakingAttempt(meta.id, attempt), [attempt, meta.id])
@@ -118,57 +264,26 @@ function SpeakingRunner({ meta, exam }: { meta: ExamPaperMeta; exam: SpeakingExa
     }
   }
 
+  // Results reached without an assessment (every task closed, or a reload mid-request).
+  const assessStartedRef = useRef(false)
+  useEffect(() => {
+    if (attempt.view.name !== 'results' || attempt.assessment || assessStartedRef.current) return
+    assessStartedRef.current = true
+    assess(attempt)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt.view.name])
+
   function finishExam() {
     update((a) => ({ ...a, view: { name: 'results' } }))
-    if (!attempt.assessment) assess(attempt)
   }
 
   function startOver() {
     clearSpeakingAttempt(meta.id)
-    setAssessError(null)
-    setAutoStart(null)
-    setAttempt(newSpeakingAttempt())
-  }
-
-  const firstOpen = exam.tasks.find((task) => !attempt.done.includes(task.id))
-  const inProgress = exam.tasks.some((task) => (attempt.transcripts[task.id]?.length ?? 0) > 0)
-  const totalMinutes = exam.tasks.reduce((n, task) => n + task.minutes, 0)
-
-  // --- Overview: the whole speaking exam at once --------------------------------------
-  if (attempt.view.name === 'overview') {
-    return (
-      <div className="space-y-6">
-        <PageHeading title={title} subtitle={t('exSpeaking')} />
-        <section className="space-y-3 rounded-2xl border border-border bg-card p-5 sm:p-6">
-          <h2 className="font-semibold text-foreground">{t('exSpkOverviewTitle')}</h2>
-          <p className="text-base leading-relaxed text-foreground">{t('exSpkHowItWorks')}</p>
-          <p className="flex items-start gap-2 text-sm text-muted-foreground">
-            <Mic className="mt-0.5 h-4 w-4 shrink-0" />
-            {t('exSpkMicNote')}
-          </p>
-          <p className="text-sm font-medium text-foreground">{t('exSpeakingTaskCount', { n: exam.tasks.length, min: totalMinutes })}</p>
-          <div className="flex flex-col gap-2 pt-1 sm:flex-row">
-            {attempt.assessment ? (
-              <PrimaryButton onClick={() => update((a) => ({ ...a, view: { name: 'results' } }))}>{t('exSpkResults')}</PrimaryButton>
-            ) : firstOpen ? (
-              <PrimaryButton onClick={() => openTask(firstOpen.id, true)}>{inProgress ? t('exContinue') : t('exSpkStart')}</PrimaryButton>
-            ) : (
-              <PrimaryButton onClick={finishExam}>{t('exSpkFinish')}</PrimaryButton>
-            )}
-            {inProgress && <SecondaryButton onClick={startOver}>{t('exStartOver')}</SecondaryButton>}
-          </div>
-        </section>
-        <div className="space-y-4">
-          {exam.tasks.map((task) => (
-            <SpeakingTaskSheet key={task.id} task={task} language={language} compact headingLevel="h3" />
-          ))}
-        </div>
-      </div>
-    )
+    onExit()
   }
 
   // --- Results ------------------------------------------------------------------------
-  if (attempt.view.name === 'results') {
+  if (attempt.view.name !== 'task') {
     return (
       <div className="space-y-6">
         <PageHeading title={title} subtitle={t('exSpkResults')} />
@@ -189,7 +304,7 @@ function SpeakingRunner({ meta, exam }: { meta: ExamPaperMeta; exam: SpeakingExa
           >
             {t('exBackToExams')}
           </Link>
-          {assessError === 'empty' && <SecondaryButton onClick={() => update((a) => ({ ...a, view: { name: 'overview' } }))}>{t('exSpkOverviewTitle')}</SecondaryButton>}
+          <SecondaryButton onClick={onExit}>{t('exSpkOverviewTitle')}</SecondaryButton>
           <SecondaryButton onClick={startOver}>{t('exStartOver')}</SecondaryButton>
         </div>
       </div>
@@ -206,38 +321,21 @@ function SpeakingRunner({ meta, exam }: { meta: ExamPaperMeta; exam: SpeakingExa
 
   return (
     <div className="space-y-5">
-      <PageHeading title={title} subtitle={t('exSpeaking')} />
+      <PageHeading title={title} subtitle={`${t('exSpeaking')} · ${t('exModeExam')}`} />
 
       <nav className="flex flex-wrap gap-2" aria-label={t('exSpkSteps')}>
-        <button
-          type="button"
-          onClick={() => update((a) => ({ ...a, view: { name: 'overview' } }))}
-          className="inline-flex min-h-11 items-center rounded-full border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-muted"
-        >
-          {t('exSpkOverviewTitle')}
-        </button>
-        {exam.tasks.map((x) => {
-          const current = x.id === task.id
-          return (
-            <button
-              key={x.id}
-              type="button"
-              aria-current={current ? 'step' : undefined}
-              onClick={() => !current && openTask(x.id, false)}
-              className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium ${
-                current ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground hover:bg-muted'
-              }`}
-            >
-              {attempt.done.includes(x.id) && <Check className="h-4 w-4" aria-label={t('exSubmitted')} />}
-              {x.label}
-            </button>
-          )
-        })}
+        <StepPill onClick={onExit}>{t('exSpkOverviewTitle')}</StepPill>
+        {exam.tasks.map((x) => (
+          <StepPill key={x.id} current={x.id === task.id} onClick={() => x.id !== task.id && openTask(x.id, false)}>
+            {attempt.done.includes(x.id) && <Check className="h-4 w-4" aria-label={t('exSubmitted')} />}
+            {x.label}
+          </StepPill>
+        ))}
       </nav>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
         <SpeakingTaskSheet task={task} language={language} />
-        <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5 lg:sticky lg:top-4">
+        <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5 lg:sticky lg:top-20">
           {attempt.startedAt[task.id] && !done && <Elapsed since={attempt.startedAt[task.id]} minutes={task.minutes} />}
           <ExaminerSession
             key={task.id}
