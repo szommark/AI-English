@@ -69,13 +69,13 @@ export default function AppLayout() {
         <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
           <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
             <Link to="/" className="flex items-center gap-2.5">
-              <div
-                className="h-8 w-8 rounded-md flex items-center justify-center text-white font-bold"
-                style={{ background: 'var(--gradient-hero)' }}
-              >
+              <div className="h-8 w-8 rounded-md flex items-center justify-center bg-[var(--brand-navy)] font-brand text-xl font-semibold leading-none text-white">
                 A
               </div>
-              <span className="text-[15px] font-semibold tracking-tight text-foreground">AI-English</span>
+              {/* As in the intro, the a and o that complete "AVLN" are gold. */}
+              <span className="font-brand text-xl font-semibold tracking-[0.04em] text-[var(--brand-navy)]">
+                Av<span className="text-[var(--brand-gold)]">a</span>l<span className="text-[var(--brand-gold)]">o</span>n
+              </span>
             </Link>
 
             <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 text-sm">

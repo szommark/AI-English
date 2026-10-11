@@ -30,12 +30,14 @@
   --gradient-hero: linear-gradient(135deg, oklch(0.22 0.06 255) 0%, oklch(0.30 0.07 240) 60%, oklch(0.38 0.10 215) 100%);
   --shadow-elegant: 0 20px 60px -25px oklch(0.24 0.07 255 / 0.35);
   --shadow-card: 0 8px 30px -12px oklch(0.24 0.07 255 / 0.18);
+
+  /* Avalon brand: the wordmark navy and its gold accent (header, BrandIntro). */
+  --brand-navy: #0a1f44;
+  --brand-gold: #c9a227;
 }
 
 /* Avalon intro (src/components/BrandIntro.tsx): "AVLN" parts and the missing A and O fade in. */
 .brand-intro {
-  --brand-navy: #0a1f44;
-  --brand-gold: #c9a227;
   position: fixed;
   inset: 0;
   z-index: 60;
