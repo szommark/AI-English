@@ -1,4 +1,4 @@
-// Checks for the Tense Explorer sentence engine. Run: npm run check:tenses
+// Checks for the Tense Explorer sentence engine and content. Run: npm run check:tenses
 import {
   IRREGULAR_VERBS,
   MAX_PHRASE_LENGTH,
@@ -17,6 +17,8 @@ import {
   type TenseId,
   type VerbForms,
 } from '../src/lib/tenseEngine/index.ts'
+import { COMPARE_PAIRS, TENSE_CONTENT, findComparePair } from '../src/data/tenseExplorerContent.ts'
+import { getGrammarItem } from '../src/data/grammarCurriculum.ts'
 
 const errors: string[] = []
 const fail = (msg: string) => errors.push(msg)
@@ -238,8 +240,37 @@ for (let i = 0; i < 200; i++) {
   }
 }
 
+// --- explorer content ---
+for (const tense of TENSE_IDS) {
+  const c = TENSE_CONTENT[tense]
+  if (!c) {
+    fail(`TENSE_CONTENT: missing ${tense}`)
+    continue
+  }
+  if (c.id !== tense) fail(`TENSE_CONTENT[${tense}].id is ${c.id}`)
+  const expectedId = c.aspect === 'going-to' ? 'be-going-to' : `${c.frame}-${c.aspect}`
+  if (expectedId !== tense) fail(`${tense}: frame/aspect ${c.frame}/${c.aspect} do not match the id`)
+  if (!c.nameEn.trim() || !c.nameHu.trim() || !c.formulaEn.trim()) fail(`${tense}: empty name or formula`)
+  if (c.usesEn.length < 1 || c.usesEn.length > 3) fail(`${tense}: ${c.usesEn.length} English uses (want 1-3)`)
+  if (c.usesEn.length !== c.usesHu.length) fail(`${tense}: ${c.usesEn.length} English uses but ${c.usesHu.length} Hungarian`)
+  if (c.cuesEn.length === 0) fail(`${tense}: no time words`)
+  if (!!c.pitfallEn !== !!c.pitfallHu) fail(`${tense}: pitfall only in one language`)
+  if (c.lessonId && !getGrammarItem(c.lessonId)) fail(`${tense}: lessonId ${c.lessonId} does not exist`)
+}
+if (Object.keys(TENSE_CONTENT).length !== TENSE_IDS.length) fail(`TENSE_CONTENT has ${Object.keys(TENSE_CONTENT).length} entries`)
+const pairKeys = new Set<string>()
+for (const p of COMPARE_PAIRS) {
+  if (!TENSE_IDS.includes(p.a) || !TENSE_IDS.includes(p.b) || p.a === p.b) fail(`COMPARE_PAIRS: bad pair ${p.a} / ${p.b}`)
+  const key = [p.a, p.b].sort().join('|')
+  if (pairKeys.has(key)) fail(`COMPARE_PAIRS: duplicate pair ${key}`)
+  pairKeys.add(key)
+  if (!p.en.trim() || !p.hu.trim()) fail(`COMPARE_PAIRS: ${key} has an empty note`)
+}
+if (findComparePair('present-perfect', 'past-simple')?.a !== 'past-simple') fail('findComparePair does not match in reverse order')
+if (findComparePair('present-simple', 'future-perfect')) fail('findComparePair found a pair that does not exist')
+
 if (errors.length) {
   console.error(errors.join('\n'))
   process.exit(1)
 }
-console.log(`Tense engine OK: ${TENSE_IDS.length} tenses, ${Object.keys(IRREGULAR_VERBS).length} irregular verbs, ${RANDOM_PHRASES.length} random phrases`)
+console.log(`Tense engine OK: ${TENSE_IDS.length} tenses, ${COMPARE_PAIRS.length} compare pairs, ${Object.keys(IRREGULAR_VERBS).length} irregular verbs, ${RANDOM_PHRASES.length} random phrases`)
