@@ -6,6 +6,7 @@ import { useTutorSpeechRecognition } from '../../hooks/useTutorSpeechRecognition
 import { sendSpeakingTurn } from '../../lib/examSpeakingApi'
 import { useLanguage } from '../../lib/i18n'
 import { LISTEN_START_DELAY_MS, looksLikeEcho } from '../../lib/tutorTurnTaking'
+import type { SpeakingSessionMode } from '../../lib/examSpeakingTypes'
 import type { ChatMessage } from '../../lib/types'
 import BottomBar from '../TutorBot/BottomBar'
 import LiveCaptions from '../TutorBot/LiveCaptions'
@@ -28,6 +29,7 @@ export default function ExaminerSession({
   messages,
   done,
   autoStart,
+  mode = 'exam',
   onMessages,
   onDone,
 }: {
@@ -37,6 +39,8 @@ export default function ExaminerSession({
   done: boolean
   /** Start right away (the learner just clicked to get here, so speech is allowed). */
   autoStart: boolean
+  /** Exam (the default), or one task practised as a rehearsal or a test. */
+  mode?: SpeakingSessionMode
   onMessages: (messages: ChatMessage[]) => void
   onDone: () => void
 }) {
@@ -88,7 +92,7 @@ export default function ExaminerSession({
     setError(false)
     setStatus('thinking')
     try {
-      const res = await sendSpeakingTurn({ paperId, taskId: task.id, history })
+      const res = await sendSpeakingTurn({ paperId, taskId: task.id, history, mode })
       setMessages([...history, { role: 'assistant', content: res.reply }])
       pendingDoneRef.current = res.taskDone
       say(res.reply)
@@ -222,7 +226,7 @@ export default function ExaminerSession({
         interimText={status === 'listening' ? recognition.interimTranscript : ''}
         aiLabel={t('exSpkExaminer')}
         userLabel={t('exSpkYou')}
-        emptyText={t('exSpkHowItWorks')}
+        emptyText={mode === 'exam' ? t('exSpkHowItWorks') : t('exSpkPracticeHowItWorks')}
       />
 
       {status !== 'idle' && status !== 'done' && (

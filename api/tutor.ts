@@ -259,7 +259,8 @@ async function handleExamTurn(req: VercelRequest, res: VercelResponse, userId: s
   const turns = learnerTurns(history)
   // A turn arriving after the limit (or a stuck client) gets the examiner's closing line.
   const closeNow = turns >= task.maxLearnerTurns
-  const systemPrompt = buildExaminerSystemPrompt({ exam, task, isOpening: history.length === 0, closeNow })
+  const mode = body.mode === 'rehearsal' || body.mode === 'test' ? body.mode : 'exam'
+  const systemPrompt = buildExaminerSystemPrompt({ exam, task, isOpening: history.length === 0, closeNow, mode })
   const modelId = await getModelForFeature('tutorBot')
 
   let result
@@ -279,15 +280,18 @@ async function handleExamTurn(req: VercelRequest, res: VercelResponse, userId: s
   res.status(200).json(response)
 }
 
-/** Speaking exam: the AI's estimated scores and feedback for the whole exam. Nothing is stored. */
+/** Speaking exam: the AI's estimated scores and feedback for the whole exam (or the practised tasks). Nothing is stored. */
 async function handleExamAssess(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
     return
   }
   const body = (req.body ?? {}) as Partial<SpeakingAssessRequest>
-  const exam = typeof body.paperId === 'string' ? getSpeakingExam(body.paperId) : undefined
-  if (!exam) {
+  const fullExam = typeof body.paperId === 'string' ? getSpeakingExam(body.paperId) : undefined
+  // A practice session assesses only the task(s) it covered.
+  const taskIds = Array.isArray(body.taskIds) ? body.taskIds.filter((id): id is string => typeof id === 'string') : undefined
+  const exam = fullExam && taskIds ? { ...fullExam, tasks: fullExam.tasks.filter((t) => taskIds.includes(t.id)) } : fullExam
+  if (!exam || exam.tasks.length === 0) {
     res.status(404).json({ error: 'Not found' })
     return
   }

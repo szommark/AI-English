@@ -7,7 +7,7 @@ import {
   type SpeakingExam,
   type SpeakingTask,
 } from '../../src/data/exams/speaking.js'
-import type { SpeakingAssessment, SpeakingTaskAssessment } from '../../src/lib/examSpeakingTypes.js'
+import type { SpeakingAssessment, SpeakingSessionMode, SpeakingTaskAssessment } from '../../src/lib/examSpeakingTypes.js'
 import { isValidSubtype, OTHER_SUBTYPE } from '../../src/data/mistakeTaxonomy.js'
 
 // Prompts and parsing for the nyelvvizsga speaking exam (api/tutor.ts ?action=exam-turn and
@@ -36,9 +36,11 @@ function cardText(card: SpeakingCard): string {
   return lines.join('\n')
 }
 
-function openingGuidance(exam: SpeakingExam, task: SpeakingTask): string {
+function openingGuidance(exam: SpeakingExam, task: SpeakingTask, mode: SpeakingSessionMode): string {
   const first = exam.tasks[0]?.id === task.id
-  const intro = first
+  const intro = mode !== 'exam'
+    ? `The candidate is practising ${task.label} on its own: greet them briefly, say in one sentence that you are starting ${task.label}${task.examineeCard || task.image ? ' and point them to their task sheet on the screen' : ''}.`
+    : first
     ? 'This is the very beginning of the oral exam: greet the candidate warmly, say in one sentence that you are the examiner (no name needed) and that the exam has ' +
       `${exam.tasks.length} tasks, then start ${task.label}.`
     : `Say in one short sentence that you are moving on to ${task.label}${task.examineeCard || task.image ? ' and point the candidate to their task sheet on the screen' : ''}.`
@@ -63,8 +65,10 @@ export function buildExaminerSystemPrompt(args: {
   task: SpeakingTask
   isOpening: boolean
   closeNow: boolean
+  mode?: SpeakingSessionMode
 }): string {
   const { exam, task } = args
+  const mode = args.mode ?? 'exam'
   const sheet: string[] = []
   if (task.instructions?.length) sheet.push(`Instructions: ${task.instructions.join(' ')}`)
   if (task.examineeCard) sheet.push(`Role card:\n${cardText(task.examineeCard)}`)
@@ -79,6 +83,11 @@ export function buildExaminerSystemPrompt(args: {
     '- Do not correct the candidate, teach, translate or comment on their English, and never give scores or feedback. React briefly and naturally, like a friendly examiner (or, in a role-play, like the person you are playing).',
     '- Plain spoken text only: no markdown, lists, emojis, stage directions or text in brackets.',
     '- Stay on this task. If the candidate speaks Hungarian, asks for help or goes silent, encourage them in English to try in their own words, or rephrase your question more simply.',
+    ...(mode === 'rehearsal'
+      ? [
+          '- This is a rehearsal: the candidate has just studied useful phrases and a sample answer for this task. Be extra patient. If they get stuck or ask for help, give one short hint in English — for example the beginning of a sentence they could use, or a simpler question — and let them go on. Still do not correct their English or give feedback.',
+        ]
+      : []),
     `- When the task is complete, say one short closing sentence (for example "Thank you, that's the end of this task.") and put ${TASK_DONE_MARKER} at the very end of that turn. Use the marker only in that closing turn.`,
     '',
     "== THE CANDIDATE'S TASK SHEET ==",
@@ -88,7 +97,7 @@ export function buildExaminerSystemPrompt(args: {
     '== HOW TO RUN THIS TASK ==',
     task.examinerBrief,
     `It should take about ${task.minutes} minutes.`,
-    ...(args.isOpening ? ['', '== NOW ==', openingGuidance(exam, task)] : []),
+    ...(args.isOpening ? ['', '== NOW ==', openingGuidance(exam, task, mode)] : []),
     ...(args.closeNow
       ? ['', '== NOW ==', `The time for this task is up. Reply briefly to the candidate's last turn, close the task with one short sentence and end with ${TASK_DONE_MARKER}.`]
       : []),
