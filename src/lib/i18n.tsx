@@ -245,6 +245,77 @@ const messages = {
     en: 'Pick a grammar point from the list to get started.',
     de: 'Wähle ein Grammatikthema aus der Liste, um zu beginnen.',
   },
+  // Grammar Coach Tense Explorer (src/components/GrammarCoach/TenseExplorer/).
+  tenseExplorerTab: { hu: 'Igeidő-felfedező', en: 'Tense explorer', de: 'Zeitformen-Entdecker' },
+  tenseLessonsTab: { hu: 'Leckék', en: 'Lessons', de: 'Lektionen' },
+  tenseVerbPlaceholder: {
+    hu: 'Írj be egy igét vagy kifejezést (pl. play football)',
+    en: 'Type a verb or phrase (e.g. play football)',
+    de: 'Gib ein Verb oder einen Ausdruck ein (z. B. play football)',
+  },
+  tenseApplyAll: { hu: 'Mindegyik dobozba', en: 'Put in all boxes', de: 'In alle Boxen' },
+  tenseRandom: { hu: 'Véletlen ige', en: 'Random verb', de: 'Zufälliges Verb' },
+  tenseSubject: { hu: 'Alany', en: 'Subject', de: 'Subjekt' },
+  tenseSubjectVary: { hu: 'Változó', en: 'Varied', de: 'Wechselnd' },
+  tenseShuffleSubjects: { hu: 'Alanyok keverése', en: 'Shuffle subjects', de: 'Subjekte mischen' },
+  tenseTimeCue: { hu: 'Időhatározó', en: 'Time cue', de: 'Zeitangabe' },
+  tenseExplainLang: { hu: 'Magyarázat nyelve', en: 'Explanation language', de: 'Sprache der Erklärung' },
+  tenseBoxes: { hu: 'Dobozok', en: 'Boxes', de: 'Boxen' },
+  tensePresets: { hu: 'Gyors szűrők', en: 'Quick filters', de: 'Schnellfilter' },
+  tensePresetAll: { hu: 'Mind', en: 'All', de: 'Alle' },
+  tensePresetPresent: { hu: 'Jelen', en: 'Present', de: 'Gegenwart' },
+  tensePresetPast: { hu: 'Múlt', en: 'Past', de: 'Vergangenheit' },
+  tensePresetFuture: { hu: 'Jövő', en: 'Future', de: 'Zukunft' },
+  tensePresetSimple: { hu: 'Egyszerű', en: 'Simple', de: 'Einfach' },
+  tensePresetContinuous: { hu: 'Folyamatos', en: 'Continuous', de: 'Verlaufsform' },
+  tensePresetPerfect: { hu: 'Befejezett', en: 'Perfect', de: 'Perfekt' },
+  tensePresetPerfectContinuous: {
+    hu: 'Befejezett folyamatos',
+    en: 'Perfect continuous',
+    de: 'Perfekt-Verlaufsform',
+  },
+  tenseAffirmative: { hu: 'Állító', en: 'Positive', de: 'Bejahend' },
+  tenseQuestion: { hu: 'Kérdő', en: 'Question', de: 'Frage' },
+  tenseNegative: { hu: 'Tagadó', en: 'Negative', de: 'Verneint' },
+  tenseWhenUsed: { hu: 'Mikor használjuk?', en: 'When do we use it?', de: 'Wann verwenden wir sie?' },
+  tenseFormula: { hu: 'Képlet', en: 'Form', de: 'Bildung' },
+  tenseCues: { hu: 'Jellemző időjelzők', en: 'Typical time words', de: 'Typische Zeitangaben' },
+  tenseHuPitfall: { hu: 'Magyar anyanyelvűeknek', en: 'For Hungarian speakers', de: 'Für Ungarischsprachige' },
+  tenseTimeline: { hu: 'Idővonal', en: 'Timeline', de: 'Zeitstrahl' },
+  tenseOpenLesson: { hu: 'Lecke megnyitása', en: 'Open the lesson', de: 'Lektion öffnen' },
+  tenseHideBox: { hu: 'Doboz elrejtése', en: 'Hide box', de: 'Box ausblenden' },
+  tenseCompare: { hu: 'Összehasonlítás', en: 'Compare', de: 'Vergleichen' },
+  tenseComparePinHint: {
+    hu: 'Jelölj ki még egy dobozt az összehasonlításhoz.',
+    en: 'Pin one more box to compare.',
+    de: 'Markiere noch eine Box zum Vergleichen.',
+  },
+  tenseCompareClose: { hu: 'Összehasonlítás bezárása', en: 'Close the comparison', de: 'Vergleich schließen' },
+  tenseEmptyBox: {
+    hu: 'Írj be egy igét ehhez a dobozhoz.',
+    en: 'Type a verb for this box.',
+    de: 'Gib ein Verb für diese Box ein.',
+  },
+  tenseNotEnglish: {
+    hu: 'Kérlek, angol igét vagy kifejezést írj be.',
+    en: 'Please type an English verb or phrase.',
+    de: 'Bitte gib ein englisches Verb oder einen englischen Ausdruck ein.',
+  },
+  tenseTooLong: {
+    hu: 'Ez túl hosszú — rövidebb kifejezést írj be.',
+    en: 'That is too long — try a shorter phrase.',
+    de: 'Das ist zu lang — versuch es mit einem kürzeren Ausdruck.',
+  },
+  tenseStativeWarn: {
+    hu: 'Az állapotigék (pl. know, like) általában nem állnak folyamatos alakban.',
+    en: 'Stative verbs (e.g. know, like) are not normally used in continuous forms.',
+    de: 'Zustandsverben (z. B. know, like) werden normalerweise nicht in der Verlaufsform verwendet.',
+  },
+  tenseBeContinuousNote: {
+    hu: 'A be folyamatos alakja ritka; ideiglenes viselkedésnél használatos (He is being silly).',
+    en: 'The continuous form of be is unusual; it is used for temporary behaviour (He is being silly).',
+    de: 'Die Verlaufsform von be ist ungewöhnlich; sie beschreibt vorübergehendes Verhalten (He is being silly).',
+  },
   // Grammar Coach practice panel (src/components/GrammarCoach/PracticePanel.tsx).
   practiceSpeaking: { hu: 'Szóbeli', en: 'Speaking', de: 'Sprechen' },
   practiceWritten: { hu: 'Írásbeli', en: 'Writing', de: 'Schreiben' },
@@ -1462,6 +1533,11 @@ const messages = {
 } as const satisfies Record<string, Record<Lang, string>>
 
 export type MessageKey = keyof typeof messages
+
+/** A message in a specific language, for text that follows a setting other than the UI language. */
+export function messageIn(lang: Lang, key: MessageKey): string {
+  return messages[key][lang]
+}
 
 interface LanguageContextValue {
   lang: Lang
