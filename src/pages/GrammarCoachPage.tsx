@@ -20,6 +20,7 @@ import GrammarWidgetView from '../components/GrammarCoach/GrammarWidgetView'
 import VoiceBar from '../components/GrammarCoach/VoiceBar'
 import PracticePanel, { type PracticeMode } from '../components/GrammarCoach/PracticePanel'
 import { boardThemes } from '../components/GrammarCoach/boardTheme'
+import TenseExplorer from '../components/GrammarCoach/TenseExplorer/TenseExplorer'
 
 const grammarFeature = getFeature('grammar-coach')!
 
@@ -28,11 +29,15 @@ const SUPPORT_LANGUAGE_LEVELS: CefrLevel[] = ['A1', 'A2']
 
 const NARRATION_LOCALES = { hu: 'hu-HU', en: 'en-US', de: 'de-DE' } as const
 
+type CoachMode = 'lessons' | 'explorer'
+
 export default function GrammarCoachPage() {
   const { lang, t: tr } = useLanguage()
   // ?lesson=<grammar item id> (e.g. from the "next step" card on /my-progress) opens that
   // lesson straight away; the language effect below loads it like a click would.
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  // ?mode=explorer shows the static Tense Explorer instead of the lesson board.
+  const mode: CoachMode = searchParams.get('mode') === 'explorer' ? 'explorer' : 'lessons'
   const [deepLinked] = useState(() => getGrammarItem(searchParams.get('lesson') ?? '') ?? null)
   const [selected, setSelected] = useState<{ level: CefrLevel; item: GrammarItem } | null>(deepLinked)
   const [lesson, setLesson] = useState<GrammarLesson | null>(null)
@@ -168,6 +173,32 @@ export default function GrammarCoachPage() {
     }
   }
 
+  // The explorer's "Open the lesson" links land here on the same mounted page, so a later
+  // change of ?lesson= selects that lesson (the first one is handled by deepLinked above).
+  const lessonParam = searchParams.get('lesson')
+  const lastLessonParamRef = useRef(lessonParam)
+  useEffect(() => {
+    if (lessonParam === lastLessonParamRef.current) return
+    lastLessonParamRef.current = lessonParam
+    const found = lessonParam ? getGrammarItem(lessonParam) : undefined
+    if (!found) return
+    handleSelectItem(found.level, found.item)
+    // The lesson board has just mounted; on a phone the rail sits above it, as for deepLinked.
+    if (window.matchMedia('(max-width: 1023px)').matches) boardRef.current?.scrollIntoView({ block: 'start' })
+    else window.scrollTo({ top: 0 })
+    // handleSelectItem changes with the language; only a new ?lesson= should select.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lessonParam])
+
+  function handleModeChange(next: CoachMode) {
+    if (next === mode) return
+    if (next === 'explorer' && player.isPlaying) player.pause()
+    const params = new URLSearchParams(searchParams)
+    if (next === 'explorer') params.set('mode', 'explorer')
+    else params.delete('mode')
+    setSearchParams(params)
+  }
+
   const boardStatus = isGenerating ? 'loading' : lesson ? 'content' : 'idle'
   const currentSegment = lesson?.segments[player.currentIndex]
   const t = boardThemes[theme]
@@ -176,64 +207,84 @@ export default function GrammarCoachPage() {
     <div className="space-y-6">
       <PageHeading title={localizeFeature(lang, grammarFeature).title} subtitle={tr('grammarSubtitle')} />
 
-      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-        <GrammarRail selectedItemId={selected?.item.id ?? null} onSelectItem={handleSelectItem} />
-
-        <div ref={boardRef} className="space-y-4 min-w-0 scroll-mt-20">
-          <div className="flex items-center justify-end">
-            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
-              {(['green', 'black'] as const).map((option) => (
-                <button
-                  key={option}
-                  onClick={() => setTheme(option)}
-                  className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition ${
-                    theme === option ? 'bg-amber-100 text-amber-700' : 'text-slate-400 hover:bg-slate-50'
-                  }`}
-                >
-                  {option === 'green' ? 'Green board' : 'Black board'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <ChalkBoard status={boardStatus} theme={theme} title={selected?.item.title} titleGloss={lang === 'hu' ? selected?.item.titleHu : undefined}>
-            {currentSegment && <GrammarWidgetView widget={currentSegment.widget} theme={t} />}
-          </ChalkBoard>
-
-          <VoiceBar
-            segmentCount={lesson?.segments.length ?? 0}
-            currentIndex={player.currentIndex}
-            isPlaying={player.isPlaying}
-            isGenerating={isGenerating}
-            hasLesson={Boolean(lesson)}
-            rate={player.rate}
-            onTogglePlay={handleTogglePlay}
-            onPrev={() => player.goToSegment(player.currentIndex - 1)}
-            onNext={() => player.goToSegment(player.currentIndex + 1)}
-            onSeekSegment={player.goToSegment}
-            onSetRate={player.setRate}
-          />
-
-          {selected && (
-            <PracticePanel
-              key={`${selected.item.id}/${lang}`}
-              mode={practiceMode}
-              onModeChange={setPracticeMode}
-              lesson={lesson}
-              isLessonLoading={isGenerating}
-              onPrepareLesson={() => loadLesson(false)}
-              exercises={exercises}
-              isExercisesLoading={isExercisesLoading}
-              onPrepareExercises={handlePrepareExercises}
-              onWrittenComplete={handleWrittenComplete}
-            />
-          )}
-
-          {!selected && (
-            <p className="text-center text-sm text-slate-400">{tr('pickGrammarPoint')}</p>
-          )}
-        </div>
+      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
+        {(['lessons', 'explorer'] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={mode === option}
+            onClick={() => handleModeChange(option)}
+            className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+              mode === option ? 'bg-amber-100 text-amber-700' : 'text-slate-400 hover:bg-slate-50'
+            }`}
+          >
+            {option === 'lessons' ? tr('tenseLessonsTab') : tr('tenseExplorerTab')}
+          </button>
+        ))}
       </div>
+
+      {mode === 'explorer' ? (
+        <TenseExplorer />
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
+          <GrammarRail selectedItemId={selected?.item.id ?? null} onSelectItem={handleSelectItem} />
+
+          <div ref={boardRef} className="space-y-4 min-w-0 scroll-mt-20">
+            <div className="flex items-center justify-end">
+              <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
+                {(['green', 'black'] as const).map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => setTheme(option)}
+                    className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition ${
+                      theme === option ? 'bg-amber-100 text-amber-700' : 'text-slate-400 hover:bg-slate-50'
+                    }`}
+                  >
+                    {option === 'green' ? 'Green board' : 'Black board'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <ChalkBoard status={boardStatus} theme={theme} title={selected?.item.title} titleGloss={lang === 'hu' ? selected?.item.titleHu : undefined}>
+              {currentSegment && <GrammarWidgetView widget={currentSegment.widget} theme={t} />}
+            </ChalkBoard>
+
+            <VoiceBar
+              segmentCount={lesson?.segments.length ?? 0}
+              currentIndex={player.currentIndex}
+              isPlaying={player.isPlaying}
+              isGenerating={isGenerating}
+              hasLesson={Boolean(lesson)}
+              rate={player.rate}
+              onTogglePlay={handleTogglePlay}
+              onPrev={() => player.goToSegment(player.currentIndex - 1)}
+              onNext={() => player.goToSegment(player.currentIndex + 1)}
+              onSeekSegment={player.goToSegment}
+              onSetRate={player.setRate}
+            />
+
+            {selected && (
+              <PracticePanel
+                key={`${selected.item.id}/${lang}`}
+                mode={practiceMode}
+                onModeChange={setPracticeMode}
+                lesson={lesson}
+                isLessonLoading={isGenerating}
+                onPrepareLesson={() => loadLesson(false)}
+                exercises={exercises}
+                isExercisesLoading={isExercisesLoading}
+                onPrepareExercises={handlePrepareExercises}
+                onWrittenComplete={handleWrittenComplete}
+              />
+            )}
+
+            {!selected && (
+              <p className="text-center text-sm text-slate-400">{tr('pickGrammarPoint')}</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
