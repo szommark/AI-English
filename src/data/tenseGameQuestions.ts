@@ -180,6 +180,8 @@ export const TENSE_GAME_DAILY_CHECKS = 100
 /** The AI checker's verdict on one answer. */
 export interface TenseGameVerdict {
   ok: boolean
+  /** Story mode: false when the answer contradicts the fact card (then ok is false too). Always true otherwise. */
+  factsOk: boolean
   /** The main tense the learner used, in English (e.g. "past simple"); empty if none. */
   tense: string
   /** One or two short sentences in the UI language. */
