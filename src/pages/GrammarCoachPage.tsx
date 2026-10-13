@@ -21,6 +21,7 @@ import VoiceBar from '../components/GrammarCoach/VoiceBar'
 import PracticePanel, { type PracticeMode } from '../components/GrammarCoach/PracticePanel'
 import { boardThemes } from '../components/GrammarCoach/boardTheme'
 import TenseExplorer from '../components/GrammarCoach/TenseExplorer/TenseExplorer'
+import TenseGame from '../components/GrammarCoach/TenseGame/TenseGame'
 
 const grammarFeature = getFeature('grammar-coach')!
 
@@ -29,15 +30,23 @@ const SUPPORT_LANGUAGE_LEVELS: CefrLevel[] = ['A1', 'A2']
 
 const NARRATION_LOCALES = { hu: 'hu-HU', en: 'en-US', de: 'de-DE' } as const
 
-type CoachMode = 'lessons' | 'explorer'
+type CoachMode = 'lessons' | 'explorer' | 'game'
+
+const MODE_TABS: { mode: CoachMode; label: 'tenseLessonsTab' | 'tenseExplorerTab' | 'tenseGameTab' }[] = [
+  { mode: 'lessons', label: 'tenseLessonsTab' },
+  { mode: 'explorer', label: 'tenseExplorerTab' },
+  { mode: 'game', label: 'tenseGameTab' },
+]
 
 export default function GrammarCoachPage() {
   const { lang, t: tr } = useLanguage()
   // ?lesson=<grammar item id> (e.g. from the "next step" card on /my-progress) opens that
   // lesson straight away; the language effect below loads it like a click would.
   const [searchParams, setSearchParams] = useSearchParams()
-  // ?mode=explorer shows the static Tense Explorer instead of the lesson board.
-  const mode: CoachMode = searchParams.get('mode') === 'explorer' ? 'explorer' : 'lessons'
+  // ?mode=explorer shows the static Tense Explorer and ?mode=game the Past · Present · Future
+  // game instead of the lesson board.
+  const modeParam = searchParams.get('mode')
+  const mode: CoachMode = modeParam === 'explorer' || modeParam === 'game' ? modeParam : 'lessons'
   const [deepLinked] = useState(() => getGrammarItem(searchParams.get('lesson') ?? '') ?? null)
   const [selected, setSelected] = useState<{ level: CefrLevel; item: GrammarItem } | null>(deepLinked)
   const [lesson, setLesson] = useState<GrammarLesson | null>(null)
@@ -192,10 +201,10 @@ export default function GrammarCoachPage() {
 
   function handleModeChange(next: CoachMode) {
     if (next === mode) return
-    if (next === 'explorer' && player.isPlaying) player.pause()
+    if (next !== 'lessons' && player.isPlaying) player.pause()
     const params = new URLSearchParams(searchParams)
-    if (next === 'explorer') params.set('mode', 'explorer')
-    else params.delete('mode')
+    if (next === 'lessons') params.delete('mode')
+    else params.set('mode', next)
     setSearchParams(params)
   }
 
@@ -208,23 +217,25 @@ export default function GrammarCoachPage() {
       <PageHeading title={localizeFeature(lang, grammarFeature).title} subtitle={tr('grammarSubtitle')} />
 
       <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
-        {(['lessons', 'explorer'] as const).map((option) => (
+        {MODE_TABS.map((tab) => (
           <button
-            key={option}
+            key={tab.mode}
             type="button"
-            aria-pressed={mode === option}
-            onClick={() => handleModeChange(option)}
+            aria-pressed={mode === tab.mode}
+            onClick={() => handleModeChange(tab.mode)}
             className={`rounded-md px-3 py-1 text-xs font-medium transition ${
-              mode === option ? 'bg-amber-100 text-amber-700' : 'text-slate-400 hover:bg-slate-50'
+              mode === tab.mode ? 'bg-amber-100 text-amber-700' : 'text-slate-400 hover:bg-slate-50'
             }`}
           >
-            {option === 'lessons' ? tr('tenseLessonsTab') : tr('tenseExplorerTab')}
+            {tr(tab.label)}
           </button>
         ))}
       </div>
 
       {mode === 'explorer' ? (
         <TenseExplorer />
+      ) : mode === 'game' ? (
+        <TenseGame />
       ) : (
         <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
           <GrammarRail selectedItemId={selected?.item.id ?? null} onSelectItem={handleSelectItem} />
