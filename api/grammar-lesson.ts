@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { resolveTensePolicy } from './_lib/tenseExplorerSettings.js'
+import { checkTenseGameAnswer, checksToday } from './_lib/tenseGame.js'
 import { parseGrammarExercisesJson, parseGrammarLessonJson } from './_lib/groq.js'
 import { buildGrammarExercisesPrompt, buildGrammarLessonPrompt } from './_lib/prompts.js'
 import { callModel } from './_lib/modelRouter.js'
@@ -8,6 +9,12 @@ import { logModelUsage, type LlmCallType } from './_lib/usageLog.js'
 import { getModelForFeature } from './_lib/modelSettings.js'
 import type { ModelId } from '../src/lib/models.js'
 import { getGrammarItem, type CefrLevel, type GrammarItem } from '../src/data/grammarCurriculum.js'
+import {
+  getTenseGameQuestion,
+  TENSE_GAME_ANSWER_MAX_LENGTH,
+  TENSE_GAME_DAILY_CHECKS,
+  type TenseGameMode,
+} from '../src/data/tenseGameQuestions.js'
 import type { GrammarExerciseSet, GrammarLesson, LessonLanguage } from '../src/lib/types.js'
 
 const GENERATION_ATTEMPTS = 2
@@ -107,6 +114,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(200).json({ policy: await resolveTensePolicy(user.id) })
     } catch (err) {
       console.error('Tense Explorer policy lookup failed', err)
+      res.status(500).json({ error: 'Something went wrong' })
+    }
+    return
+  }
+
+  // The Past · Present · Future game: one AI check of one answer.
+  if (req.query.action === 'tense-game-check') {
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method not allowed' })
+      return
+    }
+    const body = (req.body ?? {}) as Record<string, unknown>
+    const question = typeof body.questionId === 'string' ? getTenseGameQuestion(body.questionId) : undefined
+    const answer = typeof body.answer === 'string' ? body.answer.trim().replace(/\s+/g, ' ') : ''
+    const mode: TenseGameMode = body.mode === 'oral' ? 'oral' : 'chat'
+    const lang: LessonLanguage = LESSON_LANGUAGES.includes(body.lang as LessonLanguage) ? (body.lang as LessonLanguage) : 'hu'
+    if (!question || !answer || answer.length > TENSE_GAME_ANSWER_MAX_LENGTH) {
+      res.status(400).json({ error: 'Invalid answer' })
+      return
+    }
+    try {
+      if ((await checksToday(user.id)) >= TENSE_GAME_DAILY_CHECKS) {
+        res.status(429).json({ error: 'daily_limit' })
+        return
+      }
+      const verdict = await checkTenseGameAnswer({ question, answer, mode, lang, userId: user.id })
+      if (!verdict) {
+        res.status(502).json({ error: 'check_failed' })
+        return
+      }
+      res.status(200).json({ verdict })
+    } catch (err) {
+      console.error('Tense game check failed', err)
       res.status(500).json({ error: 'Something went wrong' })
     }
     return

@@ -10,6 +10,7 @@ export type LlmCallType =
   | 'vocab_enrich'
   | 'vocab_generate'
   | 'lyrics_gaps'
+  | 'tense_game'
 
 /**
  * Records one LLM call in groq_usage_log (name is historical — it holds Groq and Gemini),
