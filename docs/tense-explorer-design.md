@@ -1,6 +1,6 @@
 # Tense Explorer — Design
 
-Grammar Coach mode for exploring the English tenses with any verb or phrase. Static, rule-based and offline: no LLM, no API routes, no Supabase, no XP. Built in three phases (PRs #90 engine, #91 content + timeline, then the UI); see also the "Tense Explorer" section of [`grammar-coach-brief.md`](grammar-coach-brief.md).
+Grammar Coach mode for exploring the English tenses with any verb or phrase. Static and rule-based: no LLM and no XP. The only network call is the teacher-settings lookup (see "Teacher settings"). Built in three phases (PRs #90 engine, #91 content + timeline, then the UI); see also the "Tense Explorer" section of [`grammar-coach-brief.md`](grammar-coach-brief.md).
 
 > Written from the implementation brief and the shipped code; the original design note lives in the project docs (`claude/tense-explorer-design.md`).
 
@@ -47,3 +47,13 @@ Boxes (`Record<TenseId, { input }>`), visible set, subject mode, shuffle seed, t
 ## Out of scope
 
 Scoring, XP, saving progress, LLM-generated examples, contractions, plural *you* reflexives, irregular/regular variants (learnt/learned).
+
+## Teacher settings (added 2026-10-13)
+
+Teachers decide which tenses their students see. Decisions (Mark): class-wide setting plus optional per-student overrides; the "customize" switch works as *starting view vs locked*; teachers control only the tenses (students keep subject, time cue and explanation language).
+
+- **Teacher dashboard** (`/teacher`): a *Tense Explorer* card with the 13 tenses in Present | Past | Future columns and *Can students change which tenses they see?* — **Yes, full customization** (the tenses are the student's starting view; the presets, Boxes menu and hide buttons stay) or **No, locked** (exactly these tenses; presets, Boxes menu and hide buttons are not shown, with a "Your teacher chose these tenses." note). *Reset to all tenses* removes the class setting.
+- **Student page** (`/teacher/students/:id`): the same editor as an override for one student, or *Use the class setting instead*.
+- **Resolution** (`resolveTensePolicy`, api/_lib/tenseExplorerSettings.ts): for each actively connected teacher, their override for the student, else their class setting. With several teachers: the union of their tenses, locked if any of them locks. No teacher setting → the explorer is unrestricted, exactly as before.
+- **Student view:** the explorer loads the policy first (one GET; on failure or after 8 s it opens unrestricted). In open mode a *Teacher's choice* chip leads the presets; the student's own changes persist until the teacher saves a new setting (its `updatedAt` is remembered as `teacherVersion` in localStorage), which makes the teacher's set the starting view again. A locked set never overwrites the student's own stored set.
+- **Storage/API:** table `tense_explorer_settings` (migration `20261013140000`; service role only). Teacher: `GET/PUT/DELETE /api/teacher-tools?action=tense-explorer[&studentId=]`. Student: `GET /api/grammar-lesson?action=tense-explorer-policy`. No new Vercel function. Shared validation and combining: `src/lib/tenseExplorerPolicy.ts`.

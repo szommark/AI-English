@@ -7,6 +7,7 @@ import StudentWordListsBox from '../components/VocabLists/StudentWordListsBox'
 import MistakeAreaList, { visibleAreas } from '../components/Progress/MistakeAreaList'
 import CefrHistoryLine from '../components/Progress/CefrHistoryLine'
 import StudentGamificationCard from '../components/gamification/StudentGamificationCard'
+import StudentTenseExplorerCard from '../components/TenseExplorerSettings/StudentTenseExplorerCard'
 
 const MODE_LABELS: Record<string, string> = {
   rehearsal: 'Rehearsal',
@@ -99,6 +100,8 @@ export default function StudentProgressPage() {
             </div>
 
             {studentId && <StudentWordListsBox studentId={studentId} />}
+
+            {studentId && <StudentTenseExplorerCard studentId={studentId} />}
 
             <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
               <h2 className="text-sm font-medium text-slate-700">CEFR history</h2>

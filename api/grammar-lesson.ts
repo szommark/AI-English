@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
+import { resolveTensePolicy } from './_lib/tenseExplorerSettings.js'
 import { parseGrammarExercisesJson, parseGrammarLessonJson } from './_lib/groq.js'
 import { buildGrammarExercisesPrompt, buildGrammarLessonPrompt } from './_lib/prompts.js'
 import { callModel } from './_lib/modelRouter.js'
@@ -93,6 +94,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await getUserFromRequest(req)
   if (!user) {
     res.status(401).json({ error: 'Unauthorized' })
+    return
+  }
+
+  // The Tense Explorer's teacher settings for the caller (null = no teacher has set any).
+  if (req.query.action === 'tense-explorer-policy') {
+    if (req.method !== 'GET') {
+      res.status(405).json({ error: 'Method not allowed' })
+      return
+    }
+    try {
+      res.status(200).json({ policy: await resolveTensePolicy(user.id) })
+    } catch (err) {
+      console.error('Tense Explorer policy lookup failed', err)
+      res.status(500).json({ error: 'Something went wrong' })
+    }
     return
   }
 

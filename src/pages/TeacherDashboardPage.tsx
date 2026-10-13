@@ -7,6 +7,7 @@ import WordListsSection from '../components/VocabLists/WordListsSection'
 import ClassSummaryCard, { StudentGamificationLine } from '../components/gamification/ClassSummaryCard'
 import ChallengesSection from '../components/gamification/ChallengesSection'
 import ClassSettingsCard from '../components/gamification/ClassSettingsCard'
+import ClassTenseExplorerCard from '../components/TenseExplorerSettings/ClassTenseExplorerCard'
 import { fetchClassGamification } from '../lib/gamificationApi'
 import type { ClassGamification } from '../lib/gamification/types'
 
@@ -105,6 +106,8 @@ export default function TeacherDashboardPage() {
             <ChallengesSection students={students} />
 
             <ClassSettingsCard />
+
+            <ClassTenseExplorerCard />
 
             <WordListsSection />
           </>

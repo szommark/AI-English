@@ -12,6 +12,8 @@ export interface ExplorerSettings {
   subjectMode: SubjectMode
   timeCue: boolean
   explainLang: ExplainLang
+  /** updatedAt of the teacher setting the student's view last started from. */
+  teacherVersion?: string
 }
 
 const STORAGE_KEY = 'ai-english:tense-explorer'
@@ -46,6 +48,7 @@ export function loadSettings(): Partial<ExplorerSettings> {
     }
     if (typeof data.timeCue === 'boolean') result.timeCue = data.timeCue
     if (data.explainLang === 'en' || data.explainLang === 'hu') result.explainLang = data.explainLang
+    if (typeof data.teacherVersion === 'string') result.teacherVersion = data.teacherVersion
     return result
   } catch {
     // Storage unavailable or corrupt: start from the defaults.
