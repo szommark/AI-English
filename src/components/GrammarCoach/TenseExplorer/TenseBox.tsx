@@ -25,6 +25,7 @@ export default function TenseBox({
   label,
   onHide,
   canHide,
+  hideable = true,
   pinned,
   pinDisabled,
   onTogglePin,
@@ -40,6 +41,8 @@ export default function TenseBox({
   label: (key: MessageKey) => string
   onHide: () => void
   canHide: boolean
+  /** false when the teacher has locked the set: no hide button at all. */
+  hideable?: boolean
   pinned: boolean
   pinDisabled: boolean
   onTogglePin: () => void
@@ -86,16 +89,18 @@ export default function TenseBox({
           >
             {pinned ? <PinOff size={15} /> : <Pin size={15} />}
           </button>
-          <button
-            type="button"
-            onClick={onHide}
-            disabled={!canHide}
-            aria-label={`${t('tenseHideBox')}: ${content.nameEn}`}
-            title={t('tenseHideBox')}
-            className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <EyeOff size={15} />
-          </button>
+          {hideable && (
+            <button
+              type="button"
+              onClick={onHide}
+              disabled={!canHide}
+              aria-label={`${t('tenseHideBox')}: ${content.nameEn}`}
+              title={t('tenseHideBox')}
+              className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-50 hover:text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <EyeOff size={15} />
+            </button>
+          )}
         </div>
       </header>
 

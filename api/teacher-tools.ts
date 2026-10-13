@@ -13,6 +13,8 @@ import {
   type LyricsActivityContent,
   type LyricsActivitySummary,
 } from '../src/lib/lyricsGapFill.js'
+import { sanitizeTenseSettingInput } from '../src/lib/tenseExplorerPolicy.js'
+import { deleteTenseSetting, getTenseSetting, isActiveStudent, saveTenseSetting } from './_lib/tenseExplorerSettings.js'
 
 // Single Vercel function for the Teacher Toolkit (docs/teacher-toolkit-design.md), teacher
 // role only (everyone else gets 403). Multiplexed by ?action= like api/vocab.ts: each new
@@ -28,6 +30,12 @@ import {
 //   POST   lyrics-suggest         { lyrics, goal, count, level? } → { gaps, remaining };
 //                                  at most LYRICS_SUGGESTIONS_PER_DAY per UTC day (429)
 // An activity that doesn't exist and one that belongs to another teacher both return 404.
+//
+// Tense Explorer settings (which tenses students see in Grammar Coach, docs/tense-explorer-design.md):
+//   GET    tense-explorer[&studentId=]   { classSetting, studentSetting? } (null = not set)
+//   PUT    tense-explorer                { tenses, allowCustomize, studentId? } → { setting }
+//   DELETE tense-explorer[&studentId=]   remove the class setting or a student's override
+// A studentId that isn't one of the caller's active students returns 404.
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const CEFR = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'])
@@ -161,6 +169,42 @@ async function handleLyrics(req: VercelRequest, res: VercelResponse, teacherId: 
   throw new HttpError(405, { error: 'Method not allowed' })
 }
 
+async function handleTenseExplorer(req: VercelRequest, res: VercelResponse, teacherId: string) {
+  const rawStudentId = req.method === 'PUT' ? (req.body ?? {}).studentId : req.query.studentId
+  let studentId: string | null = null
+  if (rawStudentId !== undefined && rawStudentId !== null && rawStudentId !== '') {
+    if (typeof rawStudentId !== 'string' || !UUID_RE.test(rawStudentId)) throw new HttpError(404, { error: 'Not found' })
+    if (!(await isActiveStudent(teacherId, rawStudentId))) throw new HttpError(404, { error: 'Not found' })
+    studentId = rawStudentId
+  }
+
+  if (req.method === 'GET') {
+    const classSetting = await getTenseSetting(teacherId, null)
+    if (!studentId) {
+      res.status(200).json({ classSetting })
+      return
+    }
+    res.status(200).json({ classSetting, studentSetting: await getTenseSetting(teacherId, studentId) })
+    return
+  }
+  if (req.method === 'PUT') {
+    let input
+    try {
+      input = sanitizeTenseSettingInput(req.body)
+    } catch (err) {
+      throw new HttpError(400, { error: err instanceof Error ? err.message : 'Invalid setting' })
+    }
+    res.status(200).json({ setting: await saveTenseSetting(teacherId, studentId, input) })
+    return
+  }
+  if (req.method === 'DELETE') {
+    await deleteTenseSetting(teacherId, studentId)
+    res.status(200).json({ ok: true })
+    return
+  }
+  throw new HttpError(405, { error: 'Method not allowed' })
+}
+
 async function handleLyricsSuggest(req: VercelRequest, res: VercelResponse, teacherId: string) {
   if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
   const body = (req.body ?? {}) as Record<string, unknown>
@@ -206,6 +250,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'lyrics-suggest':
         await handleLyricsSuggest(req, res, user.id)
+        return
+      case 'tense-explorer':
+        await handleTenseExplorer(req, res, user.id)
         return
       default:
         res.status(404).json({ error: 'Not found' })

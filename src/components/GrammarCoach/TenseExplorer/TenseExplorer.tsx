@@ -6,6 +6,8 @@ import { Dices, Shuffle } from 'lucide-react'
 import { messageIn, useLanguage, type MessageKey } from '../../../lib/i18n'
 import { getAccentPreference, type AccentPreference } from '../../../lib/voiceSelection'
 import { useSpeechSynthesis } from '../../../hooks/useSpeechSynthesis'
+import { fetchMyTensePolicy } from '../../../lib/tenseExplorerApi'
+import type { TenseExplorerPolicy } from '../../../lib/tenseExplorerPolicy'
 import {
   SUBJECTS,
   TENSE_IDS,
@@ -28,6 +30,7 @@ import {
 } from './explorerSettings'
 
 const MAX_PINNED = 2
+const POLICY_TIMEOUT_MS = 8000
 const FRAMES: { frame: TenseContent['frame']; label: MessageKey }[] = [
   { frame: 'present', label: 'tensePresetPresent' },
   { frame: 'past', label: 'tensePresetPast' },
@@ -49,11 +52,43 @@ function readAccent(): AccentPreference {
   }
 }
 
+/**
+ * Loads the student's teacher settings first (one small request; on failure or timeout the
+ * explorer opens without restrictions), so the view's initial state can start from them.
+ */
 export default function TenseExplorer() {
+  const { t } = useLanguage()
+  const [policy, setPolicy] = useState<TenseExplorerPolicy | null | undefined>(undefined)
+
+  useEffect(() => {
+    let cancelled = false
+    const timer = window.setTimeout(() => !cancelled && setPolicy((p) => (p === undefined ? null : p)), POLICY_TIMEOUT_MS)
+    fetchMyTensePolicy()
+      .then((p) => !cancelled && setPolicy((prev) => (prev === undefined ? p : prev)))
+      .catch(() => !cancelled && setPolicy((prev) => (prev === undefined ? null : prev)))
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [])
+
+  if (policy === undefined) return <p className="text-sm text-slate-400">{t('tenseLoading')}</p>
+  return <TenseExplorerView policy={policy} />
+}
+
+function TenseExplorerView({ policy }: { policy: TenseExplorerPolicy | null }) {
   const { lang, t } = useLanguage()
   const [stored] = useState(loadSettings)
   const [boxes, setBoxes] = useState(emptyBoxes)
-  const [visible, setVisible] = useState<Set<TenseId>>(() => new Set(stored.visible ?? TENSE_IDS))
+  // Locked: the student sees exactly the teacher's tenses and can't change the set.
+  const locked = policy !== null && !policy.allowCustomize
+  // The student's own set. A new or changed teacher setting becomes their starting view again.
+  const [visible, setVisible] = useState<Set<TenseId>>(() =>
+    policy && policy.allowCustomize && stored.teacherVersion !== policy.updatedAt
+      ? new Set(policy.tenses)
+      : new Set(stored.visible ?? TENSE_IDS),
+  )
+  const shown = locked ? new Set(policy.tenses) : visible
   const [subjectMode, setSubjectMode] = useState<SubjectMode>(stored.subjectMode ?? 'vary')
   const [subjectSeed, setSubjectSeed] = useState(0)
   const [timeCue, setTimeCue] = useState(stored.timeCue ?? false)
@@ -67,8 +102,14 @@ export default function TenseExplorer() {
   const speak = synth.supported ? synth.speak : undefined
 
   useEffect(() => {
-    saveSettings({ visible: TENSE_IDS.filter((t) => visible.has(t)), subjectMode, timeCue, explainLang })
-  }, [visible, subjectMode, timeCue, explainLang])
+    saveSettings({
+      visible: TENSE_IDS.filter((t) => visible.has(t)),
+      subjectMode,
+      timeCue,
+      explainLang,
+      teacherVersion: policy?.updatedAt,
+    })
+  }, [visible, subjectMode, timeCue, explainLang, policy])
 
   const rotation = useMemo(() => assignSubjects(subjectSeed), [subjectSeed])
   const ownSubject = (tense: TenseId): Subject => (subjectMode === 'vary' ? rotation[tense] : subjectMode)
@@ -85,7 +126,7 @@ export default function TenseExplorer() {
   function fillVisible(text: string) {
     setBoxes((prev) => {
       const next = { ...prev }
-      for (const tense of TENSE_IDS) if (visible.has(tense)) next[tense] = { input: text }
+      for (const tense of TENSE_IDS) if (shown.has(tense)) next[tense] = { input: text }
       return next
     })
   }
@@ -127,6 +168,7 @@ export default function TenseExplorer() {
   }
 
   function toggleVisible(tense: TenseId) {
+    if (locked) return
     if (visible.has(tense)) {
       if (visible.size === 1) return
       const next = new Set(visible)
@@ -162,7 +204,8 @@ export default function TenseExplorer() {
         explainLang={explainLang}
         label={label}
         onHide={() => toggleVisible(tense)}
-        canHide={visible.size > 1}
+        canHide={!locked && shown.size > 1}
+        hideable={!locked}
         pinned={pinned.includes(tense)}
         pinDisabled={!pinned.includes(tense) && pinned.length >= MAX_PINNED}
         onTogglePin={() => togglePin(tense)}
@@ -171,7 +214,8 @@ export default function TenseExplorer() {
     )
   }
 
-  const visibleInOrder = TENSE_IDS.filter((tense) => visible.has(tense))
+  const visibleInOrder = TENSE_IDS.filter((tense) => shown.has(tense))
+  const presets = policy && !locked ? [{ id: 'teacher', label: 'tensePresetTeacher' as MessageKey, tenses: policy.tenses }, ...PRESETS] : PRESETS
   const columns = FRAMES.map((f) => ({ ...f, tenses: visibleInOrder.filter((t) => TENSE_CONTENT[t].frame === f.frame) })).filter(
     (c) => c.tenses.length > 0,
   )
@@ -285,27 +329,31 @@ export default function TenseExplorer() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('tensePresets')}>
-          {PRESETS.map((preset) => {
-            const active = sameSet(visible, preset.tenses)
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                aria-pressed={active}
-                onClick={() => showOnly(preset.tenses)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                  active
-                    ? 'border-amber-300 bg-amber-100 text-amber-700'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                {t(preset.label)}
-              </button>
-            )
-          })}
-          <BoxesPopover visible={visible} onToggle={toggleVisible} explainLang={explainLang} />
-        </div>
+        {locked ? (
+          <p className="text-xs text-slate-500">{t('tenseTeacherLocked')}</p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('tensePresets')}>
+            {presets.map((preset) => {
+              const active = sameSet(visible, preset.tenses)
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => showOnly(preset.tenses)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                    active
+                      ? 'border-amber-300 bg-amber-100 text-amber-700'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {t(preset.label)}
+                </button>
+              )
+            })}
+            <BoxesPopover visible={visible} onToggle={toggleVisible} explainLang={explainLang} />
+          </div>
+        )}
       </div>
 
       {pinned.length === 2 && (

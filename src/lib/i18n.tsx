@@ -262,6 +262,13 @@ const messages = {
   tenseExplainLang: { hu: 'Magyarázat nyelve', en: 'Explanation language', de: 'Sprache der Erklärung' },
   tenseBoxes: { hu: 'Dobozok', en: 'Boxes', de: 'Boxen' },
   tensePresets: { hu: 'Gyors szűrők', en: 'Quick filters', de: 'Schnellfilter' },
+  tensePresetTeacher: { hu: 'Tanár választása', en: "Teacher's choice", de: 'Auswahl der Lehrkraft' },
+  tenseTeacherLocked: {
+    hu: 'Ezeket az igeidőket a tanárod választotta ki.',
+    en: 'Your teacher chose these tenses.',
+    de: 'Diese Zeitformen hat deine Lehrkraft ausgewählt.',
+  },
+  tenseLoading: { hu: 'Betöltés…', en: 'Loading…', de: 'Wird geladen…' },
   tensePresetAll: { hu: 'Mind', en: 'All', de: 'Alle' },
   tensePresetPresent: { hu: 'Jelen', en: 'Present', de: 'Gegenwart' },
   tensePresetPast: { hu: 'Múlt', en: 'Past', de: 'Vergangenheit' },
