@@ -35,6 +35,9 @@ const VocabularyPage = lazy(() => import('./pages/VocabularyPage'))
 const ExamPrepPage = lazy(() => import('./pages/ExamPrepPage'))
 const ExamPaperPage = lazy(() => import('./pages/ExamPaperPage'))
 const ExamSpeakingPage = lazy(() => import('./pages/ExamSpeakingPage'))
+const TeacherToolsPage = lazy(() => import('./pages/TeacherToolsPage'))
+const LyricsActivitiesPage = lazy(() => import('./pages/LyricsActivitiesPage'))
+const LyricsEditorPage = lazy(() => import('./pages/LyricsEditorPage'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -294,6 +297,46 @@ function AppRoutes() {
           <RoleProtectedRoute role="teacher">
             <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
               <TeacherVocabListPage />
+            </Suspense>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/tools"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <TeacherToolsPage />
+            </Suspense>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/tools/lyrics"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <LyricsActivitiesPage />
+            </Suspense>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/tools/lyrics/new"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <LyricsEditorPage />
+            </Suspense>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/tools/lyrics/:activityId"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <LyricsEditorPage />
             </Suspense>
           </RoleProtectedRoute>
         }

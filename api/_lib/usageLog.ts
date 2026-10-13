@@ -9,6 +9,7 @@ export type LlmCallType =
   | 'grammar_exercises'
   | 'vocab_enrich'
   | 'vocab_generate'
+  | 'lyrics_gaps'
 
 /**
  * Records one LLM call in groq_usage_log (name is historical — it holds Groq and Gemini),

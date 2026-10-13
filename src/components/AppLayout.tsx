@@ -87,9 +87,14 @@ export default function AppLayout() {
                     {t('myProgress')}
                   </Link>
                   {role === 'teacher' && (
-                    <Link to="/teacher" className="text-muted-foreground hover:underline">
-                      {t('teacherDashboard')}
-                    </Link>
+                    <>
+                      <Link to="/teacher" className="text-muted-foreground hover:underline">
+                        {t('teacherDashboard')}
+                      </Link>
+                      <Link to="/teacher/tools" className="text-muted-foreground hover:underline">
+                        {t('teacherToolkit')}
+                      </Link>
+                    </>
                   )}
                   {role === 'admin' && (
                     <Link to="/admin" className="text-muted-foreground hover:underline">
