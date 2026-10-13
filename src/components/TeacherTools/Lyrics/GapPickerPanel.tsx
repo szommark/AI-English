@@ -168,6 +168,13 @@ export default function GapPickerPanel({
             )
           })}
         </div>
+        <label className="flex items-start gap-2 text-sm text-foreground">
+          <input type="checkbox" className="mt-0.5" checked={auto.exact} onChange={(e) => set('exact', e.target.checked)} />
+          <span>
+            {t('lyExact')}
+            <span className={`block ${hintClass}`}>{t('lyExactHint')}</span>
+          </span>
+        </label>
       </div>
 
       <details className="rounded-lg border border-border px-3 py-2">

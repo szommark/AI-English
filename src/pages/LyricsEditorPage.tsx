@@ -8,7 +8,7 @@ import LyricsPreview from '../components/TeacherTools/Lyrics/LyricsPreview'
 import ChoiceEditor from '../components/TeacherTools/Lyrics/ChoiceEditor'
 import ClassMode from '../components/TeacherTools/Lyrics/ClassMode'
 import { cardClass, hintClass, inputClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../components/TeacherTools/ui'
-import { useLanguage } from '../lib/i18n'
+import { useLanguage, type MessageKey } from '../lib/i18n'
 import { printLyricsWorksheet } from '../lib/lyricsWorksheet'
 import { TeacherToolsError, deleteLyricsActivity, fetchLyricsActivity, saveLyricsActivity } from '../lib/teacherToolsApi'
 import {
@@ -162,8 +162,15 @@ export default function LyricsEditorPage() {
   }
 
   function pick(auto: AutoPickOptions) {
-    const gaps = autoPickGaps(doc, auto)
-    setPickMessage(gaps.length === 0 && doc.words.length > 0 ? t('lyPickedNone') : null)
+    const { gaps, target, relaxed } = autoPickGaps(doc, auto, draft.sheet.phraseGaps)
+    let note: string | null = null
+    if (doc.words.length > 0 && gaps.length === 0) note = t('lyPickedNone')
+    else if (gaps.length < target && auto.exact) note = t('lyTooFewWords', { n: gaps.length })
+    else if (gaps.length < target) note = t('lyShortOfTarget', { got: gaps.length, target })
+    else if (relaxed.length) {
+      note = t('lyRelaxed', { target, rules: relaxed.map((r) => t(`lyRelax_${r}` as MessageKey)).join(', ') })
+    }
+    setPickMessage(note)
     update({ auto, gaps })
   }
 
