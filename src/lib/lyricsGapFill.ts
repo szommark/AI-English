@@ -224,6 +224,8 @@ export interface AutoPickOptions {
   onePerLine: boolean
   /** Lines that repeat (the chorus): gap every time, only the first time, or never. */
   repeats: RepeatRule
+  /** Always reach the amount: relax the rules above, one by one, when they leave too few words. */
+  exact: boolean
   seed: number
 }
 
@@ -237,6 +239,7 @@ export const DEFAULT_AUTO_PICK: AutoPickOptions = {
   minDistance: 3,
   onePerLine: false,
   repeats: 'first',
+  exact: true,
   seed: 1,
 }
 
@@ -314,11 +317,84 @@ export function targetGapCount(doc: LyricsDoc, options: Pick<AutoPickOptions, 'a
   return Math.max(0, Math.min(LYRICS_MAX_GAPS, Math.floor(raw)))
 }
 
+/** Rules the exact-count picker may relax, in the order it relaxes them. */
+export type RelaxedRule = 'spacing' | 'onePerLine' | 'skipLines' | 'repeats' | 'wordTypes'
+
+export interface AutoPickResult {
+  gaps: number[]
+  /** The number asked for (count, or the percentage resolved against the song). */
+  target: number
+  /** Rules loosened to reach the target, each listed once. */
+  relaxed: RelaxedRule[]
+}
+
 /**
- * Picks gaps by rule: must-gap words first, then a seeded random spread of words in the
- * chosen categories, keeping the minimum distance and the one-per-line rule.
+ * Relaxation ladder for exact counts, gentlest first: closer gaps, then more lines, then the
+ * chorus, then no spacing at all, and only at the end other word types — that one changes
+ * what the activity practises. Never-gap words and section labels are never relaxed.
  */
-export function autoPickGaps(doc: LyricsDoc, options: AutoPickOptions): number[] {
+const RELAX_STEPS: { rule: RelaxedRule; apply: (o: AutoPickOptions) => AutoPickOptions }[] = [
+  { rule: 'spacing', apply: (o) => ({ ...o, minDistance: Math.min(o.minDistance, 1) }) },
+  { rule: 'onePerLine', apply: (o) => ({ ...o, onePerLine: false }) },
+  { rule: 'skipLines', apply: (o) => ({ ...o, skipLines: 0 }) },
+  { rule: 'repeats', apply: (o) => ({ ...o, repeats: 'all' }) },
+  { rule: 'spacing', apply: (o) => ({ ...o, minDistance: 0 }) },
+  { rule: 'wordTypes', apply: (o) => ({ ...o, targets: [...new Set<GapTarget>([...o.targets, 'content'])] }) },
+  { rule: 'wordTypes', apply: (o) => ({ ...o, targets: ['all'] }) },
+]
+
+const sameRules = (a: AutoPickOptions, b: AutoPickOptions) =>
+  a.minDistance === b.minDistance &&
+  a.onePerLine === b.onePerLine &&
+  a.skipLines === b.skipLines &&
+  a.repeats === b.repeats &&
+  a.targets.length === b.targets.length &&
+  a.targets.every((t) => b.targets.includes(t))
+
+/**
+ * Picks gaps by rule (see pickOnce). With `exact` on and too few words left by the rules,
+ * relaxes them step by step (RELAX_STEPS) until the target is reached or every gappable
+ * word is used; the result says which rules were relaxed.
+ *
+ * With `phraseGaps` on, two picked neighbours would show as one phrase gap, so the picker
+ * keeps picks apart and the count asked for is the count the worksheet shows. Phrase gaps
+ * stay a deliberate choice (clicking neighbours, AI suggestions).
+ */
+export function autoPickGaps(doc: LyricsDoc, options: AutoPickOptions, phraseGaps = false): AutoPickResult {
+  const target = targetGapCount(doc, options)
+  let current = options
+  let gaps = pickOnce(doc, current, phraseGaps)
+  const relaxed: RelaxedRule[] = []
+  if (!options.exact) return { gaps, target, relaxed }
+  for (const step of RELAX_STEPS) {
+    if (gaps.length >= target) break
+    const next = step.apply(current)
+    if (sameRules(next, current)) continue
+    current = next
+    gaps = pickOnce(doc, current, phraseGaps)
+    if (!relaxed.includes(step.rule)) relaxed.push(step.rule)
+  }
+  return { gaps, target, relaxed }
+}
+
+/** Words that would join the next word into one phrase gap (same line, only spaces between). */
+function joiningWords(doc: LyricsDoc): Set<number> {
+  const out = new Set<number>()
+  for (const line of doc.lines) {
+    const t = line.tokens
+    for (let k = 0; k + 2 < t.length; k++) {
+      if (t[k].word !== null && t[k + 1].word === null && /^\s+$/.test(t[k + 1].text) && t[k + 2].word !== null) out.add(t[k].word!)
+    }
+  }
+  return out
+}
+
+/**
+ * One pass under fixed rules: must-gap words first, then a seeded random spread of words
+ * in the chosen categories, keeping the minimum distance and the one-per-line rule (and,
+ * with `keepApart`, never two picks that would merge into a phrase gap).
+ */
+function pickOnce(doc: LyricsDoc, options: AutoPickOptions, keepApart: boolean): number[] {
   const lines = eligibleLines(doc, options)
   const never = parseWordList(options.neverGap)
   const must = parseWordList(options.mustGap)
@@ -333,13 +409,17 @@ export function autoPickGaps(doc: LyricsDoc, options: AutoPickOptions): number[]
   }
 
   const chosen: number[] = []
+  const chosenSet = new Set<number>()
   const usedLines = new Set<number>()
+  const joins = keepApart ? joiningWords(doc) : new Set<number>()
   const fits = (i: number) => {
     if (options.onePerLine && usedLines.has(doc.words[i].line)) return false
+    if ((joins.has(i) && chosenSet.has(i + 1)) || (joins.has(i - 1) && chosenSet.has(i - 1))) return false
     return chosen.every((c) => Math.abs(c - i) > options.minDistance)
   }
   const take = (i: number) => {
     chosen.push(i)
+    chosenSet.add(i)
     usedLines.add(doc.words[i].line)
   }
 
@@ -736,6 +816,7 @@ export function sanitizeLyricsActivity(raw: unknown): LyricsActivityInput {
     skipLines: int(a.skipLines, 0, 20, DEFAULT_AUTO_PICK.skipLines),
     minDistance: int(a.minDistance, 0, 20, DEFAULT_AUTO_PICK.minDistance),
     onePerLine: bool(a.onePerLine, DEFAULT_AUTO_PICK.onePerLine),
+    exact: bool(a.exact, DEFAULT_AUTO_PICK.exact),
     repeats: oneOf(a.repeats, ['all', 'first', 'none'] as const, DEFAULT_AUTO_PICK.repeats),
     seed: int(a.seed, 0, 2 ** 31 - 1, DEFAULT_AUTO_PICK.seed),
   }

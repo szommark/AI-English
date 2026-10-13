@@ -1629,6 +1629,32 @@ const messages = {
     en: 'No words match. Loosen the rules or choose other word types.',
     de: 'Keine passenden Wörter. Lockere die Regeln oder wähle andere Wortarten.',
   },
+  lyExact: { hu: 'Pontosan ennyi hiány legyen', en: 'Always reach this number', de: 'Diese Anzahl immer erreichen' },
+  lyExactHint: {
+    hu: 'Ha a szabályok túl kevés szót hagynak, a kiválasztás sorban lazít rajtuk, és jelzi, melyiken.',
+    en: 'If the rules leave too few words, picking relaxes them one by one and tells you which.',
+    de: 'Lassen die Regeln zu wenige Wörter übrig, werden sie nacheinander gelockert – mit Hinweis, welche.',
+  },
+  lyRelaxed: {
+    hu: '{target} hiány eléréséhez lazítva: {rules}.',
+    en: 'To reach {target} gaps, these rules were relaxed: {rules}.',
+    de: 'Um {target} Lücken zu erreichen, wurden gelockert: {rules}.',
+  },
+  lyRelax_spacing: { hu: 'távolság a hiányok között', en: 'spacing between gaps', de: 'Abstand zwischen Lücken' },
+  lyRelax_onePerLine: { hu: 'soronként egy hiány', en: 'one gap per line', de: 'eine Lücke pro Zeile' },
+  lyRelax_skipLines: { hu: 'teljes kezdősorok', en: 'complete first lines', de: 'vollständige erste Zeilen' },
+  lyRelax_repeats: { hu: 'refrén szabálya', en: 'chorus rule', de: 'Refrain-Regel' },
+  lyRelax_wordTypes: { hu: 'kiválasztott szófajok', en: 'chosen word types', de: 'gewählte Wortarten' },
+  lyTooFewWords: {
+    hu: 'Ebben a dalban ezekkel a beállításokkal legfeljebb {n} hiány fér el.',
+    en: 'This song has room for at most {n} gaps with these settings.',
+    de: 'In diesem Song passen mit diesen Einstellungen höchstens {n} Lücken.',
+  },
+  lyShortOfTarget: {
+    hu: 'A szabályok szerint {got} hiány fér bele ({target} helyett). A „Pontosan ennyi hiány legyen” beállítás pótolja a hiányzókat.',
+    en: 'Only {got} of {target} gaps fit the rules. Turn on "Always reach this number" to fill the rest.',
+    de: 'Nur {got} von {target} Lücken passen zu den Regeln. Aktiviere „Diese Anzahl immer erreichen“, um aufzufüllen.',
+  },
   lyAiTitle: { hu: 'AI-javaslat', en: 'AI suggestion', de: 'KI-Vorschlag' },
   lyAiGoal: { hu: 'Tanítási cél', en: 'Teaching goal', de: 'Lernziel' },
   lyAiGoalPlaceholder: {
