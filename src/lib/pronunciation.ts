@@ -93,11 +93,22 @@ export async function runDeepCheck(params: {
   }
   const timers: ReturnType<typeof setTimeout>[] = []
   const recognized = await new Promise<SpeechSDKTypes.SpeechRecognitionResult>((resolve, reject) => {
-    recognizer.recognizeOnceAsync(resolve, (err) => reject(new Error(err)))
+    recognizer.recognizeOnceAsync(resolve, (err) => {
+      console.error('[deep-check] recognizeOnceAsync error', err)
+      reject(new Error(err))
+    })
     timers.push(
       setTimeout(() => {
         closeRecognizer()
-        timers.push(setTimeout(() => reject(new Error('deep_check_timeout')), FINALIZE_GRACE_MS))
+        timers.push(
+          setTimeout(() => {
+            console.error('[deep-check] no final result within grace period', {
+              maxSeconds: params.maxSeconds,
+              graceMs: FINALIZE_GRACE_MS,
+            })
+            reject(new Error('deep_check_timeout'))
+          }, FINALIZE_GRACE_MS),
+        )
       }, params.maxSeconds * 1000),
     )
   }).finally(() => {
@@ -106,14 +117,37 @@ export async function runDeepCheck(params: {
   })
 
   if (recognized.reason !== SpeechSDK.ResultReason.RecognizedSpeech) {
-    throw new Error('No speech was recognized. Please try again.')
+    // NoMatch (silence/babble/unrecognized) and Canceled (auth/network/quota) need different fixes.
+    const reason = SpeechSDK.ResultReason[recognized.reason]
+    let sub = ''
+    const info: Record<string, unknown> = { reason }
+    if (recognized.reason === SpeechSDK.ResultReason.NoMatch) {
+      sub = SpeechSDK.NoMatchReason[SpeechSDK.NoMatchDetails.fromResult(recognized).reason]
+      info.noMatchReason = sub
+    } else if (recognized.reason === SpeechSDK.ResultReason.Canceled) {
+      const d = SpeechSDK.CancellationDetails.fromResult(recognized)
+      info.cancellationReason = SpeechSDK.CancellationReason[d.reason]
+      info.errorCode = SpeechSDK.CancellationErrorCode[d.ErrorCode]
+      info.errorDetails = d.errorDetails
+      sub = `${info.errorCode}: ${d.errorDetails}`
+    }
+    Object.assign(info, {
+      text: recognized.text,
+      durationSec: recognized.duration / 1e7,
+      offsetSec: recognized.offset / 1e7,
+      targetSentence: params.targetSentence,
+      locale: speechConfig.speechRecognitionLanguage,
+      rawJson: recognized.properties.getProperty(SpeechSDK.PropertyId.SpeechServiceResponse_JsonResult),
+    })
+    console.error('[deep-check] not recognized', info)
+    throw new Error(`No speech was recognized (${reason}${sub ? ': ' + sub : ''}). Please try again.`)
   }
 
   const assessment = SpeechSDK.PronunciationAssessmentResult.fromResult(recognized)
   const detail = assessment.detailResult
   const audioSeconds = Math.min(params.maxSeconds, recognized.duration / 1e7)
 
-  return {
+  const result: PronunciationCheckResult = {
     scores: {
       accuracy: assessment.accuracyScore,
       fluency: assessment.fluencyScore,
@@ -137,4 +171,22 @@ export async function runDeepCheck(params: {
     }),
     audioSeconds,
   }
+
+  console.groupCollapsed(`[deep-check] "${params.targetSentence}" — pron ${result.scores.pronunciation}`)
+  console.log('scores', result.scores, 'audioSeconds', result.audioSeconds)
+  console.table(
+    result.words.flatMap((w) =>
+      (w.phonemes ?? []).map((p) => ({
+        word: w.word,
+        wordScore: w.accuracyScore,
+        errorType: w.errorType,
+        phoneme: p.phoneme,
+        score: p.accuracyScore,
+        heardAs: p.heardAs ?? '',
+      })),
+    ),
+  )
+  console.log('raw detailResult', detail) // includes NBestPhonemes per phoneme
+  console.groupEnd()
+  return result
 }
