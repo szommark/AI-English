@@ -44,7 +44,7 @@ function heardAs(p: AzurePhonemeResult): string | undefined {
   return (top.Score ?? 0) - expectedScore >= SUBSTITUTION_MIN_MARGIN ? top.Phoneme : undefined
 }
 
-// How long to wait for Azure's final result after the mic is force-stopped at maxSeconds.
+// How long to wait for Azure's final result after recognition is stopped at maxSeconds.
 const FINALIZE_GRACE_MS = 5000
 
 function extractProsodyFlags(prosody: AzureProsodyFeedback | undefined): ProsodyFlag[] | undefined {
@@ -81,25 +81,56 @@ export async function runDeepCheck(params: {
   pronunciationConfig.applyTo(recognizer)
 
   // Azure normally ends the utterance itself once it hears trailing silence, but background
-  // noise can keep that from ever triggering. Hitting maxSeconds therefore doesn't discard the
-  // attempt: close() turns the mic off and flushes the final audio, and Azure then finalizes
-  // what it heard and delivers it through the same recognizeOnceAsync callback. Only if that
-  // flush also stalls do we give up.
+  // noise can keep that from ever triggering. At maxSeconds, stopContinuousRecognitionAsync()
+  // sends a proper end-of-audio so Azure finalizes the open segment (close() would abort it and
+  // the final decode tends to come back NoMatch). First RecognizedSpeech segment wins; a NoMatch
+  // is reported only if nothing better arrives before the session stops.
+  // First segment only: a long mid-sentence pause splits the sentence and lowers Completeness;
+  // concatenate segments if that shows up in the logs.
   let closed = false
   const closeRecognizer = () => {
     if (closed) return
     closed = true
     recognizer.close()
   }
+  let lastHypothesis = ''
   const timers: ReturnType<typeof setTimeout>[] = []
   const recognized = await new Promise<SpeechSDKTypes.SpeechRecognitionResult>((resolve, reject) => {
-    recognizer.recognizeOnceAsync(resolve, (err) => {
-      console.error('[deep-check] recognizeOnceAsync error', err)
+    let noMatch: SpeechSDKTypes.SpeechRecognitionResult | undefined
+    recognizer.recognizing = (_, e) => {
+      lastHypothesis = e.result.text
+    }
+    recognizer.recognized = (_, e) => {
+      if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) return resolve(e.result)
+      if (e.result.reason !== SpeechSDK.ResultReason.NoMatch) return
+      noMatch ??= e.result
+      // Silence from the start: fail fast instead of waiting for the cap.
+      const why = SpeechSDK.NoMatchDetails.fromResult(e.result).reason
+      if (why === SpeechSDK.NoMatchReason.InitialSilenceTimeout) resolve(e.result)
+    }
+    recognizer.canceled = (_, e) => {
+      if (e.reason !== SpeechSDK.CancellationReason.Error) return
+      const info = {
+        cancellationReason: SpeechSDK.CancellationReason[e.reason],
+        errorCode: SpeechSDK.CancellationErrorCode[e.errorCode],
+        errorDetails: e.errorDetails,
+        targetSentence: params.targetSentence,
+        locale: speechConfig.speechRecognitionLanguage,
+      }
+      console.error('[deep-check] canceled', info)
+      reject(new Error(`No speech was recognized (Canceled: ${info.errorCode}: ${e.errorDetails}). Please try again.`))
+    }
+    recognizer.sessionStopped = () => {
+      if (noMatch) resolve(noMatch)
+      else reject(new Error('deep_check_timeout'))
+    }
+    recognizer.startContinuousRecognitionAsync(undefined, (err) => {
+      console.error('[deep-check] startContinuousRecognitionAsync error', err)
       reject(new Error(err))
     })
     timers.push(
       setTimeout(() => {
-        closeRecognizer()
+        recognizer.stopContinuousRecognitionAsync()
         timers.push(
           setTimeout(() => {
             console.error('[deep-check] no final result within grace period', {
@@ -117,21 +148,13 @@ export async function runDeepCheck(params: {
   })
 
   if (recognized.reason !== SpeechSDK.ResultReason.RecognizedSpeech) {
-    // NoMatch (silence/babble/unrecognized) and Canceled (auth/network/quota) need different fixes.
+    // Only NoMatch (silence/babble/unrecognized) lands here; Canceled rejects in the handler above.
     const reason = SpeechSDK.ResultReason[recognized.reason]
-    let sub = ''
-    const info: Record<string, unknown> = { reason }
-    if (recognized.reason === SpeechSDK.ResultReason.NoMatch) {
-      sub = SpeechSDK.NoMatchReason[SpeechSDK.NoMatchDetails.fromResult(recognized).reason]
-      info.noMatchReason = sub
-    } else if (recognized.reason === SpeechSDK.ResultReason.Canceled) {
-      const d = SpeechSDK.CancellationDetails.fromResult(recognized)
-      info.cancellationReason = SpeechSDK.CancellationReason[d.reason]
-      info.errorCode = SpeechSDK.CancellationErrorCode[d.ErrorCode]
-      info.errorDetails = d.errorDetails
-      sub = `${info.errorCode}: ${d.errorDetails}`
-    }
+    const sub = SpeechSDK.NoMatchReason[SpeechSDK.NoMatchDetails.fromResult(recognized).reason]
+    const info: Record<string, unknown> = { reason, noMatchReason: sub }
     Object.assign(info, {
+      // Non-empty = Azure heard words in the partials but rejected the final decode.
+      lastHypothesis,
       text: recognized.text,
       durationSec: recognized.duration / 1e7,
       offsetSec: recognized.offset / 1e7,
