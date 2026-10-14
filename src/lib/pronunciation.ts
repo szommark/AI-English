@@ -9,7 +9,10 @@ import type { PronunciationCheckResult, ProsodyFlag } from './types'
 // guaranteed by the SDK's types.
 interface AzurePhonemeResult {
   Phoneme?: string
-  PronunciationAssessment?: { AccuracyScore?: number }
+  PronunciationAssessment?: {
+    AccuracyScore?: number
+    NBestPhonemes?: { Phoneme?: string; Score?: number }[]
+  }
 }
 interface AzureProsodyFeedback {
   Break?: { ErrorTypes?: string[] }
@@ -26,6 +29,20 @@ interface AzureWordResult {
 }
 
 const PROSODY_FLAGS: ProsodyFlag[] = ['UnexpectedBreak', 'MissingBreak', 'Monotone']
+
+// How far (0–100) the top NBest candidate must outscore the expected phoneme to count as a
+// substitution. Tune against real recordings: raise if native-like speech gets flagged.
+const SUBSTITUTION_MIN_MARGIN = 10
+
+// Azure's per-phoneme AccuracyScore only measures closeness to the expected sound; the NBest
+// list says what it actually heard. Returns that sound when it clearly beats the expected one.
+function heardAs(p: AzurePhonemeResult): string | undefined {
+  const nbest = p.PronunciationAssessment?.NBestPhonemes
+  const top = nbest?.[0]
+  if (!top?.Phoneme || !p.Phoneme || top.Phoneme === p.Phoneme) return undefined
+  const expectedScore = nbest!.find((c) => c.Phoneme === p.Phoneme)?.Score ?? 0
+  return (top.Score ?? 0) - expectedScore >= SUBSTITUTION_MIN_MARGIN ? top.Phoneme : undefined
+}
 
 // How long to wait for Azure's final result after the mic is force-stopped at maxSeconds.
 const FINALIZE_GRACE_MS = 5000
@@ -55,6 +72,9 @@ export async function runDeepCheck(params: {
     true,
   )
   pronunciationConfig.enableProsodyAssessment = true
+  // IPA labels match ipaSymbol in src/data/phonemes.ts; NBest is en-US only (we always assess in en-US).
+  pronunciationConfig.phonemeAlphabet = 'IPA'
+  pronunciationConfig.nbestPhonemeCount = 5
 
   const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput()
   const recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig)
@@ -110,6 +130,7 @@ export async function runDeepCheck(params: {
         phonemes: raw.Phonemes?.map((p) => ({
           phoneme: p.Phoneme ?? '',
           accuracyScore: p.PronunciationAssessment?.AccuracyScore ?? 0,
+          heardAs: heardAs(p),
         })),
         prosodyFlags: extractProsodyFlags(raw.PronunciationAssessment?.Feedback?.Prosody),
       }

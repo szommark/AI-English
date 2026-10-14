@@ -101,6 +101,8 @@ export interface PronunciationScores {
 export interface PronunciationPhonemeDetail {
   phoneme: string
   accuracyScore: number
+  // The sound Azure heard instead of `phoneme`; absent when it matched.
+  heardAs?: string
 }
 
 export type ProsodyFlag = 'UnexpectedBreak' | 'MissingBreak' | 'Monotone'

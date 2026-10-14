@@ -167,7 +167,8 @@ export default function PronunciationResultCard({
         <p className="text-slate-600 mb-2">A mondatod szavanként (érintsd meg a hibásakat a részletekért):</p>
         <div className="flex flex-wrap gap-1.5">
           {aligned.map(({ word, detail }, i) => {
-            const isOk = detail?.errorType === 'None'
+            const hasSubstitution = detail?.phonemes?.some((p) => p.heardAs) ?? false
+            const isOk = detail?.errorType === 'None' && !hasSubstitution
             const isExpandable = detail !== null && !isOk
             return (
               <div key={i}>
@@ -200,15 +201,18 @@ export default function PronunciationResultCard({
                         {detail.phonemes.map((p, pi) => (
                           <span
                             key={pi}
+                            title={p.heardAs ? `Ezt hallottuk: /${p.heardAs}/` : undefined}
                             className={`rounded px-1.5 py-0.5 font-mono ${
-                              p.accuracyScore >= 80
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : p.accuracyScore >= 60
-                                  ? 'bg-amber-50 text-amber-700'
-                                  : 'bg-red-50 text-red-600'
+                              p.heardAs
+                                ? 'bg-red-50 text-red-600'
+                                : p.accuracyScore >= 80
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : p.accuracyScore >= 60
+                                    ? 'bg-amber-50 text-amber-700'
+                                    : 'bg-red-50 text-red-600'
                             }`}
                           >
-                            {p.phoneme} {Math.round(p.accuracyScore)}
+                            {p.heardAs ? `${p.phoneme} → ${p.heardAs}` : `${p.phoneme} ${Math.round(p.accuracyScore)}`}
                           </span>
                         ))}
                       </div>
