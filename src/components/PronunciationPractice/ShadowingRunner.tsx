@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Mic, Pause, Play, RotateCcw, Volume2 } from 'lucide-react'
 import { logDeepCheck, requestDeepCheckToken, type DeepCheckLimitError } from '../../lib/api'
 import { playBeep, primeBeep } from '../../lib/beep'
@@ -8,6 +8,7 @@ import { repeatWindowSeconds } from '../../lib/pronunciationConfig'
 import { PRODUCTION_ASSESSMENT_ACCENT, PRODUCTION_ASSESSMENT_LOCALE } from '../../lib/voiceSelection'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import type { VoiceGender } from '../../lib/types'
+import { Countdown, StatusLine } from './RecordPhase'
 import ScoreBar from './ScoreBar'
 
 export interface ShadowItem {
@@ -294,32 +295,6 @@ export default function ShadowingRunner({
           </li>
         ))}
       </ol>
-    </div>
-  )
-}
-
-function StatusLine({ icon, text, strong = false }: { icon: ReactNode; text: string; strong?: boolean }) {
-  return (
-    <p className={`flex items-center gap-2 text-sm ${strong ? 'font-semibold text-rose-700' : 'text-muted-foreground'}`}>
-      {icon}
-      {text}
-    </p>
-  )
-}
-
-/** The repeat window draining away. */
-function Countdown({ seconds }: { seconds: number }) {
-  const [started, setStarted] = useState(false)
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => setStarted(true))
-    return () => cancelAnimationFrame(frame)
-  }, [])
-  return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-      <div
-        className="h-full rounded-full bg-rose-400 ease-linear"
-        style={{ width: started ? '0%' : '100%', transitionProperty: 'width', transitionDuration: `${seconds}s` }}
-      />
     </div>
   )
 }
