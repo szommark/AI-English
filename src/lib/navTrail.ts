@@ -133,6 +133,7 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
     ])
   }
 
+  if (at('/mission')) return finish([{ label: t('mission') }])
   if (at('/my-progress')) return finish([{ label: t('myProgress') }])
   if (at('/settings/voice')) return finish([{ label: t('voiceSettings') }])
   if (at('/settings/teacher')) return finish([{ label: t('connectTeacher') }])
