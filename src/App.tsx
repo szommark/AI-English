@@ -13,7 +13,6 @@ import PronunciationCenterPage from './pages/PronunciationCenterPage'
 import TestModePage from './pages/TestModePage'
 import TutorBotPage from './pages/TutorBotPage'
 import GrammarCoachPage from './pages/GrammarCoachPage'
-import PronunciationChartPage from './pages/PronunciationChartPage'
 import PronunciationHubPage from './pages/PronunciationHubPage'
 import LessonSessionPage from './pages/LessonSessionPage'
 import { stressPatterns } from './data/pronunciationLessons/stressPatterns'
@@ -196,11 +195,7 @@ function AppRoutes() {
       />
       <Route
         path="/pronunciation/sound-bank"
-        element={
-          <ProtectedRoute>
-            <PronunciationChartPage />
-          </ProtectedRoute>
-        }
+        element={<Navigate to="/pronunciation?tab=sound-bank" replace />}
       />
       <Route
         path="/pronunciation/stress-patterns"

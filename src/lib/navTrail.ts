@@ -113,22 +113,18 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
   }
 
   const pronunciationRoot: Crumb = { label: t('crumbPronunciation'), to: '/pronunciation' }
-  const soundBank: Crumb = { label: t('crumbSoundBank'), to: '/pronunciation/sound-bank' }
+  const soundBank: Crumb = { label: t('crumbSoundBank'), to: '/pronunciation?tab=sound-bank' }
   if (at('/pronunciation')) return finish([pronunciationRoot])
-  if (at('/pronunciation/sound-bank')) return finish([pronunciationRoot, soundBank])
   if ((m = at('/pronunciation/sounds/:phonemeId'))) {
     const phoneme = getPhoneme(m.params.phonemeId!)
     return finish([pronunciationRoot, soundBank, { label: phoneme ? `/${phoneme.ipaSymbol}/` : m.params.phonemeId! }])
-  }
-  if ((m = at('/pronunciation/:sessionId')) && getLessonSession(m.params.sessionId!)) {
-    return finish([pronunciationRoot, { label: sessionCrumbLabel(m.params.sessionId!, t) }])
   }
   if ((m = at('/pronunciation/:sessionId/:unitId')) && getLessonSession(m.params.sessionId!)) {
     const sessionId = m.params.sessionId!
     const unit = getLessonUnit(m.params.unitId!)?.unit
     return finish([
       pronunciationRoot,
-      { label: sessionCrumbLabel(sessionId, t), to: `/pronunciation/${sessionId}` },
+      { label: sessionCrumbLabel(sessionId, t), to: `/pronunciation?tab=${sessionId}` },
       { label: unit ? unit.title : m.params.unitId! },
     ])
   }

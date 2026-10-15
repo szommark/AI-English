@@ -12,7 +12,7 @@ export function getLessonSession(id: string): LessonSession | undefined {
 
 /** Route of a session's unit list. */
 export function lessonSessionRoute(id: LessonSessionId): string {
-  return `/pronunciation/${id}`
+  return `/pronunciation?tab=${id}`
 }
 
 export function lessonUnitRoute(sessionId: LessonSessionId, unitId: string): string {

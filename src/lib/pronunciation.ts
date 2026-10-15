@@ -46,6 +46,8 @@ function heardAs(p: AzurePhonemeResult): string | undefined {
 
 // How long to wait for Azure's final result after recognition is stopped at maxSeconds.
 const FINALIZE_GRACE_MS = 5000
+// How long the mic + Azure connection may take before recognition counts as failed.
+const CONNECT_TIMEOUT_MS = 10000
 
 function extractProsodyFlags(prosody: AzureProsodyFeedback | undefined): ProsodyFlag[] | undefined {
   const raw = [...(prosody?.Break?.ErrorTypes ?? []), ...(prosody?.Intonation?.ErrorTypes ?? [])]
@@ -59,6 +61,10 @@ export async function runDeepCheck(params: {
   targetSentence: string
   maxSeconds: number
   locale?: 'en-US' | 'en-GB'
+  /** Prosody feeds into the overall pronunciation score when on (the default). */
+  prosody?: boolean
+  /** Called once the microphone is live, i.e. when the learner should start speaking. */
+  onListening?: () => void
 }): Promise<PronunciationCheckResult> {
   const SpeechSDK = await import('microsoft-cognitiveservices-speech-sdk')
 
@@ -71,7 +77,7 @@ export async function runDeepCheck(params: {
     SpeechSDK.PronunciationAssessmentGranularity.Phoneme,
     true,
   )
-  pronunciationConfig.enableProsodyAssessment = true
+  pronunciationConfig.enableProsodyAssessment = params.prosody ?? true
   // IPA labels match ipaSymbol in src/data/phonemes.ts; NBest is en-US only (we always assess in en-US).
   pronunciationConfig.phonemeAlphabet = 'IPA'
   pronunciationConfig.nbestPhonemeCount = 5
@@ -124,11 +130,8 @@ export async function runDeepCheck(params: {
       if (noMatch) resolve(noMatch)
       else reject(new Error('deep_check_timeout'))
     }
-    recognizer.startContinuousRecognitionAsync(undefined, (err) => {
-      console.error('[deep-check] startContinuousRecognitionAsync error', err)
-      reject(new Error(err))
-    })
-    timers.push(
+    // The speaking window runs from the moment the mic is live, so a slow connect doesn't eat into it.
+    const startCap = () =>
       setTimeout(() => {
         recognizer.stopContinuousRecognitionAsync()
         timers.push(
@@ -140,7 +143,22 @@ export async function runDeepCheck(params: {
             reject(new Error('deep_check_timeout'))
           }, FINALIZE_GRACE_MS),
         )
-      }, params.maxSeconds * 1000),
+      }, params.maxSeconds * 1000)
+    const connectGuard = setTimeout(() => {
+      console.error('[deep-check] recognition did not start', { connectMs: CONNECT_TIMEOUT_MS })
+      reject(new Error('deep_check_timeout'))
+    }, CONNECT_TIMEOUT_MS)
+    timers.push(connectGuard)
+    recognizer.startContinuousRecognitionAsync(
+      () => {
+        clearTimeout(connectGuard)
+        timers.push(startCap())
+        params.onListening?.()
+      },
+      (err) => {
+        console.error('[deep-check] startContinuousRecognitionAsync error', err)
+        reject(new Error(err))
+      },
     )
   }).finally(() => {
     timers.forEach(clearTimeout)

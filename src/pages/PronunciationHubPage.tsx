@@ -1,78 +1,130 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ChevronRight, Ear, Layers, Music } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { getFeature } from '../data/features'
-import { isLessonProgressId, lessonSessionRoute, lessonSessions } from '../data/pronunciationLessons'
+import { connectedSpeech } from '../data/pronunciationLessons/connectedSpeech'
+import { stressPatterns } from '../data/pronunciationLessons/stressPatterns'
 import { fetchPronunciationProgress, type PronunciationProgressEntry } from '../lib/pronunciationProgressApi'
-import { localizeFeature, useLanguage } from '../lib/i18n'
+import { localizeFeature, useLanguage, type MessageKey } from '../lib/i18n'
+import {
+  getAccentPreference,
+  setAccentPreference,
+  PRODUCTION_ACCENT_NOTE_HU,
+  PRODUCTION_ASSESSMENT_ACCENT,
+  type AccentPreference,
+} from '../lib/voiceSelection'
+import AccentToggle from '../components/AccentToggle'
 import PageHeading from '../components/PageHeading'
 import ResurfaceQueue from '../components/Pronunciation/ResurfaceQueue'
+import SoundBankTab from '../components/Pronunciation/SoundBankTab'
+import LessonUnitList from '../components/PronunciationLessons/LessonUnitList'
+import WordlistPracticeTab from '../components/PronunciationPractice/WordlistPracticeTab'
+import ConversationPracticeTab from '../components/PronunciationPractice/ConversationPracticeTab'
 
 const pronunciationFeature = getFeature('pronunciation-session')!
 
-/** /pronunciation: the three sessions. Sound Bank is the phoneme chart that used to live here. */
+type HubTab = 'sound-bank' | 'stress-patterns' | 'connected-speech' | 'wordlists' | 'conversations'
+
+const TABS: { tab: HubTab; label: MessageKey }[] = [
+  { tab: 'sound-bank', label: 'pronTabSoundBank' },
+  { tab: 'stress-patterns', label: 'pronTabStress' },
+  { tab: 'connected-speech', label: 'pronTabConnected' },
+  { tab: 'wordlists', label: 'pronTabWordlists' },
+  { tab: 'conversations', label: 'pronTabConversations' },
+]
+
+/** Wordlist and Conversation practice are Azure-scored throughout, so they play and assess in American English. */
+const PRACTICE_TABS: HubTab[] = ['wordlists', 'conversations']
+
+const isHubTab = (value: string | null): value is HubTab => TABS.some((t) => t.tab === value)
+
+/**
+ * /pronunciation: the sessions as tabs (?tab=, Sound Bank by default). A Stress Patterns or
+ * Connected Speech unit itself still opens on its own page, /pronunciation/<session>/<unit>.
+ */
 export default function PronunciationHubPage() {
   const { lang, t } = useLanguage()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const tab: HubTab = isHubTab(tabParam) ? tabParam : 'sound-bank'
+
   const [progress, setProgress] = useState<PronunciationProgressEntry[]>([])
+  const [accent, setAccent] = useState<AccentPreference>(() => getAccentPreference())
+  const practiceTab = PRACTICE_TABS.includes(tab)
 
   useEffect(() => {
     fetchPronunciationProgress().then(setProgress)
   }, [])
 
-  const practiced = progress.filter((p) => p.attempts > 0)
-  // Sound Bank progress = every practised item that isn't one of the lesson units.
-  const soundBankPracticed = practiced.filter((p) => !isLessonProgressId(p.soundItemId)).length
+  function handleTabChange(next: HubTab) {
+    if (next === tab) return
+    window.speechSynthesis?.cancel()
+    const params = new URLSearchParams(searchParams)
+    if (next === 'sound-bank') params.delete('tab')
+    else params.set('tab', next)
+    setSearchParams(params)
+  }
 
-  const cards = [
-    {
-      to: '/pronunciation/sound-bank',
-      title: 'Sound Bank',
-      titleHu: 'Hangok',
-      descriptionHu: 'Az angol hangok térképe: a magyar fülnek nehéz hangok (th, w, æ, schwa…) hallgatása, minimálpárok és gyakorlatok.',
-      status: soundBankPracticed > 0 ? `${soundBankPracticed} hang gyakorolva` : null,
-      Icon: Ear,
-    },
-    ...lessonSessions.map((session) => {
-      const done = session.units.filter((u) =>
-        practiced.some((p) => p.soundItemId === (u.body.kind === 'funnel' ? u.body.soundItemId : u.id)),
-      ).length
-      return {
-        to: lessonSessionRoute(session.id),
-        title: session.title,
-        titleHu: session.titleHu,
-        descriptionHu: session.descriptionHu,
-        status: done > 0 ? `${done}/${session.units.length} ${session.unitNoun.hu.toLowerCase()} gyakorolva` : `${session.units.length} ${session.unitNoun.hu.toLowerCase()}`,
-        Icon: session.id === 'stress-patterns' ? Layers : Music,
-      }
-    }),
-  ]
+  function handleAccentChange(next: AccentPreference) {
+    setAccent(next)
+    setAccentPreference(next)
+  }
+
+  const description =
+    tab === 'sound-bank'
+      ? t('pronunciationSubtitle')
+      : tab === 'stress-patterns'
+        ? stressPatterns.descriptionHu
+        : tab === 'connected-speech'
+          ? connectedSpeech.descriptionHu
+          : tab === 'wordlists'
+            ? t('pronWordlistsIntro')
+            : t('pronConversationsIntro')
 
   return (
-    <div className="space-y-8">
-      <PageHeading title={localizeFeature(lang, pronunciationFeature).title} subtitle={t('pronunciationHubSubtitle')} />
+    <div className="space-y-6">
+      <PageHeading
+        title={localizeFeature(lang, pronunciationFeature).title}
+        subtitle={t('pronunciationHubSubtitle')}
+        actions={
+          <div className="flex flex-col items-end gap-1">
+            <AccentToggle
+              accent={practiceTab ? PRODUCTION_ASSESSMENT_ACCENT : accent}
+              onChange={handleAccentChange}
+              disabled={practiceTab}
+            />
+            {practiceTab && (
+              <p className="max-w-[16rem] text-right text-xs text-muted-foreground">{PRODUCTION_ACCENT_NOTE_HU}</p>
+            )}
+          </div>
+        }
+      />
 
-      <ResurfaceQueue progress={progress} />
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        {cards.map(({ to, title, titleHu, descriptionHu, status, Icon }) => (
-          <Link
-            key={to}
-            to={to}
-            className="group flex flex-col rounded-2xl border border-border bg-card p-5 transition-all hover:border-rose-200 hover:shadow-[var(--shadow-card)] hover:-translate-y-0.5"
-          >
-            <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100 text-rose-600">
-              <Icon className="h-5 w-5" />
-            </span>
-            <span className="text-lg font-semibold text-foreground">{title}</span>
-            <span className="text-xs text-rose-500">{titleHu}</span>
-            <span className="mt-2 flex-1 text-sm text-muted-foreground">{descriptionHu}</span>
-            <span className="mt-4 flex items-center justify-between text-xs font-medium text-rose-700">
-              <span>{status}</span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-rose-500" />
-            </span>
-          </Link>
-        ))}
+      <div className="space-y-2">
+        <div className="inline-flex max-w-full flex-wrap rounded-lg bg-secondary p-0.5" role="group">
+          {TABS.map(({ tab: value, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => handleTabChange(value)}
+              aria-pressed={tab === value}
+              className={`rounded-md px-3 py-1.5 text-sm sm:px-4 ${
+                tab === value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {t(label)}
+            </button>
+          ))}
+        </div>
+        <p className="text-sm text-muted-foreground">{description}</p>
       </div>
+
+      {!practiceTab && <ResurfaceQueue progress={progress} />}
+
+      {tab === 'sound-bank' && <SoundBankTab accent={accent} />}
+      {tab === 'stress-patterns' && <LessonUnitList session={stressPatterns} progress={progress} />}
+      {tab === 'connected-speech' && <LessonUnitList session={connectedSpeech} progress={progress} />}
+      {tab === 'wordlists' && <WordlistPracticeTab />}
+      {tab === 'conversations' && <ConversationPracticeTab />}
     </div>
   )
 }
