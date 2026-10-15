@@ -20,6 +20,7 @@ import { stressPatterns } from './data/pronunciationLessons/stressPatterns'
 import { connectedSpeech } from './data/pronunciationLessons/connectedSpeech'
 import PhonemeDetailPage from './pages/PhonemeDetailPage'
 import VoiceSettingsPage from './pages/VoiceSettingsPage'
+import MissionPage from './pages/MissionPage'
 import ConnectTeacherPage from './pages/settings/ConnectTeacherPage'
 import TeacherDashboardPage from './pages/TeacherDashboardPage'
 import StudentProgressPage from './pages/StudentProgressPage'
@@ -241,6 +242,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route path="/mission" element={<MissionPage />} />
       <Route
         path="/my-progress"
         element={

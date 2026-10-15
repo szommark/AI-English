@@ -121,6 +121,8 @@ const messages = {
     de: 'Adaptive Englisch-Lernplattform und Club',
   },
   introSkip: { hu: 'Kihagyás', en: 'Skip', de: 'Überspringen' },
+  // Mission statement (src/pages/MissionPage.tsx): header link, kicker and breadcrumb.
+  mission: { hu: 'Küldetésünk', en: 'Our mission', de: 'Unsere Mission' },
 
   landingKicker: { hu: 'Gyakorlás', en: 'Practice', de: 'Üben' },
   landingHeading: {

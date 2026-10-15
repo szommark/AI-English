@@ -5,6 +5,7 @@ import { useLanguage } from '../lib/i18n'
 import { buildTrail } from '../lib/navTrail'
 import AuthModal from './AuthModal'
 import BrandIntro, { shouldShowBrandIntro } from './BrandIntro'
+import Wordmark from './Wordmark'
 import LanguageSwitcher from './LanguageSwitcher'
 import LevelChip from './gamification/LevelChip'
 import XpNotifications from './gamification/XpNotifications'
@@ -72,13 +73,13 @@ export default function AppLayout() {
               <div className="h-8 w-8 rounded-md flex items-center justify-center bg-[var(--brand-navy)] font-brand text-xl font-semibold leading-none text-white">
                 A
               </div>
-              {/* As in the intro, the a and o that complete "AVLN" are gold. */}
-              <span className="font-brand text-xl font-semibold tracking-[0.04em] text-[var(--brand-navy)]">
-                Av<span className="text-[var(--brand-gold)]">a</span>l<span className="text-[var(--brand-gold)]">o</span>n
-              </span>
+              <Wordmark className="text-xl" />
             </Link>
 
             <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 text-sm">
+              <Link to="/mission" className="font-medium text-[var(--brand-navy)] hover:underline">
+                {t('mission')}
+              </Link>
               {user ? (
                 <>
                   <LevelChip />
