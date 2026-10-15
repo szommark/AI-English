@@ -186,7 +186,11 @@ export default function ShadowingRunner({
         ) : phase === 'finished' ? (
           <div className="space-y-3 py-2">
             <p className="text-sm font-medium text-foreground">{t('pronFinished')}</p>
-            {average !== null && <ScoreBar score={average} label={t('pronFinished')} />}
+            {average !== null && (
+              <div className="w-[70%]">
+                <ScoreBar score={average} label={t('pronFinished')} />
+              </div>
+            )}
             <button
               type="button"
               onClick={() => start(0)}
@@ -232,7 +236,11 @@ export default function ShadowingRunner({
                     <Countdown key={index} seconds={windowSeconds} />
                   </>
                 )}
-                {phase === 'scored' && scores[index] !== undefined && <ScoreBar score={scores[index]} />}
+                {phase === 'scored' && scores[index] !== undefined && (
+                  <div className="w-[70%]">
+                    <ScoreBar score={scores[index]} />
+                  </div>
+                )}
                 {phase === 'paused' && error && <p className="text-sm text-red-600">{error}</p>}
               </div>
 
@@ -277,12 +285,12 @@ export default function ShadowingRunner({
         {repeatIndexes.map((i) => (
           <li
             key={i}
-            className={`grid grid-cols-[1fr_6rem] items-center gap-3 rounded-lg px-3 py-2 text-sm sm:grid-cols-[1fr_10rem] ${
+            className={`grid grid-cols-[1fr_7.75rem] items-center gap-3 rounded-lg px-3 py-2 text-sm sm:grid-cols-[1fr_11.25rem] ${
               i === index && phase !== 'idle' && phase !== 'finished' ? 'bg-rose-50' : ''
             }`}
           >
             <span className="min-w-0 truncate text-foreground">{items[i].text}</span>
-            {scores[i] !== undefined ? <ScoreBar score={scores[i]} /> : <span className="h-2.5 rounded-full bg-secondary" />}
+            {scores[i] !== undefined ? <ScoreBar score={scores[i]} /> : <span className="mr-[4.5rem] h-2.5 rounded-full bg-secondary" />}
           </li>
         ))}
       </ol>
