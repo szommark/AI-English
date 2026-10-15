@@ -5,7 +5,7 @@ import { awardXp } from './_lib/gamification.js'
 import { getScenario } from '../src/data/scenarios.js'
 import { getSoundItem } from '../src/data/pronunciationCurriculum.js'
 import { getLessonUnit } from '../src/data/pronunciationLessons/index.js'
-import { DEEP_CHECK_MAX_SECONDS, MONTHLY_AZURE_SECONDS_CAP } from '../src/lib/pronunciationConfig.js'
+import { DEEP_CHECK_MAX_SECONDS, MONTHLY_AZURE_SECONDS_CAP, WORDLIST_PRACTICE_CHECK_ID } from '../src/lib/pronunciationConfig.js'
 
 // Single Vercel function for the whole /api/pronunciation surface (Azure token, Deep
 // Check log, per-sound progress), multiplexed by ?action= to stay under Vercel Hobby's
@@ -24,8 +24,10 @@ async function handleToken(req: VercelRequest, res: VercelResponse) {
   const body = req.body as PronunciationTokenRequestBody
   // `scenarioId` also doubles as a Pronunciation Session sound-item id or a Stress Patterns /
   // Connected Speech unit id — those features have no "scenario" of their own, so they reuse this
-  // same token/log flow with their item id in this slot.
-  const contentExists = Boolean(getScenario(body.scenarioId) ?? getSoundItem(body.scenarioId) ?? getLessonUnit(body.scenarioId))
+  // same token/log flow with their item id in this slot. Wordlist practice sends one fixed id.
+  const contentExists =
+    body.scenarioId === WORDLIST_PRACTICE_CHECK_ID ||
+    Boolean(getScenario(body.scenarioId) ?? getSoundItem(body.scenarioId) ?? getLessonUnit(body.scenarioId))
   if (!contentExists) {
     res.status(400).json({ error: 'Unknown scenario' })
     return
