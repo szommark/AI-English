@@ -216,12 +216,6 @@ const messages = {
     en: 'Speech recognition is not supported in this browser. Please use Chrome.',
     de: 'Die Spracherkennung wird in diesem Browser nicht unterstützt. Bitte verwende Chrome.',
   },
-  deepCheckPreparing: { hu: 'Előkészítés...', en: 'Preparing...', de: 'Wird vorbereitet...' },
-  deepCheckRecording: {
-    hu: 'Beszélj most... (max. {n} mp)',
-    en: 'Speak now... (max. {n} s)',
-    de: 'Sprich jetzt... (max. {n} Sek.)',
-  },
   deepCheckIdle: { hu: 'Kiejtésellenőrzés', en: 'Pronunciation check', de: 'Ausspracheprüfung' },
   deepCheckUnavailable: {
     hu: 'A kiejtésellenőrzés most nem elérhető. Próbáld újra kicsit később. ({detail})',
