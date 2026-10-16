@@ -80,8 +80,6 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
     switch (m.params.mode) {
       case 'rehearsal':
         return finish([...base, { label: scenarioLabel }])
-      case 'pronunciation':
-        return finish([...base, { label: scenarioLabel, to: rehearsal }, { label: t('crumbPronunciationCentre') }])
       case 'test':
         return finish([...base, { label: scenarioLabel, to: rehearsal }, { label: t('crumbTest') }])
     }

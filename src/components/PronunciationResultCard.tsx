@@ -115,9 +115,12 @@ function ProsodyHints({ result }: { result: PronunciationCheckResult }) {
 export default function PronunciationResultCard({
   result,
   targetSentence,
+  showAllPhonemes = false,
 }: {
   result: PronunciationCheckResult
   targetSentence: string
+  /** Admin view: every recognised word shows its per-phoneme points, the correct ones too. */
+  showAllPhonemes?: boolean
 }) {
   const [expandedWord, setExpandedWord] = useState<number | null>(null)
   const aligned = alignWords(targetSentence, result.words)
@@ -164,12 +167,17 @@ export default function PronunciationResultCard({
       <ProsodyHints result={result} />
 
       <div className="mt-4 text-sm">
-        <p className="text-slate-600 mb-2">A mondatod szavanként (érintsd meg a hibásakat a részletekért):</p>
+        <p className="text-slate-600 mb-2">
+          {showAllPhonemes
+            ? 'A mondatod szavanként, hangonkénti pontszámokkal:'
+            : 'A mondatod szavanként (érintsd meg a hibásakat a részletekért):'}
+        </p>
         <div className="flex flex-wrap gap-1.5">
           {aligned.map(({ word, detail }, i) => {
             const hasSubstitution = detail?.phonemes?.some((p) => p.heardAs) ?? false
             const isOk = detail?.errorType === 'None' && !hasSubstitution
-            const isExpandable = detail !== null && !isOk
+            const isExpandable = detail !== null && !isOk && !showAllPhonemes
+            const isExpanded = showAllPhonemes ? detail !== null : expandedWord === i
             return (
               <div key={i}>
                 <button
@@ -178,7 +186,7 @@ export default function PronunciationResultCard({
                   className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-sm font-medium ${
                     isOk
                       ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                      : isExpandable
+                      : isExpandable || (showAllPhonemes && detail)
                         ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
                         : 'border-dashed border-red-200 bg-red-50/50 text-red-500 cursor-default'
                   }`}
@@ -190,8 +198,12 @@ export default function PronunciationResultCard({
                   )}
                   {word}
                 </button>
-                {expandedWord === i && detail && (
-                  <div className="mt-1 w-full rounded-lg bg-white border border-red-100 p-2 text-xs space-y-1.5">
+                {isExpanded && detail && (
+                  <div
+                    className={`mt-1 w-full rounded-lg bg-white border p-2 text-xs space-y-1.5 ${
+                      isOk ? 'border-emerald-100' : 'border-red-100'
+                    }`}
+                  >
                     {detail.errorType === 'Omission' ? (
                       <p className="text-slate-500">
                         Ezt a szót nem hallottuk tisztán — próbáld hangosabban és lassabban kimondani.

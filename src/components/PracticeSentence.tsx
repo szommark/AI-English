@@ -4,7 +4,6 @@ import { getScenario } from '../data/scenarios'
 import type { VoiceGender } from '../lib/types'
 import { MicIcon, SpeakerIcon } from './icons/AudioIcons'
 import WordMatchFeedback from './WordMatchFeedback'
-import DeepCheckPanel from './DeepCheckPanel'
 import { useLanguage } from '../lib/i18n'
 
 export default function PracticeSentence({
@@ -13,7 +12,6 @@ export default function PracticeSentence({
   scenarioId,
   voiceGender,
   speakerLabel,
-  showDeepCheck = false,
 }: {
   en: string
   /** Translation into the UI language; omitted (e.g. for English) when there is none to show. */
@@ -21,7 +19,6 @@ export default function PracticeSentence({
   scenarioId?: string
   voiceGender?: VoiceGender
   speakerLabel?: string
-  showDeepCheck?: boolean
 }) {
   const { t } = useLanguage()
   const synth = useSpeechSynthesis(voiceGender ?? (scenarioId ? getScenario(scenarioId)?.voiceGender : undefined))
@@ -76,7 +73,6 @@ export default function PracticeSentence({
         <WordMatchFeedback target={en} heard={recognition.transcript} />
       )}
 
-      {showDeepCheck && scenarioId && <DeepCheckPanel scenarioId={scenarioId} targetSentence={en} />}
     </div>
   )
 }

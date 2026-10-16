@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Navigate, useParams } from 'react-router-dom'
 import { Volume2 } from 'lucide-react'
 import { getScenario } from '../data/scenarios'
 import { getCategoryForScenario } from '../data/categories'
@@ -153,13 +153,6 @@ export default function RehearsalPage() {
                 />
               ))}
             </div>
-
-            <Link
-              to={`/scenario/${scenario.id}/pronunciation`}
-              className="block w-full text-center rounded-lg border border-indigo-600 text-indigo-600 text-sm font-medium py-2.5 hover:bg-indigo-50"
-            >
-              {t('pronCentreLink')}
-            </Link>
           </>
         ) : (
           <ConversationSession scenario={scenario} mode="rehearsal" />

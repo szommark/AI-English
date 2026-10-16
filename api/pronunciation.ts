@@ -1,11 +1,18 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
-import { issueAzureToken } from './_lib/azure.js'
+import { issueAzureToken, synthesizeSsml } from './_lib/azure.js'
 import { awardXp } from './_lib/gamification.js'
 import { getScenario } from '../src/data/scenarios.js'
 import { getSoundItem } from '../src/data/pronunciationCurriculum.js'
 import { getLessonUnit } from '../src/data/pronunciationLessons/index.js'
-import { DEEP_CHECK_MAX_SECONDS, MONTHLY_AZURE_SECONDS_CAP, WORDLIST_PRACTICE_CHECK_ID } from '../src/lib/pronunciationConfig.js'
+import { getPhoneme } from '../src/data/phonemes.js'
+import { getPhonemePractice } from '../src/data/phonemePractice.js'
+import {
+  DEEP_CHECK_MAX_SECONDS,
+  MONTHLY_AZURE_SECONDS_CAP,
+  SOUND_CHECK_PREFIX,
+  WORDLIST_PRACTICE_CHECK_ID,
+} from '../src/lib/pronunciationConfig.js'
 
 // Single Vercel function for the whole /api/pronunciation surface (Azure token, Deep
 // Check log, per-sound progress), multiplexed by ?action= to stay under Vercel Hobby's
@@ -24,9 +31,11 @@ async function handleToken(req: VercelRequest, res: VercelResponse) {
   const body = req.body as PronunciationTokenRequestBody
   // `scenarioId` also doubles as a Pronunciation Session sound-item id or a Stress Patterns /
   // Connected Speech unit id — those features have no "scenario" of their own, so they reuse this
-  // same token/log flow with their item id in this slot. Wordlist practice sends one fixed id.
+  // same token/log flow with their item id in this slot. Wordlist practice sends one fixed id;
+  // the Sound Bank sheet sends `sound:<phonemeId>`.
   const contentExists =
     body.scenarioId === WORDLIST_PRACTICE_CHECK_ID ||
+    (body.scenarioId?.startsWith(SOUND_CHECK_PREFIX) && Boolean(getPhoneme(body.scenarioId.slice(SOUND_CHECK_PREFIX.length)))) ||
     Boolean(getScenario(body.scenarioId) ?? getSoundItem(body.scenarioId) ?? getLessonUnit(body.scenarioId))
   if (!contentExists) {
     res.status(400).json({ error: 'Unknown scenario' })
@@ -169,7 +178,51 @@ async function handleProgress(req: VercelRequest, res: VercelResponse, userId: s
   res.status(200).json({ ok: true })
 }
 
+// Continuant sounds get a length mark so the lone clip lasts long enough to hear; stops,
+// affricates and glides can't be held.
+const HOLDABLE_MANNERS = new Set(['fricative', 'nasal', 'lateral'])
+
+/**
+ * One Sound Bank sound on its own, as Azure neural TTS (en-US, matching the assessment), said
+ * twice, slowed down. Public (an <audio>-style fetch can't send the session header) but limited
+ * to the fixed phoneme list, and cached by the CDN for a year, so Azure renders each clip about
+ * once — far inside the free tier's text-to-speech allowance. Bump CLIP_VERSION in
+ * src/lib/soundClip.ts after changing the SSML.
+ */
+async function handleSoundClip(req: VercelRequest, res: VercelResponse) {
+  const id = typeof req.query.id === 'string' ? req.query.id : ''
+  const phoneme = getPhoneme(id)
+  const practice = getPhonemePractice(id)
+  if (!phoneme || !practice) {
+    res.status(404).json({ error: 'Unknown sound' })
+    return
+  }
+
+  const holdable = phoneme.category === 'monophthong' || HOLDABLE_MANNERS.has(phoneme.articulation.manner ?? '')
+  const ipa = holdable && !practice.clipIpa.endsWith('ː') ? `${practice.clipIpa}ː` : practice.clipIpa
+  const sound = `<phoneme alphabet="ipa" ph="${ipa}">a</phoneme>`
+  const ssml =
+    '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">' +
+    `<voice name="en-US-JennyNeural"><prosody rate="-40%" volume="+100%">${sound}<break time="600ms"/>${sound}</prosody></voice>` +
+    '</speak>'
+
+  try {
+    const audio = await synthesizeSsml(ssml)
+    res.setHeader('Content-Type', 'audio/mpeg')
+    res.setHeader('Cache-Control', 'public, max-age=604800, s-maxage=31536000, immutable')
+    res.status(200).send(audio)
+  } catch (err) {
+    console.error('[sound-clip]', id, err)
+    res.status(502).json({ error: 'Sound clip unavailable' })
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.query.action === 'sound' && req.method === 'GET') {
+    await handleSoundClip(req, res)
+    return
+  }
+
   const user = await getUserFromRequest(req)
   if (!user) {
     res.status(401).json({ error: 'Unauthorized' })
