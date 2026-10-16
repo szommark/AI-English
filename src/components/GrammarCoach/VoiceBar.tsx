@@ -1,7 +1,5 @@
 import { Pause, Play, SkipBack, SkipForward } from 'lucide-react'
-import type { PlaybackRate } from '../../hooks/useSegmentPlayer'
-
-const RATES: PlaybackRate[] = [0.75, 1, 1.25]
+import { PLAYBACK_RATES, type PlaybackRate } from '../../hooks/useSegmentPlayer'
 
 export default function VoiceBar({
   segmentCount,
@@ -85,7 +83,7 @@ export default function VoiceBar({
       </div>
 
       <div className="flex items-center gap-1 shrink-0">
-        {RATES.map((r) => (
+        {PLAYBACK_RATES.map((r) => (
           <button
             key={r}
             onClick={() => onSetRate(r)}

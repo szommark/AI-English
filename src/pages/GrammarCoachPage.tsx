@@ -4,7 +4,7 @@ import PageHeading from '../components/PageHeading'
 import { localizeFeature, useLanguage } from '../lib/i18n'
 import { getFeature } from '../data/features'
 import { getGrammarItem, type CefrLevel, type GrammarItem } from '../data/grammarCurriculum'
-import type { GrammarExerciseSet, GrammarLesson } from '../lib/types'
+import type { ExplainLanguage, GrammarExerciseSet, GrammarLesson } from '../lib/types'
 import {
   fetchCachedGrammarExercises,
   fetchCachedGrammarLesson,
@@ -13,11 +13,12 @@ import {
 } from '../lib/grammarCoachApi'
 import { awardClientXp } from '../lib/gamificationApi'
 import { useSegmentPlayer } from '../hooks/useSegmentPlayer'
-import type { BoardTheme } from '../components/GrammarCoach/boardTheme'
+import type { BoardFont, BoardTheme } from '../components/GrammarCoach/boardTheme'
 import GrammarRail from '../components/GrammarCoach/GrammarRail'
 import ChalkBoard from '../components/GrammarCoach/ChalkBoard'
 import GrammarWidgetView from '../components/GrammarCoach/GrammarWidgetView'
 import VoiceBar from '../components/GrammarCoach/VoiceBar'
+import NarrationCaptions from '../components/GrammarCoach/NarrationCaptions'
 import PracticePanel, { type PracticeMode } from '../components/GrammarCoach/PracticePanel'
 import { boardThemes } from '../components/GrammarCoach/boardTheme'
 import TenseExplorer from '../components/GrammarCoach/TenseExplorer/TenseExplorer'
@@ -25,10 +26,67 @@ import TenseGame from '../components/GrammarCoach/TenseGame/TenseGame'
 
 const grammarFeature = getFeature('grammar-coach')!
 
-// At these levels the lesson is narrated in the learner's UI language instead of English.
-const SUPPORT_LANGUAGE_LEVELS: CefrLevel[] = ['A1', 'A2']
-
 const NARRATION_LOCALES = { hu: 'hu-HU', en: 'en-US', de: 'de-DE' } as const
+
+/** Explanation in the UI language ("native") or in English — the learner's choice at every level. */
+type ExplainChoice = 'native' | 'en'
+
+/** A board / narration preference remembered in this browser (falls back quietly without storage). */
+function useStoredChoice<T extends string>(key: string, options: readonly T[], fallback: T) {
+  const [value, setValue] = useState<T>(() => {
+    try {
+      const stored = window.localStorage.getItem(key)
+      return options.includes(stored as T) ? (stored as T) : fallback
+    } catch {
+      return fallback
+    }
+  })
+  const update = useCallback(
+    (next: T) => {
+      setValue(next)
+      try {
+        window.localStorage.setItem(key, next)
+      } catch {
+        // Not remembered, but still applied for this visit.
+      }
+    },
+    [key],
+  )
+  return [value, update] as const
+}
+
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: T
+  options: { value: T; label: string }[]
+  onChange: (value: T) => void
+  label?: string
+}) {
+  return (
+    <div className="inline-flex items-center gap-1.5">
+      {label && <span className="text-xs font-medium text-slate-500">{label}</span>}
+      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={value === option.value}
+            onClick={() => onChange(option.value)}
+            className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+              value === option.value ? 'bg-amber-100 text-amber-700' : 'text-slate-400 hover:bg-slate-50'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 type CoachMode = 'lessons' | 'explorer' | 'game'
 
@@ -51,7 +109,12 @@ export default function GrammarCoachPage() {
   const [selected, setSelected] = useState<{ level: CefrLevel; item: GrammarItem } | null>(deepLinked)
   const [lesson, setLesson] = useState<GrammarLesson | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [theme, setTheme] = useState<BoardTheme>('green')
+  const [theme, setTheme] = useStoredChoice<BoardTheme>('aiEnglish:grammarBoardTheme', ['green', 'black'], 'green')
+  const [font, setFont] = useStoredChoice<BoardFont>('aiEnglish:grammarBoardFont', ['clear', 'chalk'], 'clear')
+  const [captions, setCaptions] = useStoredChoice('aiEnglish:grammarCaptions', ['on', 'off'] as const, 'on')
+  const [explainChoice, setExplainChoice] = useStoredChoice<ExplainChoice>('aiEnglish:grammarExplainLang', ['native', 'en'], 'native')
+  // An English UI has only the English explanation.
+  const explain: ExplainLanguage = lang === 'en' || explainChoice === 'en' ? 'en' : lang
   const [practiceMode, setPracticeMode] = useState<PracticeMode>('written')
   const [exercises, setExercises] = useState<GrammarExerciseSet | null>(null)
   const [isExercisesLoading, setIsExercisesLoading] = useState(false)
@@ -69,8 +132,7 @@ export default function GrammarCoachPage() {
     }
   }, [deepLinked])
 
-  const narrationLang = selected && SUPPORT_LANGUAGE_LEVELS.includes(selected.level) ? NARRATION_LOCALES[lang] : 'en-US'
-  const player = useSegmentPlayer(lesson?.segments ?? [], narrationLang)
+  const player = useSegmentPlayer(lesson?.segments ?? [], NARRATION_LOCALES[explain])
 
   const handleSelectItem = useCallback((level: CefrLevel, item: GrammarItem) => {
     const token = ++selectionTokenRef.current
@@ -82,24 +144,24 @@ export default function GrammarCoachPage() {
     setExercises(null)
     setIsExercisesLoading(false)
 
-    fetchCachedGrammarLesson(level, item.id, lang).then((cached) => {
+    fetchCachedGrammarLesson(level, item.id, lang, explain).then((cached) => {
       if (selectionTokenRef.current !== token || !cached) return
       setLesson(cached)
     })
-    fetchCachedGrammarExercises(level, item.id, lang).then((cached) => {
+    fetchCachedGrammarExercises(level, item.id, lang, explain).then((cached) => {
       if (selectionTokenRef.current !== token || !cached) return
       setExercises(cached)
     })
     // player.reset intentionally omitted from deps — it's stable enough for this handler's purpose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lang])
+  }, [lang, explain])
 
-  // Lessons are written in the UI language, so switching it swaps in (or clears) the lesson for the same item.
+  // Lessons are written per UI and explanation language, so switching either swaps in (or clears) the lesson for the same item.
   useEffect(() => {
     if (selected) handleSelectItem(selected.level, selected.item)
     // Only a language change should re-select the current item.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lang])
+  }, [lang, explain])
 
   // Generates the lesson on a cache miss. Play starts it straight away; the speaking
   // practice only needs its sentences, so it loads without playing.
@@ -120,7 +182,7 @@ export default function GrammarCoachPage() {
     pendingAutoPlayRef.current = autoPlay
     setIsGenerating(true)
     try {
-      const generated = await requestGrammarLesson(selected.level, selected.item.id, lang)
+      const generated = await requestGrammarLesson(selected.level, selected.item.id, lang, explain)
       if (selectionTokenRef.current !== token) return
       setLesson(generated)
     } catch (err) {
@@ -130,7 +192,7 @@ export default function GrammarCoachPage() {
     } finally {
       if (selectionTokenRef.current === token) setIsGenerating(false)
     }
-  }, [selected, lesson, player, isGenerating, lang])
+  }, [selected, lesson, player, isGenerating, lang, explain])
 
   const handlePlay = useCallback(() => loadLesson(true), [loadLesson])
 
@@ -139,7 +201,7 @@ export default function GrammarCoachPage() {
     const token = selectionTokenRef.current
     setIsExercisesLoading(true)
     try {
-      const generated = await requestGrammarExercises(selected.level, selected.item.id, lang)
+      const generated = await requestGrammarExercises(selected.level, selected.item.id, lang, explain)
       if (selectionTokenRef.current === token) setExercises(generated)
     } catch (err) {
       // Fails silently like the lesson: the start button simply comes back.
@@ -147,7 +209,7 @@ export default function GrammarCoachPage() {
     } finally {
       if (selectionTokenRef.current === token) setIsExercisesLoading(false)
     }
-  }, [selected, exercises, isExercisesLoading, lang])
+  }, [selected, exercises, isExercisesLoading, lang, explain])
 
   function handleWrittenComplete(score: number) {
     if (!selected) return
@@ -241,25 +303,61 @@ export default function GrammarCoachPage() {
           <GrammarRail selectedItemId={selected?.item.id ?? null} onSelectItem={handleSelectItem} />
 
           <div ref={boardRef} className="space-y-4 min-w-0 scroll-mt-20">
-            <div className="flex items-center justify-end">
-              <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
-                {(['green', 'black'] as const).map((option) => (
-                  <button
-                    key={option}
-                    onClick={() => setTheme(option)}
-                    className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition ${
-                      theme === option ? 'bg-amber-100 text-amber-700' : 'text-slate-400 hover:bg-slate-50'
-                    }`}
-                  >
-                    {option === 'green' ? 'Green board' : 'Black board'}
-                  </button>
-                ))}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {lang !== 'en' ? (
+                <Segmented
+                  label={tr('explainIn')}
+                  value={explainChoice}
+                  onChange={setExplainChoice}
+                  options={[
+                    { value: 'native', label: tr('explainNative') },
+                    { value: 'en', label: tr('explainEnglish') },
+                  ]}
+                />
+              ) : (
+                <span />
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <Segmented
+                  value={font}
+                  onChange={setFont}
+                  options={[
+                    { value: 'clear', label: tr('boardFontClear') },
+                    { value: 'chalk', label: tr('boardFontChalk') },
+                  ]}
+                />
+                <Segmented
+                  value={theme}
+                  onChange={setTheme}
+                  options={[
+                    { value: 'green', label: tr('boardGreen') },
+                    { value: 'black', label: tr('boardBlack') },
+                  ]}
+                />
               </div>
             </div>
 
-            <ChalkBoard status={boardStatus} theme={theme} title={selected?.item.title} titleGloss={lang === 'hu' ? selected?.item.titleHu : undefined}>
+            <ChalkBoard
+              status={boardStatus}
+              theme={theme}
+              font={font}
+              title={selected?.item.title}
+              titleGloss={lang === 'hu' ? selected?.item.titleHu : undefined}
+              step={lesson ? `${player.currentIndex + 1} / ${lesson.segments.length}` : undefined}
+            >
               {currentSegment && <GrammarWidgetView widget={currentSegment.widget} theme={t} />}
             </ChalkBoard>
+
+            {lesson && (
+              <NarrationCaptions
+                pieces={player.currentPieces}
+                currentPiece={player.currentPiece}
+                isPlaying={player.isPlaying}
+                markEnglish={explain !== 'en'}
+                visible={captions === 'on'}
+                onToggle={() => setCaptions(captions === 'on' ? 'off' : 'on')}
+              />
+            )}
 
             <VoiceBar
               segmentCount={lesson?.segments.length ?? 0}
@@ -275,9 +373,13 @@ export default function GrammarCoachPage() {
               onSetRate={player.setRate}
             />
 
+            {player.nativeVoiceMissing && lesson && (
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">{tr('nativeVoiceMissing')}</p>
+            )}
+
             {selected && (
               <PracticePanel
-                key={`${selected.item.id}/${lang}`}
+                key={`${selected.item.id}/${lang}/${explain}`}
                 mode={practiceMode}
                 onModeChange={setPracticeMode}
                 lesson={lesson}

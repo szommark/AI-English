@@ -1,13 +1,16 @@
 import type {
   ChatMessage,
+  ExplainLanguage,
   FeedbackResult,
   GrammarExerciseSet,
   GrammarLesson,
+  GrammarSegment,
   GrammarWidget,
   LessonLanguage,
   VocabularyNote,
   VocabularyReason,
 } from '../../src/lib/types.js'
+import { stripNarrationTags } from '../../src/lib/narration.js'
 import { WORD_PICK_MAX_WORDS_PER_TERM, type CefrLevel } from './prompts.js'
 import { isValidSubtype, OTHER_SUBTYPE } from '../../src/data/mistakeTaxonomy.js'
 import { recordGroqRateLimits } from './groqRateLimit.js'
@@ -284,12 +287,26 @@ function validateWidget(widget: unknown): widget is GrammarWidget {
   }
 }
 
+/** The <en> narration tags belong in "narration" only; drop any that leak onto the board. */
+function stripTagsDeep(value: unknown): unknown {
+  if (typeof value === 'string') return stripNarrationTags(value)
+  if (Array.isArray(value)) return value.map(stripTagsDeep)
+  if (typeof value === 'object' && value !== null) {
+    return Object.fromEntries(Object.entries(value).map(([key, v]) => [key, stripTagsDeep(v)]))
+  }
+  return value
+}
+
 /**
  * Strict parse+validate for the grammar lesson JSON — throws on any deviation from the
  * widget allowlist / expected shape, so an invalid Groq response never reaches the cache
  * or the board (see the fail-silent retry-once handling in api/grammar-lesson.ts).
  */
-export function parseGrammarLessonJson(raw: string, lang: LessonLanguage = 'hu'): GrammarLesson {
+export function parseGrammarLessonJson(
+  raw: string,
+  lang: LessonLanguage = 'hu',
+  explain: ExplainLanguage = lang,
+): GrammarLesson {
   const cleaned = raw.trim().replace(/^```(json)?/i, '').replace(/```$/, '').trim()
   const parsed = JSON.parse(cleaned)
 
@@ -304,6 +321,15 @@ export function parseGrammarLessonJson(raw: string, lang: LessonLanguage = 'hu')
     if (!isNonEmptyString((segment as Record<string, unknown>).narration)) throw new Error('Grammar lesson segment is missing narration')
     if (!validateWidget((segment as Record<string, unknown>).widget)) throw new Error('Grammar lesson segment has an invalid widget')
   }
+  // A Hungarian / German explanation always quotes English; untagged, the native voice
+  // would mispronounce all of it — worth a retry.
+  if (explain !== 'en' && !segments.some((s) => /<\s*en\s*>/i.test((s as GrammarSegment).narration))) {
+    throw new Error('Grammar lesson narration has no <en> tags')
+  }
+  parsed.segments = segments.map((s) => ({
+    widget: stripTagsDeep((s as GrammarSegment).widget),
+    narration: (s as GrammarSegment).narration,
+  }))
 
   const practice = parsed.practice
   if (!Array.isArray(practice) || practice.length === 0) throw new Error('Grammar lesson is missing "practice" sentences')
