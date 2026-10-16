@@ -16,7 +16,7 @@ export function awardSwipeSetXp(phonemeId: string, results: RoundResult[]) {
   })
 }
 
-const DECK_SIZE = 6
+const DECK_SIZE = 3
 const ADVANCE_DELAY_MS = 900
 const SWIPE_THRESHOLD = 80
 
@@ -27,6 +27,14 @@ function shuffle<T>(items: T[]): T[] {
     ;[copy[i], copy[j]] = [copy[j], copy[i]]
   }
   return copy
+}
+
+/** DECK_SIZE cards with both answers represented: one or two words with the sound, the rest without. */
+function pickDeck(words: SwipeWord[]): SwipeWord[] {
+  const targets = shuffle(words.filter((w) => w.isTarget))
+  const others = shuffle(words.filter((w) => !w.isTarget))
+  const targetCount = Math.min(targets.length, Math.max(DECK_SIZE - others.length, Math.random() < 0.5 ? 1 : 2))
+  return shuffle([...targets.slice(0, targetCount), ...others.slice(0, DECK_SIZE - targetCount)])
 }
 
 /**
@@ -45,7 +53,7 @@ export function SwipeCardDeck({
   speak: (word: string) => void
   onFinish: (results: RoundResult[]) => void
 }) {
-  const [deck] = useState(() => shuffle(words).slice(0, DECK_SIZE))
+  const [deck] = useState(() => pickDeck(words))
   const [index, setIndex] = useState(0)
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null)
   const [dragX, setDragX] = useState(0)

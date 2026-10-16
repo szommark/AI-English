@@ -86,6 +86,9 @@ function shuffleIndices(n: number): number[] {
  * ignores it: it is always assessed in en-US and its model sentence plays in a US voice, because
  * Azure only returns full phoneme/prosody detail for en-US (see PRODUCTION_ASSESSMENT_ACCENT).
  * `onProductionActiveChange` lets the page show that switch on its accent toggle.
+ *
+ * `listeningOnly` (the Sound Bank sheet's Hearing tab) ends after dictation with a listening
+ * summary and records the perception score alone; the sheet's Pronunciation tab does the speaking.
  */
 export default function DrillFunnel({
   soundItem,
@@ -94,6 +97,7 @@ export default function DrillFunnel({
   hasPriorAttempt,
   onItemComplete,
   onProductionActiveChange,
+  listeningOnly = false,
 }: {
   soundItem: PronunciationSoundItem
   /** The tile the learner came from — supplies the card deck for the warm-up stage, if it has one. */
@@ -103,10 +107,11 @@ export default function DrillFunnel({
   onItemComplete: () => void
   /** Called with true when the production stage starts and false when it ends (or on unmount). */
   onProductionActiveChange?: (active: boolean) => void
+  listeningOnly?: boolean
 }) {
   const hasCards = Boolean(phoneme?.swipeWords?.length)
   const firstStage: Stage = hasCards ? 'cards' : 'forced-choice'
-  const [stage, setStage] = useState<Stage>(hasPriorAttempt ? 'intro' : firstStage)
+  const [stage, setStage] = useState<Stage>(hasPriorAttempt && !listeningOnly ? 'intro' : firstStage)
   const [rate, setRate] = useState<1 | 0.75>(1)
   const synth = useSpeechSynthesis('female', accent)
   // A second instance just for the production replay; both share window.speechSynthesis and
@@ -245,7 +250,14 @@ export default function DrillFunnel({
       dictationRatioRef.current,
     ])
     perceptionScoreRef.current = perception
-    setStage('production')
+    if (!listeningOnly) {
+      setStage('production')
+      return
+    }
+    setStage('session-summary')
+    recordPronunciationAttempt(soundItem.id, { perceptionScore: perception }).catch((err) =>
+      console.error('Failed to record pronunciation progress', err),
+    )
   }
 
   // Skipping leaves perceptionScoreRef unset, so the attempt records only a production score and
@@ -297,6 +309,9 @@ export default function DrillFunnel({
       </DrillCard>
     )
   }
+
+  // Listening-only drops the production stage from the progress dots.
+  const stageCount = (hasCards ? 5 : 4) - (listeningOnly ? 1 : 0)
 
   return (
     <div className="space-y-4">
@@ -363,7 +378,7 @@ export default function DrillFunnel({
             onContinue={() => setStage('session-summary')}
           />
         )}
-        {stage === 'session-summary' && productionResult && (
+        {stage === 'session-summary' && (productionResult || listeningOnly) && (
           <SessionSummaryStage
             cardResults={hasCards ? cardResults : undefined}
             fcResults={fcResults}
@@ -377,12 +392,16 @@ export default function DrillFunnel({
       </DrillCard>
 
       <DrillControls
-        stageCount={hasCards ? 5 : 4}
-        stageIndex={stage === 'cards' || stage === 'cards-summary' ? 0 : STAGE_INDEX[stage] + (hasCards ? 1 : 0)}
+        stageCount={stageCount}
+        stageIndex={
+          stage === 'cards' || stage === 'cards-summary' ? 0 : Math.min(stageCount - 1, STAGE_INDEX[stage] + (hasCards ? 1 : 0))
+        }
         rate={rate}
         onSetRate={setRate}
         onReplay={stage === 'production' ? replayProduction : undefined}
-        onSkipToProduction={stage === 'production' || stage === 'session-summary' ? undefined : skipToProduction}
+        onSkipToProduction={
+          listeningOnly || stage === 'production' || stage === 'session-summary' ? undefined : skipToProduction
+        }
       />
     </div>
   )

@@ -9,7 +9,6 @@ import SubcategoryGridPage from './pages/SubcategoryGridPage'
 import ScenarioSelectPage from './pages/ScenarioSelectPage'
 import ComingSoonPage from './pages/ComingSoonPage'
 import RehearsalPage from './pages/RehearsalPage'
-import PronunciationCenterPage from './pages/PronunciationCenterPage'
 import TestModePage from './pages/TestModePage'
 import TutorBotPage from './pages/TutorBotPage'
 import GrammarCoachPage from './pages/GrammarCoachPage'
@@ -100,14 +99,6 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <RehearsalPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/scenario/:scenarioId/pronunciation"
-        element={
-          <ProtectedRoute>
-            <PronunciationCenterPage />
           </ProtectedRoute>
         }
       />

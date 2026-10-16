@@ -21,3 +21,6 @@ export function repeatWindowSeconds(text: string): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length
   return Math.min(DEEP_CHECK_MAX_SECONDS, Math.max(3, Math.ceil(2 + words * 0.6)))
 }
+
+// Token/log `scenarioId` for the Sound Bank sheet's checks: `sound:<phonemeId>` (src/data/phonemes.ts).
+export const SOUND_CHECK_PREFIX = 'sound:'
