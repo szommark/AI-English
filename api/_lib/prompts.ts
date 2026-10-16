@@ -1,4 +1,4 @@
-import type { ChatMessage, LessonLanguage } from '../../src/lib/types.js'
+import type { ChatMessage, ExplainLanguage, LessonLanguage } from '../../src/lib/types.js'
 import type { GrammarItem } from '../../src/data/grammarCurriculum.js'
 import { MAX_TUTOR_ITEMS_PER_SESSION } from '../../src/lib/vocab.js'
 import { buildTaxonomyPromptBlock } from '../../src/data/mistakeTaxonomy.js'
@@ -155,46 +155,71 @@ Based on this history, respond with ONLY valid JSON (no markdown, no code fences
   return { systemPrompt, messages: [{ role: 'user', content: 'Generate the updated profile now.' }] }
 }
 
-// At these levels the lesson is written in the learner's own language rather than English.
-const SUPPORT_LANGUAGE_LEVELS: CefrLevel[] = ['A1', 'A2']
-
 const LANGUAGE_NAMES: Record<LessonLanguage, string> = { hu: 'HUNGARIAN', en: 'ENGLISH', de: 'GERMAN' }
 
 /**
+ * A Hungarian / German narration is read by a voice of that language, which pronounces
+ * English words its own way — so every English part is tagged for the English voice
+ * (split again by src/lib/narration.ts on playback).
+ */
+function englishTagRule(explain: ExplainLanguage): string {
+  const languageName = LANGUAGE_NAMES[explain]
+  const example =
+    explain === 'hu'
+      ? 'A <en>Present Perfect</en> igeidőt a <en>have</en> vagy a <en>has</en> segédigével képezzük. Például: <en>I have finished my homework.</en> Ez azt jelenti, hogy már befejeztem a házi feladatomat.'
+      : 'Das <en>Present Perfect</en> bilden wir mit dem Hilfsverb <en>have</en> oder <en>has</en>. Zum Beispiel: <en>I have finished my homework.</en> Das heißt, ich bin mit meinen Hausaufgaben schon fertig.'
+  const suffixExample = explain === 'hu' ? ' (not "<en>have</en>-et" but "a <en>have</en> igét")' : ''
+
+  return `The narration is read aloud by a ${languageName} voice, which mispronounces English. So in every "narration", wrap EVERY English word, phrase, grammar term, word ending and example sentence in <en>…</en> tags; those parts are read by an English voice. Example narration: "${example}"
+- Never put ${languageName} words inside <en> tags, and never leave an English word outside them.
+- Never attach a ${languageName} suffix to an English word${suffixExample}: put a ${languageName} noun after it instead.
+- Never respell English words the ${languageName} way or write out their pronunciation.
+- Use <en> tags ONLY in "narration". Every board field ("title", "text", tokens, cells, items, …) is plain text without tags.`
+}
+
+/**
  * Pure prompt builder — no network call — so the same prompt can be sent to whichever
- * provider the learner picked for Grammar Coach (see api/_lib/modelRouter.ts).
+ * provider the learner picked for Grammar Coach (see api/_lib/modelRouter.ts). `lang` is
+ * the learner's UI language (practice translations); `explain` is the language the
+ * learner chose for the explanation, at any level.
  */
 export function buildGrammarLessonPrompt(
   item: GrammarItem,
   cefrLevel: CefrLevel,
   lang: LessonLanguage = 'hu',
+  explain: ExplainLanguage = lang,
 ): PromptWithMessages {
-  const useSupportLanguage = lang !== 'en' && SUPPORT_LANGUAGE_LEVELS.includes(cefrLevel)
   const languageName = LANGUAGE_NAMES[lang]
+  const explainName = LANGUAGE_NAMES[explain]
   // Field carrying the translation of each practice sentence; English learners get none.
   const translationField = lang === 'en' ? null : lang
 
-  const languageRule = useSupportLanguage
-    ? `The learner is at CEFR level ${cefrLevel}, so write every "title", "text", "narration", "label", table header/cell, and bullet-list item in ${languageName}. The only exception: English-language example sentences themselves (inside "example-sentence" tokens, "sentence-structure-diagram" block text when it quotes an actual sentence, and the "practice" sentences' "en" field) MUST stay in English — never translate the examples.`
-    : `The learner is at CEFR level ${cefrLevel}, so write everything — rule text, narration, labels, table content, bullet items, and example sentences — in ENGLISH.`
+  const languageRule =
+    explain === 'en'
+      ? `Write everything — rule text, narration, labels, table content, bullet items and example sentences — in ENGLISH.`
+      : `Write every "title", "text", "narration", "label", table header/cell and bullet-list item in ${explainName}. The only exception: English-language example sentences themselves (inside "example-sentence" tokens, "sentence-structure-diagram" block text when it quotes an actual sentence, and the "practice" sentences' "en" field) MUST stay in English — never translate the examples.
+
+${englishTagRule(explain)}`
 
   // The curriculum hints are written about Hungarian speakers' specific difficulties.
   const hintLine = item.hint && lang === 'hu' ? `\nHungarian-learner focus: ${item.hint}\n` : ''
   const learnerDescription = lang === 'hu' ? 'a Hungarian learner' : lang === 'de' ? 'a German-speaking learner' : 'a learner'
 
-  const systemPrompt = `You are an English grammar teacher preparing a short micro-lesson for ${learnerDescription} on the grammar point "${item.title}" (CEFR level ${cefrLevel}). Explain at this level; keep vocabulary and example sentences appropriate to it.
+  const systemPrompt = `You are a patient, experienced English grammar teacher recording a narrated board lesson for ${learnerDescription} on the grammar point "${item.title}" (CEFR level ${cefrLevel}). Explain at this level; keep vocabulary and example sentences appropriate to it.
 ${hintLine}
 Respond with ONLY valid JSON (no markdown, no code fences) matching EXACTLY this shape:
 {"segments":[{"widget":<widget>,"narration":"..."}],"practice":[{"en":"..."${translationField ? `,"${translationField}":"..."` : ''}}]}
 
-Produce 3 to 5 segments, ordered so the lesson builds up naturally (e.g. rule first, then examples, then a summary). Each segment's "widget" must be EXACTLY one of these shapes — no other fields, no other widget types:
+Produce 4 to 6 segments, ordered so the lesson builds up naturally (e.g. when we use it, how we form it, examples, a typical mistake, then a summary). Each segment's "widget" must be EXACTLY one of these shapes — no other fields, no other widget types:
 - {"type":"rule-box","title":"...","text":"..."}
 - {"type":"example-sentence","tokens":[{"text":"...","highlighted":true|false}, ...]} — tokens are the words/punctuation of ONE example sentence in order; set "highlighted":true only on the word(s) that demonstrate the grammar point.
 - {"type":"comparison-table","headers":["...","..."],"rows":[["...","..."], ...]} — 2 to 4 headers, 2 to 5 rows, each row has the same number of cells as headers.
 - {"type":"sentence-structure-diagram","blocks":[{"label":"Subject","text":"..."}, ...]} — labeled blocks in sentence order (e.g. Subject, Verb, Object).
 - {"type":"bullet-list","title":"...","items":["...", ...]} — 2 to 6 short items.
 
-Don't use the same widget type in two consecutive segments. "narration" is a short (1-3 sentence) spoken-aloud script for that segment — plain text, no markdown, no asterisks.
+Don't use the same widget type in two consecutive segments. Keep the board text short and clear: it is what the learner reads while listening.
+
+"narration" is the spoken script for that segment — plain text, no markdown, no asterisks. Learners found earlier narrations too short and too fast to follow the board, so this is where the detail goes: 5 to 8 short, clear sentences per segment, one idea per sentence. Walk the learner through the board slowly, item by item: say what to look at, read each English example on it aloud, and explain what it means and why it is built that way — the teacher's explanation behind the board, not just a reading of it. Where it helps, add a further spoken example or a typical learner mistake.
 
 "practice" must contain exactly 4 short practice sentences in English that test this exact grammar point, ordered from easier to harder, ${translationField ? `each with an "en" (English) and "${translationField}" (${languageName[0]}${languageName.slice(1).toLowerCase()} translation) field` : 'each with an "en" (English) field only'}.
 
@@ -205,17 +230,17 @@ ${languageRule}`
 
 /**
  * Grammar Coach written practice: word order, form (gap fill) and transformation, five of
- * each. Same language rule as the lesson — only the two instructions are ever written in
- * the support language; every exercise sentence is English. Parse the reply with
+ * each. Only the two instructions follow the learner's explanation language, like the
+ * lesson; every exercise sentence is English. Parse the reply with
  * parseGrammarExercisesJson (api/_lib/groq.ts).
  */
 export function buildGrammarExercisesPrompt(
   item: GrammarItem,
   cefrLevel: CefrLevel,
   lang: LessonLanguage = 'hu',
+  explain: ExplainLanguage = lang,
 ): PromptWithMessages {
-  const useSupportLanguage = lang !== 'en' && SUPPORT_LANGUAGE_LEVELS.includes(cefrLevel)
-  const instructionLanguage = useSupportLanguage ? LANGUAGE_NAMES[lang] : 'ENGLISH'
+  const instructionLanguage = LANGUAGE_NAMES[explain]
   const hintLine = item.hint && lang === 'hu' ? `\nHungarian-learner focus: ${item.hint}\n` : ''
   const learnerDescription = lang === 'hu' ? 'a Hungarian learner' : lang === 'de' ? 'a German-speaking learner' : 'a learner'
 

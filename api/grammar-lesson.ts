@@ -9,7 +9,7 @@ import { logModelUsage, type LlmCallType } from './_lib/usageLog.js'
 import { getModelForFeature } from './_lib/modelSettings.js'
 import type { ModelId } from '../src/lib/models.js'
 import { getGrammarItem, type CefrLevel, type GrammarItem } from '../src/data/grammarCurriculum.js'
-import type { GrammarExerciseSet, GrammarLesson, LessonLanguage } from '../src/lib/types.js'
+import type { ExplainLanguage, GrammarExerciseSet, GrammarLesson, LessonLanguage } from '../src/lib/types.js'
 
 const GENERATION_ATTEMPTS = 2
 
@@ -21,7 +21,7 @@ interface ContentKind<T> {
   table: 'grammar_lessons' | 'grammar_exercises'
   callType: LlmCallType
   build: typeof buildGrammarLessonPrompt
-  parse: (raw: string, lang: LessonLanguage) => T
+  parse: (raw: string, lang: LessonLanguage, explain: ExplainLanguage) => T
 }
 
 type KindName = 'lesson' | 'exercises'
@@ -42,6 +42,7 @@ async function readCached(
   grammarItemId: string,
   modelId: ModelId,
   lang: LessonLanguage,
+  explain: ExplainLanguage,
 ): Promise<unknown | null> {
   const { data, error } = await supabaseAdmin
     .from(kind.table)
@@ -50,6 +51,7 @@ async function readCached(
     .eq('grammar_item_id', grammarItemId)
     .eq('model_id', modelId)
     .eq('lang', lang)
+    .eq('explain_lang', explain)
     .maybeSingle()
 
   if (error) {
@@ -65,15 +67,16 @@ async function generate(
   item: GrammarItem,
   cefrLevel: CefrLevel,
   lang: LessonLanguage,
+  explain: ExplainLanguage,
   modelId: ModelId,
   userId: string,
 ): Promise<unknown | null> {
   let lastError: unknown = null
   for (let attempt = 0; attempt < GENERATION_ATTEMPTS; attempt++) {
     try {
-      const { systemPrompt, messages } = kind.build(item, cefrLevel, lang)
+      const { systemPrompt, messages } = kind.build(item, cefrLevel, lang, explain)
       const result = await callModel(modelId, systemPrompt, messages)
-      const content = kind.parse(result.content, lang)
+      const content = kind.parse(result.content, lang, explain)
       await logModelUsage({ userId, scenarioId: item.id, callType: kind.callType, modelId, usage: result.usage })
       return content
     } catch (err) {
@@ -86,6 +89,7 @@ async function generate(
     grammarItemId: item.id,
     cefrLevel,
     lang,
+    explain,
     error: lastError,
   })
   return null
@@ -147,16 +151,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const kind: ContentKind<unknown> = KINDS[kindName]
   // The response field matches the kind: { lesson } or { exercises }.
   const field = kindName
-  // Content is cached per UI language; Hungarian is the base language.
+  // Content is cached per UI language and explanation language; Hungarian is the base language.
   const requestedLang = param('lang')
   const lang: LessonLanguage = LESSON_LANGUAGES.includes(requestedLang as LessonLanguage)
     ? (requestedLang as LessonLanguage)
     : 'hu'
+  // The explanation language is the learner's choice at every level: their UI language or English.
+  const explain: ExplainLanguage = param('explain') === 'en' ? 'en' : lang
   const modelId: ModelId = await getModelForFeature('grammarCoach')
   const { level, item } = curriculumEntry
 
   if (req.method === 'GET') {
-    res.status(200).json({ [field]: await readCached(kind, level, item.id, modelId, lang) })
+    res.status(200).json({ [field]: await readCached(kind, level, item.id, modelId, lang, explain) })
     return
   }
 
@@ -165,13 +171,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return
   }
 
-  const cached = await readCached(kind, level, item.id, modelId, lang)
+  const cached = await readCached(kind, level, item.id, modelId, lang, explain)
   if (cached) {
     res.status(200).json({ [field]: cached })
     return
   }
 
-  const content = await generate(kind, item, level, lang, modelId, user.id)
+  const content = await generate(kind, item, level, lang, explain, modelId, user.id)
   if (!content) {
     res.status(502).json({ error: 'generation_failed' })
     return
@@ -182,6 +188,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     grammar_item_id: item.id,
     model_id: modelId,
     lang,
+    explain_lang: explain,
     content,
   })
   if (insertError) {

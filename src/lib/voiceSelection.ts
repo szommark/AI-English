@@ -113,6 +113,23 @@ export function pickVoiceForGender(
   return englishVoices[0]
 }
 
+/**
+ * Best voice for a non-English narration language (Grammar Coach's Hungarian / German
+ * explanations): the browser's neural "Natural" / "Online" voices first, then Google's,
+ * then any voice of that language. Undefined when the device has none.
+ */
+export function pickNativeVoice(voices: SpeechSynthesisVoice[], locale: string): SpeechSynthesisVoice | undefined {
+  const prefix = locale.slice(0, 2).toLowerCase()
+  const matching = voices.filter((v) => v.lang.toLowerCase().replace('_', '-').startsWith(prefix))
+  if (matching.length === 0) return undefined
+  return (
+    matching.find((v) => /natural|online|neural/i.test(v.name)) ??
+    matching.find((v) => /google/i.test(v.name)) ??
+    matching.find((v) => v.lang.replace('_', '-') === locale) ??
+    matching[0]
+  )
+}
+
 export function getVoiceOverrideName(): string | null {
   if (typeof window === 'undefined') return null
   return window.localStorage.getItem(VOICE_OVERRIDE_KEY)

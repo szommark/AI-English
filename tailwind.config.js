@@ -5,6 +5,8 @@ export default {
     extend: {
       fontFamily: {
         hand: ['"Patrick Hand"', 'cursive'],
+        // Grammar Coach board text: Lexend is designed for easy reading.
+        board: ['Lexend', 'system-ui', 'sans-serif'],
         brand: ['"EB Garamond"', 'Georgia', 'serif'],
       },
       colors: {

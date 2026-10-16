@@ -158,11 +158,21 @@ export type GrammarWidget =
 
 export interface GrammarSegment {
   widget: GrammarWidget
+  /**
+   * Spoken script. In a Hungarian or German explanation every English word, phrase or
+   * sentence is wrapped in <en>…</en>, so it is read by an English voice (src/lib/narration.ts).
+   */
   narration: string
 }
 
-/** Language a Grammar Coach lesson is written in (its narration and, at A1/A2, its board text). */
+/** UI language a Grammar Coach lesson is generated for (its practice translations follow it). */
 export type LessonLanguage = 'hu' | 'en' | 'de'
+
+/**
+ * Language the lesson explains the grammar in: the learner's choice at every level —
+ * their UI language or English.
+ */
+export type ExplainLanguage = LessonLanguage
 
 /** Practice sentence; the translation field present depends on the lesson language. */
 export interface GrammarPracticeLine {
