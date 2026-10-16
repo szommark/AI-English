@@ -49,6 +49,8 @@ export default function ShadowingRunner({
   scoreOf = (_item, result) => result.scores.pronunciation,
   renderFinished,
   onFinished,
+  finishedLabel,
+  autoStart = false,
 }: {
   items: ShadowItem[]
   /** Sent in the token/log `scenarioId` slot. */
@@ -63,6 +65,10 @@ export default function ShadowingRunner({
   renderFinished?: (results: PronunciationCheckResult[]) => ReactNode
   /** Called once with every item's result when the whole run finishes. */
   onFinished?: (results: PronunciationCheckResult[]) => void
+  /** Heading over the average once the run is done (default "Done! Overall:"). */
+  finishedLabel?: string
+  /** Start playing on mount instead of showing the Start button (mount it from a click, for the beep). */
+  autoStart?: boolean
 }) {
   const { t } = useLanguage()
   // Azure always assesses in American English, so the model is American too.
@@ -87,6 +93,12 @@ export default function ShadowingRunner({
       runRef.current++
       window.speechSynthesis?.cancel()
     }
+  }, [])
+
+  useEffect(() => {
+    if (autoStart) start(0)
+    // Mount only: a later change of autoStart must not restart a run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function speakAndWait(item: ShadowItem): Promise<void> {
@@ -216,10 +228,10 @@ export default function ShadowingRunner({
           </div>
         ) : phase === 'finished' ? (
           <div className="space-y-3 py-2">
-            <p className="text-sm font-medium text-foreground">{t('pronFinished')}</p>
+            <p className="text-sm font-medium text-foreground">{finishedLabel ?? t('pronFinished')}</p>
             {average !== null && (
               <div className="w-[70%]">
-                <ScoreBar score={average} label={t('pronFinished')} />
+                <ScoreBar score={average} label={finishedLabel ?? t('pronFinished')} />
               </div>
             )}
             {renderFinished?.(scored.map((i) => results[i]))}
