@@ -31,8 +31,8 @@ const average = (scores: number[]) => scores.reduce((sum, s) => sum + s, 0) / sc
  * The sheet's Pronunciation exercises as three sessions in the Wordlist practice format
  * (play → beep → repeat → result): Words (opening with the sound itself, said in the anchor word with
  * only the focus sound scored, then 3 words), Minimal pairs (3) and Sentence (1). Each session ends with
- * its own result; after the last comes the overall result (the sessions' average) with the other sounds
- * worth practising. Assessed and modelled in en-US, like every Azure check.
+ * its own result; after the last comes the overall result: each session's bar with the other sounds that
+ * went wrong in it underneath, and the sessions' average. Assessed and modelled in en-US, like every Azure check.
  */
 export default function SoundPronunciationTab({
   phoneme,
@@ -142,7 +142,6 @@ export default function SoundPronunciationTab({
   }
 
   const showingOverall = current >= stages.length
-  const allResults = stages.flatMap((_, i) => outcomes[i]?.results ?? [])
   const finishedScores = stages.flatMap((_, i) => (outcomes[i] ? [outcomes[i].score] : []))
 
   return (
@@ -186,11 +185,17 @@ export default function SoundPronunciationTab({
           <h3 className="text-base font-semibold text-foreground">{t('sndOverall')}</h3>
           <ul className="space-y-2">
             {stages.map((stage, i) => (
-              <li key={i} className="grid grid-cols-[8rem_1fr] items-center gap-3 text-sm sm:grid-cols-[10rem_1fr]">
+              <li key={i} className="grid grid-cols-[8rem_1fr] items-center gap-x-3 gap-y-1.5 text-sm sm:grid-cols-[10rem_1fr]">
                 <span className="text-foreground">
                   {i + 1}. {stage.label}
                 </span>
                 <div className="max-w-sm">{outcomes[i] && <ScoreBar score={outcomes[i].score} label={stage.label} />}</div>
+                {/* The sounds that went wrong in this session, right under its bar. */}
+                {outcomes[i] && (
+                  <div className="col-start-2">
+                    <PractiseTooLinks results={outcomes[i].results} focusId={phoneme.id} compact />
+                  </div>
+                )}
               </li>
             ))}
             {finishedScores.length > 0 && (
@@ -202,7 +207,6 @@ export default function SoundPronunciationTab({
               </li>
             )}
           </ul>
-          <PractiseTooLinks results={allResults} focusId={phoneme.id} />
           <button
             type="button"
             onClick={startOver}

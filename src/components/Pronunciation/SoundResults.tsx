@@ -97,20 +97,35 @@ export function WordResultsView({
   )
 }
 
-/** Other sounds that scored under 80 or were heard as something else, linked to their own sheets. */
-export function PractiseTooLinks({ results, focusId }: { results: PronunciationCheckResult[]; focusId: string }) {
+/**
+ * Other sounds that scored under 80 or were heard as something else, linked to their own sheets.
+ * `compact`: a one-line version for under a session's bar in the overall result.
+ */
+export function PractiseTooLinks({
+  results,
+  focusId,
+  compact = false,
+}: {
+  results: PronunciationCheckResult[]
+  focusId: string
+  compact?: boolean
+}) {
   const { t } = useLanguage()
   const phonemes = soundsToPractise(results, focusId).flatMap((id) => getPhoneme(id) ?? [])
   if (phonemes.length === 0) return null
   return (
-    <div className="space-y-2">
-      <p className="text-sm text-muted-foreground">{t('sndPractiseToo')}</p>
-      <ul className="flex flex-wrap gap-2">
+    <div className={compact ? 'flex flex-wrap items-center gap-1.5' : 'space-y-2'}>
+      <p className={compact ? 'text-xs text-muted-foreground' : 'text-sm text-muted-foreground'}>
+        {t(compact ? 'sndPractiseShort' : 'sndPractiseToo')}
+      </p>
+      <ul className={`flex flex-wrap ${compact ? 'gap-1.5' : 'gap-2'}`}>
         {phonemes.map((p) => (
           <li key={p.id}>
             <Link
               to={`/pronunciation/sounds/${p.id}?mode=pronunciation`}
-              className="inline-block rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-base font-semibold text-rose-700 hover:bg-rose-100"
+              className={`inline-block rounded-lg border border-rose-200 bg-rose-50 font-semibold text-rose-700 hover:bg-rose-100 ${
+                compact ? 'px-2 py-0.5 text-sm' : 'px-3 py-1.5 text-base'
+              }`}
             >
               /{p.ipaSymbol}/
             </Link>

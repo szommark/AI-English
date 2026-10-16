@@ -295,6 +295,7 @@ const messages = {
     de: 'Wir haben diesen Laut in der Aufnahme nicht gefunden.',
   },
   sndWordMissing: { hu: 'nem hallottuk', en: 'not heard', de: 'nicht gehört' },
+  sndPractiseShort: { hu: 'Gyakorold:', en: 'Practise:', de: 'Üben:' },
   sndPractiseToo: {
     hu: 'Ezeket a hangokat is érdemes gyakorolnod:',
     en: 'These sounds are worth practising too:',
