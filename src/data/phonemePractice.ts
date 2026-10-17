@@ -16,6 +16,8 @@ export interface PhonemePractice {
   /** Shown under the symbol when the UI is German — written for German speakers. */
   noteDe: string
   anchorWord: string
+  /** The letters of anchorWord spelling the sound, when none of the example words' highlights fits. */
+  anchorHighlight?: string
   words: [string, string, string]
   minimalPairs: [[string, string], [string, string], [string, string]]
   sentence: string
@@ -326,6 +328,7 @@ export const phonemePractice: Record<string, PhonemePractice> = {
       'Drück den hinteren Zungenrücken an den weichen Gaumen und lös ihn schnell mit einem kleinen Luftstoß. Stimmlos und am Wortanfang kräftig behaucht.',
     noteDe: 'Wie das deutsche k. Am Wortende nicht mit g verwechseln (back/bag).',
     anchorWord: 'key',
+    anchorHighlight: 'k',
     words: ['cat', 'back', 'kitchen'],
     minimalPairs: [['back', 'bag'], ['coat', 'goat'], ['cold', 'gold']],
     sentence: 'Kate keeps the cake in the kitchen.',
@@ -488,4 +491,10 @@ export const phonemePractice: Record<string, PhonemePractice> = {
 
 export function getPhonemePractice(id: string): PhonemePractice | undefined {
   return phonemePractice[id]
+}
+
+/** The letters to highlight in the anchor word: its own, else the first example-word highlight it contains. */
+export function anchorHighlight(practice: PhonemePractice, exampleHighlights: string[]): string {
+  const word = practice.anchorWord.toLowerCase()
+  return practice.anchorHighlight ?? exampleHighlights.find((h) => word.includes(h.toLowerCase())) ?? ''
 }
