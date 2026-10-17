@@ -10,20 +10,20 @@ import type { PronunciationCheckResult } from '../../lib/types'
 import { Countdown, StatusLine } from '../PronunciationPractice/RecordPhase'
 import { FocusSoundResultView } from './SoundResults'
 
-type Status = 'idle' | 'preparing' | 'recording' | 'done' | 'error'
+export type SoundCheckStatus = 'idle' | 'preparing' | 'recording' | 'done' | 'error'
 
 /**
- * The mic next to the sheet's symbol: the learner says the anchor word after the beep and gets the
- * focus sound's own result (Azure can't score a lone sound, see src/data/phonemePractice.ts).
- * Returns the mic's handler and state plus the status/result panel, which sits under the heading.
+ * The word card's mic on the sheet's How to make it tab: the learner says the anchor word after the
+ * beep and gets the focus sound's own result (Azure can't score a lone sound, see
+ * src/data/phonemePractice.ts).
+ * Returns the mic's handler and state plus the status/result panel, which sits in the card under the word.
  */
 export function useSoundCheck(
   phonemeId: string,
-  ipaSymbol: string,
   anchorWord: string,
-): { busy: boolean; run: () => void; panel: ReactNode } {
+): { status: SoundCheckStatus; busy: boolean; run: () => void; panel: ReactNode } {
   const { t } = useLanguage()
-  const [status, setStatus] = useState<Status>('idle')
+  const [status, setStatus] = useState<SoundCheckStatus>('idle')
   const [result, setResult] = useState<PronunciationCheckResult | null>(null)
   const [error, setError] = useState('')
   const windowSeconds = repeatWindowSeconds(anchorWord)
@@ -71,7 +71,6 @@ export function useSoundCheck(
   const panel =
     status === 'idle' ? null : (
     <div className="space-y-2">
-      <p className="text-sm text-muted-foreground">{t('sndSayAnchor', { word: anchorWord, ipa: ipaSymbol })}</p>
       {status === 'preparing' && <StatusLine icon={<Mic className="h-4 w-4" />} text={t('pronGetReady')} />}
       {status === 'recording' && (
         <div className="max-w-sm space-y-2">
@@ -84,5 +83,5 @@ export function useSoundCheck(
     </div>
   )
 
-  return { busy, run: () => void run(), panel }
+  return { status, busy, run: () => void run(), panel }
 }

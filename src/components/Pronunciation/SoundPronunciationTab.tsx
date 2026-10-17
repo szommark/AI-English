@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Check, RotateCcw } from 'lucide-react'
 import type { Phoneme } from '../../data/phonemes'
-import type { PhonemePractice } from '../../data/phonemePractice'
+import { anchorHighlight, type PhonemePractice } from '../../data/phonemePractice'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import { useLanguage } from '../../lib/i18n'
 import { focusSoundResult } from '../../lib/phonemeLabels'
@@ -46,7 +46,7 @@ export default function SoundPronunciationTab({
 }) {
   const { t } = useLanguage()
   const tts = useSpeechSynthesis('female', PRODUCTION_ASSESSMENT_ACCENT)
-  const highlight = phoneme.exampleWords[0]?.highlight ?? ''
+  const highlight = anchorHighlight(practice, phoneme.exampleWords.map((ex) => ex.highlight))
 
   /** The session on screen; `stages.length` is the overall result. */
   const [current, setCurrent] = useState(0)
