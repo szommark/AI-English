@@ -18,10 +18,12 @@ const messages = {
   signIn: { hu: 'Bejelentkezés', en: 'Sign in', de: 'Anmelden' },
   signOut: { hu: 'Kijelentkezés', en: 'Sign out', de: 'Abmelden' },
   voiceSettings: { hu: 'Hangbeállítások', en: 'Voice settings', de: 'Stimmeinstellungen' },
-  // The page itself is Hungarian-only (src/data/myProgressCopy.ts); this is just its header link.
+  // The page itself is Hungarian-only (src/data/myProgressCopy.ts); this is just its header menu.
   myProgress: { hu: 'Az én fejlődésem', en: 'My progress', de: 'Mein Fortschritt' },
+  myProgressOverview: { hu: 'Áttekintés', en: 'Overview', de: 'Übersicht' },
   connectTeacher: { hu: 'Kapcsolódás tanárhoz', en: 'Connect to teacher', de: 'Mit Lehrer verbinden' },
   teacherDashboard: { hu: 'Tanári felület', en: 'Teacher Dashboard', de: 'Lehrer-Übersicht' },
+  tdTabStudents: { hu: 'Diákok', en: 'Students', de: 'Schüler' },
   admin: { hu: 'Admin', en: 'Admin', de: 'Admin' },
 
   // Gamification (src/components/gamification/).
@@ -1786,7 +1788,7 @@ const messages = {
     de: 'Du hast in dieser Aufgabe nicht geantwortet, daher gibt es nichts zu bewerten.',
   },
 
-  // Teacher Toolkit (/teacher/tools) and its lyrics gap-fill maker. Worksheets themselves
+  // Teacher Toolkit (the Tools tab of /teacher) and its lyrics gap-fill maker. Worksheets themselves
   // are printed in English (src/lib/lyricsWorksheet.ts).
   teacherToolkit: { hu: 'Tanári eszköztár', en: 'Teacher Toolkit', de: 'Lehrer-Werkzeuge' },
   ttSubtitle: {

@@ -132,14 +132,14 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
   if (at('/settings/voice')) return finish([{ label: t('voiceSettings') }])
   if (at('/settings/teacher')) return finish([{ label: t('connectTeacher') }])
 
-  const toolkit: Crumb = { label: t('teacherToolkit'), to: '/teacher/tools' }
-  const lyrics: Crumb = { label: t('ttLyricsTitle'), to: '/teacher/tools/lyrics' }
-  if (at('/teacher/tools')) return finish([toolkit])
-  if (at('/teacher/tools/lyrics')) return finish([toolkit, lyrics])
-  if (at('/teacher/tools/lyrics/new')) return finish([toolkit, lyrics, { label: t('lyNew') }])
-  if (at('/teacher/tools/lyrics/:activityId')) return finish([toolkit, lyrics, { label: t('lyCrumbEdit') }])
-
+  // The Teacher Toolkit is the Tools tab of the dashboard (/teacher/tools redirects there).
   const teacher: Crumb = { label: t('teacherDashboard'), to: '/teacher' }
+  const toolkit: Crumb = { label: t('teacherToolkit'), to: '/teacher?tab=tools' }
+  const lyrics: Crumb = { label: t('ttLyricsTitle'), to: '/teacher/tools/lyrics' }
+  if (at('/teacher/tools/lyrics')) return finish([teacher, toolkit, lyrics])
+  if (at('/teacher/tools/lyrics/new')) return finish([teacher, toolkit, lyrics, { label: t('lyNew') }])
+  if (at('/teacher/tools/lyrics/:activityId')) return finish([teacher, toolkit, lyrics, { label: t('lyCrumbEdit') }])
+
   if (at('/teacher')) return finish([teacher])
   if (at('/teacher/students/:studentId')) return finish([teacher, { label: t('crumbStudent') }])
   if (at('/teacher/lists/new')) return finish([teacher, { label: t('vlCrumbNew') }])

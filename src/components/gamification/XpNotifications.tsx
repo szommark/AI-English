@@ -58,7 +58,8 @@ export default function XpNotifications() {
 
   return (
     <>
-      <div aria-live="polite" role="status" className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:items-end">
+      {/* bottom-16: stacks above the floating language switcher (AppLayout). */}
+      <div aria-live="polite" role="status" className="pointer-events-none fixed inset-x-4 bottom-16 z-50 flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:items-end">
         {noticeToast && (
           <ToastCard key={noticeToast.id} onClose={() => setNoticeToast(null)}>
             <Notices notices={noticeToast.notices} />
