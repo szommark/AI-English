@@ -59,19 +59,27 @@ export default function DrillControls({
         </button>
       )}
 
-      <div className="flex items-center gap-1 shrink-0">
-        {([1, 0.75] as const).map((r) => (
-          <button
-            key={r}
-            onClick={() => onSetRate(r)}
-            className={`rounded-md px-2 py-1 text-xs font-medium ${
-              rate === r ? 'bg-rose-100 text-rose-700' : 'text-slate-400 hover:bg-slate-100'
-            }`}
-          >
-            {r}×
-          </button>
-        ))}
-      </div>
+      <RateToggle rate={rate} onSetRate={onSetRate} />
+    </div>
+  )
+}
+
+/** The 1× / 0.75× playback-speed switch. */
+export function RateToggle({ rate, onSetRate }: { rate: 1 | 0.75; onSetRate: (rate: 1 | 0.75) => void }) {
+  return (
+    <div className="flex items-center gap-1 shrink-0">
+      {([1, 0.75] as const).map((r) => (
+        <button
+          key={r}
+          onClick={() => onSetRate(r)}
+          aria-pressed={rate === r}
+          className={`rounded-md px-2 py-1 text-xs font-medium ${
+            rate === r ? 'bg-rose-100 text-rose-700' : 'text-slate-400 hover:bg-slate-100'
+          }`}
+        >
+          {r}×
+        </button>
+      ))}
     </div>
   )
 }

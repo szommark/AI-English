@@ -51,6 +51,7 @@ export default function ShadowingRunner({
   onFinished,
   finishedLabel,
   autoStart = false,
+  split = false,
 }: {
   items: ShadowItem[]
   /** Sent in the token/log `scenarioId` slot. */
@@ -69,6 +70,11 @@ export default function ShadowingRunner({
   finishedLabel?: string
   /** Start playing on mount instead of showing the Start button (mount it from a click, for the beep). */
   autoStart?: boolean
+  /**
+   * Player on the left, item list on the right with a dim line between (stacked on narrow screens),
+   * without a frame of its own: for a host card, like the sound sheet's.
+   */
+  split?: boolean
 }) {
   const { t } = useLanguage()
   // Azure always assesses in American English, so the model is American too.
@@ -213,10 +219,10 @@ export default function ShadowingRunner({
     renderResult ? renderResult(items[i], results[i]) : <ScoreBar score={results[i].scores.pronunciation} />
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
+    <div className={split ? 'grid gap-6 md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:gap-8' : 'space-y-5'}>
+      <div className={split ? '' : 'rounded-2xl border border-border bg-card p-5 sm:p-6'}>
         {phase === 'idle' ? (
-          <div className="flex flex-col items-center gap-3 py-4 text-center">
+          <div className={split ? 'flex flex-col items-start' : 'flex flex-col items-center gap-3 py-4 text-center'}>
             <button
               type="button"
               onClick={() => start(0)}
@@ -323,7 +329,7 @@ export default function ShadowingRunner({
         )}
       </div>
 
-      <ol className="space-y-2">
+      <ol className={split ? 'space-y-2 border-t border-border pt-6 md:border-l md:border-t-0 md:pl-8 md:pt-0' : 'space-y-2'}>
         {repeatIndexes.map((i) => {
           const highlight = i === index && phase !== 'idle' && phase !== 'finished' ? 'bg-rose-50' : ''
           return renderResult ? (

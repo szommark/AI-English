@@ -9,8 +9,10 @@ import { perceptionScoreFromRatios } from '../../lib/pronunciationScoring'
 import { awardClientXp } from '../../lib/gamificationApi'
 import type { PronunciationCheckResult } from '../../lib/types'
 import DrillCard from './DrillCard'
-import DrillControls from './DrillControls'
+import DrillControls, { RateToggle } from './DrillControls'
 import { SwipeCardDeck, awardSwipeSetXp } from '../Pronunciation/SwipeCardExercise'
+import SoundSheetCard, { ResultBars, SoundSymbol, StepMarkers, type StepMarker } from '../Pronunciation/SoundSheetCard'
+import { useLanguage } from '../../lib/i18n'
 import ForcedChoiceStage from './ForcedChoiceStage'
 import OddOneOutStage from './OddOneOutStage'
 import DictationStage from './DictationStage'
@@ -87,8 +89,11 @@ function shuffleIndices(n: number): number[] {
  * Azure only returns full phoneme/prosody detail for en-US (see PRODUCTION_ASSESSMENT_ACCENT).
  * `onProductionActiveChange` lets the page show that switch on its accent toggle.
  *
- * `listeningOnly` (the Sound Bank sheet's Hearing tab) ends after dictation with a listening
+ * `listeningOnly` (the Sound Bank sheet's Listening tab) ends after dictation with a listening
  * summary and records the perception score alone; the sheet's Pronunciation tab does the speaking.
+ * It also renders on the sheet's card (SoundSheetCard): the sound's symbol and the speed switch on
+ * top, then step markers instead of the panel title and the progress dots, and the summary as
+ * percentage bars like the sheet's Pronunciation tab.
  */
 export default function DrillFunnel({
   soundItem,
@@ -109,6 +114,7 @@ export default function DrillFunnel({
   onProductionActiveChange?: (active: boolean) => void
   listeningOnly?: boolean
 }) {
+  const { t } = useLanguage()
   const hasCards = Boolean(phoneme?.swipeWords?.length)
   const firstStage: Stage = hasCards ? 'cards' : 'forced-choice'
   const [stage, setStage] = useState<Stage>(hasPriorAttempt && !listeningOnly ? 'intro' : firstStage)
@@ -310,12 +316,8 @@ export default function DrillFunnel({
     )
   }
 
-  // Listening-only drops the production stage from the progress dots.
-  const stageCount = (hasCards ? 5 : 4) - (listeningOnly ? 1 : 0)
-
-  return (
-    <div className="space-y-4">
-      <DrillCard title={soundItem.title} titleHu={soundItem.titleHu}>
+  const content = (
+    <>
         {stage === 'cards' && phoneme && (
           <SwipeCardDeck
             words={phoneme.swipeWords ?? []}
@@ -389,6 +391,66 @@ export default function DrillFunnel({
             onFinish={onItemComplete}
           />
         )}
+    </>
+  )
+
+  if (listeningOnly) {
+    const percent = (results: RoundResult[]) =>
+      results.length > 0 ? (results.filter((r) => r.correct).length / results.length) * 100 : null
+    const dictationPercent = dictationStats.total > 0 ? (dictationStats.matched / dictationStats.total) * 100 : null
+    const shown = (score: number | null) => (score === null ? undefined : `${Math.round(score)}%`)
+    const steps: StepMarker[] = [
+      ...(hasCards
+        ? [{ label: t('sndListenCards'), done: cardResults.length > 0, detail: shown(percent(cardResults)) }]
+        : []),
+      // A step shows its percentage once it is finished.
+      { label: t('sndListenWhich'), done: fcResults.length === ROUNDS, detail: fcResults.length === ROUNDS ? shown(percent(fcResults)) : undefined },
+      { label: t('sndListenOdd'), done: ooResults.length === ROUNDS, detail: ooResults.length === ROUNDS ? shown(percent(ooResults)) : undefined },
+      { label: t('sndListenDictation'), done: dictationSubmitted, detail: dictationSubmitted ? shown(dictationPercent) : undefined },
+    ]
+    const current =
+      stage === 'cards' || stage === 'cards-summary'
+        ? 0
+        : stage === 'session-summary'
+          ? steps.length
+          : STAGE_INDEX[stage] + (hasCards ? 1 : 0)
+    return (
+      <SoundSheetCard className="space-y-5">
+        <div className="flex items-start justify-between gap-3">
+          {phoneme && <SoundSymbol phonemeId={phoneme.id} ipaSymbol={phoneme.ipaSymbol} />}
+          <RateToggle rate={rate} onSetRate={setRate} />
+        </div>
+        <StepMarkers steps={steps} current={current} finalLabel={t('sndOverall')} />
+        {stage === 'session-summary' ? (
+          <ResultBars
+            rows={[
+              ...(hasCards ? [{ label: t('sndListenCards'), score: percent(cardResults) }] : []),
+              { label: t('sndListenWhich'), score: percent(fcResults) },
+              { label: t('sndListenOdd'), score: percent(ooResults) },
+              { label: t('sndListenDictation'), score: dictationPercent },
+            ]}
+            overall={perceptionScoreRef.current ?? null}
+          >
+            <button
+              onClick={onItemComplete}
+              className="rounded-lg bg-rose-600 text-white text-sm font-medium px-4 py-2 hover:bg-rose-700"
+            >
+              {t('sndFinish')}
+            </button>
+          </ResultBars>
+        ) : (
+          content
+        )}
+      </SoundSheetCard>
+    )
+  }
+
+  const stageCount = hasCards ? 5 : 4
+
+  return (
+    <div className="space-y-4">
+      <DrillCard title={soundItem.title} titleHu={soundItem.titleHu}>
+        {content}
       </DrillCard>
 
       <DrillControls
@@ -399,9 +461,7 @@ export default function DrillFunnel({
         rate={rate}
         onSetRate={setRate}
         onReplay={stage === 'production' ? replayProduction : undefined}
-        onSkipToProduction={
-          listeningOnly || stage === 'production' || stage === 'session-summary' ? undefined : skipToProduction
-        }
+        onSkipToProduction={stage === 'production' || stage === 'session-summary' ? undefined : skipToProduction}
       />
     </div>
   )

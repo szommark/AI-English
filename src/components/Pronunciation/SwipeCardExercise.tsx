@@ -4,8 +4,9 @@ import type { Phoneme, SwipeWord } from '../../data/phonemes'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import type { AccentPreference } from '../../lib/voiceSelection'
 import { awardClientXp } from '../../lib/gamificationApi'
-import DrillCard from '../PronunciationSession/DrillCard'
+import { useLanguage } from '../../lib/i18n'
 import StageSummary, { type RoundResult } from '../PronunciationSession/StageSummary'
+import SoundSheetCard, { SoundSymbol, StepMarkers } from './SoundSheetCard'
 
 /** XP for one finished card set, inside the drill funnel or standalone. Fire-and-forget. */
 export function awardSwipeSetXp(phonemeId: string, results: RoundResult[]) {
@@ -176,7 +177,8 @@ export function SwipeCardDeck({
 /**
  * Standalone card exercise (phonetic-sound-chart-design.md §7's "idea 2") for the tiles that
  * have no drill-funnel curriculum content. Tiles that do have a funnel get the same deck as
- * its first stage instead (see DrillFunnel), so there's a single panel of exercises.
+ * its first stage instead (see DrillFunnel), so there's a single panel of exercises. Sits on the
+ * sound sheet's card, like the funnel's listening mode.
  */
 export default function SwipeCardExercise({
   phoneme,
@@ -187,32 +189,32 @@ export default function SwipeCardExercise({
   accent: AccentPreference
   onComplete: (score: number, total: number) => void
 }) {
+  const { t } = useLanguage()
   const synth = useSpeechSynthesis('female', accent)
   const [results, setResults] = useState<RoundResult[] | null>(null)
-
-  if (results) {
-    return (
-      <DrillCard title={`Kártyás gyakorlat — /${phoneme.ipaSymbol}/`} titleHu="Összesítő">
-        <StageSummary
-          title="Kártyás gyakorlat"
-          results={results}
-          onContinue={() => onComplete(results.filter((r) => r.correct).length, results.length)}
-        />
-      </DrillCard>
-    )
-  }
+  const correct = results ? results.filter((r) => r.correct).length : 0
 
   return (
-    <DrillCard title={`Kártyás gyakorlat — /${phoneme.ipaSymbol}/`} titleHu="Halld meg és döntsd el">
-      <SwipeCardDeck
-        words={phoneme.swipeWords ?? []}
-        ipaSymbol={phoneme.ipaSymbol}
-        speak={(word) => synth.speak(word)}
-        onFinish={(finished) => {
-          setResults(finished)
-          if (finished.length > 0) awardSwipeSetXp(phoneme.id, finished)
-        }}
+    <SoundSheetCard className="space-y-5">
+      <SoundSymbol phonemeId={phoneme.id} ipaSymbol={phoneme.ipaSymbol} />
+      <StepMarkers
+        steps={[{ label: t('sndListenCards'), done: Boolean(results), detail: results ? `${correct}/${results.length}` : undefined }]}
+        current={results ? 1 : 0}
+        finalLabel={t('sndOverall')}
       />
-    </DrillCard>
+      {results ? (
+        <StageSummary title="Kártyás gyakorlat" results={results} onContinue={() => onComplete(correct, results.length)} />
+      ) : (
+        <SwipeCardDeck
+          words={phoneme.swipeWords ?? []}
+          ipaSymbol={phoneme.ipaSymbol}
+          speak={(word) => synth.speak(word)}
+          onFinish={(finished) => {
+            setResults(finished)
+            if (finished.length > 0) awardSwipeSetXp(phoneme.id, finished)
+          }}
+        />
+      )}
+    </SoundSheetCard>
   )
 }

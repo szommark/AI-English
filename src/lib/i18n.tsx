@@ -278,6 +278,10 @@ const messages = {
   sndPlayWord: { hu: 'Meghallgatás: {word}', en: 'Listen: {word}', de: 'Anhören: {word}' },
   sndHearingTab: { hu: 'Hallás', en: 'Listening', de: 'Hören' },
   sndPronTab: { hu: 'Kiejtés', en: 'Pronunciation', de: 'Aussprache' },
+  sndListenCards: { hu: 'Kártyák', en: 'Cards', de: 'Karten' },
+  sndListenWhich: { hu: 'Melyik szó?', en: 'Which word?', de: 'Welches Wort?' },
+  sndListenOdd: { hu: 'Kakukktojás', en: 'Odd one out', de: 'Was passt nicht?' },
+  sndListenDictation: { hu: 'Diktálás', en: 'Dictation', de: 'Diktat' },
   sndPronIntro: {
     hu: 'Három rész: szavak (előbb maga a hang egy rövid szóban), minimálpárok és egy mondat. Hallgasd meg, majd a sípszó után ismételd. Minden rész után megkapod az eredményét, a végén az összesítést.',
     en: 'Three parts: words (starting with the sound itself in a short word), minimal pairs and a sentence. Listen, then repeat after the beep. You get a result after each part and an overall result at the end.',
@@ -290,6 +294,7 @@ const messages = {
   sndStageResult: { hu: '{stage} — eredmény:', en: '{stage} — result:', de: '{stage} — Ergebnis:' },
   sndStageNext: { hu: 'Tovább: {stage} →', en: 'Next: {stage} →', de: 'Weiter: {stage} →' },
   sndToOverall: { hu: 'Összesítés →', en: 'Overall result →', de: 'Gesamtergebnis →' },
+  sndFinish: { hu: 'Befejezés', en: 'Finish', de: 'Fertig' },
   sndOverall: { hu: 'Összesítés', en: 'Overall result', de: 'Gesamtergebnis' },
   sndOverallScore: { hu: 'Összpontszám', en: 'Overall', de: 'Gesamt' },
   sndHeardAs: { hu: 'Ezt hallottuk: /{ipa}/', en: 'Heard as /{ipa}/', de: 'Gehört als /{ipa}/' },
