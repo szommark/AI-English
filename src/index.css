@@ -36,7 +36,7 @@
   --brand-gold: #c9a227;
 }
 
-/* Avalon intro (src/components/BrandIntro.tsx): "AVLN" parts and the missing A and O fade in. */
+/* Avalon intro (src/components/BrandIntro.tsx): "AVLN" parts and the missing gold a and o fade in. */
 .brand-intro {
   position: fixed;
   inset: 0;
@@ -70,10 +70,14 @@
   font-weight: 600;
   font-size: clamp(3.25rem, 15vw, 8.5rem);
   line-height: 1;
+  /* Spacing comes from WORDMARK_LETTERS (Wordmark.tsx), the same as the header. */
+  font-kerning: none;
 }
 .brand-intro__letter {
   display: inline-block;
-  padding-inline: 0.035em;
+}
+.brand-intro__letter--added {
+  color: var(--brand-gold);
 }
 .brand-intro__rule {
   width: min(16rem, 60vw);
@@ -141,9 +145,8 @@
   to { transform: none; }
 }
 @keyframes brand-intro-added {
-  0% { opacity: 0; color: var(--brand-gold); translate: 0 -0.12em; }
-  55% { opacity: 1; color: var(--brand-gold); translate: 0 0; }
-  100% { opacity: 1; color: var(--brand-navy); translate: 0 0; }
+  from { opacity: 0; translate: 0 -0.12em; }
+  to { opacity: 1; translate: 0 0; }
 }
 @keyframes brand-intro-rule {
   from { transform: scaleX(0); }
