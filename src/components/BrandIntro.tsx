@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { useLanguage } from '../lib/i18n'
+import { letterStyle, WORDMARK_LETTERS } from './Wordmark'
 
 const SEEN_KEY = 'avalon:intro-seen'
 /** When the overlay starts fading out, from the moment the letters are measured (ms). */
@@ -8,17 +9,10 @@ const HOLD_REDUCED_MS = 1800
 const FADE_MS = 600
 
 /**
- * The wordmark starts as the consonant skeleton "AVLN"; the letters part and the missing A and O
- * fade into the gaps to spell AVALON. `added` marks those two.
+ * The wordmark starts as the consonant skeleton "AVLN"; the letters part and the missing a and o
+ * (`added` in WORDMARK_LETTERS) fade into the gaps to spell AVaLoN, spaced exactly like the header.
  */
-const LETTERS = [
-  { ch: 'A', added: false },
-  { ch: 'V', added: false },
-  { ch: 'A', added: true },
-  { ch: 'L', added: false },
-  { ch: 'O', added: true },
-  { ch: 'N', added: false },
-] as const
+const LETTERS = WORDMARK_LETTERS
 
 /** True once per browser session: the intro plays on the first visit to the home page only. */
 export function shouldShowBrandIntro(): boolean {
@@ -53,11 +47,13 @@ export default function BrandIntro({ onDone }: { onDone: () => void }) {
     const fontReady = document.fonts?.load('600 1em "EB Garamond"').catch(() => undefined) ?? Promise.resolve()
     fontReady.then(() => {
       if (cancelled) return
-      const w = letterRefs.current.map((el) => el?.getBoundingClientRect().width ?? 0)
-      const gapA = w[2]
-      const gapO = w[4]
-      const half = (gapA + gapO) / 2
-      setShifts([half, half, 0, half - gapA, 0, -half])
+      // Final (laid-out) boxes; transforms are not applied yet, so these are the AVaLoN positions.
+      const r = letterRefs.current.map((el) => el!.getBoundingClientRect())
+      // Closed up, V is followed straight by L and L by N (the font has no V–L or L–N kerning).
+      const startL = r[1].right
+      const startN = startL + r[3].width
+      const centre = (r[5].right - (startN + r[5].width)) / 2
+      setShifts([centre, centre, 0, startL - r[3].left + centre, 0, startN - r[5].left + centre])
     })
     return () => {
       cancelled = true
@@ -102,7 +98,7 @@ export default function BrandIntro({ onDone }: { onDone: () => void }) {
       onClick={leave}
     >
       <div className="brand-intro__stage">
-        <h1 className="brand-intro__word" aria-label="Avalon">
+        <h1 className="brand-intro__word" aria-label="AVaLoN">
           {LETTERS.map((l, i) => (
             <span
               key={i}
@@ -111,7 +107,7 @@ export default function BrandIntro({ onDone }: { onDone: () => void }) {
               }}
               aria-hidden="true"
               className={l.added ? 'brand-intro__letter brand-intro__letter--added' : 'brand-intro__letter'}
-              style={{ '--shift': `${shifts?.[i] ?? 0}px`, '--i': i } as CSSProperties}
+              style={{ ...letterStyle(l.kern), '--shift': `${shifts?.[i] ?? 0}px`, '--i': i } as CSSProperties}
             >
               {l.ch}
             </span>
