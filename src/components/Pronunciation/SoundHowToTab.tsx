@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react'
-import { Loader2, Mic, Volume2 } from 'lucide-react'
+import { Mic, Volume2 } from 'lucide-react'
 import type { Phoneme } from '../../data/phonemes'
 import { anchorHighlight, type PhonemePractice } from '../../data/phonemePractice'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import { useLanguage } from '../../lib/i18n'
-import { playSoundClip, stopSoundClip } from '../../lib/soundClip'
+import { stopSoundClip } from '../../lib/soundClip'
 import { PRODUCTION_ASSESSMENT_ACCENT, type AccentPreference } from '../../lib/voiceSelection'
 import { HighlightedWord } from './PhonemeTile'
+import SoundSheetCard, { SoundSymbol, speakerButtonClass } from './SoundSheetCard'
 import { useSoundCheck } from './useSoundCheck'
 
 /**
@@ -31,21 +31,6 @@ export default function SoundHowToTab({
   // The sound and the anchor word play in en-US, the accent the mic is assessed in (the clip is en-US anyway).
   const anchorSynth = useSpeechSynthesis('female', PRODUCTION_ASSESSMENT_ACCENT)
   const soundCheck = useSoundCheck(phoneme.id, practice?.anchorWord ?? '')
-  const [clipState, setClipState] = useState<'idle' | 'loading' | 'playing' | 'error'>('idle')
-
-  useEffect(() => () => stopSoundClip(), [])
-
-  async function playSound() {
-    setClipState('loading')
-    try {
-      await playSoundClip(phoneme.id, () => setClipState('playing'))
-      setClipState('idle')
-    } catch (err) {
-      console.error('Sound clip failed:', err)
-      setClipState('error')
-    }
-  }
-
   function record() {
     window.speechSynthesis?.cancel()
     stopSoundClip()
@@ -58,8 +43,6 @@ export default function SoundHowToTab({
       : lang === 'de'
         ? (practice?.descriptionDe ?? phoneme.articulation.description)
         : (practice?.descriptionEn ?? phoneme.articulation.description)
-  const speakerButton =
-    'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-secondary disabled:opacity-50'
 
   function wordButton(word: string) {
     return (
@@ -77,32 +60,15 @@ export default function SoundHowToTab({
 
   return (
     <div className="space-y-6">
-      <section
-        className={`grid gap-6 rounded-2xl border bg-card p-6 shadow-[var(--shadow-card)] sm:p-8 md:gap-8 ${
-          practice ? 'md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]' : ''
-        } ${soundCheck.status === 'recording' ? 'border-rose-400' : 'border-rose-200'}`}
+      <SoundSheetCard
+        active={soundCheck.status === 'recording'}
+        className={`grid gap-6 md:gap-8 ${practice ? 'md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]' : ''}`}
       >
         {practice && (
           <div className="space-y-4">
             <h2 className="text-sm font-medium text-muted-foreground">{t('sndTryIt')}</h2>
 
-            <div className="flex items-center gap-3">
-              <span className="text-3xl font-semibold text-foreground">/{phoneme.ipaSymbol}/</span>
-              <button
-                type="button"
-                onClick={playSound}
-                disabled={clipState === 'loading' || clipState === 'playing' || soundCheck.busy}
-                aria-label={t('sndPlaySound')}
-                title={t('sndPlaySound')}
-                className={speakerButton}
-              >
-                {clipState === 'loading' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Volume2 className={`h-4 w-4 ${clipState === 'playing' ? 'text-rose-600' : ''}`} />
-                )}
-              </button>
-            </div>
+            <SoundSymbol phonemeId={phoneme.id} ipaSymbol={phoneme.ipaSymbol} disabled={soundCheck.busy} />
 
             <div className="flex items-center gap-3">
               <span lang="en" className="text-5xl font-semibold tracking-tight text-foreground sm:text-6xl">
@@ -117,7 +83,7 @@ export default function SoundHowToTab({
                 disabled={soundCheck.busy}
                 aria-label={t('sndPlayWord', { word: practice.anchorWord })}
                 title={t('sndPlayWord', { word: practice.anchorWord })}
-                className={speakerButton}
+                className={speakerButtonClass}
               >
                 <Volume2 className="h-4 w-4" />
               </button>
@@ -137,7 +103,6 @@ export default function SoundHowToTab({
               {soundCheck.status === 'done' || soundCheck.status === 'error' ? t('sndRecordAgain') : t('sndRecord')}
             </button>
 
-            {clipState === 'error' && <p className="text-sm text-red-600">{t('sndClipError')}</p>}
             {soundCheck.panel}
           </div>
         )}
@@ -163,7 +128,7 @@ export default function SoundHowToTab({
             </div>
           )}
         </div>
-      </section>
+      </SoundSheetCard>
 
       <button
         type="button"

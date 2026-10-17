@@ -17,6 +17,7 @@ import PageHeading from '../components/PageHeading'
 import SwipeCardExercise from '../components/Pronunciation/SwipeCardExercise'
 import SoundHowToTab from '../components/Pronunciation/SoundHowToTab'
 import SoundPronunciationTab from '../components/Pronunciation/SoundPronunciationTab'
+import SoundSheetCard, { SoundSymbol } from '../components/Pronunciation/SoundSheetCard'
 import DrillFunnel from '../components/PronunciationSession/DrillFunnel'
 
 type SheetTab = 'how' | 'listening' | 'pronunciation'
@@ -129,11 +130,12 @@ function PhonemeSheet({ phonemeId }: { phonemeId: string }) {
       ) : tab === 'pronunciation' && practice ? (
         <SoundPronunciationTab phoneme={phoneme} practice={practice} soundItemId={soundItem?.id} />
       ) : completed ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center space-y-3">
+        <SoundSheetCard className="space-y-5">
+          <SoundSymbol phonemeId={phoneme.id} ipaSymbol={phoneme.ipaSymbol} />
           <p className="text-sm font-medium text-rose-700">
             {swipeResult ? t('sndHearingDone', { score: swipeResult.score, total: swipeResult.total }) : t('sndHearingDoneFunnel')}
           </p>
-          <div className="flex flex-wrap justify-center gap-3">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={practiceAgain}
               className="rounded-lg border border-rose-300 text-rose-700 text-sm font-medium px-4 py-2 hover:bg-rose-100"
@@ -149,7 +151,7 @@ function PhonemeSheet({ phonemeId }: { phonemeId: string }) {
               </button>
             )}
           </div>
-        </div>
+        </SoundSheetCard>
       ) : soundItem ? (
         <DrillFunnel
           key={attemptKey}
@@ -163,9 +165,10 @@ function PhonemeSheet({ phonemeId }: { phonemeId: string }) {
       ) : phoneme.swipeWords && phoneme.swipeWords.length > 0 ? (
         <SwipeCardExercise key={attemptKey} phoneme={phoneme} accent={accent} onComplete={handleSwipeComplete} />
       ) : (
-        <div className="rounded-xl border border-dashed border-border bg-card p-6 text-center">
+        <SoundSheetCard className="space-y-5">
+          <SoundSymbol phonemeId={phoneme.id} ipaSymbol={phoneme.ipaSymbol} />
           <p className="text-sm text-muted-foreground">{t('sndNoExercise')}</p>
-        </div>
+        </SoundSheetCard>
       )}
     </div>
   )

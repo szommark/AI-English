@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Check, RotateCcw } from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 import type { Phoneme } from '../../data/phonemes'
 import { anchorHighlight, type PhonemePractice } from '../../data/phonemePractice'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
@@ -10,9 +10,9 @@ import { recordPronunciationAttempt } from '../../lib/pronunciationProgressApi'
 import { playSoundClip } from '../../lib/soundClip'
 import type { PronunciationCheckResult } from '../../lib/types'
 import { PRODUCTION_ASSESSMENT_ACCENT } from '../../lib/voiceSelection'
-import ScoreBar from '../PronunciationPractice/ScoreBar'
 import ShadowingRunner, { type ShadowItem } from '../PronunciationPractice/ShadowingRunner'
 import { HighlightedWord } from './PhonemeTile'
+import SoundSheetCard, { ResultBars, SoundSymbol, StepMarkers } from './SoundSheetCard'
 import { FocusSoundResultView, PractiseTooLinks, WordResultsView } from './SoundResults'
 
 interface Stage {
@@ -145,68 +145,30 @@ export default function SoundPronunciationTab({
   const finishedScores = stages.flatMap((_, i) => (outcomes[i] ? [outcomes[i].score] : []))
 
   return (
-    <div className="space-y-4">
+    <SoundSheetCard className="space-y-5">
+      <SoundSymbol phonemeId={phoneme.id} ipaSymbol={phoneme.ipaSymbol} />
       <p className="text-sm text-muted-foreground">{t('sndPronIntro')}</p>
 
-      <ol className="flex flex-wrap items-center gap-2 text-sm">
-        {stages.map((stage, i) => {
-          const outcome = outcomes[i]
-          const active = i === current
-          return (
-            <li
-              key={i}
-              aria-current={active ? 'step' : undefined}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 ${
-                active
-                  ? 'border-rose-300 bg-rose-50 font-medium text-rose-700'
-                  : outcome
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                    : 'border-border text-muted-foreground'
-              }`}
-            >
-              {outcome && !active && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
-              {i + 1}. {stage.label}
-              {outcome && <span className="tabular-nums">· {Math.round(outcome.score)}%</span>}
-            </li>
-          )
-        })}
-        <li
-          aria-current={showingOverall ? 'step' : undefined}
-          className={`rounded-full border px-3 py-1 ${
-            showingOverall ? 'border-rose-300 bg-rose-50 font-medium text-rose-700' : 'border-border text-muted-foreground'
-          }`}
-        >
-          {t('sndOverall')}
-        </li>
-      </ol>
+      <StepMarkers
+        steps={stages.map((stage, i) => ({
+          label: stage.label,
+          done: Boolean(outcomes[i]),
+          detail: outcomes[i] ? `${Math.round(outcomes[i].score)}%` : undefined,
+        }))}
+        current={current}
+        finalLabel={t('sndOverall')}
+      />
 
       {showingOverall ? (
-        <div className="space-y-5 rounded-2xl border border-border bg-card p-5 sm:p-6">
-          <h3 className="text-base font-semibold text-foreground">{t('sndOverall')}</h3>
-          <ul className="space-y-2">
-            {stages.map((stage, i) => (
-              <li key={i} className="grid grid-cols-[8rem_1fr] items-center gap-x-3 gap-y-1.5 text-sm sm:grid-cols-[10rem_1fr]">
-                <span className="text-foreground">
-                  {i + 1}. {stage.label}
-                </span>
-                <div className="max-w-sm">{outcomes[i] && <ScoreBar score={outcomes[i].score} label={stage.label} />}</div>
-                {/* The sounds that went wrong in this session, right under its bar. */}
-                {outcomes[i] && (
-                  <div className="col-start-2">
-                    <PractiseTooLinks results={outcomes[i].results} focusId={phoneme.id} compact />
-                  </div>
-                )}
-              </li>
-            ))}
-            {finishedScores.length > 0 && (
-              <li className="grid grid-cols-[8rem_1fr] items-center gap-3 border-t border-border pt-2 text-sm font-semibold sm:grid-cols-[10rem_1fr]">
-                <span className="text-foreground">{t('sndOverallScore')}</span>
-                <div className="max-w-sm">
-                  <ScoreBar score={average(finishedScores)} label={t('sndOverallScore')} />
-                </div>
-              </li>
-            )}
-          </ul>
+        <ResultBars
+          rows={stages.map((stage, i) => ({
+            label: stage.label,
+            score: outcomes[i]?.score ?? null,
+            // The sounds that went wrong in this session, right under its bar.
+            below: outcomes[i] && <PractiseTooLinks results={outcomes[i].results} focusId={phoneme.id} compact />,
+          }))}
+          overall={finishedScores.length > 0 ? average(finishedScores) : null}
+        >
           <button
             type="button"
             onClick={startOver}
@@ -215,7 +177,7 @@ export default function SoundPronunciationTab({
             <RotateCcw className="h-4 w-4" />
             {t('pronRestart')}
           </button>
-        </div>
+        </ResultBars>
       ) : (
         <ShadowingRunner
           key={`${round}/${current}`}
@@ -224,6 +186,7 @@ export default function SoundPronunciationTab({
           renderResult={renderResult}
           scoreOf={scoreOf}
           autoStart={autoStart}
+          split
           finishedLabel={t('sndStageResult', { stage: stages[current].label })}
           onFinished={(results) => handleStageFinished(current, results)}
           renderFinished={() => (
@@ -237,6 +200,6 @@ export default function SoundPronunciationTab({
           )}
         />
       )}
-    </div>
+    </SoundSheetCard>
   )
 }
