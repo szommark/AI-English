@@ -274,7 +274,6 @@ const messages = {
   sndRecordAgain: { hu: 'Új felvétel', en: 'Record again', de: 'Noch einmal' },
   sndArticulation: { hu: 'Képzés', en: 'How to make it', de: 'So wird er gebildet' },
   sndHowMouth: { hu: 'Száj és nyelv', en: 'Mouth and tongue', de: 'Mund und Zunge' },
-  sndExampleWords: { hu: 'Példaszavak', en: 'Example words', de: 'Beispielwörter' },
   sndMinimalPairs: { hu: 'Minimálpárok', en: 'Minimal pairs', de: 'Minimalpaare' },
   sndPlayWord: { hu: 'Meghallgatás: {word}', en: 'Listen: {word}', de: 'Anhören: {word}' },
   sndHearingTab: { hu: 'Hallás', en: 'Listening', de: 'Hören' },
