@@ -38,7 +38,7 @@ export default function VoiceSettingsPage() {
         <div>
           <h1 className="text-xl font-semibold text-slate-800">{t('voiceTitle')}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            By default, AI-English picks a voice that matches each character's gender. You can override that here.
+            By default, AVaLoN picks a voice that matches each character's gender. You can override that here.
           </p>
         </div>
 

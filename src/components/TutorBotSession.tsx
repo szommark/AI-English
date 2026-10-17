@@ -172,7 +172,7 @@ export default function TutorBotSession({ personaId }: { personaId: string }) {
       recognition.stop()
       setStatus('idle')
       setPermissionMessage(
-        "AI-English needs microphone access for Tutor Bot. Please allow it in your browser's site settings and reload the page.",
+        "AVaLoN needs microphone access for Tutor Bot. Please allow it in your browser's site settings and reload the page.",
       )
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
