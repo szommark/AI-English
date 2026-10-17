@@ -7,6 +7,7 @@ import AuthModal from './AuthModal'
 import BrandIntro, { shouldShowBrandIntro } from './BrandIntro'
 import Wordmark from './Wordmark'
 import LanguageSwitcher from './LanguageSwitcher'
+import ProgressMenu from './ProgressMenu'
 import LevelChip from './gamification/LevelChip'
 import XpNotifications from './gamification/XpNotifications'
 
@@ -24,12 +25,14 @@ export function useAuthPrompt(): AuthPromptValue {
 }
 
 /**
- * Shared frame for every page: brand + account/language controls on the top bar, and — on all
+ * Shared frame for every page: brand + a short account menu on the top bar (Mission and Sign in
+ * when signed out; level, My progress ▾ and the role's dashboard when signed in), a floating
+ * language switcher bottom-right, and — on all
  * pages except the home page — the "Back to home" button with the section trail beneath it,
  * top-left, at every depth.
  */
 export default function AppLayout() {
-  const { user, role, signOut } = useAuth()
+  const { user, role } = useAuth()
   const { lang, t } = useLanguage()
   const { pathname } = useLocation()
   const navigate = useNavigate()
@@ -77,50 +80,34 @@ export default function AppLayout() {
             </Link>
 
             <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 text-sm">
-              <Link to="/mission" className="font-medium text-[var(--brand-navy)] hover:underline">
-                {t('mission')}
-              </Link>
               {user ? (
                 <>
                   <LevelChip />
-                  <span className="text-muted-foreground">{user.email}</span>
-                  <Link to="/my-progress" className="font-medium text-primary hover:underline">
-                    {t('myProgress')}
-                  </Link>
+                  <ProgressMenu />
                   {role === 'teacher' && (
-                    <>
-                      <Link to="/teacher" className="text-muted-foreground hover:underline">
-                        {t('teacherDashboard')}
-                      </Link>
-                      <Link to="/teacher/tools" className="text-muted-foreground hover:underline">
-                        {t('teacherToolkit')}
-                      </Link>
-                    </>
+                    <Link to="/teacher" className="font-medium text-muted-foreground hover:text-foreground hover:underline">
+                      {t('teacherDashboard')}
+                    </Link>
                   )}
                   {role === 'admin' && (
-                    <Link to="/admin" className="text-muted-foreground hover:underline">
+                    <Link to="/admin" className="font-medium text-muted-foreground hover:text-foreground hover:underline">
                       {t('admin')}
                     </Link>
                   )}
-                  <Link to="/settings/teacher" className="text-muted-foreground hover:underline">
-                    {t('connectTeacher')}
-                  </Link>
-                  <Link to="/settings/voice" className="text-muted-foreground hover:underline">
-                    {t('voiceSettings')}
-                  </Link>
-                  <button onClick={signOut} className="text-primary hover:underline">
-                    {t('signOut')}
-                  </button>
                 </>
               ) : (
-                <button
-                  onClick={() => promptValue.promptSignIn()}
-                  className="rounded-lg bg-[var(--teal-accent)] text-primary text-sm font-semibold px-4 py-2 hover:bg-[var(--teal-accent-strong)]"
-                >
-                  {t('signIn')}
-                </button>
+                <>
+                  <Link to="/mission" className="font-medium text-[var(--brand-navy)] hover:underline">
+                    {t('mission')}
+                  </Link>
+                  <button
+                    onClick={() => promptValue.promptSignIn()}
+                    className="rounded-lg bg-[var(--teal-accent)] text-primary text-sm font-semibold px-4 py-2 hover:bg-[var(--teal-accent-strong)]"
+                  >
+                    {t('signIn')}
+                  </button>
+                </>
               )}
-              <LanguageSwitcher />
             </div>
           </div>
         </header>
@@ -160,6 +147,11 @@ export default function AppLayout() {
         <main className="max-w-6xl mx-auto px-4 py-8">
           <Outlet />
         </main>
+      </div>
+
+      {/* Floats on every page, apart from the header menu. */}
+      <div className="fixed bottom-4 right-4 z-40 sm:right-6">
+        <LanguageSwitcher />
       </div>
 
       {user && <XpNotifications />}

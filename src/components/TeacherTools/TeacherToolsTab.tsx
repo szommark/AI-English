@@ -1,15 +1,14 @@
 import { Link } from 'react-router-dom'
 import { Music, Sparkles } from 'lucide-react'
-import PageHeading from '../components/PageHeading'
-import { useLanguage } from '../lib/i18n'
+import { useLanguage } from '../../lib/i18n'
 
-/** Teacher Toolkit hub (/teacher/tools): one tile per tool. Teacher role only. */
-export default function TeacherToolsPage() {
+/** Teacher Toolkit (the Tools tab of /teacher): one tile per tool. Teacher role only. */
+export default function TeacherToolsTab() {
   const { t } = useLanguage()
 
   return (
-    <div className="max-w-5xl space-y-8">
-      <PageHeading title={t('teacherToolkit')} subtitle={t('ttSubtitle')} />
+    <div className="space-y-6">
+      <p className="text-muted-foreground">{t('ttSubtitle')}</p>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <Link
