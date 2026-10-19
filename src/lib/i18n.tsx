@@ -1831,6 +1831,12 @@ const messages = {
     en: 'Build word lists, assign them to your students and follow how much they have learned.',
     de: 'Wortlisten erstellen, Schülern zuweisen und den Lernfortschritt verfolgen.',
   },
+  ttExamTasksTitle: { hu: 'Vizsgafeladat-készítő', en: 'Exam task maker', de: 'Prüfungsaufgaben-Generator' },
+  ttExamTasksDesc: {
+    hu: 'Hallott szöveges vizsgafeladatok készítése MI-vel vagy feltöltéssel, és tesztelésük tanárkollégákkal.',
+    en: 'Create listening exam tasks with AI or by upload, and have fellow teachers test them.',
+    de: 'Hörverstehensaufgaben mit KI oder per Upload erstellen und von Kollegen testen lassen.',
+  },
   ttMoreSoon: { hu: 'Hamarosan további eszközök.', en: 'More tools are on the way.', de: 'Weitere Werkzeuge folgen.' },
   lyNew: { hu: 'Új feladat', en: 'New activity', de: 'Neue Übung' },
   lyCrumbEdit: { hu: 'Feladat szerkesztése', en: 'Edit activity', de: 'Übung bearbeiten' },

@@ -15,6 +15,17 @@ import {
 } from '../src/lib/lyricsGapFill.js'
 import { sanitizeTenseSettingInput } from '../src/lib/tenseExplorerPolicy.js'
 import { deleteTenseSetting, getTenseSetting, isActiveStudent, saveTenseSetting } from './_lib/tenseExplorerSettings.js'
+import {
+  handleAudio,
+  handleExamTasks,
+  handleGenerate,
+  handlePools,
+  handleReview,
+  handleRevise,
+  handleShare,
+  handleTeachers,
+  HttpError,
+} from './_lib/examTasks.js'
 
 // Single Vercel function for the Teacher Toolkit (docs/teacher-toolkit-design.md), teacher
 // role only (everyone else gets 403). Multiplexed by ?action= like api/vocab.ts: each new
@@ -36,18 +47,16 @@ import { deleteTenseSetting, getTenseSetting, isActiveStudent, saveTenseSetting 
 //   PUT    tense-explorer                { tenses, allowCustomize, studentId? } → { setting }
 //   DELETE tense-explorer[&studentId=]   remove the class setting or a student's override
 // A studentId that isn't one of the caller's active students returns 404.
+//
+// Exam task maker (listening first; see api/_lib/examTasks.ts for every action):
+//   exam-tasks, exam-task-generate, exam-task-revise, exam-task-audio, exam-task-share,
+//   exam-task-review, teachers, teacher-pools
+
+// AI task generation and TTS rendering can take tens of seconds.
+export const config = { maxDuration: 60 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const CEFR = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'])
-
-class HttpError extends Error {
-  constructor(
-    readonly status: number,
-    readonly body: Record<string, unknown>,
-  ) {
-    super(String(body.error))
-  }
-}
 
 interface ActivityRow {
   id: string
@@ -253,6 +262,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'tense-explorer':
         await handleTenseExplorer(req, res, user.id)
+        return
+      case 'exam-tasks':
+        await handleExamTasks(req, res, user.id)
+        return
+      case 'exam-task-generate':
+        await handleGenerate(req, res, user.id)
+        return
+      case 'exam-task-revise':
+        await handleRevise(req, res, user.id)
+        return
+      case 'exam-task-audio':
+        await handleAudio(req, res, user.id)
+        return
+      case 'exam-task-share':
+        await handleShare(req, res, user.id)
+        return
+      case 'exam-task-review':
+        await handleReview(req, res, user.id)
+        return
+      case 'teachers':
+        await handleTeachers(req, res, user.id)
+        return
+      case 'teacher-pools':
+        await handlePools(req, res, user.id)
         return
       default:
         res.status(404).json({ error: 'Not found' })
