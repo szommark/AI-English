@@ -4,6 +4,8 @@
 
 export interface PdfWord {
   term: string
+  /** Part of speech, already in the UI language. */
+  pos?: string | null
   meaningHu?: string | null
   definitionEn?: string | null
   exampleEn?: string | null
@@ -12,6 +14,7 @@ export interface PdfWord {
 
 export interface PdfLabels {
   term: string
+  pos?: string
   meaning: string
   definition: string
   example: string
@@ -25,6 +28,7 @@ const escapeHtml = (s: string) =>
 export function buildWordlistHtml(title: string, words: PdfWord[], labels: PdfLabels, description?: string | null): string {
   const columns = [
     { key: 'term', label: labels.term, show: true },
+    { key: 'pos', label: labels.pos ?? '', show: Boolean(labels.pos) && words.some((w) => w.pos) },
     { key: 'meaningHu', label: labels.meaning, show: words.some((w) => w.meaningHu) },
     { key: 'definitionEn', label: labels.definition, show: words.some((w) => w.definitionEn) },
     { key: 'exampleEn', label: labels.example, show: words.some((w) => w.exampleEn) },

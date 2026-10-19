@@ -4,11 +4,13 @@ import WordSpeakButton from '../WordSpeakButton'
 import { LIST_MAX_ITEMS, normalizeTerm } from '../../lib/vocab'
 import { duplicateTerms, isMissingMeaning, type DraftRow } from '../../lib/vocabDraft'
 import { GRAMMAR_LEVELS, type CefrLevel } from '../../data/grammarCurriculum'
-import { inputClass } from './AddTermsPanel'
+import type { VocabPos } from '../../lib/vocab'
+import { PosOptions, inputClass } from './AddTermsPanel'
 
 const cellInput = inputClass.replace('px-3 py-2', 'px-2 py-1.5')
 /** Wide screens: one grid row per term. Phones: each term becomes a stacked card. */
-const rowGrid = 'grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.4fr)_5.5rem_2rem] sm:items-start'
+const rowGrid =
+  'grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.4fr)_7.5rem_4.5rem_2rem] sm:items-start'
 
 /**
  * The editable preview (design §5.1): term, Hungarian meaning, example and level, with a
@@ -51,6 +53,7 @@ export default function PreviewTable({
             <span>{t('vlMeaning')}</span>
             <span>{t('vlDefinition')}</span>
             <span>{t('vlExample')}</span>
+            <span>{t('vlPos')}</span>
             <span>{t('vlLevel')}</span>
             <span />
           </div>
@@ -116,6 +119,20 @@ export default function PreviewTable({
                     className={cellInput}
                   />
                   <div className="flex items-start gap-2 sm:contents">
+                    <select
+                      value={row.pos ?? ''}
+                      onChange={(e) =>
+                        onChange(row.key, {
+                          pos: (e.target.value || null) as VocabPos | null,
+                          // Chosen by the teacher now: a later term edit must not clear it.
+                          autoFilled: row.autoFilled.filter((f) => f !== 'pos'),
+                        })
+                      }
+                      aria-label={t('vlPos')}
+                      className={`${cellInput} w-36 sm:w-full`}
+                    >
+                      <PosOptions blankLabel="—" />
+                    </select>
                     <select
                       value={row.cefrLevel}
                       onChange={(e) => onChange(row.key, { cefrLevel: e.target.value as CefrLevel | '' })}

@@ -149,6 +149,8 @@ export interface VocabList {
 export interface VocabListSummary extends VocabList {
   termCount: number
   assignedCount: number
+  /** For the Toolkit's "assigned to" filter. */
+  assignedStudentIds: string[]
   completedCount: number
   /** Learned cards summed over assigned students; out of termCount × assignedCount. */
   learned: number

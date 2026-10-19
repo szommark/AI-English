@@ -1,9 +1,26 @@
 import { useRef, useState, type FormEvent } from 'react'
-import { useLanguage } from '../../lib/i18n'
+import { useLanguage, type MessageKey } from '../../lib/i18n'
 import { parsePastedTerms, type ImportedRow } from '../../lib/vocabImport'
 import type { AddOutcome } from '../../lib/vocabDraft'
-import { LIST_MAX_ITEMS } from '../../lib/vocab'
+import { LIST_MAX_ITEMS, VOCAB_POS, type VocabPos } from '../../lib/vocab'
 import { translateHuTerm } from '../../lib/vocabListsApi'
+
+export const posLabelKey = (pos: VocabPos) => `vlPos_${pos}` as MessageKey
+
+/** The part-of-speech `<option>`s after a blank first one (left blank, enrichment guesses it). */
+export function PosOptions({ blankLabel }: { blankLabel: string }) {
+  const { t } = useLanguage()
+  return (
+    <>
+      <option value="">{blankLabel}</option>
+      {VOCAB_POS.map((p) => (
+        <option key={p} value={p}>
+          {t(posLabelKey(p))}
+        </option>
+      ))}
+    </>
+  )
+}
 
 type Mode = 'word' | 'paste' | 'upload'
 
@@ -84,6 +101,7 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
   const [meaning, setMeaning] = useState('')
   const [definition, setDefinition] = useState('')
   const [example, setExample] = useState('')
+  const [pos, setPos] = useState<VocabPos | ''>('')
   const [error, setError] = useState<AddWordError | 'translate' | null>(null)
   const [translating, setTranslating] = useState(false)
   const [translated, setTranslated] = useState<{ hu: string; term: string } | null>(null)
@@ -129,7 +147,13 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
     }
 
     const result = word
-      ? onAddWordRef.current({ term: word, meaningHu: meaning, definitionEn: definition, exampleEn: example })
+      ? onAddWordRef.current({
+          term: word,
+          meaningHu: meaning,
+          definitionEn: definition,
+          exampleEn: example,
+          pos: pos || undefined,
+        })
       : 'empty'
     setError(result)
     if (result === null) {
@@ -137,6 +161,7 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
       setMeaning('')
       setDefinition('')
       setExample('')
+      setPos('')
       if (fromHu) setTranslated({ hu: fromHu, term: word })
     }
     termRef.current?.focus()
@@ -155,7 +180,7 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
 
   return (
     <form onSubmit={submit} className="space-y-2" noValidate>
-      <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_1.3fr_auto]">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
         <input
           ref={termRef}
           value={term}
@@ -167,15 +192,25 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
           aria-label={t('vlTerm')}
           aria-invalid={error !== null}
           readOnly={translating}
-          className={`${inputClass} ${error ? 'border-red-400' : ''}`}
+          className={`${inputClass} lg:col-span-2 ${error ? 'border-red-400' : ''}`}
         />
+        <select
+          value={pos}
+          onChange={(e) => setPos(e.target.value as VocabPos | '')}
+          aria-label={t('vlPosOptional')}
+          title={t('vlPosOptional')}
+          disabled={translating}
+          className={`${inputClass} ${pos ? '' : 'text-muted-foreground'}`}
+        >
+          <PosOptions blankLabel={t('vlPos')} />
+        </select>
         <input
           value={meaning}
           onChange={(e) => setMeaning(e.target.value)}
           placeholder={t('vlMeaningOptional')}
           aria-label={t('vlMeaningOptional')}
           readOnly={translating}
-          className={inputClass}
+          className={`${inputClass} lg:col-span-3`}
         />
         <input
           value={definition}
@@ -183,7 +218,7 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
           placeholder={t('vlDefinitionOptional')}
           aria-label={t('vlDefinitionOptional')}
           readOnly={translating}
-          className={inputClass}
+          className={`${inputClass} lg:col-span-3`}
         />
         <input
           value={example}
@@ -191,7 +226,7 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
           placeholder={t('vlExampleOptional')}
           aria-label={t('vlExampleOptional')}
           readOnly={translating}
-          className={inputClass}
+          className={`${inputClass} lg:col-span-2`}
         />
         <button
           type="submit"
@@ -202,7 +237,7 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
         </button>
       </div>
       <p className="text-xs text-muted-foreground">
-        {t('vlMeaningOrDefinition')} {t('vlHuLookupHint')}
+        {t('vlMeaningOrDefinition')} {t('vlHuLookupHint')} {t('vlPosHint')}
       </p>
       {errorText && (
         <p className="text-sm text-red-600" role="alert">

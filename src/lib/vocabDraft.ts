@@ -33,8 +33,8 @@ export interface DraftRow {
 let nextKey = 1
 const newKey = () => nextKey++
 
-function needsEnrichment(r: Pick<DraftRow, 'meaningHu' | 'exampleEn' | 'cefrLevel' | 'definitionEn'>): boolean {
-  return !r.meaningHu.trim() || !r.exampleEn.trim() || !r.cefrLevel || !r.definitionEn.trim()
+function needsEnrichment(r: Pick<DraftRow, 'meaningHu' | 'exampleEn' | 'cefrLevel' | 'definitionEn' | 'pos'>): boolean {
+  return !r.meaningHu.trim() || !r.exampleEn.trim() || !r.cefrLevel || !r.definitionEn.trim() || !r.pos
 }
 
 function draftFromImported(row: ImportedRow): DraftRow {
@@ -45,7 +45,7 @@ function draftFromImported(row: ImportedRow): DraftRow {
     exampleEn: row.exampleEn ?? '',
     cefrLevel: row.cefrLevel ?? '',
     definitionEn: row.definitionEn ?? '',
-    pos: null,
+    pos: row.pos ?? null,
     enrich: 'pending',
     enrichedFor: normalizeTerm(row.term),
     autoFilled: [],
