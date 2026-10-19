@@ -1,6 +1,6 @@
 import { supabaseAdmin } from './supabaseAdmin.js'
 import { callModel } from './modelRouter.js'
-import { getModelForFeature } from './modelSettings.js'
+import type { ModelId } from '../../src/lib/models.js'
 import { logModelUsage } from './usageLog.js'
 import { utcDayStart } from './vocabPractice.js'
 import {
@@ -190,25 +190,34 @@ export async function generateListeningTask(input: GenerateInput, userId: string
 }
 
 /**
+ * The exam task maker runs on GPT-OSS 120B (the teacher's choice when the tool was designed), not
+ * the admin's Vocabulary model setting: a whole exam task needs the larger reasoning model, and
+ * the Gemini lite model was the one returning 503 "high demand". Gemini is only the fallback.
+ */
+const TASK_MODEL: ModelId = 'groq-gpt-oss-120b'
+const FALLBACK_MODEL: ModelId = 'gemini-3.1-flash-lite'
+
+/**
  * One model call for a whole task. JSON mode first; when the provider rejects the reply (Groq's
  * json_validate_failed, usually reasoning that ran out of tokens) or it doesn't parse, once more
- * without JSON mode and with lighter reasoning. Every answered call is logged (and counted).
+ * without JSON mode and with lighter reasoning; if Groq is down or rate-limited, the fallback
+ * model. Every answered call is logged (and counted).
  */
 async function callForTask<T>(systemPrompt: string, user: string, temperature: number, userId: string, parse: (raw: string) => T): Promise<T> {
-  const modelId = await getModelForFeature('vocabulary')
   const attempts = [
-    { json: true, maxTokens: 5500, reasoningEffort: 'medium' as const, temperature },
-    { json: false, maxTokens: 5500, reasoningEffort: 'low' as const, temperature },
+    { modelId: TASK_MODEL, json: true, maxTokens: 5500, reasoningEffort: 'medium' as const, temperature },
+    { modelId: TASK_MODEL, json: false, maxTokens: 5500, reasoningEffort: 'low' as const, temperature },
+    { modelId: FALLBACK_MODEL, json: true, maxTokens: 8000, temperature },
   ]
   let lastError: unknown = null
-  for (const options of attempts) {
+  for (const { modelId, ...options } of attempts) {
     try {
       const result = await callModel(modelId, systemPrompt, [{ role: 'user', content: user }], options)
       await logModelUsage({ userId, scenarioId: 'teacher-tools', callType: EXAM_TASK_CALL_TYPE, modelId, usage: result.usage })
       return parse(result.content)
     } catch (err) {
       lastError = err
-      console.warn('Exam task model call failed', { json: options.json, error: String(err).slice(0, 300) })
+      console.warn('Exam task model call failed', { modelId, json: options.json, error: String(err).slice(0, 300) })
     }
   }
   throw lastError
