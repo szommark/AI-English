@@ -24,7 +24,12 @@ function toGeminiRole(role: ChatMessage['role']): 'user' | 'model' {
   return role === 'assistant' ? 'model' : 'user'
 }
 
-export async function callGeminiChat(systemPrompt: string, recentHistory: ChatMessage[], model: string): Promise<GeminiResult> {
+export async function callGeminiChat(
+  systemPrompt: string,
+  recentHistory: ChatMessage[],
+  model: string,
+  options: { json?: boolean; maxTokens?: number; temperature?: number } = {},
+): Promise<GeminiResult> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new Error('Missing GEMINI_API_KEY environment variable.')
 
@@ -38,7 +43,11 @@ export async function callGeminiChat(systemPrompt: string, recentHistory: ChatMe
     systemInstruction: { parts: [{ text: systemPrompt }] },
     // maxOutputTokens raised from the old 300 (sized only for Tutor Bot's short replies)
     // now that this model is also routable to Grammar Coach's multi-segment JSON lesson.
-    generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+    generationConfig: {
+      temperature: options.temperature ?? 0.7,
+      maxOutputTokens: options.maxTokens ?? 4096,
+      ...(options.json ? { responseMimeType: 'application/json' } : {}),
+    },
   }
 
   let lastError: unknown = null

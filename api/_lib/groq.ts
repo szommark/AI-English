@@ -44,9 +44,19 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+export interface ModelCallOptions {
+  /** Ask for a JSON object reply (Groq json_object mode, Gemini application/json). */
+  json?: boolean
+  maxTokens?: number
+  /** gpt-oss reasoning depth (Groq only). */
+  reasoningEffort?: 'low' | 'medium' | 'high'
+  temperature?: number
+}
+
 export async function callGroq(
   messages: ChatMessage[] | { role: string; content: string }[],
   model: string,
+  options: ModelCallOptions = {},
 ): Promise<GroqResult> {
   const apiKey = process.env.GROQ_API_KEY
   if (!apiKey) throw new Error('Missing GROQ_API_KEY environment variable.')
@@ -63,7 +73,10 @@ export async function callGroq(
       body: JSON.stringify({
         model,
         messages,
-        temperature: 0.7,
+        temperature: options.temperature ?? 0.7,
+        ...(options.json ? { response_format: { type: 'json_object' } } : {}),
+        ...(options.maxTokens ? { max_completion_tokens: options.maxTokens } : {}),
+        ...(options.reasoningEffort ? { reasoning_effort: options.reasoningEffort } : {}),
       }),
     })
 
