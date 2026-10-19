@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../lib/AuthContext'
+import { hasTeacherAccess, useAuth } from '../lib/AuthContext'
 import { useLanguage } from '../lib/i18n'
 import { buildTrail } from '../lib/navTrail'
 import AuthModal from './AuthModal'
@@ -84,7 +84,7 @@ export default function AppLayout() {
                 <>
                   <LevelChip />
                   <ProgressMenu />
-                  {role === 'teacher' && (
+                  {hasTeacherAccess(role) && (
                     <Link to="/teacher" className="font-medium text-muted-foreground hover:text-foreground hover:underline">
                       {t('teacherDashboard')}
                     </Link>

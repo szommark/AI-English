@@ -4,6 +4,11 @@ import { supabase } from './supabase'
 
 export type UserRole = 'student' | 'teacher' | 'admin'
 
+/** Admins also have every teacher feature (same rule as api/_lib/roles.ts). */
+export function hasTeacherAccess(role: UserRole | null): boolean {
+  return role === 'teacher' || role === 'admin'
+}
+
 interface AuthContextValue {
   session: Session | null
   user: User | null

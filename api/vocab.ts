@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
-import { getUserRole } from './_lib/roles.js'
+import { getUserRole, hasTeacherAccess } from './_lib/roles.js'
 import { enrichTerms, translateHuTerm } from './_lib/vocabEnrichment.js'
 import { CEFR_LEVELS, prepareListItems, prepareListMeta, type PreparedListItem } from './_lib/vocabListInput.js'
 import {
@@ -252,7 +252,7 @@ function toList(row: ListRow): VocabList {
 }
 
 async function requireTeacher(userId: string) {
-  if ((await getUserRole(userId)) !== 'teacher') throw new HttpError(403, { error: 'Forbidden' })
+  if (!hasTeacherAccess(await getUserRole(userId))) throw new HttpError(403, { error: 'Forbidden' })
 }
 
 /** The caller's list, or a 404 that doesn't reveal whether it exists for someone else. */
