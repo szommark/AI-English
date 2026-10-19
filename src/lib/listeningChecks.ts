@@ -50,7 +50,7 @@ export interface CheckReport {
 
 const MIN_GAP_SYLLABLES = 15
 
-const FUNCTION_WORDS = new Set(
+export const FUNCTION_WORDS = new Set(
   'a an the of to in on at by for with as from into onto about and or but nor is are was were be been being its it their his her this that these those they he she we you i our your my me him them us has have had do does did will would can could should may might must not no so than then there here up out per via its also'.split(' '),
 )
 
@@ -73,7 +73,7 @@ function isNumeric(answer: string): boolean {
 }
 
 /** Rough stem for "same root" and inflection matching: first 5 letters, or the whole short word. */
-function stem(w: string): string {
+export function stem(w: string): string {
   const s = w.replace(/(ies|es|s|ed|ing|ly)$/, '')
   return (s.length >= 4 ? s : w).slice(0, 5)
 }

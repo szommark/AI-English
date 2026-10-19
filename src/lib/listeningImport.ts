@@ -14,6 +14,7 @@ import {
   type TaskLevel,
   type TrapType,
 } from './examTasks'
+import { autoMarkScript } from './listeningAutoMark'
 
 export interface ImportResult {
   content: ListeningTaskContent
@@ -21,7 +22,7 @@ export interface ImportResult {
   title: string
   sourceRef: string
   /** What was found, for the summary under the import box. */
-  found: { script: boolean; markers: number; statements: number; notes: number; key: number }
+  found: { script: boolean; markers: number; statements: number; notes: number; key: number; autoMarked: number }
   warnings: string[]
 }
 
@@ -92,7 +93,11 @@ function toMarkerSyntax(paragraph: string, keyFor: (id: string) => string | unde
   return p.replace(/\*\*/g, '')
 }
 
-export function parseListeningBundle(raw: string, hint: { format?: ListeningFormat; level?: TaskLevel } = {}): ImportResult {
+/**
+ * `hint.script`: the audioscript given on its own (checking an existing task: script and task
+ * sheet uploaded separately). It is used whole instead of being looked for in `raw`.
+ */
+export function parseListeningBundle(raw: string, hint: { format?: ListeningFormat; level?: TaskLevel; script?: string } = {}): ImportResult {
   const text = raw.replace(/\r\n?/g, '\n').replace(/ /g, ' ')
   const lines = text.split('\n')
   const warnings: string[] = []
@@ -225,7 +230,19 @@ export function parseListeningBundle(raw: string, hint: { format?: ListeningForm
   let scriptParas: string[] = []
   let markers = 0
   const keyFor = (id: string) => (format === 'notes' ? (notesKey.get(id)?.[0] ?? (id === '0' ? noteExample.get('0') : undefined)) : undefined)
-  if (marked.length) {
+  if (hint.script?.trim()) {
+    // A script given on its own: every paragraph that is spoken text (sentences or speaker lines),
+    // without headings like "LISTENING COMPREHENSION — AUDIOSCRIPT" or the title.
+    scriptParas = hint.script
+      .replace(/\r\n?/g, '\n')
+      .replace(/ /g, ' ')
+      .split(/\n\s*\n|\n(?=\S)/)
+      .map((p) => p.trim())
+      .filter((p) => p && (/[.!?]["”’)]*\s*$|[.!?]\s/.test(stripMd(p)) || /^[A-Z][\w .'’-]{0,30}:\s/.test(stripMd(p)) || MARKED_RE.test(p)))
+      .filter((p) => !/^listen to the text/i.test(stripMd(p)) && !/^\|/.test(p))
+      .map((p) => toMarkerSyntax(p, keyFor, format))
+    markers = scriptParas.join(' ').match(/\[\[\d{1,2}/g)?.length ?? 0
+  } else if (marked.length) {
     let from = marked[0]
     let to = marked[marked.length - 1]
     while (from > 0 && isProse(paragraphs[from - 1]) && !HEADING_STOP_RE.test(paragraphs[from - 1])) from--
@@ -243,7 +260,6 @@ export function parseListeningBundle(raw: string, hint: { format?: ListeningForm
       } else start = -1
     })
     scriptParas = paragraphs.slice(best[0], best[1] + 1).map(stripMd)
-    if (scriptParas.length) warnings.push('No answer markers found: mark each item in the script as [[n|words]].')
   }
   if (!scriptParas.length) warnings.push('No audioscript found.')
 
@@ -281,6 +297,17 @@ export function parseListeningBundle(raw: string, hint: { format?: ListeningForm
     if (notesKey.size === 0) warnings.push('No answer key found: type the answers in.')
   }
 
+  // A clean script (no markers): place the answer points automatically, for the teacher to check.
+  let autoPlaced: string[] = []
+  if (markers === 0 && content.script) {
+    const auto = autoMarkScript(content)
+    content.script = auto.script
+    autoPlaced = auto.placed
+    markers = auto.placed.length
+    if (auto.placed.length) warnings.push(`Answer points placed automatically for items ${auto.placed.join(', ')}: check them in the preview.`)
+    if (auto.missing.length) warnings.push(`Couldn't find where items ${auto.missing.join(', ')} are spoken: mark them as [[n|words]].`)
+  }
+
   const notesStart = lines.findIndex((l) => /compliance summary|self-check|revision note/i.test(l))
   if (notesStart >= 0) {
     const authorNotes = lines.slice(notesStart).map(stripMd).filter((l) => l && !l.startsWith('|')).join('\n').slice(0, 6000)
@@ -304,6 +331,7 @@ export function parseListeningBundle(raw: string, hint: { format?: ListeningForm
       statements: statements.size,
       notes: notes.length,
       key: format === 'true-false' ? tfKey.size : notesKey.size,
+      autoMarked: autoPlaced.length,
     },
     warnings,
   }

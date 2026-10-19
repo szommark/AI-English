@@ -24,6 +24,8 @@ export interface LoadedDraft {
   level?: TaskLevel
   /** What an import found and what it couldn't, shown above the editor. */
   notice?: string[]
+  /** A recording chosen before the task exists; uploaded right after the first save. */
+  audioFile?: File
 }
 
 type Way = 'generate' | 'upload' | 'paste' | 'blank'

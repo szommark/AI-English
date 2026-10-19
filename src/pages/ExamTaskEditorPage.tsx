@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import PageHeading from '../components/PageHeading'
 import AudioPanel from '../components/ExamTaskMaker/AudioPanel'
+import CheckPanel from '../components/ExamTaskMaker/CheckPanel'
 import ChecksPanel from '../components/ExamTaskMaker/ChecksPanel'
 import ItemsEditor from '../components/ExamTaskMaker/ItemsEditor'
 import ResultsView from '../components/ExamTaskMaker/ResultsView'
@@ -12,7 +13,7 @@ import TestRunner from '../components/ExamTaskMaker/TestRunner'
 import { cardClass, hintClass, inputClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../components/TeacherTools/ui'
 import { pick, useExamTaskCopy } from '../data/examTaskCopy'
 import { CRITERIA_BY_ID } from '../data/examTaskCriteria'
-import { deleteExamTask, fetchExamTask, reviseExamTask, saveExamTask, type ExamTaskDetail } from '../lib/examTaskApi'
+import { deleteExamTask, fetchExamTask, reviseExamTask, saveExamTask, uploadTaskAudio, type ExamTaskDetail } from '../lib/examTaskApi'
 import {
   EXAM_FIELDS,
   emptyListeningContent,
@@ -91,7 +92,10 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
   const { c, lang } = useExamTaskCopy()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
+  const location = useLocation()
   const task = detail?.task ?? null
+  // /new?mode=check: checking a task made outside the app (script + task sheet + optional MP3).
+  const checkMode = !task && params.get('mode') === 'check'
   const tab: Tab = task ? ((['create', 'test', 'results'] as const).find((t) => t === params.get('tab')) ?? 'create') : 'create'
 
   const [draft, setDraft] = useState<Draft>(() =>
@@ -105,7 +109,12 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
   const [message, setMessage] = useState<string | null>(null)
   const [fixing, setFixing] = useState(false)
   const [showReplace, setShowReplace] = useState(false)
-  const [notice, setNotice] = useState<string[] | null>(null)
+  // A notice handed over from the page that created the task (e.g. a failed MP3 upload).
+  const [notice, setNotice] = useState<string[] | null>(() => {
+    const handed = (location.state as { notice?: string } | null)?.notice
+    return handed ? [handed] : null
+  })
+  const [pendingAudio, setPendingAudio] = useState<File | null>(null)
 
   const report = useMemo(() => checkListeningTask(draft.content, draft.level), [draft.content, draft.level])
   const spec = levelSpec(draft.level, draft.content.format)
@@ -131,6 +140,7 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
     setLoaded(true)
     setShowReplace(false)
     setNotice(d.notice ?? null)
+    setPendingAudio(d.audioFile ?? null)
   }
 
   function setFormat(format: ListeningFormat) {
@@ -150,7 +160,19 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
       const saved = await saveExamTask({ examPart: 'listening', level: draft.level, field: draft.field, title: draft.title, origin: draft.origin, sourceRef: draft.sourceRef, content: draft.content }, task?.id)
       setDirty(false)
       setMessage(c('saved'))
-      if (!task) navigate(`/teacher/tools/exam-tasks/${saved.id}`, { replace: true })
+      // The recording chosen in the check form goes up once the task exists.
+      let audioFailed = false
+      if (pendingAudio) {
+        setMessage(c('mp3Uploading'))
+        try {
+          await uploadTaskAudio(saved.id, pendingAudio)
+          setPendingAudio(null)
+        } catch {
+          audioFailed = true
+        }
+        setMessage(audioFailed ? c('mp3Failed') : c('saved'))
+      }
+      if (!task) navigate(`/teacher/tools/exam-tasks/${saved.id}`, { replace: true, state: audioFailed ? { notice: c('mp3Failed') } : null })
       else onReload()
     } catch (err) {
       setMessage(c('saveFailed', { error: err instanceof TeacherToolsError ? err.code : c('err_generic') }))
@@ -195,7 +217,7 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
     <div className="max-w-6xl space-y-6">
       {back}
       <PageHeading
-        title={task ? task.title : c('crumbNew')}
+        title={task ? task.title : checkMode ? c('checkTitle') : c('crumbNew')}
         subtitle={task ? `${c('part_listening')} · ${task.level} · ${c(task.content.format === 'notes' ? 'format_notes' : 'format_true_false')} · ${c('revision', { n: task.revision })}` : c('part_listening')}
         actions={
           tab === 'create' && (
@@ -247,7 +269,11 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
                 />
                 <Select label={c('field')} value={draft.field} options={EXAM_FIELDS.map((f) => [f, c(`field_${f}`)])} onChange={(v) => update({ field: v as ExamField })} />
               </section>
-              <StartPanel level={draft.level} format={draft.content.format} field={draft.field} onFormat={setFormat} onLoad={onLoad} replacing={showReplace} />
+              {checkMode && !loaded ? (
+                <CheckPanel level={draft.level} format={draft.content.format} onLoad={onLoad} />
+              ) : (
+                <StartPanel level={draft.level} format={draft.content.format} field={draft.field} onFormat={setFormat} onLoad={onLoad} replacing={showReplace} />
+              )}
             </>
           )}
 

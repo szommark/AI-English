@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { BookOpenText, CheckCircle2, Headphones, Mic, PenLine, type LucideIcon } from 'lucide-react'
 import PageHeading from '../components/PageHeading'
 import PoolsPanel from '../components/ExamTaskMaker/PoolsPanel'
-import { primaryButtonClass } from '../components/TeacherTools/ui'
+import { primaryButtonClass, secondaryButtonClass } from '../components/TeacherTools/ui'
 import { useExamTaskCopy } from '../data/examTaskCopy'
 import { fetchExamTasks } from '../lib/examTaskApi'
 import { EXAM_PARTS, READY_PARTS, type ExamPart, type ExamTaskSummary } from '../lib/examTasks'
@@ -45,9 +45,14 @@ export default function ExamTasksPage() {
         subtitle={c('subtitle')}
         actions={
           ready && (
-            <Link to={`/teacher/tools/exam-tasks/new?part=${part}`} className={primaryButtonClass}>
-              {c('newTask')}
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link to={`/teacher/tools/exam-tasks/new?part=${part}&mode=check`} className={secondaryButtonClass}>
+                {c('checkExisting')}
+              </Link>
+              <Link to={`/teacher/tools/exam-tasks/new?part=${part}`} className={primaryButtonClass}>
+                {c('newTask')}
+              </Link>
+            </div>
           )
         }
       />
