@@ -36,6 +36,13 @@ const ExamPaperPage = lazy(() => import('./pages/ExamPaperPage'))
 const ExamSpeakingPage = lazy(() => import('./pages/ExamSpeakingPage'))
 const LyricsActivitiesPage = lazy(() => import('./pages/LyricsActivitiesPage'))
 const LyricsEditorPage = lazy(() => import('./pages/LyricsEditorPage'))
+const TeacherVocabListsPage = lazy(() => import('./pages/TeacherVocabListsPage'))
+
+/** Word lists moved into the Teacher Toolkit: old /teacher/lists/... links still work. */
+function LegacyListRedirect() {
+  const { pathname } = useLocation()
+  return <Navigate to={pathname.replace('/teacher/lists', '/teacher/tools/vocab')} replace />
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -268,8 +275,19 @@ function AppRoutes() {
           </RoleProtectedRoute>
         }
       />
+      <Route path="/teacher/lists/*" element={<LegacyListRedirect />} />
       <Route
-        path="/teacher/lists/new"
+        path="/teacher/tools/vocab"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <TeacherVocabListsPage />
+            </Suspense>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/tools/vocab/new"
         element={
           <RoleProtectedRoute role="teacher">
             <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
@@ -279,7 +297,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/teacher/lists/:listId"
+        path="/teacher/tools/vocab/:listId"
         element={
           <RoleProtectedRoute role="teacher">
             <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>

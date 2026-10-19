@@ -403,6 +403,7 @@ async function handleLists(req: VercelRequest, res: VercelResponse, userId: stri
       ...toList(l),
       termCount: new Set(terms).size,
       assignedCount: listAssignments.length,
+      assignedStudentIds: listAssignments.map((a) => a.student_id),
       completedCount: listAssignments.filter((a) => a.completed_at).length,
       learned,
     }

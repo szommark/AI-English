@@ -35,7 +35,7 @@ export default function StudentWordListsBox({ studentId }: { studentId: string }
           {lists.map((l) => (
             <li key={l.listId} className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <Link to={`/teacher/lists/${l.listId}`} className="text-sm font-medium text-foreground hover:underline">
+                <Link to={`/teacher/tools/vocab/${l.listId}`} className="text-sm font-medium text-foreground hover:underline">
                   {l.title}
                 </Link>
                 {l.cefrLevel && (

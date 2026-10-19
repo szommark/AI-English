@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import PageHeading from '../components/PageHeading'
-import AddTermsPanel, { inputClass, type AddWordError } from '../components/VocabLists/AddTermsPanel'
+import AddTermsPanel, { inputClass, posLabelKey, type AddWordError } from '../components/VocabLists/AddTermsPanel'
 import PreviewTable from '../components/VocabLists/PreviewTable'
 import AssignPanel from '../components/VocabLists/AssignPanel'
 import ListProgress from '../components/VocabLists/ListProgress'
@@ -45,7 +45,7 @@ function metaFromDetail(d: VocabListDetail): Meta {
   return { title: d.list.title, description: d.list.description ?? '', cefrLevel: d.list.cefrLevel ?? '' }
 }
 
-/** Create (/teacher/lists/new) or edit (/teacher/lists/:listId) a word list (design §5.1). */
+/** Create (/teacher/tools/vocab/new) or edit (/teacher/tools/vocab/:listId) a word list (design §5.1). */
 export default function TeacherVocabListPage() {
   const { listId } = useParams<{ listId: string }>()
   const navigate = useNavigate()
@@ -78,7 +78,7 @@ export default function TeacherVocabListPage() {
 
   useEffect(() => {
     // Both routes render this page in the same slot, so React keeps its state when the URL
-    // changes: going from a list to /teacher/lists/new must start from a blank editor.
+    // changes: going from a list to /teacher/tools/vocab/new must start from a blank editor.
     if (!listId) {
       if (loadedIdRef.current) {
         loadedIdRef.current = null
@@ -186,7 +186,7 @@ export default function TeacherVocabListPage() {
         const created = await createVocabList(input)
         applyDetail(created)
         setSaveMessage(t('vlSaved'))
-        navigate(`/teacher/lists/${created.list.id}`, { replace: true })
+        navigate(`/teacher/tools/vocab/${created.list.id}`, { replace: true })
       } else {
         const updated = await updateVocabList(listId, input)
         applyDetail(updated)
@@ -224,12 +224,13 @@ export default function TeacherVocabListPage() {
       meta.title.trim() || t('vlCrumbNew'),
       rows.map((r) => ({
         term: r.term.trim(),
+        pos: r.pos ? t(posLabelKey(r.pos)) : null,
         meaningHu: r.meaningHu.trim(),
         definitionEn: r.definitionEn.trim(),
         exampleEn: r.exampleEn.trim(),
         cefrLevel: r.cefrLevel,
       })),
-      { term: t('vlTerm'), meaning: t('vlMeaning'), definition: t('vlDefinition'), example: t('vlExample'), level: t('vlLevel') },
+      { term: t('vlTerm'), pos: t('vlPos'), meaning: t('vlMeaning'), definition: t('vlDefinition'), example: t('vlExample'), level: t('vlLevel') },
       meta.description.trim() || null,
     )
     setPdfBlocked(!ok)
@@ -251,7 +252,7 @@ export default function TeacherVocabListPage() {
     return (
       <div className="max-w-2xl space-y-4">
         <p className="text-sm text-muted-foreground">{loadState === 'notFound' ? t('vlNotFound') : t('vlLoadListFailed')}</p>
-        <Link to="/teacher" className="text-sm text-[var(--teal-accent-strong)] hover:underline">
+        <Link to="/teacher/tools/vocab" className="text-sm text-[var(--teal-accent-strong)] hover:underline">
           {t('vlBackToDashboard')}
         </Link>
       </div>

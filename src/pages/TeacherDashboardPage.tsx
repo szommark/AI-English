@@ -4,7 +4,6 @@ import { useLanguage, type MessageKey } from '../lib/i18n'
 import { Link, useSearchParams } from 'react-router-dom'
 import { fetchInviteCode, regenerateInviteCode, fetchTeacherRoster, type RosterEntry } from '../lib/teacherApi'
 import TeacherToolsTab from '../components/TeacherTools/TeacherToolsTab'
-import WordListsSection from '../components/VocabLists/WordListsSection'
 import ClassSummaryCard, { StudentGamificationLine } from '../components/gamification/ClassSummaryCard'
 import ChallengesSection from '../components/gamification/ChallengesSection'
 import ClassSettingsCard from '../components/gamification/ClassSettingsCard'
@@ -147,8 +146,6 @@ export default function TeacherDashboardPage() {
               <ClassSettingsCard />
 
               <ClassTenseExplorerCard />
-
-              <WordListsSection />
             </>
           )}
         </>

@@ -139,11 +139,13 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
   if (at('/teacher/tools/lyrics')) return finish([teacher, toolkit, lyrics])
   if (at('/teacher/tools/lyrics/new')) return finish([teacher, toolkit, lyrics, { label: t('lyNew') }])
   if (at('/teacher/tools/lyrics/:activityId')) return finish([teacher, toolkit, lyrics, { label: t('lyCrumbEdit') }])
+  const vocab: Crumb = { label: t('wordLists'), to: '/teacher/tools/vocab' }
+  if (at('/teacher/tools/vocab')) return finish([teacher, toolkit, vocab])
+  if (at('/teacher/tools/vocab/new')) return finish([teacher, toolkit, vocab, { label: t('vlCrumbNew') }])
+  if (at('/teacher/tools/vocab/:listId')) return finish([teacher, toolkit, vocab, { label: t('vlCrumbList') }])
 
   if (at('/teacher')) return finish([teacher])
   if (at('/teacher/students/:studentId')) return finish([teacher, { label: t('crumbStudent') }])
-  if (at('/teacher/lists/new')) return finish([teacher, { label: t('vlCrumbNew') }])
-  if (at('/teacher/lists/:listId')) return finish([teacher, { label: t('vlCrumbList') }])
 
   const admin: Crumb = { label: t('admin'), to: '/admin' }
   if (at('/admin')) return finish([admin])

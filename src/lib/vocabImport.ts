@@ -1,4 +1,5 @@
 import type { CefrLevel } from '../data/grammarCurriculum'
+import { VOCAB_POS, type VocabPos } from './vocab'
 
 // Turning pasted text and uploaded tables into list-editor rows (design §5.1). The file
 // parsers (CSV, XLSX) live in vocabFileImport.ts and are loaded on demand with import(),
@@ -10,9 +11,26 @@ export interface ImportedRow {
   definitionEn?: string
   exampleEn?: string
   cefrLevel?: CefrLevel
+  pos?: VocabPos
 }
 
 const CEFR = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'])
+
+/** Part-of-speech cells in English, Hungarian or German (and common abbreviations). */
+const POS_ALIASES: Record<string, VocabPos> = {
+  n: 'noun', 'n.': 'noun', főnév: 'noun', nomen: 'noun', substantiv: 'noun',
+  v: 'verb', 'v.': 'verb', ige: 'verb',
+  adj: 'adjective', 'adj.': 'adjective', melléknév: 'adjective', adjektiv: 'adjective',
+  adv: 'adverb', 'adv.': 'adverb', határozószó: 'adverb',
+  kifejezés: 'phrase', ausdruck: 'phrase', redewendung: 'phrase',
+  egyéb: 'other', sonstiges: 'other',
+}
+
+function toPos(cell: string | undefined): VocabPos | undefined {
+  const v = clean(cell)?.toLowerCase()
+  if (!v) return undefined
+  return (VOCAB_POS as readonly string[]).includes(v) ? (v as VocabPos) : POS_ALIASES[v]
+}
 
 function clean(cell: string | undefined): string | undefined {
   const v = cell?.trim().replace(/\s+/g, ' ')
@@ -56,7 +74,8 @@ export function parsePastedTerms(text: string): ImportedRow[] {
   return rows
 }
 
-const HEADER_ALIASES: Record<'term' | 'meaning' | 'definition' | 'example' | 'level', string[]> = {
+const HEADER_ALIASES: Record<'term' | 'meaning' | 'definition' | 'example' | 'level' | 'pos', string[]> = {
+  pos: ['pos', 'part of speech', 'word class', 'szófaj', 'wortart'],
   term: ['term', 'word', 'words', 'phrase', 'english', 'angol', 'szó', 'szavak', 'kifejezés', 'wort', 'begriff', 'englisch'],
   meaning: ['meaning', 'hungarian', 'translation', 'magyar', 'jelentés', 'fordítás', 'bedeutung', 'ungarisch', 'übersetzung'],
   definition: ['definition', 'english definition', 'angol meghatározás', 'meghatározás', 'definíció', 'definition (en)', 'definition en'],
@@ -77,13 +96,22 @@ export function rowsFromTable(table: string[][]): ImportedRow[] {
   const termCol = col('term')
   const hasHeader = termCol >= 0
   const map = hasHeader
-    ? { term: termCol, meaning: col('meaning'), definition: col('definition'), example: col('example'), level: col('level') }
-    : { term: 0, meaning: 1, definition: -1, example: 2, level: -1 }
+    ? {
+        term: termCol,
+        meaning: col('meaning'),
+        definition: col('definition'),
+        example: col('example'),
+        level: col('level'),
+        pos: col('pos'),
+      }
+    : { term: 0, meaning: 1, definition: -1, example: 2, level: -1, pos: -1 }
   const at = (row: string[], i: number) => (i >= 0 ? row[i] : undefined)
 
   const rows: ImportedRow[] = []
   for (const cells of hasHeader ? table.slice(1) : table) {
     const row = toRow(at(cells, map.term), at(cells, map.meaning), at(cells, map.example), at(cells, map.level), at(cells, map.definition))
+    const pos = toPos(at(cells, map.pos))
+    if (row && pos) row.pos = pos
     if (row) rows.push(row)
   }
   return rows
