@@ -106,6 +106,36 @@ const COPY = {
   no: { hu: 'nem', en: 'no' },
   importFailed: { hu: 'A fájl nem olvasható.', en: "Couldn't read the file." },
 
+  // Checking an existing task
+  checkExisting: { hu: 'Kész feladat ellenőrzése', en: 'Check an existing task' },
+  checkTitle: { hu: 'Kész feladat ellenőrzése', en: 'Check an existing task' },
+  checkIntro: {
+    hu: 'Tölts fel egy már elkészült feladatot: a hangszöveget és a feladatlapot a megoldókulccsal, ha van, a hangfelvétellel együtt. Az automatikus ellenőrzés után tesztelésre is elküldheted.',
+    en: 'Upload a task that already exists: its audioscript and its task sheet with the key, plus the recording if you have one. After the automatic checks you can send it for testing too.',
+  },
+  checkScript: { hu: 'Hangszöveg', en: 'Audioscript' },
+  checkScriptHint: {
+    hu: '.docx vagy beillesztett szöveg. Jelölés nélkül is jó: a válaszok helyét a program megkeresi.',
+    en: '.docx or pasted text. Markers are optional: the answer points are found automatically.',
+  },
+  checkSheet: { hu: 'Feladatlap és megoldókulcs', en: 'Task sheet and answer key' },
+  checkSheetHint: {
+    hu: 'Az utasítás, az állítások vagy a jegyzetek, és a kulcs (akár külön fájlban).',
+    en: 'The instruction, the statements or notes, and the key (a separate file is fine).',
+  },
+  checkAudio: { hu: 'Hangfelvétel (nem kötelező)', en: 'Recording (optional)' },
+  checkAudioHint: {
+    hu: 'MP3, legfeljebb 15 MB. Mentéskor feltöltődik, és a tesztelők ezt hallják. Ha nincs, készíthetsz Azure-hangot.',
+    en: 'MP3, up to 15 MB. It is uploaded on save and testers hear it. Without one, you can create an Azure voice recording.',
+  },
+  orPaste: { hu: 'vagy illeszd be ide a szöveget', en: 'or paste the text here' },
+  checkRun: { hu: 'Ellenőrzés indítása', en: 'Run the checks' },
+  checkNeedBoth: { hu: 'A hangszöveg és a feladatlap is kell.', en: 'Both the audioscript and the task sheet are needed.' },
+  mp3OnSave: { hu: 'A(z) {name} felvétel mentéskor feltöltődik.', en: 'The recording {name} is uploaded when you save.' },
+  mp3TooBig: { hu: 'Az MP3 nagyobb 15 MB-nál.', en: 'The MP3 is larger than 15 MB.' },
+  mp3Uploading: { hu: 'Felvétel feltöltése…', en: 'Uploading the recording…' },
+  mp3Failed: { hu: 'A feladat mentve, de a felvétel feltöltése nem sikerült. Töltsd fel a Hanganyag panelen.', en: 'The task is saved, but the recording upload failed. Upload it in the Recording panel.' },
+
   // Details
   details: { hu: 'Alapadatok', en: 'Details' },
   taskTitle: { hu: 'Feladat címe', en: 'Task title' },
