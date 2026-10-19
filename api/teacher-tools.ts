@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
-import { getUserRole } from './_lib/roles.js'
+import { getUserRole, hasTeacherAccess } from './_lib/roles.js'
 import { suggestLyricsGaps, suggestionsToday } from './_lib/lyricsSuggest.js'
 import {
   LYRICS_GOAL_MAX_LENGTH,
@@ -252,7 +252,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    if ((await getUserRole(user.id)) !== 'teacher') throw new HttpError(403, { error: 'Forbidden' })
+    if (!hasTeacherAccess(await getUserRole(user.id))) throw new HttpError(403, { error: 'Forbidden' })
     switch (req.query.action) {
       case 'lyrics':
         await handleLyrics(req, res, user.id)

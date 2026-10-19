@@ -7,7 +7,7 @@ import {
   loadTeacherBonuses,
   teacherBonusRemaining,
 } from './_lib/gamification.js'
-import { getUserRole } from './_lib/roles.js'
+import { getUserRole, hasTeacherAccess } from './_lib/roles.js'
 import { awardExamSection, ExamXpError } from './_lib/examXp.js'
 import {
   CHALLENGE_DESCRIPTION_MAX,
@@ -379,7 +379,7 @@ async function handleGoal(req: VercelRequest, res: VercelResponse, userId: strin
 
 /** Responds 403 and returns false unless the user is a teacher. */
 async function requireTeacher(res: VercelResponse, userId: string): Promise<boolean> {
-  if ((await getUserRole(userId)) === 'teacher') return true
+  if (hasTeacherAccess(await getUserRole(userId))) return true
   res.status(403).json({ error: 'Forbidden' })
   return false
 }

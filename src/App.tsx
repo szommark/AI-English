@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { AuthProvider, useAuth, type UserRole } from './lib/AuthContext'
+import { AuthProvider, hasTeacherAccess, useAuth, type UserRole } from './lib/AuthContext'
 import { LanguageProvider } from './lib/i18n'
 import AppLayout from './components/AppLayout'
 import LandingPage from './pages/LandingPage'
@@ -61,7 +61,8 @@ function RoleProtectedRoute({ role, children }: { role: UserRole; children: Reac
     return <div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>
   }
   if (!user) return <Navigate to="/" state={{ from: location.pathname }} replace />
-  if (userRole !== role) return <Navigate to="/" replace />
+  const allowed = role === 'teacher' ? hasTeacherAccess(userRole) : userRole === role
+  if (!allowed) return <Navigate to="/" replace />
   return <>{children}</>
 }
 

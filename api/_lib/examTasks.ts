@@ -532,7 +532,7 @@ export async function handleAudio(req: VercelRequest, res: VercelResponse, userI
 
 async function teacherIds(ids: string[]): Promise<Set<string>> {
   if (ids.length === 0) return new Set()
-  const { data, error } = await supabaseAdmin.from('profiles').select('user_id').in('user_id', ids).eq('role', 'teacher')
+  const { data, error } = await supabaseAdmin.from('profiles').select('user_id').in('user_id', ids).in('role', ['teacher', 'admin'])
   if (error) throw error
   return new Set((data ?? []).map((r) => r.user_id as string))
 }
@@ -623,7 +623,7 @@ export async function handleReview(req: VercelRequest, res: VercelResponse, user
 
 export async function handleTeachers(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'GET') throw new HttpError(405, { error: 'Method not allowed' })
-  const { data, error } = await supabaseAdmin.from('profiles').select('user_id').eq('role', 'teacher').neq('user_id', userId).limit(500)
+  const { data, error } = await supabaseAdmin.from('profiles').select('user_id').in('role', ['teacher', 'admin']).neq('user_id', userId).limit(500)
   if (error) throw error
   const ids = (data ?? []).map((r) => r.user_id as string)
   const emails = await emailsFor(ids)

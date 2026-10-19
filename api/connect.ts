@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
-import { getUserRole } from './_lib/roles.js'
+import { getUserRole, hasTeacherAccess } from './_lib/roles.js'
 import {
   loadCefrHistory,
   loadMistakeOverview,
@@ -102,7 +102,7 @@ async function handleDisconnect(req: VercelRequest, res: VercelResponse, userId:
 
   const role = await getUserRole(userId)
   const matchColumns =
-    role === 'teacher' ? { teacher_id: userId, student_id: otherUserId } : { student_id: userId, teacher_id: otherUserId }
+    hasTeacherAccess(role) ? { teacher_id: userId, student_id: otherUserId } : { student_id: userId, teacher_id: otherUserId }
 
   const { data, error } = await supabaseAdmin
     .from('teacher_student_links')
@@ -167,7 +167,7 @@ function generateInviteCode(): string {
 
 async function handleInviteCode(req: VercelRequest, res: VercelResponse, userId: string) {
   const role = await getUserRole(userId)
-  if (role !== 'teacher') {
+  if (!hasTeacherAccess(role)) {
     res.status(403).json({ error: 'Forbidden' })
     return
   }
@@ -244,7 +244,7 @@ async function handleRoster(req: VercelRequest, res: VercelResponse, userId: str
   }
 
   const role = await getUserRole(userId)
-  if (role !== 'teacher') {
+  if (!hasTeacherAccess(role)) {
     res.status(403).json({ error: 'Forbidden' })
     return
   }
@@ -309,7 +309,7 @@ async function handleStudentDetail(req: VercelRequest, res: VercelResponse, user
   }
 
   const role = await getUserRole(userId)
-  if (role !== 'teacher') {
+  if (!hasTeacherAccess(role)) {
     res.status(403).json({ error: 'Forbidden' })
     return
   }
