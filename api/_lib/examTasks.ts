@@ -426,8 +426,10 @@ function escapeXml(s: string): string {
 
 /** The clean recording script as SSML: one voice per speaker, slowed to the level's speech rate. */
 export function scriptSsml(content: ListeningTaskContent, level: ExamTask['level']): string {
-  // Azure's en-GB neural voices read at roughly 160 wpm at the default rate.
-  const rate = Math.round((levelSpec(level, content.format).wpm / 160 - 1) * 100)
+  // Effective speed at Azure's default rate, pauses included, measured 2026-10-19: a monologue
+  // (one voice, short breaks) about 170 wpm; a dialogue with speaker-change pauses about 155 wpm.
+  const baseWpm = /^((?:[A-Z][\w.'’-]*\s?){1,3}):\s+/m.test(content.script) ? 155 : 170
+  const rate = Math.round((levelSpec(level, content.format).wpm / baseWpm - 1) * 100)
   const voiceFor = new Map<string, string>()
   const paragraphs = cleanScript(content.script)
     .split(/\n\s*\n/)
@@ -530,7 +532,7 @@ export async function handleAudio(req: VercelRequest, res: VercelResponse, userI
 
 async function teacherIds(ids: string[]): Promise<Set<string>> {
   if (ids.length === 0) return new Set()
-  const { data, error } = await supabaseAdmin.from('profiles').select('user_id').in('user_id', ids).in('role', ['teacher', 'admin'])
+  const { data, error } = await supabaseAdmin.from('profiles').select('user_id').in('user_id', ids).eq('role', 'teacher')
   if (error) throw error
   return new Set((data ?? []).map((r) => r.user_id as string))
 }
@@ -621,7 +623,7 @@ export async function handleReview(req: VercelRequest, res: VercelResponse, user
 
 export async function handleTeachers(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'GET') throw new HttpError(405, { error: 'Method not allowed' })
-  const { data, error } = await supabaseAdmin.from('profiles').select('user_id').in('role', ['teacher', 'admin']).neq('user_id', userId).limit(500)
+  const { data, error } = await supabaseAdmin.from('profiles').select('user_id').eq('role', 'teacher').neq('user_id', userId).limit(500)
   if (error) throw error
   const ids = (data ?? []).map((r) => r.user_id as string)
   const emails = await emailsFor(ids)
