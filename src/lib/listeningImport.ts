@@ -111,13 +111,22 @@ export function parseListeningBundle(raw: string, hint: { format?: ListeningForm
   }
   const level = hint.level ?? ((text.match(LEVEL_RE)?.[1] as TaskLevel | undefined) ?? null)
 
-  // Instruction
-  const instructionLine = lines.map(stripMd).find((l) => /^listen to the text/i.test(l)) ?? ''
+  // Lines a notes box can be written in: plain lines, and the rows of a one-column table (task
+  // sheets often put the whole "Notes on …" box in a single-cell table). Bold (**…**) is kept.
+  const noteLines = lines.flatMap((line) => {
+    const t = line.trim()
+    if (!(t.startsWith('|') && t.endsWith('|'))) return [line]
+    const cells = t.slice(1, -1).split('|').map((c) => c.trim()).filter(Boolean)
+    return cells.length === 1 ? [cells[0]] : []
+  })
+
+  // Instruction ("Listen to the text …", or "… to the conversation / interview / discussion …")
+  const instructionLine = lines.map(stripMd).find((l) => /^listen to the (text|conversation|interview|discussion|talk|recording|dialogue)/i.test(l)) ?? ''
   if (!format) format = /true|false/i.test(instructionLine) ? 'true-false' : 'notes'
 
   // Title and source
   const titleMatch = text.match(/[“"]([^”"\n]{3,120})[”"]/)
-  const notesTitle = lines.map(stripMd).find((l) => /^notes on\b/i.test(l)) ?? ''
+  const notesTitle = noteLines.map(stripMd).find((l) => /^notes on\b/i.test(l)) ?? ''
   const topicMatch = instructionLine.match(/listen to the text about (.+?)\. based on/i)
   const sourceLine = lines.map(stripMd).find((l) => /^source\s*:/i.test(l)) ?? ''
 
@@ -139,10 +148,12 @@ export function parseListeningBundle(raw: string, hint: { format?: ListeningForm
         .replace(/\(\s*\d+\s*words?\s*\)/i, '')
         .replace(/\bword count\s*:?\s*\d+/i, '')
         .trim()
-      const variants = answer
+      // "wheelbarrow (a) wheelbarrow": an optional word in brackets → "wheelbarrow", "a wheelbarrow".
+      const optional = answer.match(/^(.+?)\s+\((a|an|the)\)\s+(.+)$/i)
+      const variants = (optional ? `${optional[1]} / ${optional[2]} ${optional[3]}` : answer)
         .split(/\s*(?:\/|;|\bor\b|\[|\]|\(also:?|\(|\))\s*/i)
-        .map((s) => s.replace(/^(also|accept)\s*:?\s*/i, '').replace(/[.,]$/, '').trim())
-        .filter((s) => s && !/^\d+\s*words?$/i.test(s) && !/^(optional|acceptable)/i.test(s))
+        .map((s) => s.replace(/^(also accepted|accepted|also|accept)\s*:?\s*/i, '').replace(/[.,]$/, '').trim())
+        .filter((s) => s && !/^\d+\s*words?$/i.test(s) && !/^(optional|acceptable|example)\b/i.test(s) && !/^(a|an|the)$/i.test(s))
       if (variants.length) notesKey.set(note[1], [...new Set(variants)])
     }
   }
@@ -195,24 +206,46 @@ export function parseListeningBundle(raw: string, hint: { format?: ListeningForm
   const notes: string[] = []
   const noteExample = new Map<string, string>()
   if (format === 'notes') {
-    const gapRe = /(?:[.…_]{3,}\s*)?\((\d{1,2})\)(?:\s*[.…_]{3,})?/g
-    for (const line of lines) {
-      const l = stripMd(line).replace(/^[-•*–]\s*/, '')
+    const DOTS = /[.…_]{3,}/g
+    const NUM = /\((\d{1,2})\)/g
+    for (const raw of noteLines) {
+      if (/listen to the|^\**\s*marks?\b/i.test(stripMd(raw))) continue
+      const bullet = raw.replace(/^\s*[-•*–]\s+/, '')
+      // The example with its answer in bold: "Bond prices falling – reason: **supply and demand** (0)".
+      const bold = bullet.match(/^(.*?)\*\*([^*]+)\*\*\s*\(0\)\s*$/)
+      if (bold && !/[.…_]{3,}/.test(bold[2])) {
+        noteExample.set('0', bold[2].trim())
+        notes.push(`${stripMd(bold[1])} {{0}}`.replace(/\s{2,}/g, ' ').trim())
+        continue
+      }
+      const l = stripMd(bullet)
       // The filled-in example written without dots: "Crisis once ignored: climate change (0)".
       const filled = l.match(/^(.{3,80}?:)\s*([^:.…_()]{1,40}?)\s*\(0\)\s*$/)
-      if (filled && !/listen to the text/i.test(l)) {
+      if (filled) {
         noteExample.set('0', filled[2].trim())
         notes.push(`${filled[1]} {{0}}`)
         continue
       }
-      if (!/[.…_]{3,}/.test(l) || !/\(\d{1,2}\)/.test(l) || /^\|/.test(line.trim())) continue
-      let example = ''
-      const converted = l.replace(gapRe, (_m, id: string) => `{{${id}}}`).replace(/\{\{0\}\}\s*(.+)$/, (_m, ex: string) => {
-        example = ex.trim()
+      const ids = [...l.matchAll(NUM)].map((m) => m[1])
+      const dots = [...l.matchAll(DOTS)]
+      if (ids.length === 0) continue
+      let converted: string
+      if (dots.length === ids.length) {
+        // Each dotted gap belongs to the next number on the line, wherever the number stands
+        // ("PPI also called …… inflation (2)"): the gap becomes {{n}}, the label goes.
+        let k = 0
+        converted = l.replace(DOTS, () => `{{${ids[k++]}}}`).replace(NUM, '')
+      } else if (dots.length === 0) {
+        continue
+      } else {
+        converted = l.replace(/(?:[.…_]{3,}\s*)?\((\d{1,2})\)(?:\s*[.…_]{3,})?/g, (_m, id: string) => `{{${id}}}`)
+      }
+      // "…… (0) Hungary": the example's answer printed after its gap.
+      converted = converted.replace(/\{\{0\}\}\s*([^{}]+)$/, (_m, ex: string) => {
+        noteExample.set('0', ex.trim())
         return '{{0}}'
       })
-      if (example) noteExample.set('0', example)
-      notes.push(converted.replace(/\s{2,}/g, ' ').trim())
+      notes.push(converted.replace(/\s+([?.,;:!])/g, '$1').replace(/\s{2,}/g, ' ').trim())
     }
   }
 
@@ -222,7 +255,7 @@ export function parseListeningBundle(raw: string, hint: { format?: ListeningForm
     wordCount(p) >= 12 &&
     !/^\|/.test(p) &&
     !/^[\w ]{1,20}:\s/.test(stripMd(p)) &&
-    !/^listen to the text/i.test(stripMd(p)) &&
+    !/^listen to the /i.test(stripMd(p)) &&
     !/\b(bold text|marker numbers?|in parentheses|annotated|compliance|self-check)\b/i.test(p) &&
     // Not an inline answer key ("0 T, 1 F, 2 T …"): prose is mostly real words.
     stripMd(p).split(/\s+/).filter((w) => w.replace(/[^\p{L}]/gu, '').length > 2).length >= wordCount(p) * 0.6
@@ -239,14 +272,24 @@ export function parseListeningBundle(raw: string, hint: { format?: ListeningForm
       .split(/\n\s*\n|\n(?=\S)/)
       .map((p) => p.trim())
       .filter((p) => p && (/[.!?]["”’)]*\s*$|[.!?]\s/.test(stripMd(p)) || /^[A-Z][\w .'’-]{0,30}:\s/.test(stripMd(p)) || MARKED_RE.test(p)))
-      .filter((p) => !/^listen to the text/i.test(stripMd(p)) && !/^\|/.test(p))
+      .filter((p) => !/^listen to the /i.test(stripMd(p)) && !/^\|/.test(p))
+      // Header notes of the script file itself ("two voices: PRESENTER and ROB. No markers; …").
+      .filter((p) => !/\b(no markers|recording script|for tts|narrator|two voices|speaker labels|annotated|compliance|numbers written as)\b/i.test(p))
       .map((p) => toMarkerSyntax(p, keyFor, format))
     markers = scriptParas.join(' ').match(/\[\[\d{1,2}/g)?.length ?? 0
   } else if (marked.length) {
     let from = marked[0]
     let to = marked[marked.length - 1]
-    while (from > 0 && isProse(paragraphs[from - 1]) && !HEADING_STOP_RE.test(paragraphs[from - 1])) from--
-    while (to < paragraphs.length - 1 && isProse(paragraphs[to + 1]) && !HEADING_STOP_RE.test(paragraphs[to + 1])) to++
+    // Short speaker lines belong to a dialogue script too ("PRESENTER: Rob, thank you.").
+    const spoken = (p: string) =>
+      (isProse(p) || /^[A-Z][\w .'’-]{0,30}:\s+\S.*[.!?]["”’)]*$/.test(stripMd(p))) &&
+      !HEADING_STOP_RE.test(p) &&
+      !/^\|/.test(p) &&
+      // Not the file's own metadata ("Source: …", "Level: B2 | Format: …").
+      !/^(source|level|format|style|note|bold|words)\b[^:]*:/i.test(stripMd(p)) &&
+      !/\b(speaker labels|annotated|compliance|bold = |no markers)\b/i.test(p)
+    while (from > 0 && spoken(paragraphs[from - 1])) from--
+    while (to < paragraphs.length - 1 && spoken(paragraphs[to + 1])) to++
     scriptParas = paragraphs.slice(from, to + 1).map((p) => toMarkerSyntax(p, keyFor, format))
     markers = scriptParas.join(' ').match(/\[\[\d{1,2}/g)?.length ?? 0
   } else {
