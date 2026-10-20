@@ -16,6 +16,7 @@ import type {
   TeacherPool,
   TeacherRef,
 } from './examTasks'
+import type { SourceSearchResult } from './examSources'
 
 // Client for the exam task maker actions of api/teacher-tools.ts (api/_lib/examTasks.ts).
 
@@ -86,8 +87,20 @@ export async function generateExamTask(input: {
   sourceUrl?: string
   avoid?: string
   ignoreEnvironment?: boolean
+  /** Notes layout chosen in the creation wizard (notes tasks only). */
+  subtype?: 'flat-bullets' | 'label-table' | 'outline'
 }): Promise<{ draft: TaskDraft; remaining: number }> {
   return request(`${BASE}exam-task-generate`, { method: 'POST', body: JSON.stringify(input) })
+}
+
+/** Web source finder: full-text sources, newest first, with vocabulary / format / capacity notes. */
+export async function searchExamSources(input: {
+  topic: string
+  field: ExamField
+  level: TaskLevel
+  format?: ListeningFormat
+}): Promise<SourceSearchResult & { remaining: number }> {
+  return request(`${BASE}exam-source-search`, { method: 'POST', body: JSON.stringify(input) })
 }
 
 export async function reviseExamTask(input: {

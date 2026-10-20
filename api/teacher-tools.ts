@@ -27,6 +27,9 @@ import {
   handleTeachers,
   HttpError,
 } from './_lib/examTasks.js'
+import { findSources } from './_lib/sourceFinder.js'
+import { generationsToday } from './_lib/examTaskGenerate.js'
+import { EXAM_FIELDS, LISTENING_FORMATS, TASK_GENERATIONS_PER_DAY, TASK_LEVELS } from '../src/lib/examTasks.js'
 
 // Single Vercel function for the Teacher Toolkit (docs/teacher-toolkit-design.md), teacher
 // role only (everyone else gets 403). Multiplexed by ?action= like api/vocab.ts: each new
@@ -52,6 +55,8 @@ import {
 // Exam task maker (listening first; see api/_lib/examTasks.ts for every action):
 //   exam-tasks, exam-task-publish, exam-task-generate, exam-task-revise, exam-task-audio, exam-task-share,
 //   exam-task-review, teachers, teacher-pools
+//   POST exam-source-search   { topic, field, level, format? } → { sources, skipped, guardian, analysed, remaining }
+//                             (api/_lib/sourceFinder.ts; one analysis call, counted as a task generation)
 
 // AI task generation and TTS rendering can take tens of seconds.
 export const config = { maxDuration: 60 }
@@ -245,6 +250,20 @@ async function handleLyricsSuggest(req: VercelRequest, res: VercelResponse, teac
   res.status(200).json({ gaps, remaining: Math.max(0, LYRICS_SUGGESTIONS_PER_DAY - used - 1) })
 }
 
+async function handleSourceSearch(req: VercelRequest, res: VercelResponse, teacherId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const body = (req.body ?? {}) as Record<string, unknown>
+  const topic = typeof body.topic === 'string' ? body.topic.trim().replace(/\s+/g, ' ').slice(0, 120) : ''
+  const level = TASK_LEVELS.find((l) => l === body.level)
+  if (!topic || !level) throw new HttpError(400, { error: 'topic and level are required' })
+  const field = EXAM_FIELDS.find((f) => f === body.field) ?? 'general'
+  const format = LISTENING_FORMATS.find((f) => f === body.format)
+  const used = await generationsToday(teacherId)
+  if (used >= TASK_GENERATIONS_PER_DAY) throw new HttpError(429, { error: 'daily_limit', limit: TASK_GENERATIONS_PER_DAY })
+  const result = await findSources({ topic, field, level, format }, teacherId)
+  res.status(200).json({ ...result, remaining: Math.max(0, TASK_GENERATIONS_PER_DAY - used - (result.analysed ? 1 : 0)) })
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await getUserFromRequest(req)
   if (!user) {
@@ -284,6 +303,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'exam-task-review':
         await handleReview(req, res, user.id)
+        return
+      case 'exam-source-search':
+        await handleSourceSearch(req, res, user.id)
         return
       case 'teachers':
         await handleTeachers(req, res, user.id)

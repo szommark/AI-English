@@ -9,7 +9,7 @@ import ResultsView from '../components/ExamTaskMaker/ResultsView'
 import ScriptView from '../components/ExamTaskMaker/ScriptView'
 import SharePanel from '../components/ExamTaskMaker/SharePanel'
 import StatusChip from '../components/ExamTaskMaker/StatusChip'
-import StartPanel, { type LoadedDraft } from '../components/ExamTaskMaker/StartPanel'
+import StartPanel, { type LoadedDraft, type Way } from '../components/ExamTaskMaker/StartPanel'
 import TestRunner from '../components/ExamTaskMaker/TestRunner'
 import { cardClass, hintClass, inputClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../components/TeacherTools/ui'
 import { pick, useExamTaskCopy } from '../data/examTaskCopy'
@@ -115,6 +115,8 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
   const [message, setMessage] = useState<string | null>(null)
   const [fixing, setFixing] = useState(false)
   const [showReplace, setShowReplace] = useState(false)
+  // The creation wizard asks level / format / field itself; the selects below serve the other ways in.
+  const [startWay, setStartWay] = useState<Way>('generate')
   // A notice handed over from the page that created the task (e.g. a failed MP3 upload).
   const [notice, setNotice] = useState<string[] | null>(() => {
     const handed = (location.state as { notice?: string } | null)?.notice
@@ -327,23 +329,35 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
         <>
           {(!loaded || showReplace) && (
             <>
-              <section className={`${cardClass} grid gap-3 sm:grid-cols-3`}>
-                <Select label={c('level')} value={draft.level} options={TASK_LEVELS.map((l) => [l, l])} onChange={(v) => update({ level: v as TaskLevel })} />
-                <Select
-                  label={c('format')}
-                  value={draft.content.format}
-                  options={[
-                    ['true-false', c('format_true_false')],
-                    ['notes', c('format_notes')],
-                  ]}
-                  onChange={(v) => setFormat(v as ListeningFormat)}
-                />
-                <Select label={c('field')} value={draft.field} options={EXAM_FIELDS.map((f) => [f, c(`field_${f}`)])} onChange={(v) => update({ field: v as ExamField })} />
-              </section>
+              {((checkMode && !loaded) || startWay !== 'generate') && (
+                <section className={`${cardClass} grid gap-3 sm:grid-cols-3`}>
+                  <Select label={c('level')} value={draft.level} options={TASK_LEVELS.map((l) => [l, l])} onChange={(v) => update({ level: v as TaskLevel })} />
+                  <Select
+                    label={c('format')}
+                    value={draft.content.format}
+                    options={[
+                      ['true-false', c('format_true_false')],
+                      ['notes', c('format_notes')],
+                    ]}
+                    onChange={(v) => setFormat(v as ListeningFormat)}
+                  />
+                  <Select label={c('field')} value={draft.field} options={EXAM_FIELDS.map((f) => [f, c(`field_${f}`)])} onChange={(v) => update({ field: v as ExamField })} />
+                </section>
+              )}
               {checkMode && !loaded ? (
                 <CheckPanel level={draft.level} format={draft.content.format} onLoad={onLoad} />
               ) : (
-                <StartPanel level={draft.level} format={draft.content.format} field={draft.field} onFormat={setFormat} onLoad={onLoad} replacing={showReplace} />
+                <StartPanel
+                  level={draft.level}
+                  format={draft.content.format}
+                  field={draft.field}
+                  onLevel={(level) => update({ level })}
+                  onFormat={setFormat}
+                  onField={(field) => update({ field })}
+                  onLoad={onLoad}
+                  onWay={setStartWay}
+                  replacing={showReplace}
+                />
               )}
             </>
           )}
@@ -366,7 +380,14 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
                   </div>
                 )}
                 {!showReplace && (
-                  <button type="button" className={secondaryButtonClass} onClick={() => setShowReplace(true)}>
+                  <button
+                    type="button"
+                    className={secondaryButtonClass}
+                    onClick={() => {
+                      setShowReplace(true)
+                      setStartWay('generate')
+                    }}
+                  >
                     {c('replaceTitle')}
                   </button>
                 )}
