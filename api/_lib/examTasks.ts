@@ -25,6 +25,7 @@ import {
   TASK_LEVELS,
   type ExamTask,
   type ExamTaskReview,
+  type ExamTaskStatus,
   type ExamTaskSummary,
   type ItemReview,
   type ListeningTaskContent,
@@ -40,19 +41,30 @@ import { cleanScript } from '../../src/lib/listeningScript.js'
 // testing (exam_task_reviewers). Owner and reviewers can open and test it; only the owner edits,
 // shares or deletes it, and only the owner sees everyone's tests. Anything else is a 404.
 //
-//   GET    exam-tasks                 { owned, assigned } summaries
+// Publish gate: a task starts as a draft. The owner publishes it for review (exam-task-publish),
+// and only a published task can be sent to testers. A content change (a new revision) puts it
+// back to draft. Only the latest content is stored, so there is no published copy to show while
+// the owner revises: during a draft, reviewers don't see the task in their list, and opening,
+// testing or rendering it returns 409 { error: 'task_in_revision' }. Their links and their tests
+// of earlier revisions stay; after the owner publishes again they test the new revision. The
+// owner can still test a draft themselves (Test tab).
+//
+//   GET    exam-tasks                 { owned, assigned } summaries (assigned: published only)
 //   GET    exam-tasks&id=             { task, myReview, reviewers?, reviews? (owner) }
-//   POST   exam-tasks                 create → { task }
-//   PUT    exam-tasks&id=             update (owner); a content change bumps the revision
+//   POST   exam-tasks                 create → { task } (draft)
+//   PUT    exam-tasks&id=             update (owner); a content change bumps the revision and
+//                                     puts the task back to draft
 //   DELETE exam-tasks&id=             (owner)
+//   POST   exam-task-publish&id=      (owner) publish the current revision for review → { task }
 //   POST   exam-task-generate         { level, format, field, style, sourceText | sourceUrl, avoid } → { draft, remaining }
 //                                     409 environment_topic when a notes task is about the environment
 //   POST   exam-task-revise           { level, content, problems, keepScript, teacherNote } → { draft, remaining }
 //   GET    exam-task-audio&id=        { url | null } for the current revision
 //   POST   exam-task-audio&id=        { mode: 'tts' } render | { mode: 'upload-url' } | { mode: 'uploaded', path }
 //   DELETE exam-task-audio&id=        (owner) drop the recording
-//   PUT    exam-task-share&id=        { reviewerIds } (owner) → { reviewers }
+//   PUT    exam-task-share&id=        { reviewerIds } (owner) → { reviewers }; 409 not_published on a draft
 //   PUT    exam-task-review&id=       { answers, verdicts, recommendation, overallNote, submit } → { review }
+//                                     (reviewers only while published; the owner any time)
 //   GET    teachers                   every other teacher { id, email }
 //   GET/POST/PUT/DELETE teacher-pools[&id=]
 
@@ -68,7 +80,8 @@ export class HttpError extends Error {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const AUDIO_BUCKET = 'exam-task-audio'
 const SIGNED_URL_TTL_SEC = 3 * 3600
-const TASK_COLUMNS = 'id, owner_id, exam_part, level, format, field, title, origin, source_ref, content, revision, audio_path, audio_revision, created_at, updated_at'
+const TASK_COLUMNS =
+  'id, owner_id, exam_part, level, format, field, title, origin, source_ref, content, revision, status, published_revision, published_at, audio_path, audio_revision, created_at, updated_at'
 
 interface TaskRow {
   id: string
@@ -82,6 +95,9 @@ interface TaskRow {
   source_ref: string
   content: ListeningTaskContent
   revision: number
+  status: ExamTaskStatus
+  published_revision: number | null
+  published_at: string | null
   audio_path: string | null
   audio_revision: number | null
   created_at: string
@@ -98,6 +114,10 @@ function audioIsCurrent(row: TaskRow): boolean {
   return !!row.audio_path && (row.audio_revision === null || row.audio_revision === row.revision)
 }
 
+function statusOf(row: Pick<TaskRow, 'status' | 'published_revision' | 'published_at'>) {
+  return { status: row.status, publishedRevision: row.published_revision, publishedAt: row.published_at }
+}
+
 function toTask(row: TaskRow, userId: string, ownerEmail?: string): ExamTask {
   return {
     id: row.id,
@@ -108,6 +128,7 @@ function toTask(row: TaskRow, userId: string, ownerEmail?: string): ExamTask {
     title: row.title,
     origin: row.origin,
     revision: row.revision,
+    ...statusOf(row),
     updatedAt: row.updated_at,
     createdAt: row.created_at,
     isOwner: row.owner_id === userId,
@@ -118,7 +139,7 @@ function toTask(row: TaskRow, userId: string, ownerEmail?: string): ExamTask {
   }
 }
 
-/** The task with the caller's access to it, or 404. */
+/** The task with the caller's access to it, or 404; 409 task_in_revision for a reviewer while it is a draft. */
 async function loadTask(id: string, userId: string): Promise<{ row: TaskRow; isOwner: boolean }> {
   const { data, error } = await supabaseAdmin.from('exam_tasks').select(TASK_COLUMNS).eq('id', id).maybeSingle()
   if (error) throw error
@@ -133,7 +154,18 @@ async function loadTask(id: string, userId: string): Promise<{ row: TaskRow; isO
     .maybeSingle()
   if (linkError) throw linkError
   if (!link) throw new HttpError(404, { error: 'Not found' })
+  if (row.status !== 'published') throw new HttpError(409, { error: 'task_in_revision' })
   return { row, isOwner: false }
+}
+
+/** JSON with object keys sorted: jsonb stores keys in its own order, so a plain stringify of the
+ *  stored content never equals the incoming one and every save looked like a content change. */
+function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_key, v: unknown) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : v,
+  )
 }
 
 function badRequest(err: unknown): never {
@@ -167,7 +199,7 @@ function toReview(r: ReviewRow, email: string): ExamTaskReview {
 
 export async function handleExamTasks(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method === 'GET' && req.query.id === undefined) {
-    const summaryColumns = 'id, owner_id, exam_part, level, format, field, title, origin, revision, updated_at'
+    const summaryColumns = 'id, owner_id, exam_part, level, format, field, title, origin, revision, status, published_revision, published_at, updated_at'
     const [{ data: owned, error: e1 }, { data: links, error: e2 }] = await Promise.all([
       supabaseAdmin.from('exam_tasks').select(summaryColumns).eq('owner_id', userId).order('updated_at', { ascending: false }),
       supabaseAdmin.from('exam_task_reviewers').select('task_id').eq('reviewer_id', userId),
@@ -176,7 +208,7 @@ export async function handleExamTasks(req: VercelRequest, res: VercelResponse, u
     if (e2) throw e2
     const assignedIds = (links ?? []).map((l) => l.task_id as string)
     const { data: assigned, error: e3 } = assignedIds.length
-      ? await supabaseAdmin.from('exam_tasks').select(summaryColumns).in('id', assignedIds).order('updated_at', { ascending: false })
+      ? await supabaseAdmin.from('exam_tasks').select(summaryColumns).in('id', assignedIds).eq('status', 'published').order('updated_at', { ascending: false })
       : { data: [], error: null }
     if (e3) throw e3
 
@@ -206,6 +238,7 @@ export async function handleExamTasks(req: VercelRequest, res: VercelResponse, u
         title: t.title,
         origin: t.origin,
         revision: t.revision,
+        ...statusOf(t),
         updatedAt: t.updated_at,
         isOwner: t.owner_id === userId,
         reviewerCount: (reviewers ?? []).filter((r) => r.task_id === t.id).length,
@@ -296,7 +329,7 @@ export async function handleExamTasks(req: VercelRequest, res: VercelResponse, u
     } catch (err) {
       badRequest(err)
     }
-    const contentChanged = JSON.stringify(input.content) !== JSON.stringify(row.content) || input.level !== row.level
+    const contentChanged = stableJson(input.content) !== stableJson(row.content) || input.level !== row.level
     const { data, error } = await supabaseAdmin
       .from('exam_tasks')
       .update({
@@ -307,6 +340,8 @@ export async function handleExamTasks(req: VercelRequest, res: VercelResponse, u
         source_ref: input.sourceRef,
         content: input.content,
         revision: contentChanged ? row.revision + 1 : row.revision,
+        // A new revision has to be published again before testers see it.
+        ...(contentChanged ? { status: 'draft' } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('id', row.id)
@@ -330,6 +365,25 @@ export async function handleExamTasks(req: VercelRequest, res: VercelResponse, u
   }
 
   throw new HttpError(405, { error: 'Method not allowed' })
+}
+
+/** The owner's decision: the automatic checks' blockers don't stop it (testers see them too). */
+export async function handlePublish(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const { row, isOwner } = await loadTask(idFrom(req), userId)
+  if (!isOwner) throw new HttpError(404, { error: 'Not found' })
+  const { data, error } = await supabaseAdmin
+    .from('exam_tasks')
+    .update({ status: 'published', published_revision: row.revision, published_at: new Date().toISOString() })
+    .eq('id', row.id)
+    .eq('owner_id', userId)
+    // A save that landed in between would publish a revision the owner hasn't seen.
+    .eq('revision', row.revision)
+    .select(TASK_COLUMNS)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) throw new HttpError(409, { error: 'revision_changed' })
+  res.status(200).json({ task: toTask(data as TaskRow, userId) })
 }
 
 // --- Generation ------------------------------------------------------------------------------
@@ -548,6 +602,7 @@ export async function handleShare(req: VercelRequest, res: VercelResponse, userI
   if (req.method !== 'PUT') throw new HttpError(405, { error: 'Method not allowed' })
   const { row, isOwner } = await loadTask(idFrom(req), userId)
   if (!isOwner) throw new HttpError(404, { error: 'Not found' })
+  if (row.status !== 'published') throw new HttpError(409, { error: 'not_published' })
   const wanted = idList((req.body ?? {}).reviewerIds, POOL_MAX_MEMBERS).filter((id) => id !== userId)
   const valid = await teacherIds(wanted)
   const ids = wanted.filter((id) => valid.has(id))

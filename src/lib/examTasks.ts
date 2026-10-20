@@ -60,6 +60,12 @@ export interface ListeningTaskContent {
 
 export type ExamTaskContent = ListeningTaskContent
 
+/**
+ * A task starts as a draft; the creator publishes it for review, and only then can send it to
+ * testers. A content change (a new revision) puts it back to draft until it is published again.
+ */
+export type ExamTaskStatus = 'draft' | 'published'
+
 export interface ExamTaskSummary {
   id: string
   examPart: ExamPart
@@ -69,6 +75,10 @@ export interface ExamTaskSummary {
   title: string
   origin: TaskOrigin
   revision: number
+  status: ExamTaskStatus
+  /** The revision published last (null: never published), and when. */
+  publishedRevision: number | null
+  publishedAt: string | null
   updatedAt: string
   /** The creator's email (shown on tasks sent to the caller). */
   ownerEmail?: string

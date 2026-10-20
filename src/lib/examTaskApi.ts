@@ -61,6 +61,12 @@ export async function saveExamTask(input: ExamTaskInput, id?: string): Promise<E
   return body.task
 }
 
+/** Publishes the current revision for review (owner); only then can it be sent to testers. */
+export async function publishExamTask(id: string): Promise<ExamTask> {
+  const body = await request<{ task: ExamTask }>(withId('exam-task-publish', id), { method: 'POST' })
+  return body.task
+}
+
 export async function deleteExamTask(id: string): Promise<void> {
   await request(withId('exam-tasks', id), { method: 'DELETE' })
 }

@@ -20,6 +20,7 @@ import {
   handleExamTasks,
   handleGenerate,
   handlePools,
+  handlePublish,
   handleReview,
   handleRevise,
   handleShare,
@@ -49,7 +50,7 @@ import {
 // A studentId that isn't one of the caller's active students returns 404.
 //
 // Exam task maker (listening first; see api/_lib/examTasks.ts for every action):
-//   exam-tasks, exam-task-generate, exam-task-revise, exam-task-audio, exam-task-share,
+//   exam-tasks, exam-task-publish, exam-task-generate, exam-task-revise, exam-task-audio, exam-task-share,
 //   exam-task-review, teachers, teacher-pools
 
 // AI task generation and TTS rendering can take tens of seconds.
@@ -265,6 +266,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'exam-tasks':
         await handleExamTasks(req, res, user.id)
+        return
+      case 'exam-task-publish':
+        await handlePublish(req, res, user.id)
         return
       case 'exam-task-generate':
         await handleGenerate(req, res, user.id)
