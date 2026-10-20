@@ -3,7 +3,8 @@ import { CRITERIA_BY_ID, OTHER_REASON } from '../../data/examTaskCriteria'
 import { pick, useExamTaskCopy } from '../../data/examTaskCopy'
 import { itemIds, TASK_REVIEW_KEY, type ExamTask, type ExamTaskReview, type TaskRecommendation } from '../../lib/examTasks'
 import { isCorrect, itemText, keyText } from '../../lib/listeningTaskExam'
-import { cardClass, hintClass } from '../TeacherTools/ui'
+import { cardClass, hintClass, secondaryButtonClass } from '../TeacherTools/ui'
+import ItemCorrection from './ItemCorrection'
 
 function countBy<T extends string>(list: T[]): [T, number][] {
   const m = new Map<T, number>()
@@ -11,8 +12,23 @@ function countBy<T extends string>(list: T[]): [T, number][] {
   return [...m].sort((a, b) => b[1] - a[1])
 }
 
-/** The owner's view of the submitted tests: per item, how testers answered and judged it. */
-export default function ResultsView({ task, reviews }: { task: ExamTask; reviews: ExamTaskReview[] }) {
+/**
+ * The owner's view of the submitted tests: per item, how testers answered and judged it. With
+ * `onSaved` the owner can correct each item (wording, key, script excerpt) next to that feedback.
+ */
+export default function ResultsView({
+  task,
+  reviews,
+  onSaved,
+  editLocked = false,
+}: {
+  task: ExamTask
+  reviews: ExamTaskReview[]
+  /** The corrected task, after a save (owner only). */
+  onSaved?: (saved: ExamTask) => void
+  /** Unsaved edits on the Create tab: correcting here would lose them. */
+  editLocked?: boolean
+}) {
   const { c, lang } = useExamTaskCopy()
   const revisions = [...new Set(reviews.map((r) => r.revision))].sort((a, b) => b - a)
   const [revision, setRevision] = useState(revisions.includes(task.revision) ? task.revision : (revisions[0] ?? task.revision))
@@ -20,6 +36,9 @@ export default function ResultsView({ task, reviews }: { task: ExamTask; reviews
   const reasonLabel = (id: string) => (id === OTHER_REASON ? c('other') : pick(CRITERIA_BY_ID.get(id)?.label ?? { en: id, hu: id }, lang))
   // Item wording is the current revision's; older tests are shown against it with a note.
   const content = task.content
+  const canEdit = task.isOwner && !!onSaved
+  const [editing, setEditing] = useState<string | null>(null)
+  const [savedNote, setSavedNote] = useState<{ id: string; revision: number } | null>(null)
 
   if (reviews.length === 0) return <p className="rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground">{c('resultsEmpty')}</p>
 
@@ -47,6 +66,7 @@ export default function ResultsView({ task, reviews }: { task: ExamTask; reviews
       </div>
       {revision !== task.revision && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{c('oldRevisionNote')}</p>}
       {list.length === 0 && <p className={hintClass}>{c('resultsEmpty')}</p>}
+      {canEdit && editLocked && list.length > 0 && <p className={hintClass}>{c('editSaveCreateFirst')}</p>}
 
       {list.length > 0 &&
         itemIds(content).map((id) => {
@@ -56,13 +76,8 @@ export default function ResultsView({ task, reviews }: { task: ExamTask; reviews
           const right = answered.filter((r) => isCorrect(content, id, r.answers[id])).length
           const reasons = countBy(rejects.flatMap((v) => v.reasons))
           const notes = list.filter((r) => r.verdicts[id]?.note).map((r) => ({ who: r.reviewerEmail, note: r.verdicts[id].note as string }))
-          return (
-            <article key={id} className={cardClass}>
-              <p lang="en" className="text-foreground">
-                <span className="mr-2 font-semibold tabular-nums text-muted-foreground">{id === '0' ? `${c('example')} (0)` : `${id}.`}</span>
-                {itemText(content, id)}
-                <span className="ml-2 text-sm font-medium text-muted-foreground">→ {keyText(content, id)}</span>
-              </p>
+          const feedback = (
+            <>
               <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
                 {id !== '0' && <span>{c('correctRate', { n: right, m: answered.length })}</span>}
                 <span className="text-emerald-700">{c('accepts', { n: verdicts.length - rejects.length })}</span>
@@ -85,6 +100,51 @@ export default function ResultsView({ task, reviews }: { task: ExamTask; reviews
                     </li>
                   ))}
                 </ul>
+              )}
+            </>
+          )
+          return (
+            <article key={id} className={cardClass}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <p lang="en" className="min-w-0 flex-1 text-foreground">
+                  <span className="mr-2 font-semibold tabular-nums text-muted-foreground">{id === '0' ? `${c('example')} (0)` : `${id}.`}</span>
+                  {itemText(content, id)}
+                  <span className="ml-2 text-sm font-medium text-muted-foreground">→ {keyText(content, id)}</span>
+                </p>
+                {canEdit && editing !== id && (
+                  <button
+                    type="button"
+                    className={secondaryButtonClass}
+                    disabled={editLocked}
+                    onClick={() => {
+                      setEditing(id)
+                      setSavedNote(null)
+                    }}
+                  >
+                    {c('editItem')}
+                  </button>
+                )}
+              </div>
+              {savedNote?.id === id && <p role="status" className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{c('editSavedRevision', { n: savedNote.revision })}</p>}
+              {editing === id ? (
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+                  <ItemCorrection
+                    task={task}
+                    id={id}
+                    onCancel={() => setEditing(null)}
+                    onSaved={(saved) => {
+                      setEditing(null)
+                      setSavedNote({ id, revision: saved.revision })
+                      onSaved?.(saved)
+                    }}
+                  />
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{c('editFeedback')}</p>
+                    {feedback}
+                  </div>
+                </div>
+              ) : (
+                feedback
               )}
             </article>
           )

@@ -333,6 +333,38 @@ const COPY = {
     hu: 'Ezek a tesztek egy korábbi változatra vonatkoznak.',
     en: 'These tests are about an earlier revision.',
   },
+  editItem: { hu: 'Javítás', en: 'Edit' },
+  editKey: { hu: 'Megoldás', en: 'Key' },
+  editNoteLine: { hu: 'Jegyzetsor', en: 'Note line' },
+  editNoteLineHint: { hu: 'A {gap} hézag maradjon a sorban.', en: 'Keep the gap {gap} in the line.' },
+  editExcerpt: { hu: 'Részlet a szövegből', en: 'Script excerpt' },
+  editExcerptHint: {
+    hu: 'A megjelölt mondat és az előtte álló. A [[{n}|…]] jelölés mutatja, hol hangzik el a megoldás; hagyd meg.',
+    en: 'The marked sentence and the one before it. The [[{n}|…]] marker shows where the answer is spoken; keep it.',
+  },
+  editNoExcerpt: {
+    hu: 'Ennek a tételnek nincs jelölése a szövegben ([[{n}|…]]); a szöveget a Készítés fülön javíthatod.',
+    en: 'This item has no marker in the script ([[{n}|…]]); fix the script on the Create tab.',
+  },
+  editMarkerRemoved: {
+    hu: 'A(z) {n}. tétel jelölése ([[{n}|…]]) kikerült a részletből. Mentés előtt tedd vissza, különben az ellenőrzés nem találja a megoldás helyét.',
+    en: "The marker for item {n} ([[{n}|…]]) is gone from the excerpt. Put it back before saving, or the checks can't find where the answer is spoken.",
+  },
+  editGapRule: { hu: 'A sorban pontosan ezek a hézagok maradjanak: {gaps}.', en: 'Keep exactly these gaps in the line: {gaps}.' },
+  editNeedsAnswer: { hu: 'Adj meg legalább egy elfogadható választ.', en: 'Give at least one accepted answer.' },
+  editNeedsText: { hu: 'Az állítás nem lehet üres.', en: "The statement can't be empty." },
+  editChecks: { hu: 'Automatikus ellenőrzés ehhez a tételhez', en: 'Automatic checks for this item' },
+  editChecksClean: { hu: 'Nincs automatikus jelzés ehhez a tételhez.', en: 'No automatic findings for this item.' },
+  editFeedback: { hu: 'A tesztelők visszajelzése', en: "Testers' feedback" },
+  editNewRevision: { hu: 'A mentés új változatot hoz létre.', en: 'Saving makes a new revision.' },
+  editSavedRevision: {
+    hu: 'Mentve {n}. változatként. A korábbi tesztek a saját változatuknál maradnak.',
+    en: 'Saved as revision {n}. Earlier tests stay with their revision.',
+  },
+  editSaveCreateFirst: {
+    hu: 'A Készítés fülön mentetlen módosítások vannak. Mentsd őket, mielőtt itt javítasz.',
+    en: 'There are unsaved changes on the Create tab. Save them before correcting items here.',
+  },
 
   // Errors
   err_daily_limit: { hu: 'Elérted a mai generálási keretet.', en: "You've reached today's generation limit." },

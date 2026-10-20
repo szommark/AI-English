@@ -44,7 +44,7 @@ export function DistanceChart({ distances }: { distances: ItemDistance[] }) {
   )
 }
 
-function FindingLine({ f }: { f: Finding }) {
+export function FindingLine({ f }: { f: Finding }) {
   const { c, lang } = useExamTaskCopy()
   const criterion = CRITERIA_BY_ID.get(f.criterionId)
   const Icon = f.status === 'fail' ? OctagonX : TriangleAlert
