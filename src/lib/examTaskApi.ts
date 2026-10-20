@@ -105,6 +105,7 @@ export async function searchExamSources(input: {
 
 export async function reviseExamTask(input: {
   level: TaskLevel
+  field?: ExamField
   content: ListeningTaskContent
   problems: string[]
   keepScript: boolean

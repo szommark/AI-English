@@ -126,8 +126,8 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
   const [confirmPublish, setConfirmPublish] = useState(false)
   const [publishing, setPublishing] = useState(false)
 
-  const report = useMemo(() => checkListeningTask(draft.content, draft.level), [draft.content, draft.level])
-  const spec = levelSpec(draft.level, draft.content.format)
+  const report = useMemo(() => checkListeningTask(draft.content, draft.level, draft.field), [draft.content, draft.level, draft.field])
+  const spec = levelSpec(draft.level, draft.content.format, draft.field)
 
   // Leaving with unsaved edits.
   useEffect(() => {
@@ -155,8 +155,8 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
 
   function setFormat(format: ListeningFormat) {
     if (format === draft.content.format) return
-    const fresh = emptyListeningContent(format, draft.level)
-    setContent({ ...fresh, script: draft.content.script, topic: draft.content.topic, style: draft.content.style, instructions: standardInstruction(format, draft.content.topic, draft.level) })
+    const fresh = emptyListeningContent(format, draft.level, draft.content.subtype, draft.field)
+    setContent({ ...fresh, script: draft.content.script, topic: draft.content.topic, style: draft.content.style, instructions: standardInstruction(format, draft.content.topic, draft.level, draft.field) })
   }
 
   async function save() {
@@ -199,7 +199,7 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
         const label = CRITERIA_BY_ID.get(f.criterionId)?.label.en ?? f.criterionId
         return `${f.status === 'fail' ? 'BLOCKER' : 'warning'}${f.itemId !== undefined ? ` item ${f.itemId}` : ''} — ${label}: ${f.detail.en}`
       })
-      const { draft: revised } = await reviseExamTask({ level: draft.level, content: draft.content, problems, keepScript, teacherNote })
+      const { draft: revised } = await reviseExamTask({ level: draft.level, field: draft.field, content: draft.content, problems, keepScript, teacherNote })
       update({ content: revised.content })
       setMessage(c('revisedNotice'))
     } catch (err) {
@@ -427,7 +427,7 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
                   <button
                     type="button"
                     className={secondaryButtonClass}
-                    onClick={() => setContent({ ...draft.content, instructions: standardInstruction(draft.content.format, draft.content.topic, draft.level) })}
+                    onClick={() => setContent({ ...draft.content, instructions: standardInstruction(draft.content.format, draft.content.topic, draft.level, draft.field) })}
                   >
                     {c('useStandard')}
                   </button>

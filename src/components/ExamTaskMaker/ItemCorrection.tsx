@@ -69,7 +69,7 @@ export default function ItemCorrection({ task, id, onCancel, onSaved }: { task: 
     return { ...content, script, notes, answers }
   }, [content, span, excerpt, isTf, id, text, answer, trap, lineIndex, accepted])
 
-  const findings = useMemo(() => checkListeningTask(next, task.level).findings.filter((f) => f.itemId === id), [next, task.level, id])
+  const findings = useMemo(() => checkListeningTask(next, task.level, task.field).findings.filter((f) => f.itemId === id), [next, task.level, task.field, id])
   const changed = JSON.stringify(next) !== JSON.stringify(content)
   const problem = isTf && !text.trim() ? c('editNeedsText') : !gapsOk ? c('editGapRule', { gaps: expectedGaps.map((g) => `{{${g}}}`).join(', ') }) : !isTf && acceptedList.length === 0 ? c('editNeedsAnswer') : null
 

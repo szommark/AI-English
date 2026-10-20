@@ -20,6 +20,17 @@ export const LISTENING_FORMATS: ListeningFormat[] = ['true-false', 'notes']
 export const EXAM_FIELDS: ExamField[] = ['general', 'business', 'technical', 'agri-env']
 export const SCRIPT_STYLES: ScriptStyle[] = ['monologue', 'dialogue', 'panel']
 
+/**
+ * The three notes layouts of the real B2/C1 exams (the user's analysis of 8 notes tasks):
+ * - 'flat-bullets': one title, one list of short bullet fragments, at most one dash sub-level;
+ * - 'label-table': a two-column NOTES table, a descriptive label on the left, the blank on the right;
+ * - 'outline': notes grouped under section headings (numbered or not, some phrased as questions),
+ *   nested up to three levels.
+ * Old tasks have no subtype: they are 'flat-bullets'.
+ */
+export type NotesSubtype = 'flat-bullets' | 'label-table' | 'outline'
+export const NOTES_SUBTYPES: NotesSubtype[] = ['flat-bullets', 'label-table', 'outline']
+
 /** A true/false row. Row "0" is the example. */
 export interface ListeningStatement {
   id: string
@@ -51,7 +62,13 @@ export interface ListeningTaskContent {
   script: string
   /** True/false rows, "0" (the example) first. */
   statements?: ListeningStatement[]
-  /** Notes lines in order; a gap is `{{id}}`, "0" is the example. */
+  /** Notes only: the layout of the notes box (unset = 'flat-bullets'). */
+  subtype?: NotesSubtype
+  /**
+   * Notes lines in order; a gap is `{{id}}`, "0" is the example. Light markup (see parseNoteLine):
+   * "# heading" (outline section heading, e.g. "# 1. Frictional type"), two leading spaces per
+   * sub-level (at most 3 levels), and "label || {{n}}" for a row of the label table.
+   */
   notes?: string[]
   answers?: ListeningNoteAnswer[]
   /** The generator's or the uploader's own notes (self-check, revision notes). Not checked. */
@@ -191,40 +208,147 @@ export interface LevelSpec {
   maxNames: number
 }
 
-export function levelSpec(level: TaskLevel, format: ListeningFormat): LevelSpec {
+/**
+ * `field` matters for notes only: every real B2/C1 notes task allows 3 words per answer except
+ * C1 Technical English, which allows 2.
+ */
+export function levelSpec(level: TaskLevel, format: ListeningFormat, field?: ExamField): LevelSpec {
   const sentenceAvg: Record<TaskLevel, [number, number]> = { B1: [12, 15], B2: [16, 20], C1: [20, 25] }
   const wpm: Record<TaskLevel, number> = { B1: 125, B2: 145, C1: 145 }
   const maxNames: Record<TaskLevel, number> = { B1: 4, B2: 6, C1: 8 }
   const base = { sentenceAvg: sentenceAvg[level], wpm: wpm[level], maxNames: maxNames[level] }
   if (format === 'true-false') return { ...base, wordsMin: 400, wordsMax: 450, items: 7 }
   if (level === 'B1') return { ...base, wordsMin: 300, wordsMax: 350, items: 8, answerWords: 1, maxNumeric: 1 }
-  return { ...base, wordsMin: level === 'B2' ? 350 : 450, wordsMax: level === 'B2' ? 400 : 550, items: 13, answerWords: 3, maxNumeric: 2 }
+  const answerWords = level === 'C1' && field === 'technical' ? 2 : 3
+  return { ...base, wordsMin: level === 'B2' ? 350 : 450, wordsMax: level === 'B2' ? 400 : 550, items: 13, answerWords, maxNumeric: 2 }
 }
 
 /** The standard instruction sentence (2_4 section 3). */
-export function standardInstruction(format: ListeningFormat, topic: string, level: TaskLevel): string {
+export function standardInstruction(format: ListeningFormat, topic: string, level: TaskLevel, field?: ExamField): string {
   if (format === 'true-false') {
     return `Listen to the text about ${topic.trim() || '…'}. Based on the text, decide if the statements are true (T) or false (F). Write your answers in the table below, according to the example (0). Please note that if all your answers are marked as true or as false, your answers will be disqualified.`
   }
-  const n = levelSpec(level, 'notes').answerWords ?? 3
+  const n = levelSpec(level, 'notes', field).answerWords ?? 3
   const limit = n === 1 ? '1 word' : `no more than ${n} words`
   return `Listen to the text. Use what you heard to complete the table with your notes of ${limit} each, according to the example (0).`
 }
 
-export function emptyListeningContent(format: ListeningFormat, level: TaskLevel): ListeningTaskContent {
+export function emptyListeningContent(
+  format: ListeningFormat,
+  level: TaskLevel,
+  subtype: NotesSubtype = 'flat-bullets',
+  field?: ExamField,
+): ListeningTaskContent {
   const n = levelSpec(level, format).items
   const ids = Array.from({ length: n + 1 }, (_, i) => String(i))
   return {
     kind: 'listening',
     format,
     style: 'monologue',
-    instructions: standardInstruction(format, '', level),
+    instructions: standardInstruction(format, '', level, field),
     topic: '',
     script: '',
     ...(format === 'true-false'
       ? { statements: ids.map((id) => ({ id, text: '', answer: true })) }
-      : { notes: ids.map((id) => `{{${id}}}`), answers: ids.map((id) => ({ id, accepted: [''] })) }),
+      : { subtype, notes: notesTemplate(subtype, ids), answers: ids.map((id) => ({ id, accepted: [''] })) }),
   }
+}
+
+// --- Notes markup --------------------------------------------------------------------------
+//
+// Notes stay plain lines with {{n}} gaps; three bits of markup carry the layout:
+//   "# 1. Frictional type"           a section heading (outline); the text after "# " is printed
+//   "  - learn {{0}}"                two leading spaces per sub-level (0–2); a leading -, – or •
+//                                    is only decoration
+//   "opening time of the market || {{0}}"  a label-table row: label cell || answer cell
+
+export const NOTES_MAX_DEPTH = 2
+
+export interface NoteLine {
+  kind: 'heading' | 'line' | 'row'
+  /** Sub-level 0–2 (lines only). */
+  depth: number
+  /** The text without markup; for a row, the answer (right) cell. */
+  text: string
+  /** Rows: the label (left) cell. */
+  label?: string
+}
+
+const BULLET_RE = /^[-–•*]\s+/
+
+/** One notes line with its markup read; null for a blank line. */
+export function parseNoteLine(raw: string): NoteLine | null {
+  const line = raw.replace(/\t/g, '  ').replace(/\s+$/, '')
+  const body = line.trimStart()
+  if (!body) return null
+  const heading = body.match(/^#{1,3}\s+(.*)$/)
+  if (heading) return { kind: 'heading', depth: 0, text: heading[1].trim() }
+  const bar = body.indexOf('||')
+  if (bar >= 0) return { kind: 'row', depth: 0, label: body.slice(0, bar).replace(BULLET_RE, '').trim(), text: body.slice(bar + 2).trim() }
+  const depth = Math.min(NOTES_MAX_DEPTH, Math.floor((line.length - body.length) / 2))
+  return { kind: 'line', depth, text: body.replace(BULLET_RE, '') }
+}
+
+/** A parsed line as plain text: a row reads "label: answer cell". */
+export function noteLinePlain(line: NoteLine): string {
+  if (line.kind !== 'row' || !line.label) return line.text
+  return `${line.label}${/[:?]$/.test(line.label) ? '' : ':'} ${line.text}`.trim()
+}
+
+/**
+ * The line holding gap `itemId` with what it hangs under: the nearest heading above it, then the
+ * shallower lines it is nested in (a "(Give 2 examples.)" lead-in), the line itself last.
+ */
+export function noteChain(notes: string[], itemId: string): NoteLine[] {
+  const idx = notes.findIndex((l) => l.includes(`{{${itemId}}}`))
+  const own = idx >= 0 ? parseNoteLine(notes[idx]) : null
+  if (!own) return []
+  const chain = [own]
+  if (own.kind === 'heading') return chain
+  let want = own.depth
+  for (let k = idx - 1; k >= 0; k--) {
+    const p = parseNoteLine(notes[k])
+    if (!p) continue
+    if (p.kind === 'heading') {
+      chain.unshift(p)
+      break
+    }
+    if (p.kind === 'line' && p.depth < want) {
+      chain.unshift(p)
+      want = p.depth
+    }
+  }
+  return chain
+}
+
+/** Starter lines for an empty notes box. */
+export function notesTemplate(subtype: NotesSubtype, ids: string[]): string[] {
+  if (subtype === 'label-table') return ids.map((id) => `|| {{${id}}}`)
+  if (subtype === 'outline') {
+    return ids.flatMap((id, i) => [...(i % 5 === 0 ? [`# ${Math.floor(i / 5) + 1}. …`] : []), `{{${id}}}`])
+  }
+  return ids.map((id) => `{{${id}}}`)
+}
+
+/** Rewrites the lines when the teacher switches layout: rows ↔ "label: gap" lines. */
+export function convertNotes(notes: string[], to: NotesSubtype): string[] {
+  const out: string[] = []
+  for (const raw of notes) {
+    const line = parseNoteLine(raw)
+    if (line && to === 'label-table' && line.kind === 'line' && line.text.includes('{{')) {
+      const at = line.text.indexOf('{{')
+      let label = line.text.slice(0, at).replace(/[\s:–-]+$/, '')
+      // A bare blank under a lead-in line ("competition from: (Give 1 example.)") takes the lead-in as its label.
+      const prev = out.length ? parseNoteLine(out[out.length - 1]) : null
+      if (!label && prev?.kind === 'line' && !prev.text.includes('{{')) {
+        label = prev.text.replace(/[\s:–-]+$/, '')
+        out.pop()
+      }
+      out.push(`${label} || ${line.text.slice(at)}`.trim())
+    } else if (line && to !== 'label-table' && line.kind === 'row') out.push(noteLinePlain(line))
+    else out.push(raw)
+  }
+  return out
 }
 
 /** The item ids a task asks for, example "0" first. */
@@ -290,9 +414,16 @@ export function sanitizeListeningContent(raw: unknown): ListeningTaskContent {
       return row
     })
   } else {
+    if (NOTES_SUBTYPES.includes(r.subtype as NotesSubtype)) out.subtype = r.subtype as NotesSubtype
     const notes = Array.isArray(r.notes) ? r.notes : []
     if (notes.length > 60) throw new Error('Too many note lines')
-    out.notes = notes.map((n) => str(n, LINE_MAX_LENGTH, 'note line'))
+    // Leading spaces are the sub-level markup: keep up to three levels' worth.
+    out.notes = notes.map((n) => {
+      const line = str(n, LINE_MAX_LENGTH, 'note line')
+      const raw = typeof n === 'string' ? n.replace(/\t/g, '  ') : ''
+      const indent = Math.min(raw.length - raw.trimStart().length, NOTES_MAX_DEPTH * 2)
+      return line ? ' '.repeat(indent) + line : line
+    })
     const list = Array.isArray(r.answers) ? r.answers : []
     if (list.length === 0 || list.length > MAX_ITEMS + 1) throw new Error('answers must have 1–21 rows')
     out.answers = list.map((a) => {
