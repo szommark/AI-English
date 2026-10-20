@@ -1,18 +1,22 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Send } from 'lucide-react'
+import { CheckCircle2, Lock, Send } from 'lucide-react'
 import { useExamTaskCopy } from '../../data/examTaskCopy'
 import { fetchPools, fetchTeachers, shareExamTask } from '../../lib/examTaskApi'
-import type { ReviewerStatus, TeacherPool, TeacherRef } from '../../lib/examTasks'
+import type { ExamTask, ReviewerStatus, TeacherPool, TeacherRef } from '../../lib/examTasks'
+import { TeacherToolsError } from '../../lib/teacherToolsApi'
 import { cardClass, hintClass, primaryButtonClass } from '../TeacherTools/ui'
 import TeacherPicker from './TeacherPicker'
 
-/** The owner chooses which teachers test the task, one by one or a saved pool at a time. */
+/**
+ * The owner chooses which teachers test the task, one by one or a saved pool at a time. Locked
+ * while the task is a draft: it has to be published for review first (and again after a change).
+ */
 export default function SharePanel({
-  taskId,
+  task,
   reviewers,
   onShared,
 }: {
-  taskId: string
+  task: Pick<ExamTask, 'id' | 'revision' | 'status' | 'publishedRevision'>
   reviewers: ReviewerStatus[]
   onShared: () => void
 }) {
@@ -22,29 +26,31 @@ export default function SharePanel({
   const [selected, setSelected] = useState<string[]>(reviewers.map((r) => r.reviewerId))
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const locked = task.status !== 'published'
 
   useEffect(() => {
     setSelected(reviewers.map((r) => r.reviewerId))
   }, [reviewers])
 
   useEffect(() => {
+    if (locked) return
     Promise.all([fetchTeachers(), fetchPools()])
       .then(([t, p]) => {
         setTeachers(t)
         setPools(p)
       })
       .catch(() => setTeachers([]))
-  }, [])
+  }, [locked])
 
   async function save() {
     setBusy(true)
     setMessage(null)
     try {
-      const ids = await shareExamTask(taskId, selected)
+      const ids = await shareExamTask(task.id, selected)
       setMessage(c('testersSaved', { n: ids.length }))
       onShared()
-    } catch {
-      setMessage(c('err_generic'))
+    } catch (err) {
+      setMessage(c(err instanceof TeacherToolsError && err.code === 'not_published' ? 'err_not_published' : 'err_generic'))
     } finally {
       setBusy(false)
     }
@@ -69,10 +75,21 @@ export default function SharePanel({
         <Send className="h-5 w-5 text-[var(--teal-accent-strong)]" />
         {c('testing')}
       </h2>
-      <p className={hintClass}>{c('testingHint')}</p>
-      {teachers === null && <p className={hintClass}>{c('loading')}</p>}
-      {teachers?.length === 0 && <p className={hintClass}>{c('noTeachers')}</p>}
-      {teachers && teachers.length > 0 && (
+      {locked ? (
+        <div className="space-y-2 rounded-xl bg-muted px-4 py-3 text-sm">
+          <p className="flex items-start gap-2 text-foreground">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            {task.publishedRevision !== null ? c('shareChanged', { n: task.revision }) : c('shareLocked')}
+          </p>
+          {task.publishedRevision !== null && reviewers.length > 0 && <p className={hintClass}>{c('shareChangedTesters')}</p>}
+          {reviewers.length > 0 && <p className={hintClass}>{reviewers.map((r) => r.email).join(', ')}</p>}
+        </div>
+      ) : (
+        <p className={hintClass}>{c('testingHint')}</p>
+      )}
+      {!locked && teachers === null && <p className={hintClass}>{c('loading')}</p>}
+      {!locked && teachers?.length === 0 && <p className={hintClass}>{c('noTeachers')}</p>}
+      {!locked && teachers && teachers.length > 0 && (
         <>
           {pools.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 text-sm">

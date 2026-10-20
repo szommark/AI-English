@@ -8,12 +8,13 @@ import ItemsEditor from '../components/ExamTaskMaker/ItemsEditor'
 import ResultsView from '../components/ExamTaskMaker/ResultsView'
 import ScriptView from '../components/ExamTaskMaker/ScriptView'
 import SharePanel from '../components/ExamTaskMaker/SharePanel'
+import StatusChip from '../components/ExamTaskMaker/StatusChip'
 import StartPanel, { type LoadedDraft } from '../components/ExamTaskMaker/StartPanel'
 import TestRunner from '../components/ExamTaskMaker/TestRunner'
 import { cardClass, hintClass, inputClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../components/TeacherTools/ui'
 import { pick, useExamTaskCopy } from '../data/examTaskCopy'
 import { CRITERIA_BY_ID } from '../data/examTaskCriteria'
-import { deleteExamTask, fetchExamTask, reviseExamTask, saveExamTask, uploadTaskAudio, type ExamTaskDetail } from '../lib/examTaskApi'
+import { deleteExamTask, fetchExamTask, publishExamTask, reviseExamTask, saveExamTask, uploadTaskAudio, type ExamTaskDetail } from '../lib/examTaskApi'
 import {
   EXAM_FIELDS,
   emptyListeningContent,
@@ -26,7 +27,7 @@ import {
   type TaskLevel,
   type TaskOrigin,
 } from '../lib/examTasks'
-import { checkListeningTask } from '../lib/listeningChecks'
+import { blockerCount, checkListeningTask } from '../lib/listeningChecks'
 import { TeacherToolsError } from '../lib/teacherToolsApi'
 
 interface Draft {
@@ -49,7 +50,7 @@ export default function ExamTaskEditorPage() {
   const { taskId } = useParams()
   const { c } = useExamTaskCopy()
   const [detail, setDetail] = useState<ExamTaskDetail | null>(null)
-  const [failed, setFailed] = useState<'notFound' | 'error' | null>(null)
+  const [failed, setFailed] = useState<'notFound' | 'inRevision' | 'error' | null>(null)
   const [reload, setReload] = useState(0)
 
   useEffect(() => {
@@ -57,7 +58,12 @@ export default function ExamTaskEditorPage() {
     let cancelled = false
     fetchExamTask(taskId)
       .then((d) => !cancelled && setDetail(d))
-      .catch((err) => !cancelled && setFailed(err instanceof TeacherToolsError && err.status === 404 ? 'notFound' : 'error'))
+      .catch((err) => {
+        if (cancelled) return
+        // 409 task_in_revision: a reviewer opening a task its creator put back to draft.
+        const code = err instanceof TeacherToolsError ? (err.status === 404 ? 'notFound' : err.code === 'task_in_revision' ? 'inRevision' : 'error') : 'error'
+        setFailed(code)
+      })
     return () => {
       cancelled = true
     }
@@ -70,7 +76,7 @@ export default function ExamTaskEditorPage() {
   )
 
   if (!taskId) return <Editor detail={null} back={back} onReload={() => setReload((n) => n + 1)} />
-  if (failed) return <div className="space-y-4">{back}<p className="text-sm text-red-600">{failed === 'notFound' ? c('notFound') : c('loadError')}</p></div>
+  if (failed) return <div className="space-y-4">{back}<p className={`text-sm ${failed === 'inRevision' ? 'text-muted-foreground' : 'text-red-600'}`}>{failed === 'notFound' ? c('notFound') : failed === 'inRevision' ? c('inRevision') : c('loadError')}</p></div>
   if (!detail) return <p className="text-sm text-muted-foreground">{c('loading')}</p>
 
   if (!detail.task.isOwner) {
@@ -115,6 +121,8 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
     return handed ? [handed] : null
   })
   const [pendingAudio, setPendingAudio] = useState<File | null>(null)
+  const [confirmPublish, setConfirmPublish] = useState(false)
+  const [publishing, setPublishing] = useState(false)
 
   const report = useMemo(() => checkListeningTask(draft.content, draft.level), [draft.content, draft.level])
   const spec = levelSpec(draft.level, draft.content.format)
@@ -200,6 +208,22 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
     }
   }
 
+  async function publish() {
+    if (!task) return
+    setPublishing(true)
+    setMessage(null)
+    try {
+      await publishExamTask(task.id)
+      setConfirmPublish(false)
+      setMessage(c('published'))
+      onReload()
+    } catch (err) {
+      setMessage(err instanceof TeacherToolsError && err.code === 'revision_changed' ? c('err_revision_changed') : c('err_generic'))
+    } finally {
+      setPublishing(false)
+    }
+  }
+
   async function remove() {
     if (!task || !window.confirm(c('deleteConfirm'))) return
     await deleteExamTask(task.id)
@@ -218,19 +242,55 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
       {back}
       <PageHeading
         title={task ? task.title : checkMode ? c('checkTitle') : c('crumbNew')}
-        subtitle={task ? `${c('part_listening')} · ${task.level} · ${c(task.content.format === 'notes' ? 'format_notes' : 'format_true_false')} · ${c('revision', { n: task.revision })}` : c('part_listening')}
+        subtitle={
+          task ? (
+            <>
+              {`${c('part_listening')} · ${task.level} · ${c(task.content.format === 'notes' ? 'format_notes' : 'format_true_false')} · `}
+              <StatusChip task={task} />
+            </>
+          ) : (
+            c('part_listening')
+          )
+        }
         actions={
           tab === 'create' && (
             <div className="flex flex-wrap items-center gap-3">
               {dirty && <span className="text-xs text-amber-700">{c('unsaved')}</span>}
               {message && <span className="text-sm text-muted-foreground">{message}</span>}
-              <button type="button" className={primaryButtonClass} disabled={saving || !loaded} onClick={save}>
+              <button type="button" className={task?.status === 'draft' ? secondaryButtonClass : primaryButtonClass} disabled={saving || !loaded} onClick={save}>
                 {saving ? c('saving') : c('save')}
               </button>
+              {task?.status === 'draft' && (
+                <button type="button" className={primaryButtonClass} disabled={dirty || saving || publishing} title={dirty ? c('saveFirst') : undefined} onClick={() => setConfirmPublish(true)}>
+                  {c('publish')}
+                </button>
+              )}
             </div>
           )
         }
       />
+
+      {tab === 'create' && task?.status === 'draft' && confirmPublish && (
+        <div role="dialog" aria-labelledby="publish-title" className={cardClass}>
+          <h2 id="publish-title" className="font-semibold text-foreground">
+            {c('publishConfirmTitle', { n: task.revision })}
+          </h2>
+          <p className="text-sm text-foreground">{c('publishConfirmBody')}</p>
+          {blockerCount(report) > 0 ? (
+            <p className="text-sm font-medium text-rose-700">{c('publishBlockers', { n: blockerCount(report) })}</p>
+          ) : (
+            <p className="text-sm text-emerald-700">{c('publishNoBlockers')}</p>
+          )}
+          <div className="flex flex-wrap gap-3">
+            <button type="button" className={primaryButtonClass} disabled={publishing || dirty} onClick={publish}>
+              {publishing ? c('publishing') : c('publishConfirm')}
+            </button>
+            <button type="button" className={secondaryButtonClass} disabled={publishing} onClick={() => setConfirmPublish(false)}>
+              {c('cancel')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {task && (
         <div role="tablist" className="flex gap-1 border-b border-border">
@@ -385,7 +445,7 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
               <aside className="space-y-6 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto">
                 <ChecksPanel report={report} format={draft.content.format} onFix={fix} fixing={fixing} />
                 <AudioPanel taskId={task?.id ?? null} revision={task?.revision ?? 0} level={draft.level} format={draft.content.format} dirty={dirty} />
-                {task && <SharePanel taskId={task.id} reviewers={detail?.reviewers ?? []} onShared={onReload} />}
+                {task && <SharePanel task={task} reviewers={detail?.reviewers ?? []} onShared={onReload} />}
                 {report.stats.names.length > 0 && (
                   <p className={hintClass}>
                     {pick({ en: 'Names in the script', hu: 'Nevek a szövegben' }, lang)}: {report.stats.names.join(', ')}

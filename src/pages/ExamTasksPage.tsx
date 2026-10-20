@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { BookOpenText, CheckCircle2, Headphones, Mic, PenLine, type LucideIcon } from 'lucide-react'
 import PageHeading from '../components/PageHeading'
 import PoolsPanel from '../components/ExamTaskMaker/PoolsPanel'
+import StatusChip from '../components/ExamTaskMaker/StatusChip'
 import { primaryButtonClass, secondaryButtonClass } from '../components/TeacherTools/ui'
 import { useExamTaskCopy } from '../data/examTaskCopy'
 import { fetchExamTasks } from '../lib/examTaskApi'
@@ -108,7 +109,7 @@ export default function ExamTasksPage() {
                           <span>
                             {t.level} · {c(t.format === 'notes' ? 'format_notes' : 'format_true_false')} · {c(`origin_${t.origin}`)}
                           </span>
-                          <span>{c('revision', { n: t.revision })}</span>
+                          <StatusChip task={t} />
                           <span>{t.reviewerCount ? c('testedCount', { n: t.submittedCount, m: t.reviewerCount }) : c('notSent')}</span>
                           <span>{c('updated', { date: date(t.updatedAt) })}</span>
                         </span>

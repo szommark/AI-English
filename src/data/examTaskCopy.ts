@@ -38,6 +38,39 @@ const COPY = {
   backToList: { hu: '← Vissza a feladatokhoz', en: '← Back to tasks' },
   loading: { hu: 'Betöltés…', en: 'Loading…' },
 
+  // Publish for review (draft → published; a content change makes it a draft again)
+  status_draft: { hu: 'Piszkozat', en: 'Draft' },
+  status_published: { hu: 'Közzétéve véleményezésre', en: 'Published for review' },
+  publish: { hu: 'Közzététel véleményezésre', en: 'Publish for review' },
+  publishing: { hu: 'Közzététel…', en: 'Publishing…' },
+  publishConfirmTitle: { hu: 'Közzététel véleményezésre: {n}. változat', en: 'Publish revision {n} for review?' },
+  publishConfirmBody: {
+    hu: 'Ezután elküldheted más tanároknak vagy tanárcsoportoknak tesztelésre. Ha később módosítod, a feladat újra piszkozat lesz, és újra közzé kell tenned.',
+    en: 'You can then send it to other teachers or pools for testing. If you change it later, it goes back to draft and you publish it again.',
+  },
+  publishBlockers: {
+    hu: 'Az automatikus ellenőrzés {n} blokkoló hibát talált. Így is közzéteheted; a tesztelők ezeket is látni fogják.',
+    en: 'The automatic checks found {n} blocker(s). You can still publish; testers will see these.',
+  },
+  publishNoBlockers: { hu: 'Az automatikus ellenőrzés nem talált blokkoló hibát.', en: 'The automatic checks found no blockers.' },
+  publishConfirm: { hu: 'Közzététel', en: 'Publish' },
+  published: { hu: 'Közzétéve. Most már elküldheted tesztelésre.', en: 'Published. You can now send it for testing.' },
+  shareLocked: { hu: 'Tedd közzé a feladatot véleményezésre, hogy elküldhesd tanároknak.', en: 'Publish the task for review to send it to teachers.' },
+  shareChanged: {
+    hu: 'Módosítottad a közzététel óta. Tedd közzé újra, hogy elküldd az új, {n}. változatot.',
+    en: 'Changed since publishing — publish again to send revision {n}.',
+  },
+  shareChangedTesters: {
+    hu: 'Addig a tesztelők nem nyithatják meg a feladatot; a korábbi eredményeik megmaradnak.',
+    en: "Until then testers can't open it; their earlier results stay.",
+  },
+  inRevision: {
+    hu: 'A feladat készítője éppen átdolgozza ezt a feladatot. Ha újra közzéteszi, tesztelheted.',
+    en: 'The creator is revising this task. You can test it once they publish it again.',
+  },
+  err_not_published: { hu: 'Előbb tedd közzé a feladatot véleményezésre.', en: 'Publish the task for review first.' },
+  err_revision_changed: { hu: 'A feladat közben megváltozott. Töltsd újra az oldalt.', en: 'The task changed in the meantime. Reload the page.' },
+
   // Labels
   level: { hu: 'Szint', en: 'Level' },
   format: { hu: 'Feladattípus', en: 'Task type' },
