@@ -202,6 +202,22 @@ const COPY = {
   removeRow: { hu: 'Utolsó sor törlése', en: 'Remove last row' },
   notesLines: { hu: 'Jegyzetsorok', en: 'Note lines' },
   notesHint: { hu: 'Soronként egy jegyzet; a hiány: {{n}}. Pl. „Place of research: {{0}}”', en: 'One note per line; a gap is {{n}}. E.g. "Place of research: {{0}}"' },
+  notesSubtype: { hu: 'Jegyzet elrendezése', en: 'Notes layout' },
+  'subtype_flat-bullets': { hu: 'Felsorolásos jegyzet témacím alatt', en: 'Flat bulleted notes under a topic title' },
+  'subtype_label-table': { hu: 'Címkés jegyzettáblázat (leírás és válasz oszlop)', en: 'Label and answer table (description and answer columns)' },
+  subtype_outline: { hu: 'Fejezetcímes vázlat-jegyzet (főcímek alatt csoportosított jegyzetek)', en: 'Outline notes with section headings (notes grouped under headings)' },
+  'notesHint_flat-bullets': {
+    hu: 'A témacím alatt soronként egy rövid jegyzet; a hiány: {{n}}. Al-pont (gondolatjeles, legfeljebb egy szint): két szóköz a sor elején. Pl. „teff: „supergrain”:”, alatta „  high in {{1}} and calcium”.',
+    en: 'One short note per line under the topic title; a gap is {{n}}. A dash sub-point (one level at most): start the line with two spaces. E.g. "teff: “supergrain”:" then "  high in {{1}} and calcium".',
+  },
+  'notesHint_label-table': {
+    hu: 'Soronként egy táblázatsor: leírás || {{n}}. Pl. „opening time of Smithfield market || {{0}}”. „(Give 1 example.)” után a kulcsba minden elhangzó példát írj be.',
+    en: 'One table row per line: description || {{n}}. E.g. "opening time of Smithfield market || {{0}}". After "(Give 1 example.)" list every example spoken in the key.',
+  },
+  notesHint_outline: {
+    hu: 'Fejezetcím: „# ” a sor elején („# 1. Frictional type”, „# From where?”); alatta a jegyzetek. Szintenként két szóköz behúzás (legfeljebb 3 szint). Két hiány egy sorban is lehet. „(Give 2 examples.)”: bevezető sor, alatta két behúzott sor egy-egy hiánnyal.',
+    en: 'A heading starts with "# " ("# 1. Frictional type", "# From where?"); its notes follow. Indent two spaces per level (3 levels at most). Two gaps may share a line. "(Give 2 examples.)": a lead-in line, then two indented lines with one gap each.',
+  },
   answers: { hu: 'Megoldókulcs', en: 'Answer key' },
   answersHint: { hu: 'Az első az elhangzó alak; további elfogadható változatok „ / ” jellel.', en: 'The first is the spoken form; more accepted variants after " / ".' },
   balance: { hu: 'Kulcs: {t} I : {f} H', en: 'Key: {t} T : {f} F' },

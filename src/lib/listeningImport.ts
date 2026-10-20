@@ -11,6 +11,7 @@ import {
   type ListeningNoteAnswer,
   type ListeningStatement,
   type ListeningTaskContent,
+  type NotesSubtype,
   type TaskLevel,
   type TrapType,
 } from './examTasks'
@@ -91,6 +92,96 @@ function toMarkerSyntax(paragraph: string, keyFor: (id: string) => string | unde
     return `[[${id}|${cut}]]${rest.slice(idx + cut.length)}`
   })
   return p.replace(/\*\*/g, '')
+}
+
+const NOTE_DOTS = /[.…_]{3,}/g
+const NOTE_NUM = /\((\d{1,2})\)/g
+const NUMBERED_RE = /^\d{1,2}[.)]\s+\S/
+
+/** A task-sheet note line with numbered gaps → the line with {{n}} gaps; null when it has none. */
+function noteGapLine(raw: string, noteExample: Map<string, string>): string | null {
+  if (/listen to the|^\**\s*marks?\b/i.test(stripMd(raw))) return null
+  const bullet = raw.replace(/^\s*[-•*–]\s+/, '')
+  // The example with its answer in bold: "Bond prices falling – reason: **supply and demand** (0)".
+  const bold = bullet.match(/^(.*?)\*\*([^*]+)\*\*\s*\(0\)\s*$/)
+  if (bold && !/[.…_]{3,}/.test(bold[2])) {
+    noteExample.set('0', bold[2].trim())
+    return `${stripMd(bold[1])} {{0}}`.replace(/\s{2,}/g, ' ').trim()
+  }
+  const l = stripMd(bullet)
+  // The filled-in example written without dots: "Crisis once ignored: climate change (0)".
+  const filled = l.match(/^(.{3,80}?:)\s*([^:.…_()]{1,40}?)\s*\(0\)\s*$/)
+  if (filled) {
+    noteExample.set('0', filled[2].trim())
+    return `${filled[1]} {{0}}`
+  }
+  const ids = [...l.matchAll(NOTE_NUM)].map((m) => m[1])
+  const dots = [...l.matchAll(NOTE_DOTS)]
+  if (ids.length === 0 || dots.length === 0) return null
+  let converted: string
+  if (dots.length === ids.length) {
+    // Each dotted gap belongs to the next number on the line, wherever the number stands
+    // ("PPI also called …… inflation (2)"): the gap becomes {{n}}, the label goes.
+    let k = 0
+    converted = l.replace(NOTE_DOTS, () => `{{${ids[k++]}}}`).replace(NOTE_NUM, '')
+  } else {
+    converted = l.replace(/(?:[.…_]{3,}\s*)?\((\d{1,2})\)(?:\s*[.…_]{3,})?/g, (_m, id: string) => `{{${id}}}`)
+  }
+  // "…… (0) Hungary": the example's answer printed after its gap.
+  converted = converted.replace(/\{\{0\}\}\s*([^{}]+)$/, (_m, ex: string) => {
+    noteExample.set('0', ex.trim())
+    return '{{0}}'
+  })
+  return converted.replace(/\s+([?.,;:!])/g, '$1').replace(/\s{2,}/g, ' ').trim()
+}
+
+/** A short line inside the note box without a gap: a section heading, a lead-in or a plain sub-point. */
+function isContextLine(raw: string): boolean {
+  const l = stripMd(raw)
+  return (
+    !!l &&
+    wordCount(l) <= 14 &&
+    !/^notes on\b|^notes$|listen to the|^task\b|listening comprehension|^marks?\b|^score\b|^source\s*:/i.test(l) &&
+    !/\(\d{1,2}\)/.test(l)
+  )
+}
+
+/**
+ * A heading of an outline: "# …", a whole bold line, "1. Frictional type", a short question
+ * ("From where?"), or a short title-like phrase ("The lift industry"). Lines ending in ":" or
+ * with a comma are lead-ins.
+ */
+function isHeadingLine(raw: string, text: string, bullet: boolean): boolean {
+  const t = raw.trim()
+  if (/^#{1,3}\s/.test(t) || /^\*\*[^*]+\*\*$/.test(t)) return true
+  if (bullet || /[:,;]$/.test(text) || /,/.test(text)) return false
+  if (NUMBERED_RE.test(text)) return true
+  if (/\?$/.test(text)) return wordCount(text) <= 6
+  return wordCount(text) <= 4 && /^\p{Lu}/u.test(text) && !/\b(and|or|of|to|the|a|for|with)$/i.test(text)
+}
+
+/**
+ * A two-column NOTES table: "| 1. type of meat market Smithfield is | ……… |", the example row
+ * "| 0. opening time of Smithfield market (Example) | four o'clock |". Three such rows or more → label-table lines.
+ */
+function labelTableRows(lines: string[], noteExample: Map<string, string>): string[] {
+  const out: string[] = []
+  for (const table of tableRows(lines)) {
+    const rows: string[] = []
+    for (const row of table) {
+      if (row.length < 2 || row.length > 3) continue
+      const [left, right = ''] = row
+      const num = left.match(/^\(?(\d{1,2})[.)]\s*(.+)$/)
+      const id = num?.[1] ?? right.match(/\((\d{1,2})\)/)?.[1]
+      const label = (num ? num[2] : left).replace(/\(\s*example\s*\)/i, '').replace(/\s{2,}/g, ' ').trim()
+      if (!id || wordCount(label) < 2) continue
+      const answer = right.replace(/\(\d{1,2}\)/, '').replace(/[.…_]{3,}/g, ' ').trim()
+      if (id === '0' && answer) noteExample.set('0', answer)
+      rows.push(`${label} || {{${id}}}`)
+    }
+    if (rows.length >= 3) out.push(...rows)
+  }
+  return out
 }
 
 /**
@@ -202,50 +293,51 @@ export function parseListeningBundle(raw: string, hint: { format?: ListeningForm
     }
   }
 
-  // Notes lines: "- Place of research: ……… (0) Hungary"
+  // Notes lines: "- Place of research: ……… (0) Hungary", in one of the three layouts
+  // (examTasks.ts NotesSubtype): a two-column NOTES table → 'label-table'; heading lines →
+  // 'outline'; else 'flat-bullets'. The layout is written in the notes markup.
   const notes: string[] = []
   const noteExample = new Map<string, string>()
+  let subtype: NotesSubtype = 'flat-bullets'
   if (format === 'notes') {
-    const DOTS = /[.…_]{3,}/g
-    const NUM = /\((\d{1,2})\)/g
-    for (const raw of noteLines) {
-      if (/listen to the|^\**\s*marks?\b/i.test(stripMd(raw))) continue
-      const bullet = raw.replace(/^\s*[-•*–]\s+/, '')
-      // The example with its answer in bold: "Bond prices falling – reason: **supply and demand** (0)".
-      const bold = bullet.match(/^(.*?)\*\*([^*]+)\*\*\s*\(0\)\s*$/)
-      if (bold && !/[.…_]{3,}/.test(bold[2])) {
-        noteExample.set('0', bold[2].trim())
-        notes.push(`${stripMd(bold[1])} {{0}}`.replace(/\s{2,}/g, ' ').trim())
-        continue
+    const rows = labelTableRows(lines, noteExample)
+    if (rows.length) {
+      subtype = 'label-table'
+      notes.push(...rows)
+    } else {
+      const gapLines = noteLines.map((raw) => noteGapLine(raw, noteExample))
+      const at = gapLines.map((g, i) => (g === null ? -1 : i)).filter((i) => i >= 0)
+      if (at.length) {
+        // The note box: every gap line, the heading or lead-in lines between them, and up to three
+        // such lines right above the first gap line (its heading).
+        let from = at[0]
+        while (from > 0 && at[0] - from < 3 && isContextLine(noteLines[from - 1])) from--
+        const box = noteLines
+          .slice(from, at[at.length - 1] + 1)
+          .map((raw, k) => ({ raw, gap: gapLines[from + k] }))
+          .filter(({ raw, gap }) => gap !== null || isContextLine(raw))
+        const numbered = box.some(({ raw, gap }) => gap === null && NUMBERED_RE.test(stripMd(raw)))
+        let leadIn = false
+        for (const { raw, gap } of box) {
+          const bullet = /^\s*[-•*–]\s+/.test(stripMd(raw))
+          const text = gap ?? stripMd(raw).replace(/^#+\s*/, '').replace(/^[-•*–]\s+/, '')
+          const heading = gap === null ? isHeadingLine(raw, text, bullet) : numbered && NUMBERED_RE.test(text)
+          if (heading) {
+            subtype = 'outline'
+            notes.push(`# ${text}`)
+            leadIn = false
+            continue
+          }
+          // Pasted text keeps its indentation; a Word file doesn't, so a dashed line (or a bare
+          // blank) under a lead-in line ("teff: 'supergrain':", "…because of: (Give 2 examples.)") is a sub-point.
+          const indent = (raw.replace(/\t/g, '  ').match(/^ */)?.[0].length ?? 0)
+          let depth = Math.min(2, Math.floor(indent / 2))
+          if (depth === 0 && leadIn && (bullet || /^\{\{\d{1,2}\}\}$/.test(text))) depth = 1
+          if (gap === null && depth === 0) leadIn = true
+          else if (depth === 0) leadIn = false
+          notes.push(`${'  '.repeat(depth)}${text}`)
+        }
       }
-      const l = stripMd(bullet)
-      // The filled-in example written without dots: "Crisis once ignored: climate change (0)".
-      const filled = l.match(/^(.{3,80}?:)\s*([^:.…_()]{1,40}?)\s*\(0\)\s*$/)
-      if (filled) {
-        noteExample.set('0', filled[2].trim())
-        notes.push(`${filled[1]} {{0}}`)
-        continue
-      }
-      const ids = [...l.matchAll(NUM)].map((m) => m[1])
-      const dots = [...l.matchAll(DOTS)]
-      if (ids.length === 0) continue
-      let converted: string
-      if (dots.length === ids.length) {
-        // Each dotted gap belongs to the next number on the line, wherever the number stands
-        // ("PPI also called …… inflation (2)"): the gap becomes {{n}}, the label goes.
-        let k = 0
-        converted = l.replace(DOTS, () => `{{${ids[k++]}}}`).replace(NUM, '')
-      } else if (dots.length === 0) {
-        continue
-      } else {
-        converted = l.replace(/(?:[.…_]{3,}\s*)?\((\d{1,2})\)(?:\s*[.…_]{3,})?/g, (_m, id: string) => `{{${id}}}`)
-      }
-      // "…… (0) Hungary": the example's answer printed after its gap.
-      converted = converted.replace(/\{\{0\}\}\s*([^{}]+)$/, (_m, ex: string) => {
-        noteExample.set('0', ex.trim())
-        return '{{0}}'
-      })
-      notes.push(converted.replace(/\s+([?.,;:!])/g, '$1').replace(/\s{2,}/g, ' ').trim())
     }
   }
 
@@ -334,6 +426,7 @@ export function parseListeningBundle(raw: string, hint: { format?: ListeningForm
   } else {
     const ids = [...new Set([...notes.join(' ').matchAll(/\{\{(\d{1,2})\}\}/g)].map((m) => m[1]).concat([...notesKey.keys()]))].sort((a, b) => Number(a) - Number(b))
     const answers: ListeningNoteAnswer[] = ids.map((id) => ({ id, accepted: notesKey.get(id) ?? (id === '0' && noteExample.get('0') ? [noteExample.get('0') as string] : ['']) }))
+    content.subtype = subtype
     content.notes = notes.length ? notes : ids.map((id) => `{{${id}}}`)
     content.answers = answers.length ? answers : [{ id: '0', accepted: [''] }]
     if (notes.length === 0) warnings.push('No notes lines with numbered gaps found.')

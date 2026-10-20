@@ -1,7 +1,15 @@
 import { TriangleAlert, OctagonX } from 'lucide-react'
 import { CRITERIA_BY_ID } from '../../data/examTaskCriteria'
 import { pick, useExamTaskCopy } from '../../data/examTaskCopy'
-import { MAX_ITEMS, type ListeningStatement, type ListeningTaskContent, type TrapType } from '../../lib/examTasks'
+import {
+  convertNotes,
+  MAX_ITEMS,
+  NOTES_SUBTYPES,
+  type ListeningStatement,
+  type ListeningTaskContent,
+  type NotesSubtype,
+  type TrapType,
+} from '../../lib/examTasks'
 import type { CheckReport } from '../../lib/listeningChecks'
 import { countWords } from '../../lib/listeningScript'
 import { cardClass, hintClass, inputClass, labelClass, secondaryButtonClass } from '../TeacherTools/ui'
@@ -142,14 +150,32 @@ export default function ItemsEditor({
     const nextAnswers = ids.map((id) => answers.find((a) => a.id === id) ?? { id, accepted: [''] })
     onChange({ ...content, notes, answers: nextAnswers.length ? nextAnswers : answers })
   }
+  const subtype = content.subtype ?? 'flat-bullets'
   return (
     <section className={cardClass}>
       <h2 className="font-semibold text-foreground">{c('items')}</h2>
       <label className={labelClass}>
+        {c('notesSubtype')}
+        <select
+          className={`${inputClass} mt-1`}
+          value={subtype}
+          onChange={(e) => {
+            const next = e.target.value as NotesSubtype
+            onChange({ ...content, subtype: next, notes: convertNotes(content.notes ?? [], next) })
+          }}
+        >
+          {NOTES_SUBTYPES.map((s) => (
+            <option key={s} value={s}>
+              {c(`subtype_${s}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className={labelClass}>
         {c('notesLines')}
         <textarea lang="en" className={`${inputClass} mt-1 min-h-48 font-mono text-sm`} value={notesText} onChange={(e) => setNotes(e.target.value)} />
       </label>
-      <p className={hintClass}>{c('notesHint')}</p>
+      <p className={hintClass}>{c(`notesHint_${subtype}`)}</p>
       <div>
         <p className={labelClass}>{c('answers')}</p>
         <p className={hintClass}>{c('answersHint')}</p>

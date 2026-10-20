@@ -69,9 +69,16 @@ export interface Transcript {
  * needs a heading), and the item's control is rendered right after it.
  */
 export interface PassageBlock {
-  style?: 'title' | 'heading' | 'label' | 'note' | 'bullet'
+  style?: 'title' | 'heading' | 'label' | 'note' | 'bullet' | 'row'
   text: string
   itemId?: string
+  /**
+   * Bullets: nesting level 0–2 (the exam task maker's notes). Unset, a bullet keeps the papers'
+   * own convention (a "– " prefix is a sub-bullet).
+   */
+  depth?: number
+  /** Rows: the label (left) cell of a two-column notes table; `text` is the answer cell. Consecutive rows form one table. */
+  label?: string
 }
 
 export interface DataTable {

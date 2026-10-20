@@ -12,6 +12,7 @@ import {
 import {
   EXAM_FIELDS,
   LISTENING_FORMATS,
+  NOTES_SUBTYPES,
   levelSpec,
   looksEnvironmental,
   OVERALL_NOTE_MAX,
@@ -424,7 +425,9 @@ export async function handleGenerate(req: VercelRequest, res: VercelResponse, us
   }
 
   const used = await checkDailyLimit(userId)
-  const input: GenerateInput = { level, format, field, style, source, avoid }
+  // The notes layout (wizard); unknown or missing → the flat bulleted list.
+  const subtype = format === 'notes' ? (NOTES_SUBTYPES.find((s) => s === body.subtype) ?? 'flat-bullets') : undefined
+  const input: GenerateInput = { level, format, field, style, source, avoid, subtype }
   let generated
   try {
     generated = await generateListeningTask(input, userId)
@@ -459,7 +462,8 @@ export async function handleRevise(req: VercelRequest, res: VercelResponse, user
   const used = await checkDailyLimit(userId)
   let revised
   try {
-    revised = await reviseListeningTask({ level, content, problems, keepScript: body.keepScript === true, teacherNote }, userId)
+    const field = EXAM_FIELDS.find((f) => f === body.field)
+    revised = await reviseListeningTask({ level, field, content, problems, keepScript: body.keepScript === true, teacherNote }, userId)
   } catch (err) {
     console.error('Exam task revision failed', err)
     throw new HttpError(502, { error: 'generation_failed' })

@@ -11,6 +11,7 @@ import {
   type ExamField,
   type ListeningFormat,
   type ListeningTaskContent,
+  type NotesSubtype,
   type ScriptStyle,
   type TaskLevel,
 } from '../../src/lib/examTasks.js'
@@ -48,10 +49,31 @@ export interface GenerateInput {
   style: ScriptStyle | 'infer'
   source: string
   avoid: string
+  /** Notes only: the layout of the notes box (default 'flat-bullets'). */
+  subtype?: NotesSubtype
 }
 
-function rules(level: TaskLevel, format: ListeningFormat): string {
-  const spec = levelSpec(level, format)
+/**
+ * The three notes layouts of the real B2/C1 exams (the user's analysis of 8 notes tasks), in the
+ * line markup of src/lib/examTasks.ts, each with a short model example.
+ */
+const NOTES_LAYOUT: Record<NotesSubtype, { rules: string; example: string[] }> = {
+  'flat-bullets': {
+    rules: `LAYOUT: flat bulleted notes under the topic title (like B2 "Notes on teaching woodworking to young people", C1 "Notes on Ethiopia's teff"). ONE list of short fragments, no headings. At most one sub-level: a line ending in ":" (or an unfinished phrase) may have 2–3 dash sub-points under it, each written as a line starting with two spaces.`,
+    example: ['teff: "supergrain":', '  high in {{1}} and calcium', '  gluten-free', 'With supervision, students', '  learn {{0}}', '  find new {{2}} path'],
+  },
+  'label-table': {
+    rules: `LAYOUT: a two-column NOTES table (like B2 "Smithfield market"). EVERY notes line is one table row written "description || {{n}}": the left cell is a descriptive noun phrase saying what the answer is (about 4–10 words, not a question), the right cell is only the blank. No headings, no sub-levels, one blank per row.`,
+    example: ['opening time of Smithfield market || {{0}}', 'type of meat market Smithfield is || {{1}}', 'competition to the market from the following players (Give 1 example.) || {{4}}'],
+  },
+  outline: {
+    rules: `LAYOUT: outline notes grouped under section headings (like a B2 economics lecture on unemployment, B2 "Notes on the lift business", C1 "the smell of old books", C1 "safety of shipping oil by rail"). A heading line starts with "# "; headings are numbered ("# 1. Frictional type") or unnumbered themes, some phrased as short questions ("# From where?"); a heading may itself hold a blank ("# 3. {{7}} type"). 3–5 headings, each followed by 1–4 telegraphic lines; a sub-point starts with two spaces per level (at most three levels: heading → line → sub-point). "→" may show cause and result ("more lifts → more {{5}}").`,
+    example: ['# 1. Frictional type', 'people between jobs: {{0}}', '# 2. Cyclical type', 'caused by: {{1}}', '  rises in a {{2}}', '# 3. {{3}} type'],
+  },
+}
+
+function rules(level: TaskLevel, format: ListeningFormat, field?: ExamField, subtype: NotesSubtype = 'flat-bullets'): string {
+  const spec = levelSpec(level, format, field)
   const common = `You are an expert Euroexam/Cambridge-style listening item-writer for the Hungarian Zöld Út exam (B1/B2/C1). Write ONE exam-ready listening task from the SOURCE the user sends.
 
 LEVEL ${level}. Audioscript ${spec.wordsMin}–${spec.wordsMax} words. ${spec.items} live items (1–${spec.items}) plus example item 0.
@@ -87,16 +109,19 @@ NOTES ITEMS (short-answer note completion)
 - The answer fits the blank grammatically ("a {{n}}" cannot take a plural or a vowel-initial word). Only one word or phrase in the script fits each note.
 - Answer types mix: verb/process, abstract noun, concrete object, adjective/quality, category noun, occupation. At most ${spec.maxNumeric} numeric answer${spec.maxNumeric === 1 ? '' : 's'} (numbers, dates, quantities); two numeric items never adjacent (at least two non-numeric items between) and no other figure of the same kind within about 150 words of a numeric answer. No two answers share a word root.
 - Final item: one of the most direct items; its calling word comes first, the answer is not spoken anywhere in the lead-up, at most 2 words, not numeric, not a proper noun, and at least 15 syllables of script follow it.
-- Two answers sharing one setup go in one note line with two blanks: "Brain scans found no harm to: {{9}}, or to their: {{10}}".
+- Two answers sharing one setup go in one note line with two blanks: "Brain scans found no harm to: {{9}}, or to their: {{10}}". A blank may hold a two-word answer ("Pricy luxury offers: {{10}} cabins and smarter {{11}}").
+- "(Give 1 example.)": when the script names several examples of the same thing, the note may ask for one; then "accepted" lists EVERY example spoken (each is a full right answer) and the marker covers the first. "(Give 2 examples.)": a lead-in line ending in "(Give 2 examples.)" with two indented lines under it, one blank each ("Pure internet retailers reject real stores because of: (Give 2 examples.)", "  {{1}}", "  {{2}}"); both blanks accept every example spoken.
+- ${NOTES_LAYOUT[subtype].rules}
+  Example lines: ${JSON.stringify(NOTES_LAYOUT[subtype].example)}
 - Environment or environmental-protection topics (climate, pollution, biodiversity, waste, sustainability…) are NEVER notes tasks: set "environmentTopic": true.`
 }
 
-function shape(format: ListeningFormat, level: TaskLevel): string {
+function shape(format: ListeningFormat, level: TaskLevel, subtype: NotesSubtype = 'flat-bullets'): string {
   const spec = levelSpec(level, format)
   const items =
     format === 'true-false'
       ? `"statements": [{"id": "0", "text": "…", "answer": "T", "trap": null}, … up to "${spec.items}"]  // answer "T" or "F"; trap "swap" | "conjunction" | null (null on true rows)`
-      : `"notes": ["Place of research: {{0}}", "…"],  // every {{0}}–{{${spec.items}}} exactly once, in order
+      : `"notes": [${JSON.stringify(NOTES_LAYOUT[subtype].example[0])}, "…"],  // ${subtype} layout markup; every {{0}}–{{${spec.items}}} exactly once, in order
   "answers": [{"id": "0", "accepted": ["the spoken answer", "accepted variant"]}, … up to "${spec.items}"]`
   return `Respond with ONLY a JSON object, no markdown:
 {
@@ -119,7 +144,7 @@ export function buildGeneratePrompt(input: GenerateInput): { systemPrompt: strin
       ? 'Infer from the source: replicate an interview/panel with speaker labels if the source is one, otherwise a single-narrator monologue.'
       : `Audioscript style: ${input.style}.`
   return {
-    systemPrompt: `${rules(input.level, input.format)}\n\n${shape(input.format, input.level)}`,
+    systemPrompt: `${rules(input.level, input.format, input.field, input.subtype)}\n\n${shape(input.format, input.level, input.subtype)}`,
     user: JSON.stringify({
       field: FIELD_LABEL[input.field],
       style,
@@ -136,7 +161,7 @@ export interface GeneratedTask {
 }
 
 /** Parses the model's reply into sanitized content; throws when it is unusable. */
-export function parseGeneratedTask(raw: string, input: Pick<GenerateInput, 'level' | 'format'>): GeneratedTask {
+export function parseGeneratedTask(raw: string, input: Pick<GenerateInput, 'level' | 'format'> & Partial<Pick<GenerateInput, 'field' | 'subtype'>>): GeneratedTask {
   const cleaned = raw.trim().replace(/^```(json)?/i, '').replace(/```$/, '').trim()
   const parsed = JSON.parse(cleaned) as Record<string, unknown>
   // Models sometimes return the whole instruction opening, or 'Notes on …', as the topic.
@@ -168,8 +193,9 @@ export function parseGeneratedTask(raw: string, input: Pick<GenerateInput, 'leve
     kind: 'listening',
     format: input.format,
     style: parsed.style,
-    instructions: standardInstruction(input.format, topic, input.level),
+    instructions: standardInstruction(input.format, topic, input.level, input.field),
     topic,
+    subtype: input.format === 'notes' ? (input.subtype ?? 'flat-bullets') : undefined,
     script: typeof parsed.script === 'string' ? parsed.script : '',
     statements,
     notes: parsed.notes,
@@ -229,10 +255,11 @@ async function callForTask<T>(systemPrompt: string, user: string, temperature: n
  * items are rewritten, as the skill does once a script is approved.
  */
 export async function reviseListeningTask(
-  args: { level: TaskLevel; content: ListeningTaskContent; problems: string[]; keepScript: boolean; teacherNote: string },
+  args: { level: TaskLevel; field?: ExamField; content: ListeningTaskContent; problems: string[]; keepScript: boolean; teacherNote: string },
   userId: string,
 ): Promise<GeneratedTask> {
-  const systemPrompt = `${rules(args.level, args.content.format)}
+  const subtype = args.content.subtype ?? 'flat-bullets'
+  const systemPrompt = `${rules(args.level, args.content.format, args.field, subtype)}
 
 YOU ARE REVISING an existing task. Fix every listed problem and keep everything else as it is.${
     args.keepScript
@@ -240,7 +267,7 @@ YOU ARE REVISING an existing task. Fix every listed problem and keep everything 
       : ' You may edit the audioscript where a problem needs it (spacing, word count, cues), keeping its facts.'
   }
 
-${shape(args.content.format, args.level)}`
+${shape(args.content.format, args.level, subtype)}`
   const user = JSON.stringify({
     problems: args.problems.slice(0, 40),
     teacherNote: args.teacherNote || undefined,
@@ -253,7 +280,7 @@ ${shape(args.content.format, args.level)}`
       answers: args.content.answers,
     },
   })
-  const revised = await callForTask(systemPrompt, user, 0.4, userId, (raw) => parseGeneratedTask(raw, { level: args.level, format: args.content.format }))
+  const revised = await callForTask(systemPrompt, user, 0.4, userId, (raw) => parseGeneratedTask(raw, { level: args.level, format: args.content.format, field: args.field, subtype: args.content.subtype }))
   if (args.keepScript) {
     // Enforce the freeze: if the words changed, keep the old script.
     const strip = (s: string) => s.replace(/\[\[\s*\d{1,2}\s*\|?|\]\]/g, '').replace(/\s+/g, ' ').trim()

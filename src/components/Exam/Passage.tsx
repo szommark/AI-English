@@ -83,7 +83,38 @@ export default function Passage({ task, blocks, valueOf, onChange }: Props) {
                 {block.text}
               </p>
             )
+          case 'row': {
+            // Consecutive rows are one two-column table, drawn at the first row.
+            if (blocks[i - 1]?.style === 'row') return null
+            const run: PassageBlock[] = []
+            for (let j = i; blocks[j]?.style === 'row'; j++) run.push(blocks[j])
+            return (
+              <div key={i} className="overflow-x-auto">
+                <table className="w-full border-collapse text-left leading-relaxed">
+                  <tbody>
+                    {run.map((row, k) => (
+                      <tr key={k} className="border border-border">
+                        <td className="w-1/2 border-r border-border px-3 py-2 align-middle">{row.label}</td>
+                        <td className="px-3 py-1 align-middle">{withGaps(row.text)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          }
           case 'bullet': {
+            if (block.depth !== undefined) {
+              const pad = ['pl-2', 'pl-8', 'pl-14'][Math.min(2, block.depth)]
+              return (
+                <p key={i} className={`flex gap-2 ${pad}`}>
+                  <span aria-hidden className="text-muted-foreground">
+                    {block.depth === 0 ? '•' : '–'}
+                  </span>
+                  <span>{withGaps(block.text)}</span>
+                </p>
+              )
+            }
             const sub = block.text.startsWith('– ')
             return (
               <p key={i} className={`flex gap-2 ${sub ? 'pl-8' : 'pl-2'}`}>

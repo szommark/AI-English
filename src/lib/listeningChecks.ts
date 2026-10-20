@@ -7,7 +7,9 @@ import { CRITERIA_BY_ID } from '../data/examTaskCriteria'
 import {
   levelSpec,
   looksEnvironmental,
+  noteChain,
   standardInstruction,
+  type ExamField,
   type ListeningTaskContent,
   type TaskLevel,
 } from './examTasks'
@@ -103,8 +105,8 @@ function msg(en: string, hu: string) {
   return { en, hu }
 }
 
-export function checkListeningTask(content: ListeningTaskContent, level: TaskLevel): CheckReport {
-  const spec = levelSpec(level, content.format)
+export function checkListeningTask(content: ListeningTaskContent, level: TaskLevel, field?: ExamField): CheckReport {
+  const spec = levelSpec(level, content.format, field)
   const script = parseScript(content.script)
   const findings: Finding[] = []
   const add = (criterionId: string, status: FindingStatus, detail: { en: string; hu: string }, itemId?: string) => {
@@ -211,7 +213,7 @@ export function checkListeningTask(content: ListeningTaskContent, level: TaskLev
   }
 
   // F. Instruction
-  const expected = standardInstruction(content.format, content.topic, level)
+  const expected = standardInstruction(content.format, content.topic, level, field)
   // A dialogue may say "Listen to the conversation/interview/discussion" where the standard has "text".
   const normalise = (s: string) =>
     s
@@ -426,18 +428,37 @@ function checkNotes(
       else roots.set(r, a.id)
     }
 
-    // The note line with this gap.
-    const line = lines.find((l) => l.includes(`{{${a.id}}}`))
-    if (!line) {
+    // The note line with this gap, under its heading and lead-in line (markup: examTasks.ts).
+    const chain = noteChain(lines, a.id)
+    const own = chain[chain.length - 1]
+    if (!own) {
       add('telegraphic', 'fail', msg(`No note line has the gap {{${a.id}}}.`, `Egyik jegyzetsorban sincs {{${a.id}}} hiány.`), a.id)
       continue
     }
-    // Only the words since the previous blank on the line ("…harm to: {{9}}, or to their capacity for: {{10}}").
-    const upTo = line.slice(0, line.indexOf(`{{${a.id}}}`))
-    const before = upTo.slice(upTo.lastIndexOf('}}') + 1).replace(/^[\s},]+/, '')
+    // "(Give 1 example.)": every example spoken is a right answer, so the key lists them all.
+    const asks = chain.map((l) => `${l.label ?? ''} ${l.text}`).join(' ').match(GIVE_RE)
+    if (asks && /\b(1|one)\b/i.test(asks[0]) && accepted.length < 2) {
+      add('acceptedVariants', 'warn', msg('The note asks for 1 example: list every example spoken in the script as an accepted answer.', 'A jegyzet 1 példát kér: a szövegben elhangzó összes példa kerüljön a kulcsba elfogadott válaszként.'), a.id)
+    }
+    // Only the words since the previous blank ("…harm to: {{9}}, or to their capacity for: {{10}}");
+    // a label-table row reads its label cell, a heading drops its number ("3. {{7}} type").
+    const cell = own.kind === 'row' ? `${own.label ?? ''} ${own.text}` : own.text
+    const upTo = cell.slice(0, cell.indexOf(`{{${a.id}}}`))
+    let before = upTo.slice(upTo.lastIndexOf('}}') + 1).replace(/^[\s},]+/, '').replace(GIVE_RE, ' ')
+    if (own.kind === 'heading') before = before.replace(/^\s*\d{1,2}[.)]\s*/, '')
     const beforeWords = before.split(/\s+/).map(normWord).filter(Boolean)
-    if (/\?\s*$/.test(line) || beforeWords.length > 9) add('telegraphic', 'fail', msg(`${beforeWords.length} words before the blank, or a question: write a short note.`, `${beforeWords.length} szó a hiány előtt, vagy kérdés: rövid jegyzet kell.`), a.id)
-    else if (beforeWords.length > 6) add('telegraphic', 'warn', msg(`${beforeWords.length} words before the blank (about 2–6).`, `${beforeWords.length} szó a hiány előtt (kb. 2–6).`), a.id)
+    if (own.kind === 'row') {
+      // Labels are descriptive phrases on the real sheets ("type of meat market Smithfield is").
+      if (beforeWords.length > 10) add('telegraphic', 'warn', msg(`The label has ${beforeWords.length} words (keep it to about 10).`, `A címke ${beforeWords.length} szó (kb. 10 legyen).`), a.id)
+    } else if (own.kind === 'line') {
+      if (/\?\s*$/.test(own.text) || beforeWords.length > 9) add('telegraphic', 'fail', msg(`${beforeWords.length} words before the blank, or a question: write a short note.`, `${beforeWords.length} szó a hiány előtt, vagy kérdés: rövid jegyzet kell.`), a.id)
+      else if (beforeWords.length > 6) add('telegraphic', 'warn', msg(`${beforeWords.length} words before the blank (about 2–6).`, `${beforeWords.length} szó a hiány előtt (kb. 2–6).`), a.id)
+    }
+    // A bare blank under a lead-in ("…reject real stores because of: (Give 2 examples.)") takes its cue from the lead-in.
+    const parent = chain.length > 1 && chain[chain.length - 2].kind === 'line' ? chain[chain.length - 2] : null
+    const cueWords = !hasContentWord(beforeWords) && parent
+      ? [...parent.text.replace(/\{\{\d{1,2}\}\}/g, ' ').replace(GIVE_RE, ' ').split(/\s+/).map(normWord).filter(Boolean), ...beforeWords]
+      : beforeWords
 
     // Grammatical fit with the article right before the blank.
     const lastBefore = beforeWords[beforeWords.length - 1]
@@ -446,7 +467,8 @@ function checkNotes(
     else if ((lastBefore === 'a' || lastBefore === 'an') && keyWords.length === 1 && /[^s]s$/.test(key) && key.length > 3) add('grammaticalFit', 'warn', msg(`"${lastBefore} ___" with a plural-looking "${key}".`, `„${lastBefore} ___” után többes számúnak tűnő „${key}”.`), a.id)
 
     // Calling word: the nearest content word before the blank, within 3 words, also said near the answer.
-    if (m && a.id !== '0') checkCallingWord(a.id, beforeWords, m, W, add)
+    // A heading's or an empty label's blank may take its cue after it ("……… type"): only a warning then.
+    if (m && a.id !== '0') checkCallingWord(a.id, cueWords, m, W, add, own.kind !== 'line')
   }
 
   stats.numericItems = numericItems
@@ -485,11 +507,18 @@ function checkNotes(
   }
 }
 
-function checkCallingWord(id: string, beforeWords: string[], m: MarkerSpan, W: ParsedScript['words'], add: Add) {
+/** "(Give 1 example.)" / "(Give 2 examples)" on a note line. */
+const GIVE_RE = /\(\s*give\s+(?:\d|one|two|three)\s+examples?\s*\.?\s*\)/i
+
+function hasContentWord(words: string[]): boolean {
+  return words.slice(-4).some((w) => !FUNCTION_WORDS.has(w) && !isFigure(w))
+}
+
+function checkCallingWord(id: string, beforeWords: string[], m: MarkerSpan, W: ParsedScript['words'], add: Add, lenient = false) {
   const near = beforeWords.slice(-4)
   const content = [...near].reverse().find((w) => !FUNCTION_WORDS.has(w) && !isFigure(w))
   if (!content) {
-    add('callingWord', 'fail', msg('No content word within 3 words before the blank (articles and prepositions do not count).', 'Nincs tartalmas szó a hiány előtti 3 szóban (névelő, elöljáró nem számít).'), id)
+    add('callingWord', lenient ? 'warn' : 'fail', msg('No content word within 3 words before the blank (articles and prepositions do not count).', 'Nincs tartalmas szó a hiány előtti 3 szóban (névelő, elöljáró nem számít).'), id)
     return
   }
   const target = stem(content)

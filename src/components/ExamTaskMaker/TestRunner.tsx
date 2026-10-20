@@ -106,8 +106,8 @@ export default function TestRunner({
 }) {
   const { c, lang } = useExamTaskCopy()
   const content = task.content
-  const paperTask = useMemo(() => toPaperTask(content, task.level), [content, task.level])
-  const report = useMemo(() => checkListeningTask(content, task.level), [content, task.level])
+  const paperTask = useMemo(() => toPaperTask(content, task.level, task.field), [content, task.level, task.field])
+  const report = useMemo(() => checkListeningTask(content, task.level, task.field), [content, task.level, task.field])
   const ids = itemIds(content)
   const live = ids.filter((id) => id !== '0')
 
