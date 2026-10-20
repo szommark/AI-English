@@ -250,7 +250,18 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
       )}
 
       {tab === 'test' && task && (dirty ? <p className={hintClass}>{c('saveFirst')}</p> : <TestRunner task={task} myReview={detail?.myReview ?? null} onSaved={onReload} />)}
-      {tab === 'results' && task && <ResultsView task={task} reviews={detail?.reviews ?? []} />}
+      {tab === 'results' && task && (
+        <ResultsView
+          task={task}
+          reviews={detail?.reviews ?? []}
+          editLocked={dirty}
+          onSaved={(saved) => {
+            // Keep the Create tab in step with the correction.
+            setDraft((d) => ({ ...d, content: saved.content }))
+            onReload()
+          }}
+        />
+      )}
 
       {tab === 'create' && (
         <>
