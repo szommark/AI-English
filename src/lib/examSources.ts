@@ -31,7 +31,8 @@ export interface SourceCandidate {
 export interface SkippedSource {
   title: string
   url: string
-  reason: 'fetch_failed' | 'summary_only'
+  /** tf_only: an environment topic, left out of a notes task's results. */
+  reason: 'fetch_failed' | 'summary_only' | 'tf_only'
 }
 
 export interface SourceSearchResult {

@@ -55,7 +55,7 @@ import { EXAM_FIELDS, LISTENING_FORMATS, TASK_GENERATIONS_PER_DAY, TASK_LEVELS }
 // Exam task maker (listening first; see api/_lib/examTasks.ts for every action):
 //   exam-tasks, exam-task-publish, exam-task-generate, exam-task-revise, exam-task-audio, exam-task-share,
 //   exam-task-review, teachers, teacher-pools
-//   POST exam-source-search   { topic, field, level, format? } → { sources, skipped, guardian, analysed, remaining }
+//   POST exam-source-search   { topic?, field, level, format? } → { sources, skipped, guardian, analysed, remaining }
 //                             (api/_lib/sourceFinder.ts; one analysis call, counted as a task generation)
 
 // AI task generation and TTS rendering can take tens of seconds.
@@ -255,7 +255,8 @@ async function handleSourceSearch(req: VercelRequest, res: VercelResponse, teach
   const body = (req.body ?? {}) as Record<string, unknown>
   const topic = typeof body.topic === 'string' ? body.topic.trim().replace(/\s+/g, ' ').slice(0, 120) : ''
   const level = TASK_LEVELS.find((l) => l === body.level)
-  if (!topic || !level) throw new HttpError(400, { error: 'topic and level are required' })
+  // The topic is optional: without one, the exam field decides what is searched.
+  if (!level) throw new HttpError(400, { error: 'level is required' })
   const field = EXAM_FIELDS.find((f) => f === body.field) ?? 'general'
   const format = LISTENING_FORMATS.find((f) => f === body.format)
   const used = await generationsToday(teacherId)

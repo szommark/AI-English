@@ -8,6 +8,7 @@ import ItemsEditor from '../components/ExamTaskMaker/ItemsEditor'
 import ResultsView from '../components/ExamTaskMaker/ResultsView'
 import ScriptView from '../components/ExamTaskMaker/ScriptView'
 import SharePanel from '../components/ExamTaskMaker/SharePanel'
+import PipelineStepper, { ownTestDone } from '../components/ExamTaskMaker/PipelineStepper'
 import StatusChip from '../components/ExamTaskMaker/StatusChip'
 import StartPanel, { type LoadedDraft, type Way } from '../components/ExamTaskMaker/StartPanel'
 import TestRunner from '../components/ExamTaskMaker/TestRunner'
@@ -125,6 +126,9 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
   const [pendingAudio, setPendingAudio] = useState<File | null>(null)
   const [confirmPublish, setConfirmPublish] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  // A freshly generated task goes straight into the pipeline: saved as a draft right away.
+  const [autoSave, setAutoSave] = useState(false)
+  const tested = !!task && ownTestDone(task, detail?.myReview ?? null)
 
   const report = useMemo(() => checkListeningTask(draft.content, draft.level, draft.field), [draft.content, draft.level, draft.field])
   const spec = levelSpec(draft.level, draft.content.format, draft.field)
@@ -151,7 +155,16 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
     setShowReplace(false)
     setNotice(d.notice ?? null)
     setPendingAudio(d.audioFile ?? null)
+    if (d.origin === 'generated' && !task) setAutoSave(true)
   }
+
+  useEffect(() => {
+    if (!autoSave || !loaded || !dirty || saving) return
+    setAutoSave(false)
+    void save(c('autoSaved'))
+    // save() reads the current draft; run once the generated draft is in state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSave, loaded, dirty, saving])
 
   function setFormat(format: ListeningFormat) {
     if (format === draft.content.format) return
@@ -159,7 +172,7 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
     setContent({ ...fresh, script: draft.content.script, topic: draft.content.topic, style: draft.content.style, instructions: standardInstruction(format, draft.content.topic, draft.level, draft.field) })
   }
 
-  async function save() {
+  async function save(handover?: string) {
     if (!draft.title.trim()) {
       setMessage(c('saveFailed', { error: c('taskTitle') }))
       return
@@ -182,7 +195,8 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
         }
         setMessage(audioFailed ? c('mp3Failed') : c('saved'))
       }
-      if (!task) navigate(`/teacher/tools/exam-tasks/${saved.id}`, { replace: true, state: audioFailed ? { notice: c('mp3Failed') } : null })
+      const handed = audioFailed ? c('mp3Failed') : handover
+      if (!task) navigate(`/teacher/tools/exam-tasks/${saved.id}`, { replace: true, state: handed ? { notice: handed } : null })
       else onReload()
     } catch (err) {
       setMessage(c('saveFailed', { error: err instanceof TeacherToolsError ? err.code : c('err_generic') }))
@@ -220,7 +234,8 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
       setMessage(c('published'))
       onReload()
     } catch (err) {
-      setMessage(err instanceof TeacherToolsError && err.code === 'revision_changed' ? c('err_revision_changed') : c('err_generic'))
+      const code = err instanceof TeacherToolsError ? err.code : ''
+      setMessage(code === 'revision_changed' ? c('err_revision_changed') : code === 'self_test_required' ? c('err_self_test_required') : c('err_generic'))
     } finally {
       setPublishing(false)
     }
@@ -255,15 +270,23 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
           )
         }
         actions={
-          tab === 'create' && (
+          (tab === 'create' || tab === 'results') && (
             <div className="flex flex-wrap items-center gap-3">
-              {dirty && <span className="text-xs text-amber-700">{c('unsaved')}</span>}
+              {tab === 'create' && dirty && <span className="text-xs text-amber-700">{c('unsaved')}</span>}
               {message && <span className="text-sm text-muted-foreground">{message}</span>}
-              <button type="button" className={task?.status === 'draft' ? secondaryButtonClass : primaryButtonClass} disabled={saving || !loaded} onClick={save}>
-                {saving ? c('saving') : c('save')}
-              </button>
+              {tab === 'create' && (
+                <button type="button" className={task?.status === 'draft' ? secondaryButtonClass : primaryButtonClass} disabled={saving || !loaded} onClick={() => save()}>
+                  {saving ? c('saving') : c('save')}
+                </button>
+              )}
               {task?.status === 'draft' && (
-                <button type="button" className={primaryButtonClass} disabled={dirty || saving || publishing} title={dirty ? c('saveFirst') : undefined} onClick={() => setConfirmPublish(true)}>
+                <button
+                  type="button"
+                  className={primaryButtonClass}
+                  disabled={dirty || saving || publishing || !tested}
+                  title={dirty ? c('saveFirst') : !tested ? c('publishNeedsTest') : undefined}
+                  onClick={() => setConfirmPublish(true)}
+                >
                   {c('publish')}
                 </button>
               )}
@@ -272,7 +295,15 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
         }
       />
 
-      {tab === 'create' && task?.status === 'draft' && confirmPublish && (
+      <PipelineStepper
+        task={task}
+        myReview={detail?.myReview ?? null}
+        dirty={dirty}
+        current={tab}
+        onGo={(t) => setParams(t === 'create' ? {} : { tab: t }, { replace: true })}
+      />
+
+      {(tab === 'create' || tab === 'results') && task?.status === 'draft' && tested && confirmPublish && (
         <div role="dialog" aria-labelledby="publish-title" className={cardClass}>
           <h2 id="publish-title" className="font-semibold text-foreground">
             {c('publishConfirmTitle', { n: task.revision })}
@@ -295,7 +326,7 @@ function Editor({ detail, back, onReload }: { detail: ExamTaskDetail | null; bac
       )}
 
       {task && (
-        <div role="tablist" className="flex gap-1 border-b border-border">
+        <div role="tablist" className="flex gap-1 overflow-x-auto border-b border-border">
           {tabs.map((t) => (
             <button
               key={t.id}
