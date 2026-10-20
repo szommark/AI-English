@@ -61,8 +61,8 @@ export function autoMarkScript(content: ListeningTaskContent): AutoMarkResult {
 
   const items =
     content.format === 'true-false'
-      ? (content.statements ?? []).map((s) => ({ id: s.id, text: s.text }))
-      : (content.answers ?? []).map((a) => ({ id: a.id, text: a.accepted[0] ?? '' }))
+      ? (content.statements ?? []).map((s) => ({ id: s.id, text: s.text, variants: [s.text] }))
+      : (content.answers ?? []).map((a) => ({ id: a.id, text: a.accepted.join(' '), variants: a.accepted.filter((v) => v.trim()) }))
 
   for (const item of items) {
     if (!item.text.trim()) {
@@ -72,14 +72,17 @@ export function autoMarkScript(content: ListeningTaskContent): AutoMarkResult {
     let hit: { start: number; end: number } | null = null
 
     if (content.format === 'notes') {
-      const needle = item.text.split(/\s+/).map(normWord).filter(Boolean)
-      const find = (from: number) => {
+      // Any accepted form may be the spoken one (key "2022 / twenty twenty-two").
+      const find = (needle: string[], from: number) => {
         for (let i = from; i + needle.length <= tokens.length; i++) {
           if (needle.every((w, k) => tokens[i + k].norm === w)) return { start: i, end: i + needle.length - 1 }
         }
         return null
       }
-      hit = find(cursor) ?? find(0)
+      const needles = item.variants.map((v) => v.split(/\s+/).map(normWord).filter(Boolean)).filter((n) => n.length)
+      const after = needles.map((n) => find(n, cursor)).filter((h): h is { start: number; end: number } => !!h)
+      const anywhere = needles.map((n) => find(n, 0)).filter((h): h is { start: number; end: number } => !!h)
+      hit = (after.length ? after : anywhere).sort((a, b) => a.start - b.start)[0] ?? null
     } else {
       const wanted = new Set(contentStems(item.text))
       if (wanted.size === 0) {

@@ -73,9 +73,20 @@ function isNumeric(answer: string): boolean {
 }
 
 /** Rough stem for "same root" and inflection matching: first 5 letters, or the whole short word. */
+/** Common irregular verb forms → base, so "paid" in a note matches "paying" in the script. */
+const IRREGULAR: Record<string, string> = {
+  paid: 'pay', said: 'say', made: 'make', bought: 'buy', brought: 'bring', thought: 'think', taught: 'teach', caught: 'catch',
+  found: 'find', built: 'build', spent: 'spend', sent: 'send', lent: 'lend', kept: 'keep', left: 'leave', felt: 'feel',
+  held: 'hold', told: 'tell', sold: 'sell', went: 'go', gone: 'go', came: 'come', gave: 'give', given: 'give', took: 'take',
+  taken: 'take', grew: 'grow', grown: 'grow', rose: 'rise', risen: 'rise', fell: 'fall', fallen: 'fall', began: 'begin',
+  begun: 'begin', ran: 'run', won: 'win', lost: 'lose', met: 'meet', led: 'lead', saw: 'see', seen: 'see', knew: 'know',
+  known: 'know', wrote: 'write', written: 'write', drove: 'drive', driven: 'drive', chose: 'choose', chosen: 'choose',
+}
+
 export function stem(w: string): string {
-  const s = w.replace(/(ies|es|s|ed|ing|ly)$/, '')
-  return (s.length >= 4 ? s : w).slice(0, 5)
+  const base = IRREGULAR[w] ?? w
+  const s = base.replace(/(ies|es|s|ed|ing|ly)$/, '')
+  return (s.length >= 3 ? s : base).slice(0, 5)
 }
 
 function figureKind(w: string): 'percent' | 'year' | 'number' {
@@ -201,7 +212,14 @@ export function checkListeningTask(content: ListeningTaskContent, level: TaskLev
 
   // F. Instruction
   const expected = standardInstruction(content.format, content.topic, level)
-  const normalise = (s: string) => s.toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ').trim()
+  // A dialogue may say "Listen to the conversation/interview/discussion" where the standard has "text".
+  const normalise = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[’']/g, "'")
+      .replace(/^listen to the (conversation|interview|discussion|dialogue)\b/, 'listen to the text')
+      .replace(/\s+/g, ' ')
+      .trim()
   if (normalise(content.instructions) !== normalise(expected)) {
     add('instructionWording', 'fail', msg('The instruction differs from the standard sentence.', 'Az utasítás eltér a szabványos mondattól.'))
   }
@@ -368,11 +386,15 @@ function checkNotes(
   }
 
   for (const a of answers) {
-    const key = a.accepted[0]?.trim() ?? ''
-    if (!key) {
+    const accepted = a.accepted.map((v) => v.trim()).filter(Boolean)
+    if (accepted.length === 0) {
       add('extractable', 'fail', msg(`Item ${a.id} has no answer in the key.`, `A(z) ${a.id}. itemnek nincs kulcsa.`), a.id)
       continue
     }
+    // The form spoken at the marker may be any accepted variant (key "2022 / twenty twenty-two").
+    const mk = markerOf.get(a.id)
+    const markedWords = mk ? W.slice(mk.start, mk.end).map((w) => w.norm) : []
+    const key = accepted.find((v) => indexOfRun(markedWords, words(v)) >= 0) ?? accepted[0]
     const keyWords = words(key)
     for (const v of a.accepted) {
       const n = countWords(v)
