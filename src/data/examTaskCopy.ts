@@ -128,9 +128,6 @@ const COPY = {
   wiz_levelQ: { hu: 'Milyen szintű legyen a feladat?', en: 'Which level is the task for?' },
   wiz_typeQ: { hu: 'Milyen típusú feladat legyen?', en: 'Which task type?' },
   wiz_subtypeQ: { hu: 'Milyen formájú legyen a jegyzet?', en: 'Which notes layout?' },
-  'subtype_flat-bullets': { hu: 'Felsorolásos jegyzet témacím alatt', en: 'Flat bulleted notes under a title' },
-  'subtype_label-table': { hu: 'Címkés jegyzettáblázat', en: 'Label and answer table' },
-  subtype_outline: { hu: 'Fejezetcímes vázlat-jegyzet', en: 'Outline notes with headings' },
   wiz_labelTableB2: {
     hu: 'A címkés táblázat csak B2-n fordul elő (C1-es vizsga nem használja); B2-n választható.',
     en: 'The label and answer table only appears at B2 (no C1 exam uses it); choose B2 to use it.',

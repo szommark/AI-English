@@ -1,8 +1,18 @@
 import { useState, type ReactNode } from 'react'
 import { useExamTaskCopy, type ExamTaskCopyKey } from '../../data/examTaskCopy'
 import { generateExamTask } from '../../lib/examTaskApi'
-import { NOTES_SUBTYPES, type NotesSubtype, type SourceCandidate } from '../../lib/examSources'
-import { EXAM_FIELDS, levelSpec, TASK_LEVELS, type ExamField, type ListeningFormat, type ScriptStyle, type TaskLevel } from '../../lib/examTasks'
+import type { SourceCandidate } from '../../lib/examSources'
+import {
+  EXAM_FIELDS,
+  levelSpec,
+  NOTES_SUBTYPES,
+  TASK_LEVELS,
+  type ExamField,
+  type ListeningFormat,
+  type NotesSubtype,
+  type ScriptStyle,
+  type TaskLevel,
+} from '../../lib/examTasks'
 import { TeacherToolsError } from '../../lib/teacherToolsApi'
 import { hintClass, inputClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../TeacherTools/ui'
 import SourceFinder from './SourceFinder'

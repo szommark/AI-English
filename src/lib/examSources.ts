@@ -42,7 +42,3 @@ export interface SourceSearchResult {
   /** False when the vocabulary analysis call failed. */
   analysed: boolean
 }
-
-/** Notes layouts (the notes-subtypes work owns their content model; the wizard only sends the choice). */
-export type NotesSubtype = 'flat-bullets' | 'label-table' | 'outline'
-export const NOTES_SUBTYPES: NotesSubtype[] = ['flat-bullets', 'label-table', 'outline']

@@ -9,6 +9,7 @@ import type {
   ItemReview,
   ListeningFormat,
   ListeningTaskContent,
+  NotesSubtype,
   ReviewerStatus,
   ScriptStyle,
   TaskLevel,
@@ -88,7 +89,7 @@ export async function generateExamTask(input: {
   avoid?: string
   ignoreEnvironment?: boolean
   /** Notes layout chosen in the creation wizard (notes tasks only). */
-  subtype?: 'flat-bullets' | 'label-table' | 'outline'
+  subtype?: NotesSubtype
 }): Promise<{ draft: TaskDraft; remaining: number }> {
   return request(`${BASE}exam-task-generate`, { method: 'POST', body: JSON.stringify(input) })
 }
