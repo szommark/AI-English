@@ -73,14 +73,14 @@ export default function SourceFinder({
         className="flex flex-wrap items-end gap-2"
         onSubmit={(e) => {
           e.preventDefault()
-          if (topic.trim() && !busy) search()
+          if (!busy) search()
         }}
       >
         <label className={`${labelClass} min-w-56 flex-1`}>
           {c('src_topic')}
           <input className={`${inputClass} mt-1`} value={topic} maxLength={120} placeholder={c('src_topicPlaceholder')} onChange={(e) => setTopic(e.target.value)} />
         </label>
-        <button type="submit" className={primaryButtonClass} disabled={!topic.trim() || busy}>
+        <button type="submit" className={primaryButtonClass} disabled={busy}>
           {busy ? c('src_searching') : c('src_search')}
         </button>
       </form>

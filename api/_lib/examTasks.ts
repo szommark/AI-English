@@ -56,7 +56,8 @@ import { cleanScript } from '../../src/lib/listeningScript.js'
 //   PUT    exam-tasks&id=             update (owner); a content change bumps the revision and
 //                                     puts the task back to draft
 //   DELETE exam-tasks&id=             (owner)
-//   POST   exam-task-publish&id=      (owner) publish the current revision for review → { task }
+//   POST   exam-task-publish&id=      (owner) publish the current revision for review → { task };
+//                                     409 self_test_required until the owner submitted their own test of it
 //   POST   exam-task-generate         { level, format, field, style, sourceText | sourceUrl, avoid } → { draft, remaining }
 //                                     409 environment_topic when a notes task is about the environment
 //   POST   exam-task-revise           { level, content, problems, keepScript, teacherNote } → { draft, remaining }
@@ -373,6 +374,18 @@ export async function handlePublish(req: VercelRequest, res: VercelResponse, use
   if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
   const { row, isOwner } = await loadTask(idFrom(req), userId)
   if (!isOwner) throw new HttpError(404, { error: 'Not found' })
+  // The pipeline is Creation → Testing → Results → Published for review: the owner publishes only
+  // after submitting their own test of this exact revision.
+  const { data: ownTest, error: testError } = await supabaseAdmin
+    .from('exam_task_reviews')
+    .select('submitted_at')
+    .eq('task_id', row.id)
+    .eq('reviewer_id', userId)
+    .eq('revision', row.revision)
+    .not('submitted_at', 'is', null)
+    .maybeSingle()
+  if (testError) throw testError
+  if (!ownTest) throw new HttpError(409, { error: 'self_test_required' })
   const { data, error } = await supabaseAdmin
     .from('exam_tasks')
     .update({ status: 'published', published_revision: row.revision, published_at: new Date().toISOString() })
