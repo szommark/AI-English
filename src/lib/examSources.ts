@@ -3,6 +3,14 @@
 
 export type SourceProvider = 'govuk' | 'govuk-blog' | 'guardian'
 
+/** Share of the text (percent, 0–100) given to each subject; the rest is other content. */
+export interface TopicShares {
+  technology: number
+  economics: number
+  agriculture: number
+  environment: number
+}
+
 export interface SourceCandidate {
   title: string
   url: string
@@ -26,13 +34,14 @@ export interface SourceCandidate {
   /** Too few facts for the items plus a margin, or too little text. */
   thin: boolean
   topicFit: 'good' | 'partial' | 'off' | null
+  /** Helps the teacher decide whether an environment-topic source can still carry a notes task. */
+  topicShares: TopicShares | null
 }
 
 export interface SkippedSource {
   title: string
   url: string
-  /** tf_only: an environment topic, left out of a notes task's results. */
-  reason: 'fetch_failed' | 'summary_only' | 'tf_only'
+  reason: 'fetch_failed' | 'summary_only'
 }
 
 export interface SourceSearchResult {

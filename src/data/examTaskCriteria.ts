@@ -307,9 +307,12 @@ export const CRITERIA: Criterion[] = [
     test: { en: 'Matches the standard sentence, including the T/F disqualification note', hu: 'Megegyezik a szabványos mondattal, az I/H kizárási megjegyzéssel együtt' },
   },
   {
-    id: 'environmentRule', group: 'F', severity: 'blocker', source: 'reviewer', formats: NOTES, scope: 'task', auto: true,
+    id: 'environmentRule', group: 'F', severity: 'warning', source: 'reviewer', formats: NOTES, scope: 'task', auto: true,
     label: { en: 'Environment topic as notes task', hu: 'Környezetvédelmi téma jegyzetfeladatként' },
-    test: { en: 'Environment and environmental-protection topics are True/False only', hu: 'Környezeti és környezetvédelmi téma csak Igaz/Hamis lehet' },
+    test: {
+      en: 'Environment topics are usually True/False; a notes task needs enough technical, economic or agricultural content (the teacher decides)',
+      hu: 'Környezeti téma általában Igaz/Hamis; jegyzetfeladathoz elég műszaki, gazdasági vagy mezőgazdasági tartalom kell (a tanár dönt)',
+    },
   },
 ]
 
