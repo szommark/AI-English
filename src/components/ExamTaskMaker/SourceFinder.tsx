@@ -5,6 +5,7 @@ import { searchExamSources } from '../../lib/examTaskApi'
 import { levelSpec, type ExamField, type ListeningFormat, type TaskLevel } from '../../lib/examTasks'
 import type { SourceCandidate, SourceSearchResult } from '../../lib/examSources'
 import { TeacherToolsError } from '../../lib/teacherToolsApi'
+import TopicSharesBar from './TopicSharesBar'
 import { hintClass, inputClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../TeacherTools/ui'
 
 const chipClass = 'rounded-full bg-muted px-2 py-0.5 text-xs text-foreground'
@@ -132,6 +133,7 @@ export default function SourceFinder({
                   <p className={`text-xs ${format === 'notes' && s.figures > 6 ? 'text-amber-800' : 'text-muted-foreground'}`}>
                     {c(format === 'notes' ? 'src_figuresNotes' : 'src_figuresTf', { n: s.figures })}
                   </p>
+                  {s.topicShares && <TopicSharesBar shares={s.topicShares} />}
                   {s.formatNote && <p className="text-sm text-foreground">{s.formatNote}</p>}
                   {s.vocabulary.length > 0 && (
                     <div className="text-sm">

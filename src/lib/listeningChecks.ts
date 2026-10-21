@@ -384,7 +384,8 @@ function checkNotes(
   const live = answers.filter((a) => a.id !== '0')
 
   if (looksEnvironmental(script.clean)) {
-    add('environmentRule', 'fail', msg('The script looks like an environment topic: these must be True/False tasks.', 'A szöveg környezetvédelmi témájúnak tűnik: ez csak Igaz/Hamis feladat lehet.'))
+    // The teacher may keep notes completion for an environment topic: a warning, not a blocker.
+    add('environmentRule', 'warn', msg('The script looks like an environment topic, usually a True/False task. Keep notes only if it has enough technical, economic or agricultural content.', 'A szöveg környezetvédelmi témájúnak tűnik, ebből általában Igaz/Hamis feladat készül. Jegyzetfeladat akkor maradjon, ha elég benne a műszaki, gazdasági vagy mezőgazdasági tartalom.'))
   }
 
   for (const a of answers) {

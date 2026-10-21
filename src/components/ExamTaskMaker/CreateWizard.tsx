@@ -16,6 +16,7 @@ import {
 import { TeacherToolsError } from '../../lib/teacherToolsApi'
 import { hintClass, inputClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../TeacherTools/ui'
 import SourceFinder from './SourceFinder'
+import TopicSharesBar from './TopicSharesBar'
 import type { LoadedDraft } from './StartPanel'
 
 // Guided AI creation in the order of the listening-task-intake skill: level → task type (and
@@ -81,6 +82,8 @@ export default function CreateWizard({
   const [error, setError] = useState<string | null>(null)
   const [remaining, setRemaining] = useState<number | null>(null)
   const [envAsk, setEnvAsk] = useState(false)
+  // The teacher kept notes completion for an environment topic: generation skips the check.
+  const [keepNotes, setKeepNotes] = useState(false)
 
   const current = STEPS[step]
   const ownOk = sourceText.trim().split(/\s+/).length >= 80 || /^https?:\/\//.test(sourceUrl.trim())
@@ -91,7 +94,7 @@ export default function CreateWizard({
     if (!subtypesFor(l).includes(subtype)) setSubtype('flat-bullets')
   }
 
-  async function generate(forceFormat?: ListeningFormat) {
+  async function generate(forceFormat?: ListeningFormat, forceKeep = false) {
     setBusy(true)
     setError(null)
     setEnvAsk(false)
@@ -107,6 +110,7 @@ export default function CreateWizard({
         ...source,
         avoid,
         ...(useFormat === 'notes' ? { subtype } : {}),
+        ...(useFormat === 'notes' && (keepNotes || forceKeep) ? { ignoreEnvironment: true } : {}),
       })
       setRemaining(left)
       onLoad({
@@ -255,11 +259,19 @@ export default function CreateWizard({
           </p>
           {!sourceOk && <p className="text-sm text-amber-800">{c('wiz_noSource')}</p>}
           {sourceMode === 'find' && picked?.environmental && format === 'notes' && (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              <span>{c('src_envWarn')}</span>
-              <button type="button" className={secondaryButtonClass} onClick={() => onFormat('true-false')}>
-                {c('envSwitch')}
-              </button>
+            <div className="space-y-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <p>{keepNotes ? c('envKept') : c('src_envWarn')}</p>
+              {picked.topicShares && <TopicSharesBar shares={picked.topicShares} />}
+              {!keepNotes && (
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className={secondaryButtonClass} onClick={() => onFormat('true-false')}>
+                    {c('envSwitch')}
+                  </button>
+                  <button type="button" className={secondaryButtonClass} onClick={() => setKeepNotes(true)}>
+                    {c('envKeepNotes')}
+                  </button>
+                </div>
+              )}
             </div>
           )}
           <label className={labelClass}>
@@ -305,6 +317,16 @@ export default function CreateWizard({
                   }}
                 >
                   {c('envChange')}
+                </button>
+                <button
+                  type="button"
+                  className={secondaryButtonClass}
+                  onClick={() => {
+                    setKeepNotes(true)
+                    generate(undefined, true)
+                  }}
+                >
+                  {c('envKeepNotes')}
                 </button>
               </div>
             </div>

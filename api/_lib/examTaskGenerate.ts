@@ -113,7 +113,7 @@ NOTES ITEMS (short-answer note completion)
 - "(Give 1 example.)": when the script names several examples of the same thing, the note may ask for one; then "accepted" lists EVERY example spoken (each is a full right answer) and the marker covers the first. "(Give 2 examples.)": a lead-in line ending in "(Give 2 examples.)" with two indented lines under it, one blank each ("Pure internet retailers reject real stores because of: (Give 2 examples.)", "  {{1}}", "  {{2}}"); both blanks accept every example spoken.
 - ${NOTES_LAYOUT[subtype].rules}
   Example lines: ${JSON.stringify(NOTES_LAYOUT[subtype].example)}
-- Environment or environmental-protection topics (climate, pollution, biodiversity, waste, sustainability…) are NEVER notes tasks: set "environmentTopic": true.`
+- If the source is mainly an environment or environmental-protection topic (climate, pollution, biodiversity, waste, sustainability…), set "environmentTopic": true. Such topics are usually True/False tasks, but the teacher may keep notes completion: then build the notes on the technical, economic or agricultural facts of the text.`
 }
 
 function shape(format: ListeningFormat, level: TaskLevel, subtype: NotesSubtype = 'flat-bullets'): string {
