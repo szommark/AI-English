@@ -2,6 +2,7 @@ import type { PronunciationCheckResult } from '../../lib/types'
 import { overallSessionScore, PRODUCTION_WEIGHT } from '../../lib/pronunciationScoring'
 import type { RoundResult } from './StageSummary'
 import { sheet, useSheetLook } from './DrillCard'
+import ScoreBar from '../PronunciationPractice/ScoreBar'
 
 function scoreColor(score: number): string {
   if (score >= 80) return 'text-emerald-700'
@@ -59,11 +60,49 @@ export default function SessionSummaryStage({
         ? Math.round(productionScore)
         : overallSessionScore(perceptionScore, productionScore)
 
+  // The sound sheet shows each step and the total as % bars, like its Pronunciation tab's result.
+  // Labels and numbers match the sheet's step ovals.
+  if (sheetLook) {
+    const rows = [
+      ...(cardResults ? [{ label: 'Kártyák', score: cardScore }] : []),
+      { label: 'Melyik szó?', score: fcScore },
+      { label: 'Melyikben van?', score: ooScore },
+      { label: 'Diktálás', score: dictationScore },
+      ...(productionScore !== null ? [{ label: 'Kiejtés', score: productionScore }] : []),
+    ]
+    return (
+      <div className="space-y-5">
+        <h3 className="text-base font-semibold text-foreground">Összesítés</h3>
+        <ul className="space-y-2">
+          {rows.map((row, i) => (
+            <li key={row.label} className="grid grid-cols-[8rem_1fr] items-center gap-3 text-sm">
+              <span className="text-foreground">
+                {i + 1}. {row.label}
+              </span>
+              {row.score === null ? (
+                <span className="text-muted-foreground">kihagyva</span>
+              ) : (
+                <ScoreBar score={row.score} label={row.label} />
+              )}
+            </li>
+          ))}
+          <li className="grid grid-cols-[8rem_1fr] items-center gap-3 border-t border-border pt-2 text-sm font-semibold">
+            <span className="text-foreground">Összpontszám</span>
+            <ScoreBar score={overallScore} label="Összpontszám" />
+          </li>
+        </ul>
+        <button onClick={onFinish} className={sheet.primaryButton}>
+          Befejezés
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="text-center">
         <p className={`text-4xl font-bold ${scoreColor(overallScore)}`}>{overallScore}</p>
-        <p className={sheetLook ? sheet.prompt : 'text-sm text-slate-500'}>{productionScore === null ? 'Hallásgyakorlatok pontszáma' : 'Összesített pontszám'}</p>
+        <p className="text-sm text-slate-500">{productionScore === null ? 'Hallásgyakorlatok pontszáma' : 'Összesített pontszám'}</p>
         {productionScore !== null && (
           <p className="text-xs text-slate-400">
             {perceptionScore === undefined
@@ -73,13 +112,7 @@ export default function SessionSummaryStage({
         )}
       </div>
 
-      <div
-        className={
-          sheetLook
-            ? 'divide-y divide-border rounded-lg bg-secondary text-sm'
-            : 'rounded-lg bg-slate-50 border border-slate-200 divide-y divide-slate-200 text-sm'
-        }
-      >
+      <div className="rounded-lg bg-slate-50 border border-slate-200 divide-y divide-slate-200 text-sm">
         {cardResults && <SummaryRow label="Hallod a hangot?" score={cardScore} detail={tally(cardResults)} />}
         <SummaryRow label="Melyik szót hallottad?" score={fcScore} detail={tally(fcResults)} />
         <SummaryRow label="Melyikben van a hang?" score={ooScore} detail={tally(ooResults)} />
@@ -93,7 +126,7 @@ export default function SessionSummaryStage({
         )}
       </div>
 
-      <button onClick={onFinish} className={sheetLook ? sheet.primaryButton : 'rounded-lg bg-rose-600 text-white text-sm font-medium px-4 py-2 hover:bg-rose-700'}>
+      <button onClick={onFinish} className="rounded-lg bg-rose-600 text-white text-sm font-medium px-4 py-2 hover:bg-rose-700">
         Befejezés
       </button>
     </div>

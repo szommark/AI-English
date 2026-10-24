@@ -326,14 +326,20 @@ export default function DrillFunnel({
   const stageIndex =
     stage === 'cards' || stage === 'cards-summary' ? 0 : Math.min(stageCount - 1, STAGE_INDEX[stage] + (hasCards ? 1 : 0))
 
-  // The sheet shows the stages as labelled ovals (with each finished stage's score) instead of the dots.
-  const tally = (results: RoundResult[]) => `${results.filter((r) => r.correct).length}/${results.length}`
-  const roundsDone = (results: RoundResult[], rounds: number) => (results.length >= rounds ? tally(results) : undefined)
+  // The sheet shows the stages as labelled ovals (with each finished stage's % score) instead of the dots.
+  const percent = (results: RoundResult[]) => `${Math.round((results.filter((r) => r.correct).length / results.length) * 100)}%`
+  const roundsDone = (results: RoundResult[], rounds: number) => (results.length >= rounds ? percent(results) : undefined)
   const sheetSteps: SheetStep[] = [
-    ...(hasCards ? [{ label: 'Kártyák', score: stage !== 'cards' && cardResults.length > 0 ? tally(cardResults) : undefined }] : []),
+    ...(hasCards ? [{ label: 'Kártyák', score: stage !== 'cards' && cardResults.length > 0 ? percent(cardResults) : undefined }] : []),
     { label: 'Melyik szó?', score: roundsDone(fcResults, ROUNDS) },
     { label: 'Melyikben van?', score: roundsDone(ooResults, ROUNDS) },
-    { label: 'Diktálás', score: dictationSubmitted ? `${dictationStats.matched}/${dictationStats.total}` : undefined },
+    {
+      label: 'Diktálás',
+      score:
+        dictationSubmitted && dictationStats.total > 0
+          ? `${Math.round((dictationStats.matched / dictationStats.total) * 100)}%`
+          : undefined,
+    },
     ...(listeningOnly
       ? []
       : [{ label: 'Kiejtés', score: productionResult ? `${Math.round(productionResult.scores.pronunciation)}%` : undefined }]),
