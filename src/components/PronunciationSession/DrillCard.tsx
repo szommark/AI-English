@@ -20,7 +20,8 @@ export const sheet = {
     'inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-40',
   replayButton:
     'inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-foreground hover:bg-secondary disabled:opacity-40',
-  prompt: 'text-sm text-muted-foreground',
+  /** A stage's question: the sheet's right-hand heading style ("Mouth and tongue"). */
+  prompt: 'text-sm font-medium text-foreground',
   word: 'text-3xl font-semibold tracking-tight sm:text-4xl',
 }
 
@@ -34,26 +35,33 @@ function SoundWave() {
   )
 }
 
+/**
+ * In the sheet look the card is split by a dim line like How to make it: left, the label and the
+ * title in the sheet's /sound/ size, the soundwave and `aside` (the play and speed controls);
+ * right, the stage. Stacked on narrow screens.
+ */
 export default function DrillCard({
   title,
   titleHu,
+  aside,
   children,
 }: {
   title: string
   titleHu: string
+  /** Sheet look only: shown under the title on the left. */
+  aside?: React.ReactNode
   children: React.ReactNode
 }) {
   if (useSheetLook()) {
     return (
-      <section className="rounded-2xl border border-rose-200 bg-card p-6 shadow-[var(--shadow-card)] sm:p-8">
-        <div className="mb-6 flex items-center justify-between gap-3 border-b border-border pb-4">
-          <div>
-            <h2 className="text-sm font-medium text-foreground">{title}</h2>
-            <p className="text-sm text-muted-foreground">{titleHu}</p>
-          </div>
+      <section className="grid gap-6 rounded-2xl border border-rose-200 bg-card p-6 shadow-[var(--shadow-card)] sm:p-8 md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:gap-8">
+        <div className="space-y-4">
+          <h2 className="text-sm font-medium text-muted-foreground">{titleHu}</h2>
+          <p className="text-3xl font-semibold text-foreground">{title}</p>
           <SoundWave />
+          {aside}
         </div>
-        {children}
+        <div className="border-t border-border pt-6 md:border-l md:border-t-0 md:pl-8 md:pt-0">{children}</div>
       </section>
     )
   }

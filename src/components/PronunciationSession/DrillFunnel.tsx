@@ -59,6 +59,15 @@ function awardStageXp(soundItemId: string, stage: number, accuracy: number) {
   })
 }
 
+/**
+ * The item's sounds as classic phonetic symbols ("æ / e" → "/æ/ – /e/"), the sound sheet's card title.
+ * Falls back to the plain title for items whose `ipa` is a description (e.g. "gyenge alakok").
+ */
+function phoneticTitle(item: PronunciationSoundItem): string {
+  const sounds = item.ipa.split(' / ').map((p) => p.trim())
+  return sounds.every((p) => p && !p.includes(' ')) ? sounds.map((p) => `/${p}/`).join(' – ') : item.title
+}
+
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]
 }
@@ -330,6 +339,19 @@ export default function DrillFunnel({
       : [{ label: 'Kiejtés', score: productionResult ? `${Math.round(productionResult.scores.pronunciation)}%` : undefined }]),
   ]
 
+  const controls = (
+    <DrillControls
+      stageCount={stageCount}
+      stageIndex={stageIndex}
+      rate={rate}
+      onSetRate={setRate}
+      onReplay={stage === 'production' ? replayProduction : undefined}
+      onSkipToProduction={
+        listeningOnly || stage === 'production' || stage === 'session-summary' ? undefined : skipToProduction
+      }
+    />
+  )
+
   return (
     <div className="space-y-4">
       {sheetLook && (
@@ -339,7 +361,12 @@ export default function DrillFunnel({
           overallLabel="Összesítés"
         />
       )}
-      <DrillCard title={soundItem.title} titleHu={soundItem.titleHu}>
+      {/* The sheet puts the play and speed controls inside the card, on its left side. */}
+      <DrillCard
+        title={sheetLook ? phoneticTitle(soundItem) : soundItem.title}
+        titleHu={soundItem.titleHu}
+        aside={sheetLook ? controls : undefined}
+      >
         {stage === 'cards' && phoneme && (
           <SwipeCardDeck
             words={phoneme.swipeWords ?? []}
@@ -415,16 +442,7 @@ export default function DrillFunnel({
         )}
       </DrillCard>
 
-      <DrillControls
-        stageCount={stageCount}
-        stageIndex={stageIndex}
-        rate={rate}
-        onSetRate={setRate}
-        onReplay={stage === 'production' ? replayProduction : undefined}
-        onSkipToProduction={
-          listeningOnly || stage === 'production' || stage === 'session-summary' ? undefined : skipToProduction
-        }
-      />
+      {!sheetLook && controls}
     </div>
   )
 }

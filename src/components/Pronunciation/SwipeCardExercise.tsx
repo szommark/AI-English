@@ -203,6 +203,11 @@ export default function SwipeCardExercise({
   const sheetLook = useSheetLook()
   const synth = useSpeechSynthesis('female', accent)
   const [results, setResults] = useState<RoundResult[] | null>(null)
+  // The sheet's card shows the sound big on the left, like How to make it; elsewhere the old one-line title.
+  const cardTitle = (subtitle: string) =>
+    sheetLook
+      ? { title: `/${phoneme.ipaSymbol}/`, titleHu: `Kártyás gyakorlat · ${subtitle}` }
+      : { title: `Kártyás gyakorlat — /${phoneme.ipaSymbol}/`, titleHu: subtitle }
   const steps = sheetLook && (
     <SheetSteps
       steps={[{ label: 'Kártyák', score: results ? `${results.filter((r) => r.correct).length}/${results.length}` : undefined }]}
@@ -215,7 +220,7 @@ export default function SwipeCardExercise({
     return (
       <div className="space-y-4">
         {steps}
-        <DrillCard title={`Kártyás gyakorlat — /${phoneme.ipaSymbol}/`} titleHu="Összesítő">
+        <DrillCard {...cardTitle('Összesítő')}>
           <StageSummary
             title="Kártyás gyakorlat"
             results={results}
@@ -229,7 +234,7 @@ export default function SwipeCardExercise({
   return (
     <div className="space-y-4">
       {steps}
-      <DrillCard title={`Kártyás gyakorlat — /${phoneme.ipaSymbol}/`} titleHu="Halld meg és döntsd el">
+      <DrillCard {...cardTitle('Halld meg és döntsd el')}>
         <SwipeCardDeck
           words={phoneme.swipeWords ?? []}
           ipaSymbol={phoneme.ipaSymbol}
