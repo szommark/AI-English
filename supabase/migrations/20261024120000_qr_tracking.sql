@@ -1,4 +1,4 @@
--- Avalon: admin QR codes that point at https://avnl.hu/?qr=<slug>.
+-- Avalon: admin QR codes that point at https://avln.hu/?qr=<slug>.
 --
 -- A scan lands on the site with ?qr=<slug>; the browser logs it through log_qr_scan()
 -- (anonymous, so it works before sign-in) and remembers the slug for 30 days. If that

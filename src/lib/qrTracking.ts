@@ -1,13 +1,13 @@
 import { supabase } from './supabase'
 
 /**
- * QR codes from the admin overview point at https://avnl.hu/?qr=<slug>. On load we log the
+ * QR codes from the admin overview point at https://avln.hu/?qr=<slug>. On load we log the
  * scan, drop the parameter from the address bar (so a reload or a shared link doesn't count
  * again) and remember the slug, so an account created from this browser within 30 days is
  * credited to the code (see handle_new_user in 20261024120000_qr_tracking.sql).
  */
 
-export const QR_SITE_URL = 'https://avnl.hu'
+export const QR_SITE_URL = 'https://avln.hu'
 
 const PARAM = 'qr'
 const ATTRIBUTION_KEY = 'aiEnglish:qrAttribution'

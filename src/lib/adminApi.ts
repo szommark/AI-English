@@ -137,7 +137,7 @@ export async function saveManualMeter(meterId: ManualMeterId, value: number): Pr
   if (!res.ok) throw new Error('Failed to save value')
 }
 
-// QR codes pointing at avnl.hu, with scan and sign-up counts (also on /api/admin/overview).
+// QR codes pointing at avln.hu, with scan and sign-up counts (also on /api/admin/overview).
 
 export interface AdminQrCode {
   id: string

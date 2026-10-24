@@ -4,7 +4,7 @@ import { createAdminQr, fetchAdminQr, type AdminQrCode, type AdminQrData } from 
 import { qrLink } from '../../lib/qrTracking'
 
 /**
- * Admin overview: QR codes that open avnl.hu, each with its own short slug so scans and the
+ * Admin overview: QR codes that open avln.hu, each with its own short slug so scans and the
  * accounts created after a scan can be counted per code (e.g. one per poster or flyer).
  */
 export default function AdminQrCard() {
@@ -42,7 +42,7 @@ export default function AdminQrCard() {
       <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
         <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-2">
           <label className="min-w-[14rem] flex-1 text-sm text-slate-600">
-            <span className="mb-1 block">New QR code for avnl.hu — where will it be shown?</span>
+            <span className="mb-1 block">New QR code for avln.hu — where will it be shown?</span>
             <input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
@@ -106,7 +106,8 @@ export default function AdminQrCard() {
 }
 
 function fileName(code: AdminQrCode, ext: string) {
-  const base = code.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'qr'
+  // Strip accents first so "Plakát – Győző" becomes "plakat-gyozo", not "plak-t-gy-z".
+  const base = code.label.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'qr'
   return `avalon-qr-${base}-${code.slug}.${ext}`
 }
 
@@ -139,11 +140,25 @@ function QrCodeRow({ code }: { code: AdminQrCode }) {
     download(await QR.toDataURL(link, { width: 1200, margin: 2, errorCorrectionLevel: 'M' }), fileName(code, 'png'))
   }
 
+  async function downloadJpg() {
+    const { qrJpegDataUrl } = await import('../../lib/qrPrint')
+    download(await qrJpegDataUrl(link), fileName(code, 'jpg'))
+  }
+
+  function downloadBlob(blob: Blob, ext: string) {
+    const url = URL.createObjectURL(blob)
+    download(url, fileName(code, ext))
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
+  async function downloadPdf() {
+    const { qrPdfBlob } = await import('../../lib/qrPrint')
+    downloadBlob(await qrPdfBlob(link, code.label), 'pdf')
+  }
+
   function downloadSvg() {
     if (!svg) return
-    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
-    download(url, fileName(code, 'svg'))
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), 'svg')
   }
 
   async function copyLink() {
@@ -201,7 +216,15 @@ function QrCodeRow({ code }: { code: AdminQrCode }) {
         <div className="flex flex-wrap gap-3 text-sm">
           <button type="button" onClick={() => void downloadPng()} className="inline-flex items-center gap-1 text-indigo-600 hover:underline">
             <Download className="h-4 w-4" aria-hidden />
-            PNG (print)
+            PNG
+          </button>
+          <button type="button" onClick={() => void downloadJpg()} className="inline-flex items-center gap-1 text-indigo-600 hover:underline">
+            <Download className="h-4 w-4" aria-hidden />
+            JPG
+          </button>
+          <button type="button" onClick={() => void downloadPdf()} className="inline-flex items-center gap-1 text-indigo-600 hover:underline">
+            <Download className="h-4 w-4" aria-hidden />
+            PDF (A4, with name and link)
           </button>
           <button type="button" onClick={downloadSvg} disabled={!svg} className="inline-flex items-center gap-1 text-indigo-600 hover:underline disabled:opacity-40">
             <Download className="h-4 w-4" aria-hidden />
