@@ -131,19 +131,25 @@ function PhonemeSheet({ phonemeId }: { phonemeId: string }) {
         ) : tab === 'pronunciation' && practice ? (
           <SoundPronunciationTab phoneme={phoneme} practice={practice} soundItemId={soundItem?.id} />
         ) : completed ? (
-          <div className="space-y-4 rounded-2xl border border-rose-200 bg-card p-6 text-center shadow-[var(--shadow-card)] sm:p-8">
-            <p className="text-sm font-medium text-foreground">
-              {swipeResult ? t('sndHearingDone', { score: swipeResult.score, total: swipeResult.total }) : t('sndHearingDoneFunnel')}
-            </p>
-            <div className="flex flex-wrap justify-center gap-3">
-              <button onClick={practiceAgain} className={sheet.secondaryButton}>
-                {t('sndAgain')}
-              </button>
-              {practice && (
-                <button onClick={() => handleTabChange('pronunciation')} className={sheet.primaryButton}>
-                  {t('sndPronTab')} →
+          <div className="grid gap-6 rounded-2xl border border-rose-200 bg-card p-6 shadow-[var(--shadow-card)] sm:p-8 md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:gap-8">
+            <div className="space-y-4">
+              <h2 className="text-sm font-medium text-muted-foreground">{t('sndHearingTab')}</h2>
+              <p className="text-3xl font-semibold text-foreground">/{phoneme.ipaSymbol}/</p>
+            </div>
+            <div className="space-y-4 border-t border-border pt-6 md:border-l md:border-t-0 md:pl-8 md:pt-0">
+              <p className="text-sm font-medium text-foreground">
+                {swipeResult ? t('sndHearingDone', { score: swipeResult.score, total: swipeResult.total }) : t('sndHearingDoneFunnel')}
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <button onClick={practiceAgain} className={sheet.secondaryButton}>
+                  {t('sndAgain')}
                 </button>
-              )}
+                {practice && (
+                  <button onClick={() => handleTabChange('pronunciation')} className={sheet.primaryButton}>
+                    {t('sndPronTab')} →
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         ) : soundItem ? (
