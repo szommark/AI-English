@@ -181,7 +181,7 @@ export default function SoundPronunciationTab({
       </ol>
 
       {showingOverall ? (
-        <div className="space-y-5 rounded-2xl border border-border bg-card p-5 sm:p-6">
+        <div className="space-y-5 rounded-2xl border border-rose-200 bg-card p-6 shadow-[var(--shadow-card)] sm:p-8">
           <h3 className="text-base font-semibold text-foreground">{t('sndOverall')}</h3>
           <ul className="space-y-2">
             {stages.map((stage, i) => (
@@ -210,7 +210,7 @@ export default function SoundPronunciationTab({
           <button
             type="button"
             onClick={startOver}
-            className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary"
+            className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm text-foreground hover:bg-secondary"
           >
             <RotateCcw className="h-4 w-4" />
             {t('pronRestart')}
@@ -224,13 +224,14 @@ export default function SoundPronunciationTab({
           renderResult={renderResult}
           scoreOf={scoreOf}
           autoStart={autoStart}
+          card
           finishedLabel={t('sndStageResult', { stage: stages[current].label })}
           onFinished={(results) => handleStageFinished(current, results)}
           renderFinished={() => (
             <button
               type="button"
               onClick={() => goTo(current + 1)}
-              className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700"
+              className="inline-flex items-center gap-2 rounded-full bg-rose-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-rose-700"
             >
               {current + 1 < stages.length ? t('sndStageNext', { stage: stages[current + 1].label }) : t('sndToOverall')}
             </button>
