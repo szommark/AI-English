@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Check, RotateCcw } from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 import type { Phoneme } from '../../data/phonemes'
 import { anchorHighlight, type PhonemePractice } from '../../data/phonemePractice'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
@@ -12,6 +12,7 @@ import type { PronunciationCheckResult } from '../../lib/types'
 import { PRODUCTION_ASSESSMENT_ACCENT } from '../../lib/voiceSelection'
 import ScoreBar from '../PronunciationPractice/ScoreBar'
 import ShadowingRunner, { type ShadowItem } from '../PronunciationPractice/ShadowingRunner'
+import SheetSteps from '../PronunciationSession/SheetSteps'
 import { HighlightedWord } from './PhonemeTile'
 import { FocusSoundResultView, PractiseTooLinks, WordResultsView } from './SoundResults'
 
@@ -72,14 +73,8 @@ export default function SoundPronunciationTab({
     const anchor: ShadowItem = {
       text: practice.anchorWord,
       speaker: t('sndSoundItem'),
-      display: (
-        <span>
-          /{phoneme.ipaSymbol}/{' '}
-          <span className="font-normal text-muted-foreground">
-            · <HighlightedWord word={practice.anchorWord} highlight={highlight} />
-          </span>
-        </span>
-      ),
+      ipa: phoneme.ipaSymbol,
+      display: <HighlightedWord word={practice.anchorWord} highlight={highlight} />,
       play: async () => {
         await playSoundClip(phoneme.id).catch((err) => console.error('Sound clip failed:', err))
         await speakWord(practice.anchorWord)
@@ -148,40 +143,17 @@ export default function SoundPronunciationTab({
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">{t('sndPronIntro')}</p>
 
-      <ol className="flex flex-wrap items-center gap-2 text-sm">
-        {stages.map((stage, i) => {
-          const outcome = outcomes[i]
-          const active = i === current
-          return (
-            <li
-              key={i}
-              aria-current={active ? 'step' : undefined}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 ${
-                active
-                  ? 'border-rose-300 bg-rose-50 font-medium text-rose-700'
-                  : outcome
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                    : 'border-border text-muted-foreground'
-              }`}
-            >
-              {outcome && !active && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
-              {i + 1}. {stage.label}
-              {outcome && <span className="tabular-nums">· {Math.round(outcome.score)}%</span>}
-            </li>
-          )
-        })}
-        <li
-          aria-current={showingOverall ? 'step' : undefined}
-          className={`rounded-full border px-3 py-1 ${
-            showingOverall ? 'border-rose-300 bg-rose-50 font-medium text-rose-700' : 'border-border text-muted-foreground'
-          }`}
-        >
-          {t('sndOverall')}
-        </li>
-      </ol>
+      <SheetSteps
+        steps={stages.map((stage, i) => ({
+          label: stage.label,
+          score: outcomes[i] ? `${Math.round(outcomes[i].score)}%` : undefined,
+        }))}
+        current={current}
+        overallLabel={t('sndOverall')}
+      />
 
       {showingOverall ? (
-        <div className="space-y-5 rounded-2xl border border-border bg-card p-5 sm:p-6">
+        <div className="space-y-5 rounded-2xl border border-rose-200 bg-card p-6 shadow-[var(--shadow-card)] sm:p-8">
           <h3 className="text-base font-semibold text-foreground">{t('sndOverall')}</h3>
           <ul className="space-y-2">
             {stages.map((stage, i) => (
@@ -210,7 +182,7 @@ export default function SoundPronunciationTab({
           <button
             type="button"
             onClick={startOver}
-            className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary"
+            className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm text-foreground hover:bg-secondary"
           >
             <RotateCcw className="h-4 w-4" />
             {t('pronRestart')}
@@ -224,13 +196,14 @@ export default function SoundPronunciationTab({
           renderResult={renderResult}
           scoreOf={scoreOf}
           autoStart={autoStart}
+          card
           finishedLabel={t('sndStageResult', { stage: stages[current].label })}
           onFinished={(results) => handleStageFinished(current, results)}
           renderFinished={() => (
             <button
               type="button"
               onClick={() => goTo(current + 1)}
-              className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700"
+              className="inline-flex items-center gap-2 rounded-full bg-rose-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-rose-700"
             >
               {current + 1 < stages.length ? t('sndStageNext', { stage: stages[current + 1].label }) : t('sndToOverall')}
             </button>

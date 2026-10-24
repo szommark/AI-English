@@ -1,6 +1,7 @@
 import type { PronunciationCheckResult } from '../../lib/types'
 import { overallSessionScore, PRODUCTION_WEIGHT } from '../../lib/pronunciationScoring'
 import type { RoundResult } from './StageSummary'
+import { sheet, useSheetLook } from './DrillCard'
 
 function scoreColor(score: number): string {
   if (score >= 80) return 'text-emerald-700'
@@ -41,6 +42,7 @@ export default function SessionSummaryStage({
   productionResult?: PronunciationCheckResult | null
   onFinish: () => void
 }) {
+  const sheetLook = useSheetLook()
   // null marks a stage the learner skipped (or left before its first answer).
   const ratioScore = (results: RoundResult[]) =>
     results.length > 0 ? Math.round((results.filter((r) => r.correct).length / results.length) * 100) : null
@@ -61,7 +63,7 @@ export default function SessionSummaryStage({
     <div className="space-y-4">
       <div className="text-center">
         <p className={`text-4xl font-bold ${scoreColor(overallScore)}`}>{overallScore}</p>
-        <p className="text-sm text-slate-500">{productionScore === null ? 'Hallásgyakorlatok pontszáma' : 'Összesített pontszám'}</p>
+        <p className={sheetLook ? sheet.prompt : 'text-sm text-slate-500'}>{productionScore === null ? 'Hallásgyakorlatok pontszáma' : 'Összesített pontszám'}</p>
         {productionScore !== null && (
           <p className="text-xs text-slate-400">
             {perceptionScore === undefined
@@ -71,7 +73,13 @@ export default function SessionSummaryStage({
         )}
       </div>
 
-      <div className="rounded-lg bg-slate-50 border border-slate-200 divide-y divide-slate-200 text-sm">
+      <div
+        className={
+          sheetLook
+            ? 'divide-y divide-border rounded-lg bg-secondary text-sm'
+            : 'rounded-lg bg-slate-50 border border-slate-200 divide-y divide-slate-200 text-sm'
+        }
+      >
         {cardResults && <SummaryRow label="Hallod a hangot?" score={cardScore} detail={tally(cardResults)} />}
         <SummaryRow label="Melyik szót hallottad?" score={fcScore} detail={tally(fcResults)} />
         <SummaryRow label="Melyikben van a hang?" score={ooScore} detail={tally(ooResults)} />
@@ -85,7 +93,7 @@ export default function SessionSummaryStage({
         )}
       </div>
 
-      <button onClick={onFinish} className="rounded-lg bg-rose-600 text-white text-sm font-medium px-4 py-2 hover:bg-rose-700">
+      <button onClick={onFinish} className={sheetLook ? sheet.primaryButton : 'rounded-lg bg-rose-600 text-white text-sm font-medium px-4 py-2 hover:bg-rose-700'}>
         Befejezés
       </button>
     </div>

@@ -4,7 +4,8 @@ import type { Phoneme, SwipeWord } from '../../data/phonemes'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import type { AccentPreference } from '../../lib/voiceSelection'
 import { awardClientXp } from '../../lib/gamificationApi'
-import DrillCard from '../PronunciationSession/DrillCard'
+import DrillCard, { sheet, useSheetLook } from '../PronunciationSession/DrillCard'
+import SheetSteps from '../PronunciationSession/SheetSteps'
 import StageSummary, { type RoundResult } from '../PronunciationSession/StageSummary'
 
 /** XP for one finished card set, inside the drill funnel or standalone. Fire-and-forget. */
@@ -53,6 +54,7 @@ export function SwipeCardDeck({
   speak: (word: string) => void
   onFinish: (results: RoundResult[]) => void
 }) {
+  const sheetLook = useSheetLook()
   const [deck] = useState(() => pickDeck(words))
   const [index, setIndex] = useState(0)
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null)
@@ -113,8 +115,9 @@ export function SwipeCardDeck({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-500">
-        Kártya {index + 1}/{deck.length} — hallod benne a(z) /{ipaSymbol}/ hangot?
+      <p className={sheetLook ? sheet.prompt : 'text-sm text-slate-500'}>
+        Kártya {index + 1}/{deck.length} — hallod benne a(z){' '}
+        <span className={sheetLook ? 'font-semibold text-foreground' : ''}>/{ipaSymbol}/</span> hangot?
       </p>
 
       <div
@@ -123,7 +126,7 @@ export function SwipeCardDeck({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         style={{ transform: `translateX(${dragX}px) rotate(${tilt}deg)` }}
-        className={`select-none touch-none rounded-2xl border-2 px-6 py-10 text-center transition-colors cursor-grab active:cursor-grabbing ${
+        className={`select-none touch-none rounded-2xl border-2 px-6 text-center ${sheetLook ? 'py-12' : 'py-10'} transition-colors cursor-grab active:cursor-grabbing ${
           feedback === 'correct'
             ? 'border-emerald-400 bg-emerald-50'
             : feedback === 'incorrect'
@@ -132,13 +135,19 @@ export function SwipeCardDeck({
                 ? 'border-emerald-300 bg-emerald-50/60'
                 : leanNo
                   ? 'border-red-300 bg-red-50/60'
-                  : 'border-rose-200 bg-white'
+                  : sheetLook
+                    ? 'border-rose-200 bg-card'
+                    : 'border-rose-200 bg-white'
         }`}
       >
         <button
           onClick={playWord}
           onPointerDown={(e) => e.stopPropagation()}
-          className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 text-rose-600 hover:bg-rose-200"
+          className={
+            sheetLook
+              ? 'relative mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-secondary'
+              : 'relative mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 text-rose-600 hover:bg-rose-200'
+          }
           aria-label="Lejátszás"
         >
           <Volume2 className="h-7 w-7" />
@@ -150,21 +159,25 @@ export function SwipeCardDeck({
             {hasPlayed ? 0 : 1}
           </span>
         </button>
-        {feedback && <p className="mt-4 text-lg font-medium text-slate-800">{current.word}</p>}
+        {feedback && (
+          <p lang="en" className={sheetLook ? `mt-4 ${sheet.word} text-foreground` : 'mt-4 text-lg font-medium text-slate-800'}>
+            {current.word}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <button
           onClick={() => decide(false)}
           disabled={feedback !== null}
-          className="rounded-lg border-2 border-red-200 text-red-700 text-sm font-medium py-2.5 hover:bg-red-50 disabled:opacity-40"
+          className={`${sheetLook ? 'rounded-full border' : 'rounded-lg border-2'} border-red-200 text-red-700 text-sm font-medium py-2.5 hover:bg-red-50 disabled:opacity-40`}
         >
           ✗ Nem ez a hang
         </button>
         <button
           onClick={() => decide(true)}
           disabled={feedback !== null}
-          className="rounded-lg border-2 border-emerald-200 text-emerald-700 text-sm font-medium py-2.5 hover:bg-emerald-50 disabled:opacity-40"
+          className={`${sheetLook ? 'rounded-full border' : 'rounded-lg border-2'} border-emerald-200 text-emerald-700 text-sm font-medium py-2.5 hover:bg-emerald-50 disabled:opacity-40`}
         >
           ✓ Ez a hang
         </button>
@@ -187,32 +200,46 @@ export default function SwipeCardExercise({
   accent: AccentPreference
   onComplete: (score: number, total: number) => void
 }) {
+  const sheetLook = useSheetLook()
   const synth = useSpeechSynthesis('female', accent)
   const [results, setResults] = useState<RoundResult[] | null>(null)
+  const steps = sheetLook && (
+    <SheetSteps
+      steps={[{ label: 'Kártyák', score: results ? `${results.filter((r) => r.correct).length}/${results.length}` : undefined }]}
+      current={results ? 1 : 0}
+      overallLabel="Összesítés"
+    />
+  )
 
   if (results) {
     return (
-      <DrillCard title={`Kártyás gyakorlat — /${phoneme.ipaSymbol}/`} titleHu="Összesítő">
-        <StageSummary
-          title="Kártyás gyakorlat"
-          results={results}
-          onContinue={() => onComplete(results.filter((r) => r.correct).length, results.length)}
-        />
-      </DrillCard>
+      <div className="space-y-4">
+        {steps}
+        <DrillCard title={`Kártyás gyakorlat — /${phoneme.ipaSymbol}/`} titleHu="Összesítő">
+          <StageSummary
+            title="Kártyás gyakorlat"
+            results={results}
+            onContinue={() => onComplete(results.filter((r) => r.correct).length, results.length)}
+          />
+        </DrillCard>
+      </div>
     )
   }
 
   return (
-    <DrillCard title={`Kártyás gyakorlat — /${phoneme.ipaSymbol}/`} titleHu="Halld meg és döntsd el">
-      <SwipeCardDeck
-        words={phoneme.swipeWords ?? []}
-        ipaSymbol={phoneme.ipaSymbol}
-        speak={(word) => synth.speak(word)}
-        onFinish={(finished) => {
-          setResults(finished)
-          if (finished.length > 0) awardSwipeSetXp(phoneme.id, finished)
-        }}
-      />
-    </DrillCard>
+    <div className="space-y-4">
+      {steps}
+      <DrillCard title={`Kártyás gyakorlat — /${phoneme.ipaSymbol}/`} titleHu="Halld meg és döntsd el">
+        <SwipeCardDeck
+          words={phoneme.swipeWords ?? []}
+          ipaSymbol={phoneme.ipaSymbol}
+          speak={(word) => synth.speak(word)}
+          onFinish={(finished) => {
+            setResults(finished)
+            if (finished.length > 0) awardSwipeSetXp(phoneme.id, finished)
+          }}
+        />
+      </DrillCard>
+    </div>
   )
 }

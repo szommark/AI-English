@@ -21,6 +21,8 @@ export interface ShadowItem {
   listenOnly?: boolean
   /** Shown instead of `text` (which stays the Azure reference text). */
   display?: ReactNode
+  /** The sound this item opens with, shown as /ipa/ before it (on its own line on the card). */
+  ipa?: string
   /** Plays the model instead of reading `text` aloud. */
   play?: () => Promise<void>
   /** Overrides the runner's `checkId` for this item. */
@@ -33,6 +35,13 @@ const MODEL_RATE = 0.9
 const PAUSE_BETWEEN_MS = 1200
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+/** The card's type size for an item: How to make it's anchor-word size for a word, smaller as the text grows. */
+function cardTextSize(text: string) {
+  if (text.length <= 8) return 'text-5xl sm:text-6xl'
+  if (text.length <= 16) return 'text-4xl sm:text-5xl'
+  return 'text-2xl sm:text-3xl'
+}
 
 /**
  * Wordlist / Conversation / Sound Bank practice: each item is played, then after a beep the learner
@@ -51,6 +60,7 @@ export default function ShadowingRunner({
   onFinished,
   finishedLabel,
   autoStart = false,
+  card = false,
 }: {
   items: ShadowItem[]
   /** Sent in the token/log `scenarioId` slot. */
@@ -69,6 +79,11 @@ export default function ShadowingRunner({
   finishedLabel?: string
   /** Start playing on mount instead of showing the Start button (mount it from a click, for the beep). */
   autoStart?: boolean
+  /**
+   * The sound sheet's How to make it look: one rose card split by a dim line, the current item on the
+   * left and the list on the right (stacked on narrow screens), with pill buttons.
+   */
+  card?: boolean
 }) {
   const { t } = useLanguage()
   // Azure always assesses in American English, so the model is American too.
@@ -212,67 +227,84 @@ export default function ShadowingRunner({
   const resultView = (i: number) =>
     renderResult ? renderResult(items[i], results[i]) : <ScoreBar score={results[i].scores.pronunciation} />
 
-  return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-        {phase === 'idle' ? (
-          <div className="flex flex-col items-center gap-3 py-4 text-center">
-            <button
-              type="button"
-              onClick={() => start(0)}
-              className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-rose-700"
-            >
-              <Play className="h-4 w-4" />
-              {t('pronStart')}
-            </button>
+  const primaryButton = card
+    ? 'inline-flex items-center gap-2 rounded-full bg-rose-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-rose-700'
+    : 'inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700'
+  const secondaryButton = card
+    ? 'inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm text-foreground hover:bg-secondary disabled:opacity-60'
+    : 'inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary disabled:opacity-60'
+  const startButton = (
+    <button
+      type="button"
+      onClick={() => start(0)}
+      className={
+        card
+          ? primaryButton
+          : 'inline-flex items-center gap-2 rounded-lg bg-rose-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-rose-700'
+      }
+    >
+      <Play className="h-4 w-4" />
+      {t('pronStart')}
+    </button>
+  )
+
+  // The card shows the first item before the start, so the left side already reads like How to make it.
+  const shown = card && phase === 'idle' ? items[0] : current
+  const panel =
+    phase === 'idle' && !card ? (
+      <div className="flex flex-col items-center gap-3 py-4 text-center">{startButton}</div>
+    ) : phase === 'finished' ? (
+      <div className="space-y-3 py-2">
+        <p className="text-sm font-medium text-foreground">{finishedLabel ?? t('pronFinished')}</p>
+        {average !== null && (
+          <div className="w-[70%]">
+            <ScoreBar score={average} label={finishedLabel ?? t('pronFinished')} />
           </div>
-        ) : phase === 'finished' ? (
-          <div className="space-y-3 py-2">
-            <p className="text-sm font-medium text-foreground">{finishedLabel ?? t('pronFinished')}</p>
-            {average !== null && (
-              <div className="w-[70%]">
-                <ScoreBar score={average} label={finishedLabel ?? t('pronFinished')} />
-              </div>
+        )}
+        {renderFinished?.(scored.map((i) => results[i]))}
+        <button type="button" onClick={() => start(0)} className={secondaryButton}>
+          <RotateCcw className="h-4 w-4" />
+          {t('pronRestart')}
+        </button>
+      </div>
+    ) : (
+      shown && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            {shown.speaker ? (
+              <span
+                className={`rounded-full px-2 py-0.5 font-medium ${
+                  shown.listenOnly ? 'bg-secondary text-foreground' : 'bg-rose-100 text-rose-700'
+                }`}
+              >
+                {shown.speaker}
+              </span>
+            ) : (
+              <span />
             )}
-            {renderFinished?.(scored.map((i) => results[i]))}
-            <button
-              type="button"
-              onClick={() => start(0)}
-              className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary"
-            >
-              <RotateCcw className="h-4 w-4" />
-              {t('pronRestart')}
-            </button>
+            <span className="tabular-nums">
+              {index + 1} / {items.length}
+            </span>
           </div>
-        ) : (
-          current && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                {current.speaker ? (
-                  <span
-                    className={`rounded-full px-2 py-0.5 font-medium ${
-                      current.listenOnly ? 'bg-secondary text-foreground' : 'bg-rose-100 text-rose-700'
-                    }`}
-                  >
-                    {current.speaker}
-                  </span>
-                ) : (
-                  <span />
-                )}
-                <span className="tabular-nums">
-                  {index + 1} / {items.length}
-                </span>
-              </div>
 
-              <div>
-                <div className="text-xl font-semibold text-foreground sm:text-2xl">{current.display ?? current.text}</div>
-                {current.gloss && <p className="mt-1 text-sm text-muted-foreground">{current.gloss}</p>}
-              </div>
+          <div>
+            {card && shown.ipa && <div className="mb-3 text-3xl font-semibold text-foreground">/{shown.ipa}/</div>}
+            <div
+              lang="en"
+              className={`font-semibold text-foreground ${card ? `tracking-tight ${cardTextSize(shown.text)}` : 'text-xl sm:text-2xl'}`}
+            >
+              {!card && shown.ipa && <>/{shown.ipa}/ · </>}
+              {shown.display ?? shown.text}
+            </div>
+            {shown.gloss && <p className="mt-1 text-sm text-muted-foreground">{shown.gloss}</p>}
+          </div>
 
+          {phase === 'idle' ? (
+            startButton
+          ) : (
+            <>
               <div className="min-h-[2.5rem] space-y-2">
-                {phase === 'playing' && (
-                  <StatusLine icon={<Volume2 className="h-4 w-4" />} text={t('pronListen')} />
-                )}
+                {phase === 'playing' && <StatusLine icon={<Volume2 className="h-4 w-4" />} text={t('pronListen')} />}
                 {phase === 'connecting' && <StatusLine icon={<Mic className="h-4 w-4" />} text={t('pronGetReady')} />}
                 {phase === 'listening' && (
                   <>
@@ -288,60 +320,86 @@ export default function ShadowingRunner({
 
               <div className="flex flex-wrap gap-2">
                 {running ? (
-                  <button
-                    type="button"
-                    onClick={requestPause}
-                    disabled={pauseRequested}
-                    className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary disabled:opacity-60"
-                  >
+                  <button type="button" onClick={requestPause} disabled={pauseRequested} className={secondaryButton}>
                     <Pause className="h-4 w-4" />
                     {pauseRequested ? t('pronPausing') : t('pronPause')}
                   </button>
                 ) : (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => start(nextIndex)}
-                      className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700"
-                    >
+                    <button type="button" onClick={() => start(nextIndex)} className={primaryButton}>
                       <Play className="h-4 w-4" />
                       {t('pronResume')}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => start(0)}
-                      className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary"
-                    >
+                    <button type="button" onClick={() => start(0)} className={secondaryButton}>
                       <RotateCcw className="h-4 w-4" />
                       {t('pronRestart')}
                     </button>
                   </>
                 )}
               </div>
-            </div>
-          )
-        )}
-      </div>
+            </>
+          )}
+        </div>
+      )
+    )
 
-      <ol className="space-y-2">
-        {repeatIndexes.map((i) => {
-          const highlight = i === index && phase !== 'idle' && phase !== 'finished' ? 'bg-rose-50' : ''
-          return renderResult ? (
-            <li key={i} className={`space-y-1.5 rounded-lg px-3 py-2 text-sm ${highlight}`}>
-              <div className="text-foreground">{items[i].display ?? items[i].text}</div>
-              {results[i] !== undefined && resultView(i)}
-            </li>
-          ) : (
+  const list = (
+    <ol className="space-y-2">
+      {repeatIndexes.map((i) => {
+        const isCurrent = i === index && phase !== 'idle' && phase !== 'finished'
+        if (card) {
+          return (
             <li
               key={i}
-              className={`grid grid-cols-[1fr_7.75rem] items-center gap-3 rounded-lg px-3 py-2 text-sm sm:grid-cols-[1fr_11.25rem] ${highlight}`}
+              className={`space-y-1.5 rounded-lg px-3 py-2 text-sm ${isCurrent ? 'bg-rose-50 ring-1 ring-rose-200' : 'bg-secondary'}`}
             >
-              <span className="min-w-0 truncate text-foreground">{items[i].text}</span>
-              {results[i] !== undefined ? resultView(i) : <span className="mr-[4.5rem] h-2.5 rounded-full bg-secondary" />}
+              <div lang="en" className="font-medium text-foreground">
+                {items[i].ipa && <>/{items[i].ipa}/ · </>}
+                {items[i].display ?? items[i].text}
+              </div>
+              {results[i] !== undefined && resultView(i)}
             </li>
           )
-        })}
-      </ol>
+        }
+        const highlight = isCurrent ? 'bg-rose-50' : ''
+        return renderResult ? (
+          <li key={i} className={`space-y-1.5 rounded-lg px-3 py-2 text-sm ${highlight}`}>
+            <div className="text-foreground">
+              {items[i].ipa && <>/{items[i].ipa}/ · </>}
+              {items[i].display ?? items[i].text}
+            </div>
+            {results[i] !== undefined && resultView(i)}
+          </li>
+        ) : (
+          <li
+            key={i}
+            className={`grid grid-cols-[1fr_7.75rem] items-center gap-3 rounded-lg px-3 py-2 text-sm sm:grid-cols-[1fr_11.25rem] ${highlight}`}
+          >
+            <span className="min-w-0 truncate text-foreground">{items[i].text}</span>
+            {results[i] !== undefined ? resultView(i) : <span className="mr-[4.5rem] h-2.5 rounded-full bg-secondary" />}
+          </li>
+        )
+      })}
+    </ol>
+  )
+
+  if (card) {
+    return (
+      <section
+        className={`grid gap-6 rounded-2xl border bg-card p-6 shadow-[var(--shadow-card)] sm:p-8 md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:gap-8 ${
+          phase === 'listening' ? 'border-rose-400' : 'border-rose-200'
+        }`}
+      >
+        <div>{panel}</div>
+        <div className="border-t border-border pt-6 md:border-l md:border-t-0 md:pl-8 md:pt-0">{list}</div>
+      </section>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">{panel}</div>
+      {list}
     </div>
   )
 }

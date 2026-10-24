@@ -1,4 +1,5 @@
 import { SpeakerIcon } from '../icons/AudioIcons'
+import { sheet, useSheetLook } from './DrillCard'
 
 export default function ForcedChoiceStage({
   words,
@@ -15,15 +16,20 @@ export default function ForcedChoiceStage({
   onReplay: () => void
   onAnswer: (choiceIndex: 0 | 1) => void
 }) {
+  const sheetLook = useSheetLook()
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <p className="text-sm text-slate-500">
+        <p className={sheetLook ? sheet.prompt : 'text-sm text-slate-500'}>
           Melyik szót hallottad? ({roundNumber}/{totalRounds})
         </p>
         <button
           onClick={onReplay}
-          className="flex items-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 text-xs font-medium px-3 py-1.5 hover:bg-rose-50"
+          className={
+            sheetLook
+              ? sheet.replayButton
+              : 'flex items-center gap-1.5 rounded-lg border border-rose-200 text-rose-700 text-xs font-medium px-3 py-1.5 hover:bg-rose-50'
+          }
         >
           <SpeakerIcon className="h-3.5 w-3.5" />
           Lejátszás
@@ -37,14 +43,19 @@ export default function ForcedChoiceStage({
           return (
             <button
               key={word}
+              lang="en"
               onClick={() => onAnswer(index)}
               disabled={feedback !== null}
-              className={`rounded-xl border-2 px-4 py-6 text-lg font-medium transition ${
+              className={`transition ${
+                sheetLook ? `rounded-2xl border-2 px-4 py-8 ${sheet.word}` : 'rounded-xl border-2 px-4 py-6 text-lg font-medium'
+              } ${
                 isCorrect
                   ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
                   : isWrongChoice
                     ? 'border-red-400 bg-red-50 text-red-700'
-                    : 'border-rose-200 bg-white text-slate-700 hover:bg-rose-50'
+                    : sheetLook
+                      ? 'border-rose-200 bg-card text-foreground hover:bg-rose-50'
+                      : 'border-rose-200 bg-white text-slate-700 hover:bg-rose-50'
               } disabled:cursor-default`}
             >
               {word}

@@ -1,4 +1,5 @@
 import { SpeakerIcon } from '../icons/AudioIcons'
+import { sheet, useSheetLook } from './DrillCard'
 
 const CARD_LABELS = ['A', 'B', 'C'] as const
 
@@ -20,9 +21,10 @@ export default function OddOneOutStage({
   promptHu?: string
   answerLabelHu?: string
 }) {
+  const sheetLook = useSheetLook()
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-500">
+      <p className={sheetLook ? sheet.prompt : 'text-sm text-slate-500'}>
         {promptHu ?? 'Hallgasd meg mindhármat, és válaszd ki, melyikben van benne az adott hang'} ({roundNumber}/{totalRounds})
       </p>
       <div className="grid grid-cols-3 gap-3">
@@ -33,26 +35,36 @@ export default function OddOneOutStage({
           return (
             <div
               key={label}
-              className={`rounded-xl border-2 p-4 flex flex-col items-center gap-3 transition ${
+              className={`${sheetLook ? 'rounded-2xl py-5' : 'rounded-xl'} border-2 p-4 flex flex-col items-center gap-3 transition ${
                 isCorrect
                   ? 'border-emerald-400 bg-emerald-50'
                   : isWrongChoice
                     ? 'border-red-400 bg-red-50'
-                    : 'border-rose-200 bg-white'
+                    : sheetLook
+                      ? 'border-rose-200 bg-card'
+                      : 'border-rose-200 bg-white'
               }`}
             >
-              <span className="text-lg font-semibold text-slate-600">{label}</span>
+              <span className={sheetLook ? `${sheet.word} text-foreground` : 'text-lg font-semibold text-slate-600'}>{label}</span>
               <button
                 onClick={() => onPlay(index)}
                 aria-label={`${label} lejátszása`}
-                className="h-10 w-10 flex items-center justify-center rounded-full text-rose-600 bg-rose-50 hover:bg-rose-100"
+                className={
+                  sheetLook
+                    ? 'h-10 w-10 flex items-center justify-center rounded-full border border-border bg-card text-foreground hover:bg-secondary'
+                    : 'h-10 w-10 flex items-center justify-center rounded-full text-rose-600 bg-rose-50 hover:bg-rose-100'
+                }
               >
-                <SpeakerIcon className="h-5 w-5" />
+                <SpeakerIcon className={sheetLook ? 'h-4 w-4' : 'h-5 w-5'} />
               </button>
               <button
                 onClick={() => onAnswer(index)}
                 disabled={feedback !== null}
-                className="text-xs font-medium text-rose-700 border border-rose-200 rounded-lg px-2 py-1 hover:bg-rose-50 disabled:opacity-40 disabled:cursor-default"
+                className={
+                  sheetLook
+                    ? 'rounded-full border border-rose-200 px-3 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-default disabled:opacity-40'
+                    : 'text-xs font-medium text-rose-700 border border-rose-200 rounded-lg px-2 py-1 hover:bg-rose-50 disabled:opacity-40 disabled:cursor-default'
+                }
               >
                 {answerLabelHu}
               </button>
