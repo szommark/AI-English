@@ -3,6 +3,7 @@ import { getUserFromRequest, supabaseAdmin } from '../_lib/supabaseAdmin.js'
 import { getUserRole } from '../_lib/roles.js'
 import { buildUsageSnapshot } from '../_lib/usageSnapshot.js'
 import { isManualMeterId } from '../../src/lib/usageLimits.js'
+import { randomBytes } from 'node:crypto'
 
 // Multiplexed by ?resource= (default: connections overview) to stay under Vercel Hobby's
 // 12-serverless-function cap — do not add new files directly under api/.
@@ -42,9 +43,91 @@ async function handleUsageManual(req: VercelRequest, res: VercelResponse, userId
   res.status(200).json({ ok: true })
 }
 
+interface QrStatsRow {
+  id: string
+  slug: string
+  label: string
+  created_at: string
+  scans: number
+  unique_visitors: number
+  scans_7d: number
+  last_scan_at: string | null
+  signups: number
+  confirmed_signups: number
+}
+
+async function handleQr(res: VercelResponse) {
+  const [{ data: stats, error }, { data: signups }] = await Promise.all([
+    supabaseAdmin.rpc('admin_qr_stats'),
+    supabaseAdmin
+      .from('qr_signups')
+      .select('user_id, qr_code_id, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50),
+  ])
+  if (error) {
+    console.error('Failed to load QR stats', error)
+    res.status(500).json({ error: 'Failed to load QR codes' })
+    return
+  }
+
+  const codes = ((stats ?? []) as QrStatsRow[]).map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    label: row.label,
+    createdAt: row.created_at,
+    scans: Number(row.scans),
+    uniqueVisitors: Number(row.unique_visitors),
+    scans7d: Number(row.scans_7d),
+    lastScanAt: row.last_scan_at,
+    signups: Number(row.signups),
+    confirmedSignups: Number(row.confirmed_signups),
+  }))
+
+  const recentSignups = await Promise.all(
+    (signups ?? []).map(async (s) => ({
+      email: await resolveEmail(s.user_id),
+      codeId: s.qr_code_id,
+      createdAt: s.created_at,
+    })),
+  )
+
+  res.status(200).json({ codes, recentSignups })
+}
+
+// Short, unambiguous slugs (no 0/o/1/l) keep the QR code small and the link easy to type.
+const SLUG_ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789'
+
+function randomSlug(): string {
+  const bytes = randomBytes(6)
+  return Array.from(bytes, (b) => SLUG_ALPHABET[b % SLUG_ALPHABET.length]).join('')
+}
+
+async function handleQrCreate(req: VercelRequest, res: VercelResponse, userId: string) {
+  const { label } = (req.body ?? {}) as { label?: unknown }
+  const trimmed = typeof label === 'string' ? label.trim() : ''
+  if (!trimmed || trimmed.length > 80) {
+    res.status(400).json({ error: 'Label must be 1–80 characters' })
+    return
+  }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { error } = await supabaseAdmin
+      .from('qr_codes')
+      .insert({ slug: randomSlug(), label: trimmed, created_by: userId })
+    if (!error) return handleQr(res)
+    if (error.code !== '23505') {
+      console.error('Failed to create QR code', error)
+      break
+    }
+  }
+  res.status(500).json({ error: 'Failed to create QR code' })
+}
+
+const METHODS: Record<string, string> = { 'usage-manual': 'PUT', 'qr-create': 'POST' }
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const resource = req.query.resource
-  const expectedMethod = resource === 'usage-manual' ? 'PUT' : 'GET'
+  const expectedMethod = (typeof resource === 'string' && METHODS[resource]) || 'GET'
   if (req.method !== expectedMethod) {
     res.status(405).json({ error: 'Method not allowed' })
     return
@@ -64,6 +147,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (resource === 'usage') return handleUsage(res)
   if (resource === 'usage-manual') return handleUsageManual(req, res, user.id)
+  if (resource === 'qr') return handleQr(res)
+  if (resource === 'qr-create') return handleQrCreate(req, res, user.id)
 
   const [{ data: links }, { data: attempts }] = await Promise.all([
     supabaseAdmin

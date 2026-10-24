@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchAdminOverview, type AdminOverview } from '../lib/adminApi'
 import AdminGamificationCard from '../components/gamification/AdminGamificationCard'
+import AdminQrCard from '../components/admin/AdminQrCard'
 
 export default function AdminOverviewPage() {
   const [overview, setOverview] = useState<AdminOverview | null>(null)
@@ -98,6 +99,8 @@ export default function AdminOverviewPage() {
             </>
           )
         )}
+
+        <AdminQrCard />
 
         <AdminGamificationCard />
     </div>

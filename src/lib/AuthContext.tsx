@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { clearQrAttribution, qrSignupMetadata } from './qrTracking'
 
 export type UserRole = 'student' | 'teacher' | 'admin'
 
@@ -62,7 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session?.user.id])
 
   async function signUp(email: string, password: string) {
-    const { error } = await supabase.auth.signUp({ email, password })
+    const qr = qrSignupMetadata()
+    const { error } = await supabase.auth.signUp({ email, password, options: qr ? { data: qr } : undefined })
+    if (!error && qr) clearQrAttribution()
     return { error: error?.message ?? null }
   }
 
