@@ -196,7 +196,6 @@ export default function SoundPronunciationTab({
           renderResult={renderResult}
           scoreOf={scoreOf}
           autoStart={autoStart}
-          card
           finishedLabel={t('sndStageResult', { stage: stages[current].label })}
           onFinished={(results) => handleStageFinished(current, results)}
           renderFinished={() => (

@@ -40,13 +40,16 @@ const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, 
 function cardTextSize(text: string) {
   if (text.length <= 8) return 'text-5xl sm:text-6xl'
   if (text.length <= 16) return 'text-4xl sm:text-5xl'
-  return 'text-2xl sm:text-3xl'
+  if (text.length <= 40) return 'text-2xl sm:text-3xl'
+  return 'text-xl sm:text-2xl'
 }
 
 /**
  * Wordlist / Conversation / Sound Bank practice: each item is played, then after a beep the learner
  * repeats it and Azure scores it (prosody left out). The repeat window grows with the text's length.
  * By default a result is Azure's overall score as a bar; `renderResult` replaces that.
+ * Laid out as the sound sheet's How to make it card: one rose card split by a dim line, the current
+ * item in large type on the left and every item on the right (stacked on narrow screens), pill buttons.
  * Remount (key) it for a new set of items.
  */
 export default function ShadowingRunner({
@@ -60,7 +63,6 @@ export default function ShadowingRunner({
   onFinished,
   finishedLabel,
   autoStart = false,
-  card = false,
 }: {
   items: ShadowItem[]
   /** Sent in the token/log `scenarioId` slot. */
@@ -79,11 +81,6 @@ export default function ShadowingRunner({
   finishedLabel?: string
   /** Start playing on mount instead of showing the Start button (mount it from a click, for the beep). */
   autoStart?: boolean
-  /**
-   * The sound sheet's How to make it look: one rose card split by a dim line, the current item on the
-   * left and the list on the right (stacked on narrow screens), with pill buttons.
-   */
-  card?: boolean
 }) {
   const { t } = useLanguage()
   // Azure always assesses in American English, so the model is American too.
@@ -227,33 +224,15 @@ export default function ShadowingRunner({
   const resultView = (i: number) =>
     renderResult ? renderResult(items[i], results[i]) : <ScoreBar score={results[i].scores.pronunciation} />
 
-  const primaryButton = card
-    ? 'inline-flex items-center gap-2 rounded-full bg-rose-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-rose-700'
-    : 'inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700'
-  const secondaryButton = card
-    ? 'inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm text-foreground hover:bg-secondary disabled:opacity-60'
-    : 'inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-secondary disabled:opacity-60'
-  const startButton = (
-    <button
-      type="button"
-      onClick={() => start(0)}
-      className={
-        card
-          ? primaryButton
-          : 'inline-flex items-center gap-2 rounded-lg bg-rose-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-rose-700'
-      }
-    >
-      <Play className="h-4 w-4" />
-      {t('pronStart')}
-    </button>
-  )
+  const primaryButton =
+    'inline-flex items-center gap-2 rounded-full bg-rose-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-rose-700'
+  const secondaryButton =
+    'inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm text-foreground hover:bg-secondary disabled:opacity-60'
 
-  // The card shows the first item before the start, so the left side already reads like How to make it.
-  const shown = card && phase === 'idle' ? items[0] : current
+  // Before the start the first item shows, so the left side already reads like How to make it.
+  const shown = phase === 'idle' ? items[0] : current
   const panel =
-    phase === 'idle' && !card ? (
-      <div className="flex flex-col items-center gap-3 py-4 text-center">{startButton}</div>
-    ) : phase === 'finished' ? (
+    phase === 'finished' ? (
       <div className="space-y-3 py-2">
         <p className="text-sm font-medium text-foreground">{finishedLabel ?? t('pronFinished')}</p>
         {average !== null && (
@@ -271,36 +250,25 @@ export default function ShadowingRunner({
       shown && (
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-            {shown.speaker ? (
-              <span
-                className={`rounded-full px-2 py-0.5 font-medium ${
-                  shown.listenOnly ? 'bg-secondary text-foreground' : 'bg-rose-100 text-rose-700'
-                }`}
-              >
-                {shown.speaker}
-              </span>
-            ) : (
-              <span />
-            )}
+            {shown.speaker ? <SpeakerBadge item={shown} /> : <span />}
             <span className="tabular-nums">
               {index + 1} / {items.length}
             </span>
           </div>
 
           <div>
-            {card && shown.ipa && <div className="mb-3 text-3xl font-semibold text-foreground">/{shown.ipa}/</div>}
-            <div
-              lang="en"
-              className={`font-semibold text-foreground ${card ? `tracking-tight ${cardTextSize(shown.text)}` : 'text-xl sm:text-2xl'}`}
-            >
-              {!card && shown.ipa && <>/{shown.ipa}/ · </>}
+            {shown.ipa && <div className="mb-3 text-3xl font-semibold text-foreground">/{shown.ipa}/</div>}
+            <div lang="en" className={`font-semibold tracking-tight text-foreground ${cardTextSize(shown.text)}`}>
               {shown.display ?? shown.text}
             </div>
-            {shown.gloss && <p className="mt-1 text-sm text-muted-foreground">{shown.gloss}</p>}
+            {shown.gloss && <p className="mt-2 text-sm text-muted-foreground">{shown.gloss}</p>}
           </div>
 
           {phase === 'idle' ? (
-            startButton
+            <button type="button" onClick={() => start(0)} className={primaryButton}>
+              <Play className="h-4 w-4" />
+              {t('pronStart')}
+            </button>
           ) : (
             <>
               <div className="min-h-[2.5rem] space-y-2">
@@ -312,9 +280,7 @@ export default function ShadowingRunner({
                     <Countdown key={index} seconds={windowSeconds} />
                   </>
                 )}
-                {phase === 'scored' && results[index] !== undefined && (
-                  <div className={renderResult ? '' : 'w-[70%]'}>{resultView(index)}</div>
-                )}
+                {phase === 'scored' && results[index] !== undefined && resultView(index)}
                 {phase === 'paused' && error && <p className="text-sm text-red-600">{error}</p>}
               </div>
 
@@ -343,63 +309,57 @@ export default function ShadowingRunner({
       )
     )
 
+  // Every item is on the card, partner lines too (outlined, with no result), so the whole dialogue reads in order.
   const list = (
     <ol className="space-y-2">
-      {repeatIndexes.map((i) => {
+      {items.map((item, i) => {
         const isCurrent = i === index && phase !== 'idle' && phase !== 'finished'
-        if (card) {
-          return (
-            <li
-              key={i}
-              className={`space-y-1.5 rounded-lg px-3 py-2 text-sm ${isCurrent ? 'bg-rose-50 ring-1 ring-rose-200' : 'bg-secondary'}`}
-            >
-              <div lang="en" className="font-medium text-foreground">
-                {items[i].ipa && <>/{items[i].ipa}/ · </>}
-                {items[i].display ?? items[i].text}
-              </div>
-              {results[i] !== undefined && resultView(i)}
-            </li>
-          )
-        }
-        const highlight = isCurrent ? 'bg-rose-50' : ''
-        return renderResult ? (
-          <li key={i} className={`space-y-1.5 rounded-lg px-3 py-2 text-sm ${highlight}`}>
-            <div className="text-foreground">
-              {items[i].ipa && <>/{items[i].ipa}/ · </>}
-              {items[i].display ?? items[i].text}
-            </div>
-            {results[i] !== undefined && resultView(i)}
-          </li>
-        ) : (
+        return (
           <li
             key={i}
-            className={`grid grid-cols-[1fr_7.75rem] items-center gap-3 rounded-lg px-3 py-2 text-sm sm:grid-cols-[1fr_11.25rem] ${highlight}`}
+            className={`space-y-1.5 rounded-lg px-3 py-2 text-sm ${
+              isCurrent
+                ? 'bg-rose-50 ring-1 ring-rose-200'
+                : item.listenOnly
+                  ? 'border border-border bg-card'
+                  : 'bg-secondary'
+            }`}
           >
-            <span className="min-w-0 truncate text-foreground">{items[i].text}</span>
-            {results[i] !== undefined ? resultView(i) : <span className="mr-[4.5rem] h-2.5 rounded-full bg-secondary" />}
+            {item.speaker && <SpeakerBadge item={item} />}
+            <div lang="en" className={`font-medium ${item.listenOnly ? 'text-muted-foreground' : 'text-foreground'}`}>
+              {item.ipa && <>/{item.ipa}/ · </>}
+              {item.display ?? item.text}
+            </div>
+            {item.gloss && <p className="text-xs text-muted-foreground">{item.gloss}</p>}
+            {results[i] !== undefined && resultView(i)}
           </li>
         )
       })}
     </ol>
   )
 
-  if (card) {
-    return (
-      <section
-        className={`grid gap-6 rounded-2xl border bg-card p-6 shadow-[var(--shadow-card)] sm:p-8 md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:gap-8 ${
-          phase === 'listening' ? 'border-rose-400' : 'border-rose-200'
-        }`}
-      >
-        <div>{panel}</div>
-        <div className="border-t border-border pt-6 md:border-l md:border-t-0 md:pl-8 md:pt-0">{list}</div>
-      </section>
-    )
-  }
-
   return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">{panel}</div>
-      {list}
-    </div>
+    <section
+      className={`grid gap-6 rounded-2xl border bg-card p-6 shadow-[var(--shadow-card)] sm:p-8 md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:gap-8 ${
+        phase === 'listening' ? 'border-rose-400' : 'border-rose-200'
+      }`}
+    >
+      {/* Stays in view while a long list scrolls past. */}
+      <div className="md:sticky md:top-6 md:self-start">{panel}</div>
+      <div className="border-t border-border pt-6 md:border-l md:border-t-0 md:pl-8 md:pt-0">{list}</div>
+    </section>
+  )
+}
+
+/** Who says a line: the learner's own lines in rose, the partner's in grey. */
+function SpeakerBadge({ item }: { item: ShadowItem }) {
+  return (
+    <span
+      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+        item.listenOnly ? 'bg-secondary text-foreground' : 'bg-rose-100 text-rose-700'
+      }`}
+    >
+      {item.speaker}
+    </span>
   )
 }

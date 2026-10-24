@@ -61,7 +61,7 @@ export default function WordlistPracticeTab() {
   })
 
   return (
-    <div className="max-w-3xl space-y-5">
+    <div className="max-w-4xl space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <select
           value={selectedKey}

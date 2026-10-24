@@ -38,7 +38,7 @@ export default function ConversationPracticeTab() {
   })
 
   return (
-    <div className="max-w-3xl space-y-5">
+    <div className="max-w-4xl space-y-5">
       <select
         value={scenarioId}
         onChange={(e) => setScenarioId(e.target.value)}
