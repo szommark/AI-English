@@ -21,6 +21,8 @@ export interface ShadowItem {
   listenOnly?: boolean
   /** Shown instead of `text` (which stays the Azure reference text). */
   display?: ReactNode
+  /** The sound this item opens with, shown as /ipa/ before it (on its own line on the card). */
+  ipa?: string
   /** Plays the model instead of reading `text` aloud. */
   play?: () => Promise<void>
   /** Overrides the runner's `checkId` for this item. */
@@ -33,6 +35,13 @@ const MODEL_RATE = 0.9
 const PAUSE_BETWEEN_MS = 1200
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+/** The card's type size for an item: How to make it's anchor-word size for a word, smaller as the text grows. */
+function cardTextSize(text: string) {
+  if (text.length <= 8) return 'text-5xl sm:text-6xl'
+  if (text.length <= 16) return 'text-4xl sm:text-5xl'
+  return 'text-2xl sm:text-3xl'
+}
 
 /**
  * Wordlist / Conversation / Sound Bank practice: each item is played, then after a beep the learner
@@ -279,10 +288,12 @@ export default function ShadowingRunner({
           </div>
 
           <div>
+            {card && shown.ipa && <div className="mb-3 text-3xl font-semibold text-foreground">/{shown.ipa}/</div>}
             <div
               lang="en"
-              className={`font-semibold text-foreground ${card ? 'text-2xl tracking-tight sm:text-3xl' : 'text-xl sm:text-2xl'}`}
+              className={`font-semibold text-foreground ${card ? `tracking-tight ${cardTextSize(shown.text)}` : 'text-xl sm:text-2xl'}`}
             >
+              {!card && shown.ipa && <>/{shown.ipa}/ · </>}
               {shown.display ?? shown.text}
             </div>
             {shown.gloss && <p className="mt-1 text-sm text-muted-foreground">{shown.gloss}</p>}
@@ -343,6 +354,7 @@ export default function ShadowingRunner({
               className={`space-y-1.5 rounded-lg px-3 py-2 text-sm ${isCurrent ? 'bg-rose-50 ring-1 ring-rose-200' : 'bg-secondary'}`}
             >
               <div lang="en" className="font-medium text-foreground">
+                {items[i].ipa && <>/{items[i].ipa}/ · </>}
                 {items[i].display ?? items[i].text}
               </div>
               {results[i] !== undefined && resultView(i)}
@@ -352,7 +364,10 @@ export default function ShadowingRunner({
         const highlight = isCurrent ? 'bg-rose-50' : ''
         return renderResult ? (
           <li key={i} className={`space-y-1.5 rounded-lg px-3 py-2 text-sm ${highlight}`}>
-            <div className="text-foreground">{items[i].display ?? items[i].text}</div>
+            <div className="text-foreground">
+              {items[i].ipa && <>/{items[i].ipa}/ · </>}
+              {items[i].display ?? items[i].text}
+            </div>
             {results[i] !== undefined && resultView(i)}
           </li>
         ) : (

@@ -18,6 +18,7 @@ import SwipeCardExercise from '../components/Pronunciation/SwipeCardExercise'
 import SoundHowToTab from '../components/Pronunciation/SoundHowToTab'
 import SoundPronunciationTab from '../components/Pronunciation/SoundPronunciationTab'
 import DrillFunnel from '../components/PronunciationSession/DrillFunnel'
+import { SheetLookContext, sheet } from '../components/PronunciationSession/DrillCard'
 
 type SheetTab = 'how' | 'listening' | 'pronunciation'
 
@@ -124,49 +125,45 @@ function PhonemeSheet({ phonemeId }: { phonemeId: string }) {
         ))}
       </div>
 
-      {tab === 'how' ? (
-        <SoundHowToTab phoneme={phoneme} practice={practice} accent={accent} onNext={() => handleTabChange('listening')} />
-      ) : tab === 'pronunciation' && practice ? (
-        <SoundPronunciationTab phoneme={phoneme} practice={practice} soundItemId={soundItem?.id} />
-      ) : completed ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center space-y-3">
-          <p className="text-sm font-medium text-rose-700">
-            {swipeResult ? t('sndHearingDone', { score: swipeResult.score, total: swipeResult.total }) : t('sndHearingDoneFunnel')}
-          </p>
-          <div className="flex flex-wrap justify-center gap-3">
-            <button
-              onClick={practiceAgain}
-              className="rounded-lg border border-rose-300 text-rose-700 text-sm font-medium px-4 py-2 hover:bg-rose-100"
-            >
-              {t('sndAgain')}
-            </button>
-            {practice && (
-              <button
-                onClick={() => handleTabChange('pronunciation')}
-                className="rounded-lg bg-rose-600 text-white text-sm font-medium px-4 py-2 hover:bg-rose-700"
-              >
-                {t('sndPronTab')} →
+      <SheetLookContext.Provider value={true}>
+        {tab === 'how' ? (
+          <SoundHowToTab phoneme={phoneme} practice={practice} accent={accent} onNext={() => handleTabChange('listening')} />
+        ) : tab === 'pronunciation' && practice ? (
+          <SoundPronunciationTab phoneme={phoneme} practice={practice} soundItemId={soundItem?.id} />
+        ) : completed ? (
+          <div className="space-y-4 rounded-2xl border border-rose-200 bg-card p-6 text-center shadow-[var(--shadow-card)] sm:p-8">
+            <p className="text-sm font-medium text-foreground">
+              {swipeResult ? t('sndHearingDone', { score: swipeResult.score, total: swipeResult.total }) : t('sndHearingDoneFunnel')}
+            </p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <button onClick={practiceAgain} className={sheet.secondaryButton}>
+                {t('sndAgain')}
               </button>
-            )}
+              {practice && (
+                <button onClick={() => handleTabChange('pronunciation')} className={sheet.primaryButton}>
+                  {t('sndPronTab')} →
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      ) : soundItem ? (
-        <DrillFunnel
-          key={attemptKey}
-          soundItem={soundItem}
-          phoneme={phoneme}
-          accent={accent}
-          hasPriorAttempt={false}
-          listeningOnly
-          onItemComplete={() => setCompleted(true)}
-        />
-      ) : phoneme.swipeWords && phoneme.swipeWords.length > 0 ? (
-        <SwipeCardExercise key={attemptKey} phoneme={phoneme} accent={accent} onComplete={handleSwipeComplete} />
-      ) : (
-        <div className="rounded-xl border border-dashed border-border bg-card p-6 text-center">
-          <p className="text-sm text-muted-foreground">{t('sndNoExercise')}</p>
-        </div>
-      )}
+        ) : soundItem ? (
+          <DrillFunnel
+            key={attemptKey}
+            soundItem={soundItem}
+            phoneme={phoneme}
+            accent={accent}
+            hasPriorAttempt={false}
+            listeningOnly
+            onItemComplete={() => setCompleted(true)}
+          />
+        ) : phoneme.swipeWords && phoneme.swipeWords.length > 0 ? (
+          <SwipeCardExercise key={attemptKey} phoneme={phoneme} accent={accent} onComplete={handleSwipeComplete} />
+        ) : (
+          <div className="rounded-xl border border-dashed border-border bg-card p-6 text-center">
+            <p className="text-sm text-muted-foreground">{t('sndNoExercise')}</p>
+          </div>
+        )}
+      </SheetLookContext.Provider>
     </div>
   )
 }

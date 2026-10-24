@@ -8,8 +8,9 @@ import { recordPronunciationAttempt } from '../../lib/pronunciationProgressApi'
 import { perceptionScoreFromRatios } from '../../lib/pronunciationScoring'
 import { awardClientXp } from '../../lib/gamificationApi'
 import type { PronunciationCheckResult } from '../../lib/types'
-import DrillCard from './DrillCard'
+import DrillCard, { useSheetLook } from './DrillCard'
 import DrillControls from './DrillControls'
+import SheetSteps, { type SheetStep } from './SheetSteps'
 import { SwipeCardDeck, awardSwipeSetXp } from '../Pronunciation/SwipeCardExercise'
 import ForcedChoiceStage from './ForcedChoiceStage'
 import OddOneOutStage from './OddOneOutStage'
@@ -109,6 +110,7 @@ export default function DrillFunnel({
   onProductionActiveChange?: (active: boolean) => void
   listeningOnly?: boolean
 }) {
+  const sheetLook = useSheetLook()
   const hasCards = Boolean(phoneme?.swipeWords?.length)
   const firstStage: Stage = hasCards ? 'cards' : 'forced-choice'
   const [stage, setStage] = useState<Stage>(hasPriorAttempt && !listeningOnly ? 'intro' : firstStage)
@@ -312,9 +314,31 @@ export default function DrillFunnel({
 
   // Listening-only drops the production stage from the progress dots.
   const stageCount = (hasCards ? 5 : 4) - (listeningOnly ? 1 : 0)
+  const stageIndex =
+    stage === 'cards' || stage === 'cards-summary' ? 0 : Math.min(stageCount - 1, STAGE_INDEX[stage] + (hasCards ? 1 : 0))
+
+  // The sheet shows the stages as labelled ovals (with each finished stage's score) instead of the dots.
+  const tally = (results: RoundResult[]) => `${results.filter((r) => r.correct).length}/${results.length}`
+  const roundsDone = (results: RoundResult[], rounds: number) => (results.length >= rounds ? tally(results) : undefined)
+  const sheetSteps: SheetStep[] = [
+    ...(hasCards ? [{ label: 'Kártyák', score: stage !== 'cards' && cardResults.length > 0 ? tally(cardResults) : undefined }] : []),
+    { label: 'Melyik szó?', score: roundsDone(fcResults, ROUNDS) },
+    { label: 'Melyikben van?', score: roundsDone(ooResults, ROUNDS) },
+    { label: 'Diktálás', score: dictationSubmitted ? `${dictationStats.matched}/${dictationStats.total}` : undefined },
+    ...(listeningOnly
+      ? []
+      : [{ label: 'Kiejtés', score: productionResult ? `${Math.round(productionResult.scores.pronunciation)}%` : undefined }]),
+  ]
 
   return (
     <div className="space-y-4">
+      {sheetLook && (
+        <SheetSteps
+          steps={sheetSteps}
+          current={stage === 'session-summary' ? sheetSteps.length : stageIndex}
+          overallLabel="Összesítés"
+        />
+      )}
       <DrillCard title={soundItem.title} titleHu={soundItem.titleHu}>
         {stage === 'cards' && phoneme && (
           <SwipeCardDeck
@@ -393,9 +417,7 @@ export default function DrillFunnel({
 
       <DrillControls
         stageCount={stageCount}
-        stageIndex={
-          stage === 'cards' || stage === 'cards-summary' ? 0 : Math.min(stageCount - 1, STAGE_INDEX[stage] + (hasCards ? 1 : 0))
-        }
+        stageIndex={stageIndex}
         rate={rate}
         onSetRate={setRate}
         onReplay={stage === 'production' ? replayProduction : undefined}
