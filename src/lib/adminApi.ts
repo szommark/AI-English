@@ -136,3 +136,47 @@ export async function saveManualMeter(meterId: ManualMeterId, value: number): Pr
   })
   if (!res.ok) throw new Error('Failed to save value')
 }
+
+// QR codes pointing at avnl.hu, with scan and sign-up counts (also on /api/admin/overview).
+
+export interface AdminQrCode {
+  id: string
+  slug: string
+  label: string
+  createdAt: string
+  scans: number
+  uniqueVisitors: number
+  scans7d: number
+  lastScanAt: string | null
+  signups: number
+  confirmedSignups: number
+}
+
+export interface AdminQrSignup {
+  email: string
+  codeId: string
+  createdAt: string
+}
+
+export interface AdminQrData {
+  codes: AdminQrCode[]
+  recentSignups: AdminQrSignup[]
+}
+
+export async function fetchAdminQr(): Promise<AdminQrData> {
+  const headers = await authHeader()
+  const res = await fetch('/api/admin/overview?resource=qr', { headers })
+  if (!res.ok) throw new Error('Failed to load QR codes')
+  return res.json()
+}
+
+export async function createAdminQr(label: string): Promise<AdminQrData> {
+  const headers = await authHeader()
+  const res = await fetch('/api/admin/overview?resource=qr-create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({ label }),
+  })
+  if (!res.ok) throw new Error('Failed to create QR code')
+  return res.json()
+}
