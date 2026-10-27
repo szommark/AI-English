@@ -42,6 +42,10 @@ const ExamTasksPage = lazy(() => import('./pages/ExamTasksPage'))
 const ExamTaskEditorPage = lazy(() => import('./pages/ExamTaskEditorPage'))
 const TeacherVocabListsPage = lazy(() => import('./pages/TeacherVocabListsPage'))
 const TeacherGoalsPage = lazy(() => import('./pages/TeacherGoalsPage'))
+const CompTestsPage = lazy(() => import('./pages/CompTestsPage'))
+const CompTestEditorPage = lazy(() => import('./pages/CompTestEditorPage'))
+const MyTestsPage = lazy(() => import('./pages/MyTestsPage'))
+const MyTestPage = lazy(() => import('./pages/MyTestPage'))
 
 /** Word lists moved into the Teacher Toolkit: old /teacher/lists/... links still work. */
 function LegacyListRedirect() {
@@ -260,6 +264,26 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/my-tests"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <MyTestsPage />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-tests/:assignmentId"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <MyTestPage />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/settings/voice"
         element={
           <ProtectedRoute>
@@ -359,6 +383,36 @@ function AppRoutes() {
           <RoleProtectedRoute role="teacher">
             <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
               <TeacherGoalsPage />
+            </Suspense>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/tools/comp-tests"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <CompTestsPage />
+            </Suspense>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/tools/comp-tests/new"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <CompTestEditorPage />
+            </Suspense>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/tools/comp-tests/:testId"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <CompTestEditorPage />
             </Suspense>
           </RoleProtectedRoute>
         }

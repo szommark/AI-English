@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom'
-import { BookOpen, ClipboardCheck, Music, Sparkles, Target, type LucideIcon } from 'lucide-react'
+import { BookOpen, ClipboardCheck, ListChecks, Music, Sparkles, Target, type LucideIcon } from 'lucide-react'
 import { useLanguage, type MessageKey } from '../../lib/i18n'
 
 const TOOLS: { to: string; icon: LucideIcon; title: MessageKey; desc: MessageKey }[] = [
   { to: '/teacher/tools/goals', icon: Target, title: 'ttGoalsTitle', desc: 'ttGoalsDesc' },
   { to: '/teacher/tools/vocab', icon: BookOpen, title: 'wordLists', desc: 'ttVocabDesc' },
   { to: '/teacher/tools/lyrics', icon: Music, title: 'ttLyricsTitle', desc: 'ttLyricsDesc' },
+  { to: '/teacher/tools/comp-tests', icon: ListChecks, title: 'ttCompTitle', desc: 'ttCompDesc' },
   { to: '/teacher/tools/exam-tasks', icon: ClipboardCheck, title: 'ttExamTasksTitle', desc: 'ttExamTasksDesc' },
 ]
 

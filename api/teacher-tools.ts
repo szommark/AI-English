@@ -28,6 +28,7 @@ import {
   HttpError,
 } from './_lib/examTasks.js'
 import { findSources } from './_lib/sourceFinder.js'
+import { handleCompAssign, handleCompAudio, handleCompGenerate, handleCompResult, handleCompTests } from './_lib/compTests.js'
 import { generationsToday } from './_lib/examTaskGenerate.js'
 import { EXAM_FIELDS, LISTENING_FORMATS, TASK_GENERATIONS_PER_DAY, TASK_LEVELS } from '../src/lib/examTasks.js'
 
@@ -57,6 +58,9 @@ import { EXAM_FIELDS, LISTENING_FORMATS, TASK_GENERATIONS_PER_DAY, TASK_LEVELS }
 //   exam-task-review, teachers, teacher-pools
 //   POST exam-source-search   { topic?, field, level, format? } → { sources, skipped, guardian, analysed, remaining }
 //                             (api/_lib/sourceFinder.ts; one analysis call, counted as a task generation)
+//
+// Comprehension tests (reading/listening tests assigned to students; see api/_lib/compTests.ts):
+//   comp-tests, comp-test-generate, comp-test-audio, comp-test-assign, comp-test-result
 
 // AI task generation and TTS rendering can take tens of seconds.
 export const config = { maxDuration: 60 }
@@ -307,6 +311,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'exam-source-search':
         await handleSourceSearch(req, res, user.id)
+        return
+      case 'comp-tests':
+        await handleCompTests(req, res, user.id)
+        return
+      case 'comp-test-generate':
+        await handleCompGenerate(req, res, user.id)
+        return
+      case 'comp-test-audio':
+        await handleCompAudio(req, res, user.id)
+        return
+      case 'comp-test-assign':
+        await handleCompAssign(req, res, user.id)
+        return
+      case 'comp-test-result':
+        await handleCompResult(req, res, user.id)
         return
       case 'teachers':
         await handleTeachers(req, res, user.id)
