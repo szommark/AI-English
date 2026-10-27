@@ -19,6 +19,7 @@ import { connectedSpeech } from './data/pronunciationLessons/connectedSpeech'
 import PhonemeDetailPage from './pages/PhonemeDetailPage'
 import VoiceSettingsPage from './pages/VoiceSettingsPage'
 import MissionPage from './pages/MissionPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import ConnectTeacherPage from './pages/settings/ConnectTeacherPage'
 import TeacherDashboardPage from './pages/TeacherDashboardPage'
 import StudentProgressPage from './pages/StudentProgressPage'
@@ -238,6 +239,8 @@ function AppRoutes() {
         }
       />
       <Route path="/mission" element={<MissionPage />} />
+      {/* Not protected: the reset email's link signs the user in here, and an expired link must still render. */}
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
         path="/my-progress"
         element={

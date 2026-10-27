@@ -5,6 +5,9 @@ import { clearQrAttribution, qrSignupMetadata } from './qrTracking'
 
 export type UserRole = 'student' | 'teacher' | 'admin'
 
+/** Supabase's default minimum password length. */
+export const MIN_PASSWORD = 6
+
 /** Admins also have every teacher feature (same rule as api/_lib/roles.ts). */
 export function hasTeacherAccess(role: UserRole | null): boolean {
   return role === 'teacher' || role === 'admin'
@@ -17,6 +20,8 @@ interface AuthContextValue {
   role: UserRole | null
   signUp: (email: string, password: string) => Promise<{ error: string | null }>
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  requestPasswordReset: (email: string) => Promise<{ error: string | null }>
+  updatePassword: (password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
 
@@ -74,13 +79,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error?.message ?? null }
   }
 
+  /** Emails a link that signs the user in on /reset-password, where they choose a new password. */
+  async function requestPasswordReset(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    return { error: error?.message ?? null }
+  }
+
+  async function updatePassword(password: string) {
+    const { error } = await supabase.auth.updateUser({ password })
+    return { error: error?.message ?? null }
+  }
+
   async function signOut() {
     await supabase.auth.signOut()
   }
 
   return (
     <AuthContext.Provider
-      value={{ session, user: session?.user ?? null, loading, role, signUp, signIn, signOut }}
+      value={{
+        session,
+        user: session?.user ?? null,
+        loading,
+        role,
+        signUp,
+        signIn,
+        requestPasswordReset,
+        updatePassword,
+        signOut,
+      }}
     >
       {children}
     </AuthContext.Provider>
