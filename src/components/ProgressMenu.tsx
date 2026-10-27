@@ -9,6 +9,7 @@ const MENU_WIDTH_PX = 240
 const LINKS: { to: string; label: MessageKey }[] = [
   { to: '/my-progress', label: 'myProgressOverview' },
   { to: '/my-goals', label: 'myGoals' },
+  { to: '/my-tests', label: 'myTests' },
   { to: '/settings/voice', label: 'voiceSettings' },
   { to: '/settings/teacher', label: 'connectTeacher' },
 ]

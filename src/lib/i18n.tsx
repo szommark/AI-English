@@ -1839,6 +1839,12 @@ const messages = {
   },
   ttMoreSoon: { hu: 'Hamarosan további eszközök.', en: 'More tools are on the way.', de: 'Weitere Werkzeuge folgen.' },
   ttGoalsTitle: { hu: 'Célkitűzés', en: 'Goal setting', de: 'Zielsetzung' },
+  ttCompTitle: { hu: 'Szövegértési tesztek', en: 'Comprehension tests', de: 'Verständnistests' },
+  ttCompDesc: {
+    hu: 'Olvasott és hallott szöveg értése tesztek MI-vel bármilyen témában és szinten: nyomtatod vagy kiosztod, az eredmények itt vannak.',
+    en: 'Reading and listening tests made with AI on any topic and level: print them or assign them, and see the results here.',
+    de: 'Lese- und Hörverstehenstests mit KI zu jedem Thema und Niveau: drucken oder zuweisen, Ergebnisse hier sehen.',
+  },
   ttGoalsDesc: {
     hu: 'Célok a diákjaiddal a GROW-modell szerint. Te elindítod, a diák kiegészíti és megerősíti.',
     en: 'Goals with your students, using the GROW model. You start them; the student completes and confirms.',
@@ -1847,6 +1853,7 @@ const messages = {
 
   // Learner goals (src/components/Goals/, /my-goals, /teacher/tools/goals).
   myGoals: { hu: 'Céljaim', en: 'My goals', de: 'Meine Ziele' },
+  myTests: { hu: 'Tesztjeim', en: 'My tests', de: 'Meine Tests' },
   glPageSubtitle: {
     hu: 'Cél, hol tartasz most, lehetőségek, teendők: a GROW-modell négy lépése.',
     en: 'Goal, where you are now, options, next steps: the four steps of the GROW model.',
