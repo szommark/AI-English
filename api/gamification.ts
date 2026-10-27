@@ -56,6 +56,7 @@ import {
   setSwitch,
 } from './_lib/social.js'
 import { validateNickname } from './_lib/socialRules.js'
+import { GOAL_ACTIONS, handleGoalAction } from './_lib/learnerGoals.js'
 import type {
   ClassGamification,
   ClassStudentGamification,
@@ -81,6 +82,7 @@ import type {
 //            challenge(s) (list / create / edit text), challenge-end, challenge-delete,
 //            class-settings
 //   admin:   admin-gamification (switches + leaderboard members), admin-nickname-reset
+//   goals:   learner goals (GROW) for the learner and their teachers — api/_lib/learnerGoals.ts
 
 const ALLOWED_AWARD_FIELDS = new Set(['activityType', 'itemRef', 'language', 'performanceScore', 'units'])
 const MAX_ITEM_REF_LENGTH = 200
@@ -836,6 +838,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const action = req.query.action
+  if (typeof action === 'string' && GOAL_ACTIONS.has(action)) {
+    await handleGoalAction(action, req, res, user.id)
+    return
+  }
 
   switch (action) {
     case 'award':
