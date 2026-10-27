@@ -24,6 +24,7 @@ import ConnectTeacherPage from './pages/settings/ConnectTeacherPage'
 import TeacherDashboardPage from './pages/TeacherDashboardPage'
 import StudentProgressPage from './pages/StudentProgressPage'
 import MyProgressPage from './pages/MyProgressPage'
+import MyGoalsPage from './pages/MyGoalsPage'
 import AdminOverviewPage from './pages/AdminOverviewPage'
 import AdminPersonasPage from './pages/AdminPersonasPage'
 import AdminUsagePage from './pages/AdminUsagePage'
@@ -40,6 +41,7 @@ const LyricsEditorPage = lazy(() => import('./pages/LyricsEditorPage'))
 const ExamTasksPage = lazy(() => import('./pages/ExamTasksPage'))
 const ExamTaskEditorPage = lazy(() => import('./pages/ExamTaskEditorPage'))
 const TeacherVocabListsPage = lazy(() => import('./pages/TeacherVocabListsPage'))
+const TeacherGoalsPage = lazy(() => import('./pages/TeacherGoalsPage'))
 
 /** Word lists moved into the Teacher Toolkit: old /teacher/lists/... links still work. */
 function LegacyListRedirect() {
@@ -250,6 +252,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/my-goals"
+        element={
+          <ProtectedRoute>
+            <MyGoalsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/settings/voice"
         element={
           <ProtectedRoute>
@@ -339,6 +349,16 @@ function AppRoutes() {
           <RoleProtectedRoute role="teacher">
             <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
               <LyricsEditorPage />
+            </Suspense>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/tools/goals"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <TeacherGoalsPage />
             </Suspense>
           </RoleProtectedRoute>
         }

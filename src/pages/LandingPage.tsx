@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { features, type Feature } from '../data/features'
 import FeatureTile from '../components/FeatureTile'
+import HomeGoalsCard from '../components/Goals/HomeGoalsCard'
 import { useAuthPrompt } from '../components/AppLayout'
 import { useAuth } from '../lib/AuthContext'
 import { useLanguage } from '../lib/i18n'
@@ -54,6 +55,8 @@ export default function LandingPage() {
           {t('landingHeading')}
         </h2>
       </div>
+
+      {user && <HomeGoalsCard key={user.id} />}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
         {features.map((f) => (

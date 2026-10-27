@@ -8,6 +8,7 @@ import MistakeAreaList, { visibleAreas } from '../components/Progress/MistakeAre
 import CefrHistoryLine from '../components/Progress/CefrHistoryLine'
 import StudentGamificationCard from '../components/gamification/StudentGamificationCard'
 import StudentTenseExplorerCard from '../components/TenseExplorerSettings/StudentTenseExplorerCard'
+import StudentGoalsCard from '../components/Goals/StudentGoalsCard'
 
 const MODE_LABELS: Record<string, string> = {
   rehearsal: 'Rehearsal',
@@ -64,6 +65,8 @@ export default function StudentProgressPage() {
         {detail && (
           <>
             {studentId && <StudentGamificationCard studentId={studentId} />}
+
+            {studentId && <StudentGoalsCard studentId={studentId} />}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2 sm:col-span-2">
