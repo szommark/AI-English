@@ -5,6 +5,7 @@ import type {
   ClientErrorStatus,
   FeedbackSubmitInput,
   FeedbackUpdateInput,
+  MyFeedbackReport,
 } from './feedback'
 
 async function authHeader(): Promise<Record<string, string>> {
@@ -23,6 +24,28 @@ export async function submitFeedbackReport(input: FeedbackSubmitInput): Promise<
   })
   if (res.status === 429) throw new FeedbackRateLimitError('Too many reports')
   if (!res.ok) throw new Error('Failed to send the report')
+}
+
+async function fetchMyReports(action: 'my-feedback' | 'my-feedback-updates'): Promise<MyFeedbackReport[]> {
+  const res = await fetch(`/api/connect?action=${action}`, { headers: await authHeader() })
+  if (!res.ok) throw new Error('Failed to load your reports')
+  return ((await res.json()) as { reports: MyFeedbackReport[] }).reports
+}
+
+/** The signed-in user's own reports, newest first (/my-reports). */
+export const fetchMyFeedback = () => fetchMyReports('my-feedback')
+
+/** Own reports fixed, closed or replied to since the user last looked. */
+export const fetchMyFeedbackUpdates = () => fetchMyReports('my-feedback-updates')
+
+/** Marks the given own reports (or all of them) as seen, ending their notice. */
+export async function markMyFeedbackSeen(ids?: string[]): Promise<void> {
+  const res = await fetch('/api/connect?action=my-feedback-seen', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify(ids ? { ids } : {}),
+  })
+  if (!res.ok) throw new Error('Failed to update your reports')
 }
 
 export async function fetchFeedbackReports(): Promise<AdminFeedbackReport[]> {

@@ -29,6 +29,7 @@ import AdminOverviewPage from './pages/AdminOverviewPage'
 import AdminPersonasPage from './pages/AdminPersonasPage'
 import AdminUsagePage from './pages/AdminUsagePage'
 import AdminFeedbackPage from './pages/AdminFeedbackPage'
+import MyReportsPage from './pages/MyReportsPage'
 import MouthCalibratorPage from './pages/dev/MouthCalibratorPage'
 
 // Teacher-only and sizeable: loaded on demand so it doesn't grow the main bundle.
@@ -261,6 +262,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <MyGoalsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-reports"
+        element={
+          <ProtectedRoute>
+            <MyReportsPage />
           </ProtectedRoute>
         }
       />
