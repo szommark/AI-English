@@ -9,10 +9,12 @@ import {
   pickNextStep,
 } from './_lib/learnerProgress.js'
 import type { MyProgress } from '../src/lib/progressTypes.js'
+import { FeedbackError, submitFeedback } from './_lib/feedback.js'
 
 // Single Vercel function for the whole teacher–student connection surface: the
 // student side (redeem, disconnect, teachers, my-progress) and the teacher side
-// (invite-code, roster, student-detail). Multiplexed by ?action= to stay under Vercel Hobby's
+// (invite-code, roster, student-detail), plus any signed-in user's "Report a problem" (feedback).
+// Multiplexed by ?action= to stay under Vercel Hobby's
 // 12-serverless-function cap — do not add new files directly under api/.
 // Query params rather than path segments because this project's vercel.json defines
 // custom `rewrites`, which disables Vercel's automatic filesystem-based dynamic route
@@ -406,6 +408,24 @@ async function handleMyProgress(req: VercelRequest, res: VercelResponse, userId:
   res.status(200).json(body)
 }
 
+async function handleFeedback(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  try {
+    const role = await getUserRole(userId)
+    res.status(200).json(await submitFeedback(userId, role, req.body))
+  } catch (err) {
+    if (err instanceof FeedbackError) {
+      res.status(err.status).json({ error: err.message })
+      return
+    }
+    console.error('Failed to save feedback report', err)
+    res.status(500).json({ error: 'Failed to send the report' })
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const user = await getUserFromRequest(req)
   if (!user) {
@@ -436,6 +456,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     case 'my-progress':
       await handleMyProgress(req, res, user.id)
+      return
+    case 'feedback':
+      await handleFeedback(req, res, user.id)
       return
     default:
       res.status(404).json({ error: 'Not found' })
