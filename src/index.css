@@ -157,6 +157,32 @@
   to { opacity: 1; translate: 0 0; }
 }
 
+/* Word list flip cards: both faces share one grid cell, so the card is as tall as its taller face. */
+.flashcard {
+  perspective: 1200px;
+}
+.flashcard__inner {
+  display: grid;
+  transform-style: preserve-3d;
+  transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.flashcard[data-flipped] .flashcard__inner {
+  transform: rotateY(180deg);
+}
+.flashcard__face {
+  grid-area: 1 / 1;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flashcard__face--back {
+  transform: rotateY(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .flashcard__inner {
+    transition: none;
+  }
+}
+
 /* Grammar Coach time game: a good answer drops into its column. */
 @media (prefers-reduced-motion: no-preference) {
   .tense-game-drop {
