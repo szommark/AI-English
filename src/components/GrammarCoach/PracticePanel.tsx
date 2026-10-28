@@ -34,6 +34,7 @@ export default function PracticePanel({
   isExercisesLoading,
   onPrepareExercises,
   onWrittenComplete,
+  flagSource,
 }: {
   mode: PracticeMode
   onModeChange: (mode: PracticeMode) => void
@@ -44,6 +45,8 @@ export default function PracticePanel({
   isExercisesLoading: boolean
   onPrepareExercises: () => void
   onWrittenComplete: (score: number) => void
+  /** Names the exercise set in item flags (see WrittenPractice). */
+  flagSource: string
 }) {
   const { t } = useLanguage()
 
@@ -84,7 +87,7 @@ export default function PracticePanel({
 
         <div role="tabpanel" hidden={mode !== 'written'}>
           {exercises ? (
-            <WrittenPractice set={exercises} onComplete={onWrittenComplete} />
+            <WrittenPractice set={exercises} onComplete={onWrittenComplete} flagSource={flagSource} />
           ) : (
             <div className="space-y-3 text-center">
               <p className="text-sm text-slate-500">{isExercisesLoading ? t('preparingExercises') : t('writtenIntro')}</p>

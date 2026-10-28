@@ -5,10 +5,12 @@ import {
   FEEDBACK_LIMITS,
   FEEDBACK_NOTIFY_STATUSES,
   SCREENSHOT_TYPES,
+  isContentFlagReason,
   isFeedbackKind,
   isFeedbackStatus,
   isUnseenUpdate,
   type AdminFeedbackReport,
+  type ContentFlag,
   type FeedbackContext,
   type FeedbackKind,
   type FeedbackLogEntry,
@@ -50,11 +52,18 @@ function logList(v: unknown): FeedbackLogEntry[] {
   }))
 }
 
+function contentFlag(v: unknown): ContentFlag | undefined {
+  const f = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>
+  if (!isContentFlagReason(f.reason)) return undefined
+  return { reason: f.reason, panel: str(f.panel, FEEDBACK_LIMITS.flagPanel), snapshot: str(f.snapshot, FEEDBACK_LIMITS.flagSnapshot) }
+}
+
 /** Rebuilds the context from known fields only, so the jsonb column never grows unbounded. */
 export function sanitizeContext(raw: unknown): FeedbackContext {
   const c = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
   const viewport = (c.viewport && typeof c.viewport === 'object' ? c.viewport : {}) as Record<string, unknown>
   const mic = c.micPermission
+  const flag = contentFlag(c.flag)
   return {
     userAgent: str(c.userAgent, 400),
     browser: str(c.browser, 60),
@@ -66,6 +75,7 @@ export function sanitizeContext(raw: unknown): FeedbackContext {
     online: c.online !== false,
     errors: logList(c.errors),
     requests: logList(c.requests),
+    ...(flag ? { flag } : {}),
   }
 }
 

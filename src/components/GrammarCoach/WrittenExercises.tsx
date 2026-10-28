@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from 'react'
 import type { GrammarFormExercise, GrammarOrderExercise, GrammarTransformExercise } from '../../lib/types'
 import { useLanguage } from '../../lib/i18n'
-import { finalPunctuation, gapParts, joinTiles, matchesAnswer, matchesGap, sentenceTiles } from '../../lib/grammarExercises'
+import { finalPunctuation, gapParts, joinTiles, matchesAnswer, matchesGap, sentenceTiles, transformAnswers, transformCue } from '../../lib/grammarExercises'
+import type { ContentFlagTarget } from '../../lib/feedback'
+import ContentFlagButton from '../ReportProblem/ContentFlagButton'
 
 /** null until the learner checks the item; then whether it was right. */
 export type ItemResult = boolean | null
@@ -11,6 +13,22 @@ interface ItemProps<T> {
   item: T
   result: ItemResult
   onCheck: (correct: boolean) => void
+  /** Where the item sits, for its flag ("Grammar Coach · b1-passive-simple (B1, hu) · Transform"). */
+  flagPanel: string
+}
+
+const RESULT_TEXT = { null: 'not checked yet', true: 'accepted', false: 'rejected' } as const
+
+/** A flagged item's panel label and snapshot: its fields, then the learner's answer and the result. */
+function flagTarget(panel: string, number: number, fields: [string, string | undefined][], learner: string, result: ItemResult): ContentFlagTarget {
+  const lines = [...fields, ["Learner's answer", learner.trim() || '—'], ['Result', RESULT_TEXT[`${result}`]]]
+  return {
+    panel: `${panel} ${number}`,
+    snapshot: lines
+      .filter((l): l is [string, string] => !!l[1])
+      .map(([label, text]) => `${label}: ${text}`)
+      .join('\n'),
+  }
 }
 
 /** Fisher–Yates; reshuffles (a few tries) if it lands on the original order. */
@@ -26,7 +44,19 @@ function shuffled<T>(items: T[]): T[] {
   return items
 }
 
-function ItemShell({ number, result, correctAnswer, children }: { number: number; result: ItemResult; correctAnswer: string; children: ReactNode }) {
+function ItemShell({
+  number,
+  result,
+  correctAnswer,
+  flag,
+  children,
+}: {
+  number: number
+  result: ItemResult
+  correctAnswer: string
+  flag: () => ContentFlagTarget
+  children: ReactNode
+}) {
   const { t } = useLanguage()
   return (
     <li className="flex gap-3">
@@ -40,6 +70,7 @@ function ItemShell({ number, result, correctAnswer, children }: { number: number
           </p>
         )}
       </div>
+      <ContentFlagButton target={flag} className="mt-1" />
     </li>
   )
 }
@@ -60,7 +91,7 @@ function CheckButton({ disabled, onClick }: { disabled: boolean; onClick: () => 
 const inputClass =
   'rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200 disabled:bg-slate-50'
 
-export function OrderItem({ number, item, result, onCheck }: ItemProps<GrammarOrderExercise>) {
+export function OrderItem({ number, item, result, onCheck, flagPanel }: ItemProps<GrammarOrderExercise>) {
   const { t } = useLanguage()
   const punctuation = finalPunctuation(item.answer)
   // Tiles are tracked by index: a sentence can use the same word twice.
@@ -70,7 +101,24 @@ export function OrderItem({ number, item, result, onCheck }: ItemProps<GrammarOr
   const built = joinTiles(picked.map((i) => tiles[i]), punctuation)
 
   return (
-    <ItemShell number={number} result={result} correctAnswer={item.answer}>
+    <ItemShell
+      number={number}
+      result={result}
+      correctAnswer={item.answer}
+      flag={() =>
+        flagTarget(
+          flagPanel,
+          number,
+          [
+            ['Correct sentence', item.answer],
+            ['Other accepted orders', item.alternatives?.join(' | ')],
+            ['Extra word', item.extra],
+          ],
+          built,
+          result,
+        )
+      }
+    >
       <div className="flex flex-wrap items-start gap-2">
         <div className="flex min-h-[2.5rem] flex-1 flex-wrap items-center gap-1.5 rounded-lg border-2 border-dashed border-slate-200 bg-white/70 px-2 py-1.5">
           {picked.length === 0 && <span className="px-1 text-sm text-slate-400">{t('orderPlaceholder')}</span>}
@@ -106,7 +154,7 @@ export function OrderItem({ number, item, result, onCheck }: ItemProps<GrammarOr
   )
 }
 
-export function FormItem({ number, item, result, onCheck }: ItemProps<GrammarFormExercise>) {
+export function FormItem({ number, item, result, onCheck, flagPanel }: ItemProps<GrammarFormExercise>) {
   const [value, setValue] = useState('')
   const checked = result !== null
   const { before, cue, after } = gapParts(item.sentence, item.cue)
@@ -115,7 +163,25 @@ export function FormItem({ number, item, result, onCheck }: ItemProps<GrammarFor
   }
 
   return (
-    <ItemShell number={number} result={result} correctAnswer={item.answers[0]}>
+    <ItemShell
+      number={number}
+      result={result}
+      correctAnswer={item.answers[0]}
+      flag={() =>
+        flagTarget(
+          flagPanel,
+          number,
+          [
+            ['Shown as', `${before}___ (${cue})${after}`],
+            ['Stored sentence', item.sentence],
+            ['Stored cue', item.cue],
+            ['Accepted answers', item.answers.join(' | ')],
+          ],
+          value,
+          result,
+        )
+      }
+    >
       <div className="flex flex-wrap items-center gap-2">
         <p className="min-w-0 flex-1 basis-full text-sm leading-8 text-slate-700 sm:basis-0">
           {before}
@@ -139,19 +205,38 @@ export function FormItem({ number, item, result, onCheck }: ItemProps<GrammarFor
   )
 }
 
-export function TransformItem({ number, item, result, onCheck }: ItemProps<GrammarTransformExercise>) {
+export function TransformItem({ number, item, result, onCheck, flagPanel }: ItemProps<GrammarTransformExercise>) {
   const { t } = useLanguage()
   const [value, setValue] = useState('')
   const checked = result !== null
+  const cue = transformCue(item)
   const check = () => {
-    if (!checked && value.trim()) onCheck(matchesAnswer(value, item.answers))
+    if (!checked && value.trim()) onCheck(matchesAnswer(value, transformAnswers(item)))
   }
 
   return (
-    <ItemShell number={number} result={result} correctAnswer={item.answers[0]}>
+    <ItemShell
+      number={number}
+      result={result}
+      correctAnswer={item.answers[0]}
+      flag={() =>
+        flagTarget(
+          flagPanel,
+          number,
+          [
+            ['Source', item.source],
+            ['Cue shown', cue],
+            ['Stored cue', item.cue],
+            ['Accepted answers', item.answers.join(' | ')],
+          ],
+          value,
+          result,
+        )
+      }
+    >
       <p className="pt-1 text-sm text-slate-700">
         {item.source}
-        {item.cue && <span className="text-slate-500"> ({item.cue})</span>}
+        {cue && <span className="text-slate-500"> ({cue})</span>}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <input

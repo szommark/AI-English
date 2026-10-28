@@ -1,11 +1,20 @@
 import type { MessageKey } from '../../lib/i18n'
-import type { FeedbackKind, FeedbackStatus, MyFeedbackReport } from '../../lib/feedback'
+import type { ContentFlagReason, FeedbackKind, FeedbackStatus, MyFeedbackReport } from '../../lib/feedback'
 
 export const KIND_LABEL: Record<FeedbackKind, MessageKey> = {
   bug: 'reportKindBug',
   display: 'reportKindDisplay',
   content: 'reportKindContent',
   idea: 'reportKindIdea',
+}
+
+export const FLAG_REASON_LABEL: Record<ContentFlagReason, MessageKey> = {
+  answer_rejected: 'flagReasonAnswerRejected',
+  wrong_key: 'flagReasonWrongKey',
+  faulty_logic: 'flagReasonFaultyLogic',
+  unclear: 'flagReasonUnclear',
+  typo: 'flagReasonTypo',
+  other: 'flagReasonOther',
 }
 
 /** How a report's status reads to the person who sent it. */
