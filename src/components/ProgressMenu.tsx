@@ -10,6 +10,7 @@ const LINKS: { to: string; label: MessageKey }[] = [
   { to: '/my-progress', label: 'myProgressOverview' },
   { to: '/my-goals', label: 'myGoals' },
   { to: '/my-tests', label: 'myTests' },
+  { to: '/my-reports', label: 'myReports' },
   { to: '/settings/voice', label: 'voiceSettings' },
   { to: '/settings/teacher', label: 'connectTeacher' },
 ]

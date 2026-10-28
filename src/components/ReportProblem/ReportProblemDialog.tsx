@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react'
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { ImagePlus, X } from 'lucide-react'
 import { useLanguage, type MessageKey } from '../../lib/i18n'
 import { FEEDBACK_KINDS, FEEDBACK_LIMITS, type FeedbackContext, type FeedbackKind } from '../../lib/feedback'
@@ -10,13 +10,7 @@ import {
   submitFeedbackReport,
   type PreparedScreenshot,
 } from '../../lib/feedbackApi'
-
-const KIND_LABEL: Record<FeedbackKind, MessageKey> = {
-  bug: 'reportKindBug',
-  display: 'reportKindDisplay',
-  content: 'reportKindContent',
-  idea: 'reportKindIdea',
-}
+import { KIND_LABEL } from './reportLabels'
 
 const MIC_LABEL: Record<FeedbackContext['micPermission'], MessageKey> = {
   granted: 'reportMicGranted',
@@ -140,13 +134,23 @@ export default function ReportProblemDialog({ onClose, crashed = false }: { onCl
               {t('reportSentTitle')}
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">{t('reportSentBody')}</p>
-            <button
-              type="button"
-              onClick={onClose}
-              className="mt-5 rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-            >
-              {t('reportClose')}
-            </button>
+            <p className="mt-1 text-sm text-muted-foreground">{t('reportSentTrack')}</p>
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <Link
+                to="/my-reports"
+                onClick={onClose}
+                className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-secondary"
+              >
+                {t('myReports')}
+              </Link>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+              >
+                {t('reportClose')}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">

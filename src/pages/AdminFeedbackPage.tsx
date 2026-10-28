@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Camera, ChevronDown, TriangleAlert } from 'lucide-react'
+import { Camera, ChevronDown, MessageSquare, TriangleAlert } from 'lucide-react'
 import {
   FEEDBACK_COUNT_CHANGED_EVENT,
   FEEDBACK_KINDS,
   FEEDBACK_LIMITS,
   FEEDBACK_STATUSES,
+  isUnseenUpdate,
   type AdminFeedbackReport,
   type FeedbackKind,
   type FeedbackLogEntry,
   type FeedbackStatus,
+  type FeedbackUpdateInput,
 } from '../lib/feedback'
 import { fetchFeedbackReports, updateFeedbackReport } from '../lib/feedbackApi'
 import AdminClientErrors from '../components/admin/AdminClientErrors'
@@ -43,6 +45,8 @@ const STATUS_STYLE: Record<FeedbackStatus, string> = {
   fixed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   wont_fix: 'bg-slate-50 text-slate-400 border-slate-200',
 }
+
+type ReportPatch = Omit<FeedbackUpdateInput, 'id'>
 
 type StatusFilter = 'open' | 'all' | FeedbackStatus
 const OPEN: FeedbackStatus[] = ['new', 'seen', 'in_progress']
@@ -80,20 +84,23 @@ function ReportCard({
   report: AdminFeedbackReport
   expanded: boolean
   onToggle: () => void
-  onUpdate: (patch: { status?: FeedbackStatus; adminNote?: string }) => Promise<void>
+  onUpdate: (patch: ReportPatch) => Promise<void>
 }) {
   const [note, setNote] = useState(report.adminNote ?? '')
-  const [saving, setSaving] = useState(false)
+  const [reply, setReply] = useState(report.adminReply ?? '')
+  const [saving, setSaving] = useState<'note' | 'reply' | null>(null)
   const c = report.context
   const errorCount = c.errors?.length ?? 0
   const noteChanged = note.trim() !== (report.adminNote ?? '')
+  const replyChanged = reply.trim() !== (report.adminReply ?? '')
+  const userCaughtUp = !isUnseenUpdate(report.userUpdateAt, report.userSeenAt)
 
-  async function saveNote() {
-    setSaving(true)
+  async function save(field: 'note' | 'reply') {
+    setSaving(field)
     try {
-      await onUpdate({ adminNote: note })
+      await onUpdate(field === 'note' ? { adminNote: note } : { adminReply: reply })
     } finally {
-      setSaving(false)
+      setSaving(null)
     }
   }
 
@@ -109,6 +116,7 @@ function ReportCard({
               {KIND_LABEL[report.kind]}
             </span>
             {report.screenshotUrl && <Camera className="h-4 w-4 text-slate-400" aria-label="Has screenshot" />}
+            {report.adminReply && <MessageSquare className="h-4 w-4 text-emerald-600" aria-label="Replied" />}
             {errorCount > 0 && (
               <span className="inline-flex items-center gap-1 text-xs text-amber-600" title="Console errors captured">
                 <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />
@@ -187,9 +195,41 @@ function ReportCard({
                 ))}
               </select>
             </label>
-            {report.statusChangedAt && (
-              <p className="pb-2 text-xs text-slate-400">Status changed {new Date(report.statusChangedAt).toLocaleString()}</p>
-            )}
+            <p className="pb-2 text-xs text-slate-400">
+              {report.statusChangedAt && <>Status changed {new Date(report.statusChangedAt).toLocaleString()}. </>}
+              Fixed and Won't fix show the reporter a one-time notice.
+            </p>
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+            <label className="block text-sm">
+              <span className="mb-1 block text-emerald-800">Reply to the reporter (they see it on My reports)</span>
+              <textarea
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+                maxLength={FEEDBACK_LIMITS.adminReply}
+                rows={2}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+              />
+            </label>
+            <div className="flex flex-wrap items-center gap-3">
+              {replyChanged && (
+                <button
+                  type="button"
+                  onClick={() => save('reply')}
+                  disabled={saving !== null}
+                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {saving === 'reply' ? 'Sending…' : reply.trim() ? (report.adminReply ? 'Update reply' : 'Send reply') : 'Remove reply'}
+                </button>
+              )}
+              {report.repliedAt && (
+                <p className="text-xs text-emerald-800">Replied {new Date(report.repliedAt).toLocaleString()}</p>
+              )}
+              {report.userUpdateAt && (
+                <p className="text-xs text-emerald-800">{userCaughtUp ? 'Seen by the reporter' : 'Not seen by the reporter yet'}</p>
+              )}
+            </div>
           </div>
 
           <label className="block text-sm">
@@ -205,11 +245,11 @@ function ReportCard({
           {noteChanged && (
             <button
               type="button"
-              onClick={saveNote}
-              disabled={saving}
+              onClick={() => save('note')}
+              disabled={saving !== null}
               className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
             >
-              {saving ? 'Saving…' : 'Save note'}
+              {saving === 'note' ? 'Saving…' : 'Save note'}
             </button>
           )}
         </div>
@@ -234,7 +274,7 @@ function ReportsTab() {
       .finally(() => setLoading(false))
   }, [])
 
-  async function update(id: string, patch: { status?: FeedbackStatus; adminNote?: string }) {
+  async function update(id: string, patch: ReportPatch) {
     setError(null)
     try {
       const updated = await updateFeedbackReport({ id, ...patch })

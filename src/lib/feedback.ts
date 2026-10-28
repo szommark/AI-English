@@ -11,6 +11,8 @@ export const FEEDBACK_LIMITS = {
   description: 4000,
   expected: 2000,
   adminNote: 4000,
+  /** Reply the reporter sees on /my-reports. */
+  adminReply: 2000,
   /** Decoded screenshot bytes; the browser downscales to ~1600 px JPEG well below this. */
   screenshotBytes: 3 * 1024 * 1024,
   /** Reports per user per rolling hour. */
@@ -65,7 +67,13 @@ export interface AdminFeedbackReport {
   screenshotUrl: string | null
   status: FeedbackStatus
   adminNote: string | null
+  adminReply: string | null
+  repliedAt: string | null
   statusChangedAt: string | null
+  /** Last change the reporter is told about (fixed / won't fix / reply). */
+  userUpdateAt: string | null
+  /** When the reporter last opened My reports or dismissed the notice. */
+  userSeenAt: string | null
   createdAt: string
 }
 
@@ -73,6 +81,30 @@ export interface FeedbackUpdateInput {
   id: string
   status?: FeedbackStatus
   adminNote?: string
+  adminReply?: string
+}
+
+/** Statuses that close a report and trigger the reporter's one-time notice. */
+export const FEEDBACK_NOTIFY_STATUSES: readonly FeedbackStatus[] = ['fixed', 'wont_fix']
+
+/** One of the signed-in user's own reports (/my-reports). */
+export interface MyFeedbackReport {
+  id: string
+  kind: FeedbackKind
+  description: string
+  expected: string | null
+  pagePath: string
+  status: FeedbackStatus
+  adminReply: string | null
+  repliedAt: string | null
+  statusChangedAt: string | null
+  createdAt: string
+  /** Fixed, closed or replied to since the user last looked. */
+  unseen: boolean
+}
+
+export function isUnseenUpdate(userUpdateAt: string | null, userSeenAt: string | null): boolean {
+  return !!userUpdateAt && (!userSeenAt || new Date(userUpdateAt) > new Date(userSeenAt))
 }
 
 export function isFeedbackKind(v: unknown): v is FeedbackKind {

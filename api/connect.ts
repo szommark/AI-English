@@ -9,12 +9,13 @@ import {
   pickNextStep,
 } from './_lib/learnerProgress.js'
 import type { MyProgress } from '../src/lib/progressTypes.js'
-import { FeedbackError, submitFeedback } from './_lib/feedback.js'
+import { FeedbackError, listMyFeedback, markMyFeedbackSeen, myFeedbackUpdates, submitFeedback } from './_lib/feedback.js'
 import { recordClientErrors } from './_lib/clientErrors.js'
 
 // Single Vercel function for the whole teacher–student connection surface: the
 // student side (redeem, disconnect, teachers, my-progress) and the teacher side
-// (invite-code, roster, student-detail), plus any signed-in user's "Report a problem" (feedback) and the
+// (invite-code, roster, student-detail), plus any signed-in user's "Report a problem" (feedback, my-feedback, my-feedback-updates,
+// my-feedback-seen) and the
 // automatic crash capture (client-errors, which also accepts signed-out visitors).
 // Multiplexed by ?action= to stay under Vercel Hobby's
 // 12-serverless-function cap — do not add new files directly under api/.
@@ -428,6 +429,28 @@ async function handleFeedback(req: VercelRequest, res: VercelResponse, userId: s
   }
 }
 
+async function handleMyFeedback(
+  req: VercelRequest,
+  res: VercelResponse,
+  method: 'GET' | 'POST',
+  run: () => Promise<unknown>,
+) {
+  if (req.method !== method) {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  try {
+    res.status(200).json(await run())
+  } catch (err) {
+    if (err instanceof FeedbackError) {
+      res.status(err.status).json({ error: err.message })
+      return
+    }
+    console.error('Failed to handle my feedback', err)
+    res.status(500).json({ error: 'Failed to load your reports' })
+  }
+}
+
 async function handleClientErrors(req: VercelRequest, res: VercelResponse, userId: string | null) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
@@ -484,6 +507,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return
     case 'feedback':
       await handleFeedback(req, res, user.id)
+      return
+    case 'my-feedback':
+      await handleMyFeedback(req, res, 'GET', async () => ({ reports: await listMyFeedback(user.id) }))
+      return
+    case 'my-feedback-updates':
+      await handleMyFeedback(req, res, 'GET', async () => ({ reports: await myFeedbackUpdates(user.id) }))
+      return
+    case 'my-feedback-seen':
+      await handleMyFeedback(req, res, 'POST', () => markMyFeedbackSeen(user.id, req.body))
       return
     default:
       res.status(404).json({ error: 'Not found' })
