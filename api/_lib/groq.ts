@@ -24,7 +24,7 @@ import {
   type VocabKind,
   type VocabPos,
 } from '../../src/lib/vocab.js'
-import { EXERCISES_PER_TYPE, GAP, sameWords, sentenceTiles } from '../../src/lib/grammarExercises.js'
+import { bareCue, doublesAtGap, EXERCISES_PER_TYPE, GAP, sameWords, sentenceTiles } from '../../src/lib/grammarExercises.js'
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
@@ -408,12 +408,15 @@ export function parseGrammarExercisesJson(raw: string): GrammarExerciseSet {
     if (!isNonEmptyString(item.sentence) || !isNonEmptyString(item.cue)) throw new Error('Grammar form item is missing sentence/cue')
     const sentence = item.sentence.trim().replace(/_{2,}/g, GAP)
     if (sentence.split(GAP).length !== 2) throw new Error('Grammar form item needs exactly one gap')
-    return { sentence, cue: item.cue.trim(), answers: answerList(item.answers, 'form item') }
+    // An answer that repeats the word after the gap ("weren't" before "not") reads wrong once filled in.
+    const answers = answerList(item.answers, 'form item').filter((a) => !doublesAtGap(sentence, a))
+    if (answers.length === 0) throw new Error('Grammar form item answers repeat the word after the gap')
+    return { sentence, cue: bareCue(item.cue), answers }
   })
 
   const transform = exerciseItems(parsed.transform, 'transform').map((item) => {
     if (!isNonEmptyString(item.source)) throw new Error('Grammar transform item is missing its source sentence')
-    const cue = isNonEmptyString(item.cue) ? item.cue.trim() : undefined
+    const cue = isNonEmptyString(item.cue) ? bareCue(item.cue) || undefined : undefined
     return { source: item.source.trim(), ...(cue ? { cue } : {}), answers: answerList(item.answers, 'transform item') }
   })
 

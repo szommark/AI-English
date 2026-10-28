@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Camera, ChevronDown, MessageSquare, TriangleAlert } from 'lucide-react'
+import { Camera, ChevronDown, Flag, MessageSquare, TriangleAlert } from 'lucide-react'
 import {
+  CONTENT_FLAG_REASON_TEXT,
   FEEDBACK_COUNT_CHANGED_EVENT,
   FEEDBACK_KINDS,
   FEEDBACK_LIMITS,
@@ -117,6 +118,12 @@ function ReportCard({
             <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${KIND_STYLE[report.kind]}`}>
               {KIND_LABEL[report.kind]}
             </span>
+            {c.flag && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700">
+                <Flag className="h-3 w-3" aria-hidden="true" />
+                {CONTENT_FLAG_REASON_TEXT[c.flag.reason] ?? c.flag.reason}
+              </span>
+            )}
             {report.screenshotUrl && <Camera className="h-4 w-4 text-slate-400" aria-label="Has screenshot" />}
             {report.adminReply && <MessageSquare className="h-4 w-4 text-emerald-600" aria-label="Replied" />}
             {errorCount > 0 && (
@@ -138,6 +145,13 @@ function ReportCard({
       {expanded && (
         <div className="space-y-4 border-t border-slate-100 px-4 py-4">
           <CopyForClaudeButton task={() => reportTask(report)} />
+
+          {c.flag && (
+            <div>
+              <h4 className="text-xs font-medium uppercase tracking-wide text-slate-400">Flagged item · {c.flag.panel}</h4>
+              <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700">{c.flag.snapshot}</pre>
+            </div>
+          )}
 
           {report.expected && (
             <div>

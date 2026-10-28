@@ -12,6 +12,8 @@ import { TENSE_GAME_ANSWER_MAX_LENGTH, type TenseGameMode, type TenseGameVerdict
 import type { TenseStoryId } from '../../../data/tenseStories'
 import TimeColumns, { FRAME_LABEL, frameTotals, type GameQuestion, type PlacedAnswer } from './TimeColumns'
 import ModelAnswer from './ModelAnswer'
+import ContentFlagButton from '../../ReportProblem/ContentFlagButton'
+import type { ContentFlagTarget } from '../../../lib/feedback'
 
 /** retry = the first answer was wrong and the learner has one more go. */
 type Status = 'answering' | 'checking' | 'retry' | 'correct' | 'missed'
@@ -213,6 +215,30 @@ export default function QuestionRunner({
     setStatus('missed')
   }
 
+  // What a flag on this question attaches: the question, the AI's last verdict and the learner's answers.
+  const flagTarget = (): ContentFlagTarget => {
+    const lines: [string, string | undefined][] = [
+      ['Question', question.text],
+      ['Time frame', question.frame],
+      ['Focus', question.focus],
+      ['Sample answer', question.sample],
+      ["Learner's last checked answer", submitted || undefined],
+      ['Typed / said now', answerText.trim() && answerText.trim() !== submitted ? answerText.trim() : undefined],
+      ['Status', `${status}${attempt === 2 ? ' (second try)' : ''}`],
+      ['AI verdict', verdict ? `${verdict.ok ? 'accepted' : 'rejected'}${verdict.factsOk ? '' : ' (contradicts the fact card)'}; tense: ${verdict.tense || '—'}` : undefined],
+      ['AI feedback', verdict?.feedback],
+      ['AI corrected', verdict?.corrected || undefined],
+      ['AI model answer', verdict?.model || undefined],
+    ]
+    return {
+      panel: `Tense game · ${storyId ? `story ${storyId}` : 'quick round'} (${mode}, lang ${lang}) · question ${question.id}`,
+      snapshot: lines
+        .filter((l): l is [string, string] => !!l[1])
+        .map(([label, text]) => `${label}: ${text}`)
+        .join('\n'),
+    }
+  }
+
   const questionVisible = mode === 'chat' || !speak || showText || status === 'correct' || status === 'missed'
 
   const card = (
@@ -221,9 +247,12 @@ export default function QuestionRunner({
         <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">
           {t('tenseGameProgress', { n: index + 1, total: questions.length })} · {label}
         </p>
-        <button type="button" onClick={onQuit} className="text-xs font-medium text-slate-400 hover:text-slate-600">
-          {t('tenseGameQuit')}
-        </button>
+        <div className="flex items-center gap-2">
+          <ContentFlagButton target={flagTarget} />
+          <button type="button" onClick={onQuit} className="text-xs font-medium text-slate-400 hover:text-slate-600">
+            {t('tenseGameQuit')}
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start">

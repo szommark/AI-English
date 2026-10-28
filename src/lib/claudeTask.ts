@@ -1,4 +1,4 @@
-import type { AdminClientError, AdminFeedbackReport, FeedbackLogEntry } from './feedback'
+import { CONTENT_FLAG_REASON_TEXT, type AdminClientError, type AdminFeedbackReport, type FeedbackLogEntry } from './feedback'
 
 // "Copy for Claude" in the admin inbox: turns a problem report or a recorded error into a
 // self-contained task to paste into Claude Code (or a GitHub issue). Plain Markdown, English
@@ -18,9 +18,10 @@ const WORKFLOW = [
   '## How to work on it',
   '',
   '1. Find the cause in the code first; say briefly what it is before changing anything.',
-  '2. Fix it on a new `fix/...` branch from `main` and verify the fix (type check, and the page in the browser preview where possible).',
-  '3. If the fix needs a Supabase migration, show the SQL; do not apply it unless asked.',
-  '4. Stop before committing and ask; commit and open a PR only when asked.',
+  '2. Check whether it is generic: the same pattern in other exercise types, other pages, other generators or prompts, and content already cached in the database (e.g. a word shown twice in brackets, an answer that needs words the task never gave). Fix it everywhere it occurs, not only where it was reported, and list the places.',
+  '3. Fix it on a new `fix/...` branch from `main` and verify the fix (type check, and the page in the browser preview where possible).',
+  '4. If the fix needs a Supabase migration or a change to stored content, show the SQL; do not apply it unless asked.',
+  '5. Stop before committing and ask; commit and open a PR only when asked.',
 ].join('\n')
 
 function fence(text: string): string {
@@ -69,7 +70,10 @@ export function reportTask(r: AdminFeedbackReport): string {
       ? 'A user suggested the idea below. Assess whether and how it fits the app, propose a plan, and ask before building anything.'
       : 'A user reported the problem below through "Report a problem". Reproduce it if you can, find the cause and fix it.',
     `Report id: \`${r.id}\` (table \`feedback_reports\`; admin inbox: /admin/feedback). The user's own words are quoted as written${lang && lang !== 'English' ? ` (${lang})` : ''}.`,
-    `## ${isIdea ? 'The idea' : 'What happened'}`,
+    c.flag && '## The flagged item',
+    c.flag &&
+      `The user flagged one exercise item: **${CONTENT_FLAG_REASON_TEXT[c.flag.reason] ?? c.flag.reason}**.\n\nPanel: ${c.flag.panel}\n\n${fence(c.flag.snapshot)}`,
+    `## ${isIdea ? 'The idea' : c.flag ? 'Their words' : 'What happened'}`,
     quote(r.description),
     r.expected && `## ${r.kind === 'content' ? 'What it should be' : 'What they expected'}`,
     r.expected && quote(r.expected),

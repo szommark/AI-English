@@ -1,8 +1,16 @@
-import { useEffect, useRef, useState, type DragEvent } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { ImagePlus, X } from 'lucide-react'
+import { ClipboardPaste, X } from 'lucide-react'
 import { useLanguage, type MessageKey } from '../../lib/i18n'
-import { FEEDBACK_KINDS, FEEDBACK_LIMITS, type FeedbackContext, type FeedbackKind } from '../../lib/feedback'
+import {
+  CONTENT_FLAG_REASONS,
+  FEEDBACK_KINDS,
+  FEEDBACK_LIMITS,
+  type ContentFlagReason,
+  type ContentFlagTarget,
+  type FeedbackContext,
+  type FeedbackKind,
+} from '../../lib/feedback'
 import { collectFeedbackContext } from '../../lib/feedbackContext'
 import {
   FeedbackRateLimitError,
@@ -10,7 +18,7 @@ import {
   submitFeedbackReport,
   type PreparedScreenshot,
 } from '../../lib/feedbackApi'
-import { KIND_LABEL } from './reportLabels'
+import { FLAG_REASON_LABEL, KIND_LABEL } from './reportLabels'
 
 const MIC_LABEL: Record<FeedbackContext['micPermission'], MessageKey> = {
   granted: 'reportMicGranted',
@@ -21,26 +29,54 @@ const MIC_LABEL: Record<FeedbackContext['micPermission'], MessageKey> = {
 
 type Phase = 'editing' | 'sending' | 'sent'
 
+function ChoiceButton({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className={`rounded-lg border px-3 py-2 text-left text-sm transition ${
+        selected
+          ? 'border-[var(--teal-accent-border)] bg-[var(--teal-accent-soft)] font-medium text-foreground'
+          : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
 /**
- * "Report a problem": type, what happened, optional expectation and screenshot. The page,
- * browser, recent errors and failed requests are attached automatically and listed under
+ * "Report a problem": type, what happened, optional expectation and a pasted screenshot. The
+ * page, browser, recent errors and failed requests are attached automatically and listed under
  * "What gets sent automatically?" so nothing is sent unseen. After a crash (CrashBoundary) the
- * description starts with "The page crashed while I was …" for the user to finish.
+ * description starts with "The page crashed while I was …" for the user to finish. Opened from a
+ * panel's flag (ContentFlagButton) it is a content report: a preset reason instead of the type,
+ * the flagged item shown and attached, and the description optional.
  */
-export default function ReportProblemDialog({ onClose, crashed = false }: { onClose: () => void; crashed?: boolean }) {
+export default function ReportProblemDialog({
+  onClose,
+  crashed = false,
+  flag,
+}: {
+  onClose: () => void
+  crashed?: boolean
+  flag?: ContentFlagTarget
+}) {
   const { lang, t } = useLanguage()
   const { pathname } = useLocation()
   // The page the user was on when they opened the dialog, even if they navigate meanwhile.
   const [pagePath] = useState(pathname)
   const [context, setContext] = useState<FeedbackContext | null>(null)
-  const [kind, setKind] = useState<FeedbackKind>('bug')
+  const [chosenKind, setKind] = useState<FeedbackKind>('bug')
+  const kind: FeedbackKind = flag ? 'content' : chosenKind
+  const [reason, setReason] = useState<ContentFlagReason | null>(null)
   const [description, setDescription] = useState(() => (crashed ? t('reportCrashDescription') : ''))
   const [expected, setExpected] = useState('')
   const [shot, setShot] = useState<PreparedScreenshot | null>(null)
   const [shotError, setShotError] = useState(false)
   const [phase, setPhase] = useState<Phase>('editing')
   const [error, setError] = useState<MessageKey | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
   const descriptionRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
@@ -83,22 +119,20 @@ export default function ReportProblemDialog({ onClose, crashed = false }: { onCl
     return () => document.removeEventListener('paste', onPaste)
   }, [phase])
 
-  function onDrop(e: DragEvent) {
-    e.preventDefault()
-    attach(e.dataTransfer.files[0])
-  }
+  const canSend = phase === 'editing' && !!context && (flag ? !!reason : description.trim().length > 0)
 
   async function send() {
-    if (!context || !description.trim()) return
+    if (!canSend || !context) return
     setPhase('sending')
     setError(null)
     try {
       await submitFeedbackReport({
         kind,
-        description: description.trim(),
+        // A flag needs no description: the reason says it.
+        description: description.trim() || (reason ? t(FLAG_REASON_LABEL[reason]) : ''),
         expected: kind === 'idea' ? undefined : expected.trim() || undefined,
         pagePath,
-        context,
+        context: flag && reason ? { ...context, flag: { ...flag, reason } } : context,
         screenshot: shot ? { contentType: shot.contentType, dataBase64: shot.dataBase64 } : undefined,
       })
       setPhase('sent')
@@ -107,8 +141,6 @@ export default function ReportProblemDialog({ onClose, crashed = false }: { onCl
       setPhase('editing')
     }
   }
-
-  const canSend = phase === 'editing' && !!context && description.trim().length > 0
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-6" onClick={onClose}>
@@ -156,43 +188,48 @@ export default function ReportProblemDialog({ onClose, crashed = false }: { onCl
           <div className="space-y-4">
             <div className="pr-6">
               <h2 id="report-problem-title" className="text-lg font-semibold text-foreground">
-                {t('reportProblem')}
+                {t(flag ? 'flagTitle' : 'reportProblem')}
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">{t('reportIntro')}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t(flag ? 'flagIntro' : 'reportIntro')}</p>
             </div>
 
+            {flag && (
+              <div className="rounded-lg border border-border bg-secondary px-3 py-2">
+                <p className="text-xs font-medium text-foreground">{t('flagItemLabel')}</p>
+                <pre className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-words font-sans text-xs text-muted-foreground">
+                  {flag.snapshot}
+                </pre>
+              </div>
+            )}
+
             <fieldset>
-              <legend className="mb-2 text-sm font-medium text-foreground">{t('reportKindLabel')}</legend>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {FEEDBACK_KINDS.map((k) => (
-                  <button
-                    key={k}
-                    type="button"
-                    aria-pressed={kind === k}
-                    onClick={() => setKind(k)}
-                    className={`rounded-lg border px-3 py-2 text-left text-sm transition ${
-                      kind === k
-                        ? 'border-[var(--teal-accent-border)] bg-[var(--teal-accent-soft)] font-medium text-foreground'
-                        : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground'
-                    }`}
-                  >
-                    {t(KIND_LABEL[k])}
-                  </button>
-                ))}
+              <legend className="mb-2 text-sm font-medium text-foreground">{t(flag ? 'flagReasonLabel' : 'reportKindLabel')}</legend>
+              <div className={`grid grid-cols-1 gap-2 ${flag ? '' : 'sm:grid-cols-2'}`}>
+                {flag
+                  ? CONTENT_FLAG_REASONS.map((r) => (
+                      <ChoiceButton key={r} selected={reason === r} onClick={() => setReason(r)}>
+                        {t(FLAG_REASON_LABEL[r])}
+                      </ChoiceButton>
+                    ))
+                  : FEEDBACK_KINDS.map((k) => (
+                      <ChoiceButton key={k} selected={kind === k} onClick={() => setKind(k)}>
+                        {t(KIND_LABEL[k])}
+                      </ChoiceButton>
+                    ))}
               </div>
             </fieldset>
 
             <label className="block">
               <span className="mb-1 block text-sm font-medium text-foreground">
-                {t(kind === 'idea' ? 'reportDescriptionIdeaLabel' : 'reportDescriptionLabel')}
+                {t(flag ? 'flagDetailsLabel' : kind === 'idea' ? 'reportDescriptionIdeaLabel' : 'reportDescriptionLabel')}
               </span>
               <textarea
                 ref={descriptionRef}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 maxLength={FEEDBACK_LIMITS.description}
-                rows={4}
-                placeholder={kind === 'idea' ? undefined : t('reportDescriptionPlaceholder')}
+                rows={flag ? 2 : 4}
+                placeholder={kind === 'idea' || flag ? undefined : t('reportDescriptionPlaceholder')}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-[var(--teal-accent)] focus:outline-none"
               />
               {crashed && <span className="mt-1 block text-xs text-muted-foreground">{t('reportCrashNote')}</span>}
@@ -233,30 +270,16 @@ export default function ReportProblemDialog({ onClose, crashed = false }: { onCl
                   </button>
                 </div>
               ) : (
+                // Paste only: the dialog takes Ctrl+V anywhere, this zone is just somewhere to click first.
                 <div
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={onDrop}
-                  className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed border-border px-3 py-3"
+                  tabIndex={0}
+                  className="rounded-lg border border-dashed border-border px-3 py-3 focus:border-[var(--teal-accent)] focus:outline-none"
                 >
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-primary hover:bg-secondary"
-                  >
-                    <ImagePlus className="h-4 w-4" aria-hidden="true" />
-                    {t('reportScreenshotChoose')}
-                  </button>
-                  <span className="text-xs text-muted-foreground">{t('reportScreenshotHint')}</span>
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      attach(e.target.files?.[0])
-                      e.target.value = ''
-                    }}
-                  />
+                  <p className="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+                    <ClipboardPaste className="h-4 w-4" aria-hidden="true" />
+                    {t('reportScreenshotPaste')}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{t('reportScreenshotHow')}</p>
                 </div>
               )}
               {shotError && <p className="mt-1 text-xs text-red-600">{t('reportScreenshotError')}</p>}

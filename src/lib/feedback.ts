@@ -19,6 +19,39 @@ export const FEEDBACK_LIMITS = {
   perHour: 10,
   /** Kept per log list (errors, requests). */
   logEntries: 20,
+  /** A flagged panel's label and content snapshot. */
+  flagPanel: 120,
+  flagSnapshot: 2000,
+}
+
+/** Preset reasons for flagging one exercise panel ("This item is wrong"). */
+export const CONTENT_FLAG_REASONS = ['answer_rejected', 'wrong_key', 'faulty_logic', 'unclear', 'typo', 'other'] as const
+export type ContentFlagReason = (typeof CONTENT_FLAG_REASONS)[number]
+
+/** What a panel's flag button hands the report dialog: which panel, and what was on it. */
+export interface ContentFlagTarget {
+  /** E.g. "Grammar Coach · b1-passive-simple (B1, hu) · Transform 2". */
+  panel: string
+  /** The panel as the learner saw it: question, cue, accepted answers, their answer, the result. */
+  snapshot: string
+}
+
+/** The reasons as the admin inbox and "Copy for Claude" show them. */
+export const CONTENT_FLAG_REASON_TEXT: Record<ContentFlagReason, string> = {
+  answer_rejected: 'A correct answer was rejected',
+  wrong_key: 'The given solution is wrong',
+  faulty_logic: "Faulty exercise logic (the answer doesn't follow from the task)",
+  unclear: 'The task or instruction is unclear',
+  typo: 'Typo or display glitch (e.g. a word shown twice)',
+  other: 'Something else',
+}
+
+export interface ContentFlag extends ContentFlagTarget {
+  reason: ContentFlagReason
+}
+
+export function isContentFlagReason(v: unknown): v is ContentFlagReason {
+  return typeof v === 'string' && (CONTENT_FLAG_REASONS as readonly string[]).includes(v)
 }
 
 export const SCREENSHOT_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
@@ -44,6 +77,8 @@ export interface FeedbackContext {
   errors: FeedbackLogEntry[]
   /** API / Supabase requests that failed or returned 4xx/5xx, oldest first. */
   requests: FeedbackLogEntry[]
+  /** Set when the report came from a panel's flag button rather than the general dialog. */
+  flag?: ContentFlag
 }
 
 export interface FeedbackSubmitInput {

@@ -4,7 +4,7 @@ import { Bug } from 'lucide-react'
 import { hasTeacherAccess, useAuth } from '../lib/AuthContext'
 import { useLanguage } from '../lib/i18n'
 import { buildTrail } from '../lib/navTrail'
-import { FEEDBACK_COUNT_CHANGED_EVENT } from '../lib/feedback'
+import { FEEDBACK_COUNT_CHANGED_EVENT, type ContentFlagTarget } from '../lib/feedback'
 import { fetchNewFeedbackCount } from '../lib/feedbackApi'
 import AuthModal from './AuthModal'
 import BrandIntro, { shouldShowBrandIntro } from './BrandIntro'
@@ -27,6 +27,8 @@ const AuthPromptContext = createContext<AuthPromptValue | undefined>(undefined)
 interface ReportProblemValue {
   /** Opens the Report a problem dialog (signed-in users only). */
   openReport: () => void
+  /** Opens the dialog as a content flag for one exercise panel; null when signed out. */
+  flagContent: ((target: ContentFlagTarget) => void) | null
 }
 
 const ReportProblemContext = createContext<ReportProblemValue | undefined>(undefined)
@@ -35,6 +37,11 @@ export function useReportProblem(): ReportProblemValue {
   const ctx = useContext(ReportProblemContext)
   if (!ctx) throw new Error('useReportProblem must be used within AppLayout')
   return ctx
+}
+
+/** The panel flag action, or null outside AppLayout or when signed out (no flag button then). */
+export function useContentFlag(): ReportProblemValue['flagContent'] {
+  return useContext(ReportProblemContext)?.flagContent ?? null
 }
 
 export function useAuthPrompt(): AuthPromptValue {
@@ -86,9 +93,15 @@ export default function AppLayout() {
 
   const [authOpen, setAuthOpen] = useState(false)
   // null = closed; crashed = opened from the crash screen (prefilled description).
-  const [report, setReport] = useState<{ crashed: boolean } | null>(null)
+  const [report, setReport] = useState<{ crashed: boolean; flag?: ContentFlagTarget } | null>(null)
   const closeReport = useCallback(() => setReport(null), [])
-  const reportValue = useMemo<ReportProblemValue>(() => ({ openReport: () => setReport({ crashed: false }) }), [])
+  const reportValue = useMemo<ReportProblemValue>(
+    () => ({
+      openReport: () => setReport({ crashed: false }),
+      flagContent: user ? (flag) => setReport({ crashed: false, flag }) : null,
+    }),
+    [user],
+  )
   const newFeedback = useNewFeedbackCount(role === 'admin', pathname)
   const [pendingRoute, setPendingRoute] = useState<string | null>(null)
 
@@ -239,7 +252,7 @@ export default function AppLayout() {
 
         {user && <ReportUpdatesNotice userId={user.id} />}
 
-        {user && report && <ReportProblemDialog onClose={closeReport} crashed={report.crashed} />}
+        {user && report && <ReportProblemDialog key={report.flag?.panel ?? 'report'} onClose={closeReport} crashed={report.crashed} flag={report.flag} />}
 
         {authOpen && (
           <AuthModal

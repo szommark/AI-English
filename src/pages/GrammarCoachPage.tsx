@@ -389,6 +389,7 @@ export default function GrammarCoachPage() {
                 isExercisesLoading={isExercisesLoading}
                 onPrepareExercises={handlePrepareExercises}
                 onWrittenComplete={handleWrittenComplete}
+                flagSource={`Grammar Coach · ${selected.item.id} (${selected.level}, lang ${lang}, explain ${explain})`}
               />
             )}
 

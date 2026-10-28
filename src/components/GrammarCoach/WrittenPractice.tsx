@@ -31,7 +31,16 @@ function SectionBlock({ number, title, instruction, children }: { number: number
  * The three written exercise types for one grammar point. Each item is checked on its own;
  * once all are checked, onComplete gets the share answered correctly (0–1).
  */
-export default function WrittenPractice({ set, onComplete }: { set: GrammarExerciseSet; onComplete: (score: number) => void }) {
+export default function WrittenPractice({
+  set,
+  onComplete,
+  flagSource,
+}: {
+  set: GrammarExerciseSet
+  onComplete: (score: number) => void
+  /** Names the set in item flags, e.g. "Grammar Coach · b1-passive-simple (B1, hu)". */
+  flagSource: string
+}) {
   const { t } = useLanguage()
   const [results, setResults] = useState(() => emptyResults(set))
   // Bumped by "Start over" to remount the items with fresh inputs and reshuffled tiles.
@@ -60,19 +69,26 @@ export default function WrittenPractice({ set, onComplete }: { set: GrammarExerc
     <div key={round} className="space-y-6">
       <SectionBlock number={1} title={t('orderTitle')} instruction={t('orderInstruction')}>
         {set.order.map((item, i) => (
-          <OrderItem key={i} number={i + 1} item={item} result={results.order[i]} onCheck={record('order', i)} />
+          <OrderItem key={i} number={i + 1} item={item} result={results.order[i]} onCheck={record('order', i)} flagPanel={`${flagSource} · Word order`} />
         ))}
       </SectionBlock>
 
       <SectionBlock number={2} title={t('formTitle')} instruction={set.formInstruction}>
         {set.form.map((item, i) => (
-          <FormItem key={i} number={i + 1} item={item} result={results.form[i]} onCheck={record('form', i)} />
+          <FormItem key={i} number={i + 1} item={item} result={results.form[i]} onCheck={record('form', i)} flagPanel={`${flagSource} · Form`} />
         ))}
       </SectionBlock>
 
       <SectionBlock number={3} title={t('transformTitle')} instruction={set.transformInstruction}>
         {set.transform.map((item, i) => (
-          <TransformItem key={i} number={i + 1} item={item} result={results.transform[i]} onCheck={record('transform', i)} />
+          <TransformItem
+            key={i}
+            number={i + 1}
+            item={item}
+            result={results.transform[i]}
+            onCheck={record('transform', i)}
+            flagPanel={`${flagSource} · Transform`}
+          />
         ))}
       </SectionBlock>
 
