@@ -21,6 +21,9 @@ export default function AdminOverviewPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold text-slate-800">Admin Overview</h1>
           <div className="flex items-center gap-4">
+            <Link to="/admin/feedback" className="text-sm text-indigo-600 hover:underline">
+              Problem reports
+            </Link>
             <Link to="/admin/personas" className="text-sm text-indigo-600 hover:underline">
               Tutor Bot personas
             </Link>

@@ -16,9 +16,10 @@ const LINKS: { to: string; label: MessageKey }[] = [
 
 /**
  * The signed-in user's header menu: "My progress ▾" opens the progress overview, the personal
- * settings (voice, teacher connection) and, under a divider, the account email and Sign out.
+ * settings (voice, teacher connection), Report a problem and, under a divider, the account email
+ * and Sign out.
  */
-export default function ProgressMenu() {
+export default function ProgressMenu({ onReportProblem }: { onReportProblem: () => void }) {
   const { user, signOut } = useAuth()
   const { t } = useLanguage()
   const { pathname } = useLocation()
@@ -89,6 +90,17 @@ export default function ProgressMenu() {
               {t(l.label)}
             </Link>
           ))}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              onReportProblem()
+            }}
+            className="block w-full px-4 py-2 text-left text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            {t('reportProblem')}
+          </button>
           <div className="my-1 border-t border-border" role="separator" />
           <p className="truncate px-4 pt-1 text-xs text-muted-foreground" title={user?.email ?? undefined}>
             {user?.email}

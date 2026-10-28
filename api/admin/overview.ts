@@ -4,6 +4,7 @@ import { getUserRole } from '../_lib/roles.js'
 import { buildUsageSnapshot } from '../_lib/usageSnapshot.js'
 import { isManualMeterId } from '../../src/lib/usageLimits.js'
 import { randomBytes } from 'node:crypto'
+import { FeedbackError, countNewFeedback, listFeedback, updateFeedback } from '../_lib/feedback.js'
 
 // Multiplexed by ?resource= (default: connections overview) to stay under Vercel Hobby's
 // 12-serverless-function cap — do not add new files directly under api/.
@@ -123,7 +124,20 @@ async function handleQrCreate(req: VercelRequest, res: VercelResponse, userId: s
   res.status(500).json({ error: 'Failed to create QR code' })
 }
 
-const METHODS: Record<string, string> = { 'usage-manual': 'PUT', 'qr-create': 'POST' }
+async function handleFeedback(res: VercelResponse, run: () => Promise<unknown>, failure: string) {
+  try {
+    res.status(200).json(await run())
+  } catch (err) {
+    if (err instanceof FeedbackError) {
+      res.status(err.status).json({ error: err.message })
+      return
+    }
+    console.error(failure, err)
+    res.status(500).json({ error: failure })
+  }
+}
+
+const METHODS: Record<string, string> = { 'usage-manual': 'PUT', 'qr-create': 'POST', 'feedback-update': 'PATCH' }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const resource = req.query.resource
@@ -149,6 +163,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (resource === 'usage-manual') return handleUsageManual(req, res, user.id)
   if (resource === 'qr') return handleQr(res)
   if (resource === 'qr-create') return handleQrCreate(req, res, user.id)
+  if (resource === 'feedback') {
+    return handleFeedback(res, async () => ({ reports: await listFeedback() }), 'Failed to load reports')
+  }
+  if (resource === 'feedback-count') {
+    return handleFeedback(res, async () => ({ new: await countNewFeedback() }), 'Failed to count reports')
+  }
+  if (resource === 'feedback-update') {
+    return handleFeedback(res, async () => ({ report: await updateFeedback(req.body) }), 'Failed to update report')
+  }
 
   const [{ data: links }, { data: attempts }] = await Promise.all([
     supabaseAdmin

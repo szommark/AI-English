@@ -28,6 +28,7 @@ import MyGoalsPage from './pages/MyGoalsPage'
 import AdminOverviewPage from './pages/AdminOverviewPage'
 import AdminPersonasPage from './pages/AdminPersonasPage'
 import AdminUsagePage from './pages/AdminUsagePage'
+import AdminFeedbackPage from './pages/AdminFeedbackPage'
 import MouthCalibratorPage from './pages/dev/MouthCalibratorPage'
 
 // Teacher-only and sizeable: loaded on demand so it doesn't grow the main bundle.
@@ -468,6 +469,14 @@ function AppRoutes() {
         element={
           <RoleProtectedRoute role="admin">
             <AdminUsagePage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/feedback"
+        element={
+          <RoleProtectedRoute role="admin">
+            <AdminFeedbackPage />
           </RoleProtectedRoute>
         }
       />

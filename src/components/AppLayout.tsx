@@ -1,8 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Bug } from 'lucide-react'
 import { hasTeacherAccess, useAuth } from '../lib/AuthContext'
 import { useLanguage } from '../lib/i18n'
 import { buildTrail } from '../lib/navTrail'
+import { FEEDBACK_COUNT_CHANGED_EVENT } from '../lib/feedback'
+import { fetchNewFeedbackCount } from '../lib/feedbackApi'
 import AuthModal from './AuthModal'
 import BrandIntro, { shouldShowBrandIntro } from './BrandIntro'
 import Wordmark from './Wordmark'
@@ -10,6 +13,7 @@ import LanguageSwitcher from './LanguageSwitcher'
 import ProgressMenu from './ProgressMenu'
 import LevelChip from './gamification/LevelChip'
 import XpNotifications from './gamification/XpNotifications'
+import ReportProblemDialog from './ReportProblem/ReportProblemDialog'
 
 interface AuthPromptValue {
   /** Opens the sign-in modal; after a successful sign-in the app navigates to `route`. */
@@ -27,10 +31,38 @@ export function useAuthPrompt(): AuthPromptValue {
 /**
  * Shared frame for every page: brand + a short account menu on the top bar (Mission and Sign in
  * when signed out; level, My progress ▾ and the role's dashboard when signed in), a floating
- * language switcher bottom-right, and — on all
+ * language switcher bottom-right (with "Report a problem" beside it when signed in), and — on all
  * pages except the home page — the "Back to home" button with the section trail beneath it,
  * top-left, at every depth.
  */
+const FEEDBACK_COUNT_REFRESH_MS = 60_000
+
+/** New problem reports for the admin's header link; refreshed on navigation at most once a
+ *  minute, and right away when the inbox changes a status. */
+function useNewFeedbackCount(enabled: boolean, pathname: string): number {
+  const [count, setCount] = useState(0)
+  const lastFetch = useRef(0)
+
+  const refresh = useCallback(() => {
+    lastFetch.current = Date.now()
+    fetchNewFeedbackCount()
+      .then(setCount)
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (enabled && Date.now() - lastFetch.current > FEEDBACK_COUNT_REFRESH_MS) refresh()
+  }, [enabled, pathname, refresh])
+
+  useEffect(() => {
+    if (!enabled) return
+    window.addEventListener(FEEDBACK_COUNT_CHANGED_EVENT, refresh)
+    return () => window.removeEventListener(FEEDBACK_COUNT_CHANGED_EVENT, refresh)
+  }, [enabled, refresh])
+
+  return enabled ? count : 0
+}
+
 export default function AppLayout() {
   const { user, role } = useAuth()
   const { lang, t } = useLanguage()
@@ -38,6 +70,9 @@ export default function AppLayout() {
   const navigate = useNavigate()
 
   const [authOpen, setAuthOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
+  const closeReport = useCallback(() => setReportOpen(false), [])
+  const newFeedback = useNewFeedbackCount(role === 'admin', pathname)
   const [pendingRoute, setPendingRoute] = useState<string | null>(null)
 
   useEffect(() => {
@@ -83,15 +118,23 @@ export default function AppLayout() {
               {user ? (
                 <>
                   <LevelChip />
-                  <ProgressMenu />
+                  <ProgressMenu onReportProblem={() => setReportOpen(true)} />
                   {hasTeacherAccess(role) && (
                     <Link to="/teacher" className="font-medium text-muted-foreground hover:text-foreground hover:underline">
                       {t('teacherDashboard')}
                     </Link>
                   )}
                   {role === 'admin' && (
-                    <Link to="/admin" className="font-medium text-muted-foreground hover:text-foreground hover:underline">
+                    <Link to="/admin" className="inline-flex items-center gap-1.5 font-medium text-muted-foreground hover:text-foreground hover:underline">
                       {t('admin')}
+                      {newFeedback > 0 && (
+                        <span
+                          title={`${newFeedback} new problem report${newFeedback === 1 ? '' : 's'}`}
+                          className="rounded-full bg-red-600 px-1.5 text-xs font-semibold leading-5 text-white"
+                        >
+                          {newFeedback}
+                        </span>
+                      )}
                     </Link>
                   )}
                 </>
@@ -150,11 +193,25 @@ export default function AppLayout() {
       </div>
 
       {/* Floats on every page, apart from the header menu. */}
-      <div className="fixed bottom-4 right-4 z-40 sm:right-6">
+      <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2 sm:right-6">
+        {user && (
+          <button
+            type="button"
+            onClick={() => setReportOpen(true)}
+            title={t('reportProblem')}
+            aria-label={t('reportProblem')}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-muted-foreground shadow-sm hover:bg-secondary hover:text-foreground"
+          >
+            <Bug className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="hidden sm:inline">{t('reportProblem')}</span>
+          </button>
+        )}
         <LanguageSwitcher />
       </div>
 
       {user && <XpNotifications />}
+
+      {user && reportOpen && <ReportProblemDialog onClose={closeReport} />}
 
       {authOpen && (
         <AuthModal
