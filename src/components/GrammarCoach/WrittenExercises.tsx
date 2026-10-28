@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import type { GrammarFormExercise, GrammarOrderExercise, GrammarTransformExercise } from '../../lib/types'
 import { useLanguage } from '../../lib/i18n'
-import { finalPunctuation, GAP, joinTiles, matchesAnswer, matchesGap, sentenceTiles } from '../../lib/grammarExercises'
+import { finalPunctuation, gapParts, joinTiles, matchesAnswer, matchesGap, sentenceTiles } from '../../lib/grammarExercises'
 
 /** null until the learner checks the item; then whether it was right. */
 export type ItemResult = boolean | null
@@ -109,7 +109,7 @@ export function OrderItem({ number, item, result, onCheck }: ItemProps<GrammarOr
 export function FormItem({ number, item, result, onCheck }: ItemProps<GrammarFormExercise>) {
   const [value, setValue] = useState('')
   const checked = result !== null
-  const [before, after] = item.sentence.split(GAP)
+  const { before, cue, after } = gapParts(item.sentence, item.cue)
   const check = () => {
     if (!checked && value.trim()) onCheck(matchesGap(item.sentence, value, item.answers))
   }
@@ -130,7 +130,7 @@ export function FormItem({ number, item, result, onCheck }: ItemProps<GrammarFor
             spellCheck={false}
             className={`${inputClass} mx-1 w-36`}
           />
-          <span className="text-slate-500">({item.cue})</span>
+          <span className="text-slate-500">({cue})</span>
           {after}
         </p>
         {!checked && <CheckButton disabled={!value.trim()} onClick={check} />}
