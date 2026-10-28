@@ -15,7 +15,7 @@ function push(list: FeedbackLogEntry[], message: string) {
   if (list.length > FEEDBACK_LIMITS.logEntries) list.shift()
 }
 
-function describeValue(v: unknown): string {
+export function describeValue(v: unknown): string {
   if (v instanceof Error) {
     const frame = v.stack?.split('\n').find((line) => line.trim().startsWith('at '))
     return frame ? `${v.name}: ${v.message} (${frame.trim()})` : `${v.name}: ${v.message}`
@@ -41,6 +41,12 @@ function describeUrl(raw: string): string {
   } catch {
     return raw.split('?')[0]
   }
+}
+
+/** Adds an entry to the error log a report carries, e.g. a crash the error boundary caught
+ *  (React does not pass those to window.onerror). */
+export function logFeedbackError(message: string) {
+  push(errors, message)
 }
 
 let installed = false
@@ -86,7 +92,7 @@ function install() {
 
 install()
 
-function describeBrowser(ua: string): string {
+export function describeBrowser(ua: string): string {
   const checks: [RegExp, string][] = [
     [/Edg(?:A|iOS)?\/(\d+)/, 'Edge'],
     [/OPR\/(\d+)/, 'Opera'],

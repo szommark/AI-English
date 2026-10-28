@@ -30,16 +30,17 @@ type Phase = 'editing' | 'sending' | 'sent'
 /**
  * "Report a problem": type, what happened, optional expectation and screenshot. The page,
  * browser, recent errors and failed requests are attached automatically and listed under
- * "What gets sent automatically?" so nothing is sent unseen.
+ * "What gets sent automatically?" so nothing is sent unseen. After a crash (CrashBoundary) the
+ * description starts with "The page crashed while I was …" for the user to finish.
  */
-export default function ReportProblemDialog({ onClose }: { onClose: () => void }) {
+export default function ReportProblemDialog({ onClose, crashed = false }: { onClose: () => void; crashed?: boolean }) {
   const { lang, t } = useLanguage()
   const { pathname } = useLocation()
   // The page the user was on when they opened the dialog, even if they navigate meanwhile.
   const [pagePath] = useState(pathname)
   const [context, setContext] = useState<FeedbackContext | null>(null)
   const [kind, setKind] = useState<FeedbackKind>('bug')
-  const [description, setDescription] = useState('')
+  const [description, setDescription] = useState(() => (crashed ? t('reportCrashDescription') : ''))
   const [expected, setExpected] = useState('')
   const [shot, setShot] = useState<PreparedScreenshot | null>(null)
   const [shotError, setShotError] = useState(false)
@@ -50,7 +51,10 @@ export default function ReportProblemDialog({ onClose }: { onClose: () => void }
 
   useEffect(() => {
     collectFeedbackContext(lang).then(setContext)
-    descriptionRef.current?.focus()
+    const field = descriptionRef.current
+    field?.focus()
+    // Caret after the crash prefill, ready to finish the sentence.
+    field?.setSelectionRange(field.value.length, field.value.length)
     // Snapshot once on open: later errors (e.g. from the dialog itself) aren't part of the report.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -187,6 +191,7 @@ export default function ReportProblemDialog({ onClose }: { onClose: () => void }
                 placeholder={kind === 'idea' ? undefined : t('reportDescriptionPlaceholder')}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-[var(--teal-accent)] focus:outline-none"
               />
+              {crashed && <span className="mt-1 block text-xs text-muted-foreground">{t('reportCrashNote')}</span>}
             </label>
 
             {kind !== 'idea' && (

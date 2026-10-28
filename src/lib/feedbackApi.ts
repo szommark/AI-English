@@ -1,5 +1,11 @@
 import { supabase } from './supabase'
-import type { AdminFeedbackReport, FeedbackSubmitInput, FeedbackUpdateInput } from './feedback'
+import type {
+  AdminClientError,
+  AdminFeedbackReport,
+  ClientErrorStatus,
+  FeedbackSubmitInput,
+  FeedbackUpdateInput,
+} from './feedback'
 
 async function authHeader(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession()
@@ -39,6 +45,25 @@ export async function updateFeedbackReport(input: FeedbackUpdateInput): Promise<
   })
   if (!res.ok) throw new Error('Failed to update report')
   return ((await res.json()) as { report: AdminFeedbackReport }).report
+}
+
+export async function fetchClientErrors(): Promise<AdminClientError[]> {
+  const res = await fetch('/api/admin/overview?resource=client-errors', { headers: await authHeader() })
+  if (!res.ok) throw new Error('Failed to load errors')
+  return ((await res.json()) as { errors: AdminClientError[] }).errors
+}
+
+export async function updateClientErrorStatus(
+  fingerprint: string,
+  status: ClientErrorStatus,
+): Promise<{ status: ClientErrorStatus; statusChangedAt: string }> {
+  const res = await fetch('/api/admin/overview?resource=client-error-update', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify({ fingerprint, status }),
+  })
+  if (!res.ok) throw new Error('Failed to update error')
+  return ((await res.json()) as { clientError: { status: ClientErrorStatus; statusChangedAt: string } }).clientError
 }
 
 const SHOT_MAX_SIDE = 1600

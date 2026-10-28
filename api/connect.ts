@@ -10,10 +10,12 @@ import {
 } from './_lib/learnerProgress.js'
 import type { MyProgress } from '../src/lib/progressTypes.js'
 import { FeedbackError, submitFeedback } from './_lib/feedback.js'
+import { recordClientErrors } from './_lib/clientErrors.js'
 
 // Single Vercel function for the whole teacher–student connection surface: the
 // student side (redeem, disconnect, teachers, my-progress) and the teacher side
-// (invite-code, roster, student-detail), plus any signed-in user's "Report a problem" (feedback).
+// (invite-code, roster, student-detail), plus any signed-in user's "Report a problem" (feedback) and the
+// automatic crash capture (client-errors, which also accepts signed-out visitors).
 // Multiplexed by ?action= to stay under Vercel Hobby's
 // 12-serverless-function cap — do not add new files directly under api/.
 // Query params rather than path segments because this project's vercel.json defines
@@ -426,14 +428,37 @@ async function handleFeedback(req: VercelRequest, res: VercelResponse, userId: s
   }
 }
 
+async function handleClientErrors(req: VercelRequest, res: VercelResponse, userId: string | null) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  try {
+    res.status(200).json(await recordClientErrors(userId, req.body))
+  } catch (err) {
+    if (err instanceof FeedbackError) {
+      res.status(err.status).json({ error: err.message })
+      return
+    }
+    console.error('Failed to record client errors', err)
+    res.status(500).json({ error: 'Failed to record errors' })
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const action = req.query.action
   const user = await getUserFromRequest(req)
+
+  // Crashes on the landing page matter too, so this one action works signed out.
+  if (action === 'client-errors') {
+    await handleClientErrors(req, res, user?.id ?? null)
+    return
+  }
+
   if (!user) {
     res.status(401).json({ error: 'Unauthorized' })
     return
   }
-
-  const action = req.query.action
 
   switch (action) {
     case 'redeem':

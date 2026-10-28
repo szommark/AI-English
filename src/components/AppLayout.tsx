@@ -14,6 +14,7 @@ import ProgressMenu from './ProgressMenu'
 import LevelChip from './gamification/LevelChip'
 import XpNotifications from './gamification/XpNotifications'
 import ReportProblemDialog from './ReportProblem/ReportProblemDialog'
+import CrashBoundary, { CrashScreen } from './ReportProblem/CrashBoundary'
 
 interface AuthPromptValue {
   /** Opens the sign-in modal; after a successful sign-in the app navigates to `route`. */
@@ -70,8 +71,9 @@ export default function AppLayout() {
   const navigate = useNavigate()
 
   const [authOpen, setAuthOpen] = useState(false)
-  const [reportOpen, setReportOpen] = useState(false)
-  const closeReport = useCallback(() => setReportOpen(false), [])
+  // null = closed; crashed = opened from the crash screen (prefilled description).
+  const [report, setReport] = useState<{ crashed: boolean } | null>(null)
+  const closeReport = useCallback(() => setReport(null), [])
   const newFeedback = useNewFeedbackCount(role === 'admin', pathname)
   const [pendingRoute, setPendingRoute] = useState<string | null>(null)
 
@@ -118,7 +120,7 @@ export default function AppLayout() {
               {user ? (
                 <>
                   <LevelChip />
-                  <ProgressMenu onReportProblem={() => setReportOpen(true)} />
+                  <ProgressMenu onReportProblem={() => setReport({ crashed: false })} />
                   {hasTeacherAccess(role) && (
                     <Link to="/teacher" className="font-medium text-muted-foreground hover:text-foreground hover:underline">
                       {t('teacherDashboard')}
@@ -188,7 +190,15 @@ export default function AppLayout() {
         )}
 
         <main className="max-w-6xl mx-auto px-4 py-8">
-          <Outlet />
+          {/* Keyed by path: navigating away from a crashed page brings the app back. */}
+          <CrashBoundary
+            key={pathname}
+            fallback={(error) => (
+              <CrashScreen error={error} onReport={user ? () => setReport({ crashed: true }) : undefined} />
+            )}
+          >
+            <Outlet />
+          </CrashBoundary>
         </main>
       </div>
 
@@ -197,7 +207,7 @@ export default function AppLayout() {
         {user && (
           <button
             type="button"
-            onClick={() => setReportOpen(true)}
+            onClick={() => setReport({ crashed: false })}
             title={t('reportProblem')}
             aria-label={t('reportProblem')}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-muted-foreground shadow-sm hover:bg-secondary hover:text-foreground"
@@ -211,7 +221,7 @@ export default function AppLayout() {
 
       {user && <XpNotifications />}
 
-      {user && reportOpen && <ReportProblemDialog onClose={closeReport} />}
+      {user && report && <ReportProblemDialog onClose={closeReport} crashed={report.crashed} />}
 
       {authOpen && (
         <AuthModal
