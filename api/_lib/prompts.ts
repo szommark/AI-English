@@ -257,14 +257,15 @@ There are three exercise types, exactly ${EXERCISES_PER_TYPE} items each, ordere
 - "alternatives": other word orders of exactly the same words that are also correct (e.g. a moved time adverbial); [] if there are none.
 
 2. "form" — a sentence with ONE gap, written as ___ (three underscores), and a cue the learner turns into the right form.
+- "sentence": putting any listed answer into the gap must give a correct sentence with no word outside the gap moved, added or removed. A question therefore gaps the auxiliary at the front ("___ you like coffee?", cue "do", answer "Do") or the whole auxiliary + subject + verb ("What ___ at the moment?", cue "you / do", answer "are you doing") — never "You ___ coffee?".
 - "cue": the base form shown in brackets after the gap, e.g. the infinitive of the verb ("build") for tenses and the passive, the adjective ("big") for comparatives, the pronoun ("I") for object pronouns. If this grammar point has no base form to change (e.g. prepositions, articles, this/that/these/those), the cue lists the options instead ("in / on / at").
-- "answers": every correct way to fill the gap — include both the contracted and the full form where both are correct ("wasn't built", "was not built").
+- "answers": every correct way to fill the gap, each exactly the words that go in it (never repeat a word from outside the gap, e.g. the subject). Contracted forms are accepted automatically, so write the full form ("was not built", "is cooking").
 - "formInstruction": one short instruction for this section, e.g. "Put the verbs in brackets into the passive."
 
 3. "transform" — the learner rewrites a whole sentence so that it uses the grammar point.
 - "source": the sentence to rewrite, e.g. an active sentence to turn into the passive, a statement to turn into a question, direct speech to report, two sentences to join with a relative pronoun.
 - "cue": optional short hint shown in brackets, e.g. a word to use or how the new sentence starts; "" if none is needed.
-- "answers": the complete correct rewritten sentences — 1 to 3 versions, covering contracted/full forms and other natural correct variants.
+- "answers": the complete correct rewritten sentences — 1 to 3 natural correct variants. Contracted forms are accepted automatically, so don't list a contracted copy of a sentence.
 - "transformInstruction": one short instruction for this section, e.g. "Rewrite the sentences in the passive."
 
 Write "formInstruction" and "transformInstruction" in ${instructionLanguage}. Every exercise sentence, cue and answer is in ENGLISH. Keep each answer unambiguous: a learner who knows this grammar point should be able to produce exactly one of the listed answers.`

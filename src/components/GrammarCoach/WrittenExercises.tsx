@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import type { GrammarFormExercise, GrammarOrderExercise, GrammarTransformExercise } from '../../lib/types'
 import { useLanguage } from '../../lib/i18n'
-import { finalPunctuation, GAP, joinTiles, matchesAnswer, sentenceTiles } from '../../lib/grammarExercises'
+import { finalPunctuation, GAP, joinTiles, matchesAnswer, matchesGap, sentenceTiles } from '../../lib/grammarExercises'
 
 /** null until the learner checks the item; then whether it was right. */
 export type ItemResult = boolean | null
@@ -111,7 +111,7 @@ export function FormItem({ number, item, result, onCheck }: ItemProps<GrammarFor
   const checked = result !== null
   const [before, after] = item.sentence.split(GAP)
   const check = () => {
-    if (!checked && value.trim()) onCheck(matchesAnswer(value, item.answers))
+    if (!checked && value.trim()) onCheck(matchesGap(item.sentence, value, item.answers))
   }
 
   return (
