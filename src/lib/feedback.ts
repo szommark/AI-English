@@ -85,3 +85,59 @@ export function isFeedbackStatus(v: unknown): v is FeedbackStatus {
 
 /** Fired by the admin inbox after a status change so the header badge refreshes at once. */
 export const FEEDBACK_COUNT_CHANGED_EVENT = 'avalon:feedback-count-changed'
+
+// --- Automatic crash capture (phase 2) ---------------------------------------------------
+
+export const CLIENT_ERROR_KINDS = ['error', 'rejection', 'render'] as const
+export type ClientErrorKind = (typeof CLIENT_ERROR_KINDS)[number]
+
+export const CLIENT_ERROR_STATUSES = ['open', 'resolved', 'ignored'] as const
+export type ClientErrorStatus = (typeof CLIENT_ERROR_STATUSES)[number]
+
+export const CLIENT_ERROR_LIMITS = {
+  /** Distinct errors per request. */
+  batch: 10,
+  message: 500,
+  stack: 4000,
+}
+
+export interface ClientErrorItem {
+  kind: ClientErrorKind
+  message: string
+  stack?: string
+  pagePath: string
+  /** Occurrences of this error in the page since the last send. */
+  count: number
+}
+
+export interface ClientErrorBatch {
+  appVersion: string
+  browser: string
+  errors: ClientErrorItem[]
+}
+
+export interface AdminClientError {
+  fingerprint: string
+  kind: ClientErrorKind
+  message: string
+  stack: string | null
+  lastPagePath: string | null
+  lastAppVersion: string | null
+  lastBrowser: string | null
+  occurrences: number
+  occurrences7d: number
+  users: number
+  users7d: number
+  status: ClientErrorStatus
+  statusChangedAt: string | null
+  firstSeenAt: string
+  lastSeenAt: string
+}
+
+export function isClientErrorKind(v: unknown): v is ClientErrorKind {
+  return typeof v === 'string' && (CLIENT_ERROR_KINDS as readonly string[]).includes(v)
+}
+
+export function isClientErrorStatus(v: unknown): v is ClientErrorStatus {
+  return typeof v === 'string' && (CLIENT_ERROR_STATUSES as readonly string[]).includes(v)
+}

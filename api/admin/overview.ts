@@ -5,6 +5,7 @@ import { buildUsageSnapshot } from '../_lib/usageSnapshot.js'
 import { isManualMeterId } from '../../src/lib/usageLimits.js'
 import { randomBytes } from 'node:crypto'
 import { FeedbackError, countNewFeedback, listFeedback, updateFeedback } from '../_lib/feedback.js'
+import { listClientErrors, updateClientError } from '../_lib/clientErrors.js'
 
 // Multiplexed by ?resource= (default: connections overview) to stay under Vercel Hobby's
 // 12-serverless-function cap — do not add new files directly under api/.
@@ -137,7 +138,7 @@ async function handleFeedback(res: VercelResponse, run: () => Promise<unknown>, 
   }
 }
 
-const METHODS: Record<string, string> = { 'usage-manual': 'PUT', 'qr-create': 'POST', 'feedback-update': 'PATCH' }
+const METHODS: Record<string, string> = { 'usage-manual': 'PUT', 'qr-create': 'POST', 'feedback-update': 'PATCH', 'client-error-update': 'PATCH' }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const resource = req.query.resource
@@ -171,6 +172,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   if (resource === 'feedback-update') {
     return handleFeedback(res, async () => ({ report: await updateFeedback(req.body) }), 'Failed to update report')
+  }
+  if (resource === 'client-errors') {
+    return handleFeedback(res, async () => ({ errors: await listClientErrors() }), 'Failed to load errors')
+  }
+  if (resource === 'client-error-update') {
+    return handleFeedback(res, async () => ({ clientError: await updateClientError(req.body) }), 'Failed to update error')
   }
 
   const [{ data: links }, { data: attempts }] = await Promise.all([
