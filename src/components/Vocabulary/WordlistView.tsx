@@ -30,6 +30,7 @@ import {
 } from '../../lib/vocab'
 import ListProgress from '../VocabLists/ListProgress'
 import AddWordsPanel from './AddWordsPanel'
+import FlashcardDeck, { WordsViewToggle, useWordsView } from './FlashcardDeck'
 import ListSrsPanel from './ListSrsPanel'
 import { TestScoresLine } from './TestSession'
 import { CardBadge, KindBadge, LevelBadge, useListTitle, useTopicLabel } from './wordlistLabels'
@@ -83,6 +84,7 @@ export default function WordlistView({
   const [adding, setAdding] = useState(false)
   const [title, setTitle] = useState('')
   const [pdfBlocked, setPdfBlocked] = useState(false)
+  const [wordsView, setWordsView] = useWordsView('ai-english:wordlist-view')
 
   useEffect(() => {
     if (initial) return
@@ -376,8 +378,28 @@ export default function WordlistView({
         <AddWordsPanel busy={busy} compilesLeft={compilesLeft} onAddTyped={addTyped} onAddFromBank={addFromBank} />
       )}
 
+      {words.length > 0 && (
+        <div className="flex justify-end">
+          <WordsViewToggle view={wordsView} onChange={setWordsView} listLabel={t('fcViewList')} />
+        </div>
+      )}
+
       {words.length === 0 ? (
         <p className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">{t('vcListNoWords')}</p>
+      ) : wordsView === 'cards' ? (
+        <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+          <FlashcardDeck
+            cards={words.map((w) => ({
+              id: w.itemId,
+              term: w.term,
+              meaningHu: w.meaningHu,
+              definitionEn: w.definitionEn,
+              // Tutor Bot words have no example of their own: the corrected sentence stands in.
+              exampleEn: w.exampleEn ?? w.contextCorrected,
+              cefrLevel: w.cefrLevel,
+            }))}
+          />
+        </div>
       ) : (
         <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
           {words.map((w) => (

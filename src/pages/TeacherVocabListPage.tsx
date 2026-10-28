@@ -5,6 +5,7 @@ import AddTermsPanel, { inputClass, posLabelKey, type AddWordError } from '../co
 import PreviewTable from '../components/VocabLists/PreviewTable'
 import AssignPanel from '../components/VocabLists/AssignPanel'
 import ListProgress from '../components/VocabLists/ListProgress'
+import FlashcardDeck, { WordsViewToggle, useWordsView } from '../components/Vocabulary/FlashcardDeck'
 import { useLanguage } from '../lib/i18n'
 import { printWordlistPdf } from '../lib/vocabPdf'
 import { fetchTeacherRoster, type RosterEntry } from '../lib/teacherApi'
@@ -62,6 +63,7 @@ export default function TeacherVocabListPage() {
   const [roster, setRoster] = useState<RosterEntry[] | null>(null)
   const [archiveError, setArchiveError] = useState(false)
   const [pdfBlocked, setPdfBlocked] = useState(false)
+  const [wordsView, setWordsView] = useWordsView('ai-english:teacher-wordlist-view')
   /** The list id whose data is already on screen (set after create, so we don't refetch it). */
   const loadedIdRef = useRef<string | null>(null)
 
@@ -350,18 +352,41 @@ export default function TeacherVocabListPage() {
 
       <AddTermsPanel onAddWord={addWord} onImport={importRows} />
 
-      <PreviewTable
-        rows={rows}
-        onChange={(key, patch) => {
-          setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)))
-          edited()
-        }}
-        onTermCommit={(key) => setRows((rs) => rs.map((r) => (r.key === key ? termCommitted(r) : r)))}
-        onRemove={(key) => {
-          setRows((rs) => rs.filter((r) => r.key !== key))
-          edited()
-        }}
-      />
+      {rows.length > 0 && (
+        <div className="flex justify-end">
+          <WordsViewToggle view={wordsView} onChange={setWordsView} listLabel={t('fcViewEdit')} />
+        </div>
+      )}
+
+      {wordsView === 'cards' && rows.length > 0 ? (
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <FlashcardDeck
+            cards={rows
+              .filter((r) => r.term.trim())
+              .map((r) => ({
+                id: String(r.key),
+                term: r.term.trim(),
+                meaningHu: r.meaningHu.trim() || null,
+                definitionEn: r.definitionEn.trim() || null,
+                exampleEn: r.exampleEn.trim() || null,
+                cefrLevel: r.cefrLevel || null,
+              }))}
+          />
+        </div>
+      ) : (
+        <PreviewTable
+          rows={rows}
+          onChange={(key, patch) => {
+            setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)))
+            edited()
+          }}
+          onTermCommit={(key) => setRows((rs) => rs.map((r) => (r.key === key ? termCommitted(r) : r)))}
+          onRemove={(key) => {
+            setRows((rs) => rs.filter((r) => r.key !== key))
+            edited()
+          }}
+        />
+      )}
 
       <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border">
         <button
