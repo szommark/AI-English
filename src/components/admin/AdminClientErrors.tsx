@@ -7,6 +7,8 @@ import {
   type ClientErrorStatus,
 } from '../../lib/feedback'
 import { fetchClientErrors, updateClientErrorStatus } from '../../lib/feedbackApi'
+import { clientErrorTask } from '../../lib/claudeTask'
+import CopyForClaudeButton from './CopyForClaudeButton'
 
 const KIND_LABEL: Record<ClientErrorKind, string> = {
   error: 'Uncaught error',
@@ -78,6 +80,8 @@ function ErrorCard({
 
       {expanded && (
         <div className="space-y-4 border-t border-slate-100 px-4 py-4">
+          <CopyForClaudeButton task={() => clientErrorTask(item)} />
+
           <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1 text-sm">
             <dt className="text-slate-500">First seen</dt>
             <dd className="text-slate-700">{new Date(item.firstSeenAt).toLocaleString()}</dd>

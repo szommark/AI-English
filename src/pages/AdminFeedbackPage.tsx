@@ -15,6 +15,8 @@ import {
 } from '../lib/feedback'
 import { fetchFeedbackReports, updateFeedbackReport } from '../lib/feedbackApi'
 import AdminClientErrors from '../components/admin/AdminClientErrors'
+import CopyForClaudeButton from '../components/admin/CopyForClaudeButton'
+import { reportTask } from '../lib/claudeTask'
 
 const KIND_LABEL: Record<FeedbackKind, string> = {
   bug: "Doesn't work",
@@ -135,6 +137,8 @@ function ReportCard({
 
       {expanded && (
         <div className="space-y-4 border-t border-slate-100 px-4 py-4">
+          <CopyForClaudeButton task={() => reportTask(report)} />
+
           {report.expected && (
             <div>
               <h4 className="text-xs font-medium uppercase tracking-wide text-slate-400">
