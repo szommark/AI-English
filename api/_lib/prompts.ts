@@ -258,7 +258,7 @@ There are three exercise types, exactly ${EXERCISES_PER_TYPE} items each, ordere
 
 2. "form" — a sentence with ONE gap, written as ___ (three underscores), and a cue the learner turns into the right form.
 - "sentence": putting any listed answer into the gap must give a correct sentence with no word outside the gap moved, added or removed. A question therefore gaps the auxiliary at the front ("___ you like coffee?", cue "do", answer "Do") or the whole auxiliary + subject + verb ("What ___ at the moment?", cue "you / do", answer "are you doing") — never "You ___ coffee?".
-- "cue": the base form shown in brackets after the gap, e.g. the infinitive of the verb ("build") for tenses and the passive, the adjective ("big") for comparatives, the pronoun ("I") for object pronouns. If this grammar point has no base form to change (e.g. prepositions, articles, this/that/these/those), the cue lists the options instead ("in / on / at").
+- "cue": the base form shown in brackets after the gap, e.g. the infinitive of the verb ("build") for tenses and the passive, the adjective ("big") for comparatives, the pronoun ("I") for object pronouns. If this grammar point has no base form to change (e.g. prepositions, articles, this/that/these/those), the cue lists the options instead ("in / on / at"). The app adds the brackets, so never write the cue into "sentence" as well.
 - "answers": every correct way to fill the gap, each exactly the words that go in it (never repeat a word from outside the gap, e.g. the subject). Contracted forms are accepted automatically, so write the full form ("was not built", "is cooking").
 - "formInstruction": one short instruction for this section, e.g. "Put the verbs in brackets into the passive."
 

@@ -72,6 +72,17 @@ export function fillGap(sentence: string, fill: string): string {
   return `${head}${text}${after}`
 }
 
+/**
+ * A form item's sentence split at the gap, with the cue to show in brackets after it. When
+ * the sentence already has a bracket right after the gap ("___ (not / watch) TV"), that one
+ * is the cue, so it isn't shown twice.
+ */
+export function gapParts(sentence: string, cue: string): { before: string; cue: string; after: string } {
+  const [before, rest = ''] = sentence.split(GAP)
+  const inline = rest.match(/^\s*\(([^)]*)\)/)
+  return inline ? { before, cue: inline[1].trim(), after: rest.slice(inline[0].length) } : { before, cue, after: rest }
+}
+
 /** Checks a gap fill as the whole sentence, so "'s cooking" after "She" matches "is cooking". */
 export function matchesGap(sentence: string, input: string, answers: string[]): boolean {
   return input.trim().length > 0 && matchesAnswer(fillGap(sentence, input), answers.map((a) => fillGap(sentence, a)))
