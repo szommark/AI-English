@@ -1,6 +1,7 @@
 // First: wrap fetch/console (Report a problem context) and start crash capture before anything else loads.
 import './lib/feedbackContext'
 import './lib/clientErrors'
+import './lib/staleChunkReload'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
