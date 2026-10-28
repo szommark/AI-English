@@ -21,9 +21,60 @@ export function normalizeAnswer(text: string): string {
     .trim()
 }
 
+const NOT_CONTRACTIONS: Record<string, string> = { "won't": 'will not', "can't": 'can not', "shan't": 'shall not' }
+
+/**
+ * The words of a normalized answer with contractions written out ("i'm" → "i am", "isn't" →
+ * "is not"). "'s" and "'d" stay as their own word, since each stands for two (is/has, had/would).
+ */
+function answerWords(normalized: string): string[] {
+  return normalized
+    .replace(/\s+'(?=[a-z])/g, "'") // "She 's cooking": a gap filled with "'s cooking"
+    .replace(/\b(won|can|shan)'t\b/g, (m) => NOT_CONTRACTIONS[m])
+    .replace(/\bcannot\b/g, 'can not')
+    .replace(/n't\b/g, ' not')
+    .replace(/'m\b/g, ' am')
+    .replace(/'re\b/g, ' are')
+    .replace(/'ve\b/g, ' have')
+    .replace(/'ll\b/g, ' will')
+    .replace(/'(s|d)\b/g, " '$1")
+    .split(' ')
+    .filter(Boolean)
+}
+
+const AMBIGUOUS: Record<string, string[]> = { "'s": ['is', 'has'], "'d": ['had', 'would'] }
+
+function sameWord(a: string, b: string): boolean {
+  return a === b || (AMBIGUOUS[a]?.includes(b) ?? false) || (AMBIGUOUS[b]?.includes(a) ?? false)
+}
+
+/** Same answer once normalized, with a contraction and its full form counting as the same. */
+function sameAnswer(a: string, b: string): boolean {
+  const wa = answerWords(normalizeAnswer(a))
+  const wb = answerWords(normalizeAnswer(b))
+  return wa.length === wb.length && wa.every((w, i) => sameWord(w, wb[i]))
+}
+
 export function matchesAnswer(input: string, answers: string[]): boolean {
-  const normalized = normalizeAnswer(input)
-  return normalized.length > 0 && answers.some((a) => normalizeAnswer(a) === normalized)
+  return normalizeAnswer(input).length > 0 && answers.some((a) => sameAnswer(input, a))
+}
+
+/**
+ * A form item's sentence with the gap filled. A fill that starts with the word just before
+ * the gap ("she's cooking" after "She") takes its place rather than repeating it.
+ */
+export function fillGap(sentence: string, fill: string): string {
+  const [before, after = ''] = sentence.split(GAP)
+  const text = fill.trim()
+  const lastWord = before.match(/(\S+)\s*$/)?.[1]
+  const firstWord = text.match(/^[^\s'‘’`]+/)?.[0]
+  const head = lastWord && firstWord?.toLowerCase() === lastWord.toLowerCase() ? before.slice(0, before.lastIndexOf(lastWord)) : before
+  return `${head}${text}${after}`
+}
+
+/** Checks a gap fill as the whole sentence, so "'s cooking" after "She" matches "is cooking". */
+export function matchesGap(sentence: string, input: string, answers: string[]): boolean {
+  return input.trim().length > 0 && matchesAnswer(fillGap(sentence, input), answers.map((a) => fillGap(sentence, a)))
 }
 
 /** The final punctuation mark of a sentence ("." if it has none). */
