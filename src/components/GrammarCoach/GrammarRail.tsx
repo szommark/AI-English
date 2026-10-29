@@ -137,7 +137,17 @@ export default function GrammarRail({
                           isSelected ? 'bg-amber-50 text-amber-800 font-medium' : 'text-slate-600 hover:bg-slate-50'
                         }`}
                       >
-                        <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${statusDotClasses[status]}`} />
+                        {item.review ? (
+                          // Tense reviews are signalled by their number instead of a status dot.
+                          <span
+                            aria-hidden
+                            className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-indigo-100 px-1 text-[10px] font-bold text-indigo-700"
+                          >
+                            {item.review.number}
+                          </span>
+                        ) : (
+                          <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${statusDotClasses[status]}`} />
+                        )}
                         <span className="min-w-0">
                           <span className="block truncate">{isSearching ? <Highlighted text={item.title} query={query} /> : item.title}</span>
                           {showHu && (

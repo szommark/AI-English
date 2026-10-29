@@ -8,11 +8,11 @@ import {
 } from '../src/data/grammarCurriculum.ts'
 import { MISTAKE_TAXONOMY } from '../src/data/mistakeTaxonomy.ts'
 
-const EXPECTED: Record<string, number> = { A1: 16, A2: 21, B1: 26, B2: 31, C1: 19, C2: 10 }
+const EXPECTED: Record<string, number> = { A1: 16, A2: 27, B1: 29, B2: 34, C1: 21, C2: 10 }
 const errors: string[] = []
 const fail = (msg: string) => errors.push(msg)
 
-if (GRAMMAR_POINTS.length !== 123) fail(`expected 123 points, found ${GRAMMAR_POINTS.length}`)
+if (GRAMMAR_POINTS.length !== 137) fail(`expected 137 points, found ${GRAMMAR_POINTS.length}`)
 
 const ids = new Set<string>()
 for (const group of grammarCurriculum) {
@@ -35,6 +35,25 @@ for (const group of grammarCurriculum) {
     if (getGrammarPoint(p.id)?.id !== p.id) fail(`${p.id}: getGrammarPoint round-trip failed`)
   })
 }
+
+// Tense reviews: numbered 1, 2, 3… in curriculum order, each right after a tense lesson,
+// and each mixing every tense of the previous review plus its own focus.
+let prevTenses: string[] = []
+GRAMMAR_POINTS.forEach((p, i) => {
+  const review = p.review
+  if (!review) return
+  const number = GRAMMAR_POINTS.slice(0, i + 1).filter((q) => q.review).length
+  if (review.number !== number) fail(`${p.id}: review number ${review.number}, expected ${number}`)
+  if (p.id !== `${p.id.slice(0, 2)}-tense-review-${number}`) fail(`${p.id}: review id should end in tense-review-${number}`)
+  if (!p.title.startsWith(`Tense review ${number}: `)) fail(`${p.id}: title should start "Tense review ${number}: "`)
+  if (p.category !== 'tense_aspect') fail(`${p.id}: review category must be tense_aspect`)
+  const prev = GRAMMAR_POINTS[i - 1]
+  if (!prev || prev.review || prev.category !== 'tense_aspect') fail(`${p.id}: must follow a tense lesson`)
+  if (review.tenses.length < 2) fail(`${p.id}: a review needs at least two tenses`)
+  for (const t of review.focus) if (!review.tenses.includes(t)) fail(`${p.id}: focus "${t}" is not in tenses`)
+  for (const t of prevTenses) if (!review.tenses.includes(t)) fail(`${p.id}: drops "${t}" from the previous review`)
+  prevTenses = review.tenses
+})
 
 const used = new Set(GRAMMAR_POINTS.map((p) => p.category))
 for (const c of GRAMMAR_CATEGORIES) if (!used.has(c)) fail(`category ${c} is never used`)
