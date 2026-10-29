@@ -1,9 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Plane, Bot, BookOpen, Briefcase, Mic, Languages, GraduationCap, Radio, type LucideIcon } from 'lucide-react'
-import type { Feature, FeatureAccent } from '../data/features'
-import { localizeFeature, useLanguage } from '../lib/i18n'
-
-const icons: Record<string, LucideIcon> = {
+import {
   Plane,
   Bot,
   BookOpen,
@@ -12,6 +8,28 @@ const icons: Record<string, LucideIcon> = {
   Languages,
   GraduationCap,
   Radio,
+  FlaskConical,
+  Sprout,
+  Library,
+  Users,
+  type LucideIcon,
+} from 'lucide-react'
+import type { Feature, FeatureAccent } from '../data/features'
+import { localizeFeature, useLanguage } from '../lib/i18n'
+
+export const featureIcons: Record<string, LucideIcon> = {
+  Plane,
+  Bot,
+  BookOpen,
+  Briefcase,
+  Mic,
+  Languages,
+  GraduationCap,
+  Radio,
+  FlaskConical,
+  Sprout,
+  Library,
+  Users,
 }
 
 const accentClasses: Record<FeatureAccent, { badge: string; border: string }> = {
@@ -37,7 +55,7 @@ export default function FeatureTile({
 }) {
   const { lang } = useLanguage()
   const text = localizeFeature(lang, feature)
-  const Icon = icons[feature.icon]
+  const Icon = featureIcons[feature.icon]
   const accent = accentClasses[feature.accent]
 
   return (
