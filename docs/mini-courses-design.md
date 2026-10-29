@@ -14,7 +14,7 @@ It mostly **sequences tools Avalon already has**: Grammar Coach exercises, the c
 |---|---|
 | Who creates | Teachers only |
 | Course length | **1–4 units.** A course starts with one unit; the teacher can add units to their own course (4 is the ceiling for now) |
-| Unit length | **4–7 modules**: at least Vocabulary + Grammar + a skill pair (Reading + Writing or Listening + Speaking); the Unit check is optional (with it the minimum is 5); 7 is the maximum |
+| Unit length | **4–7 modules**: Vocabulary + a skill pair (Reading + Writing or Listening + Speaking), plus Grammar and/or a Unit check (both optional, at least one of them when nothing else makes 4); 7 is the maximum |
 | Order | Fixed and linear, self-paced. No calendar |
 | Content | AI-generated, teacher-curated (every module editable before publishing) |
 | Visibility | Private or public, set by the teacher. Public courses appear in the library instantly; admins can hide any |
@@ -47,14 +47,14 @@ A full 4-unit Balanced course is 28 modules, about 4–5 hours of study.
 | **Balanced** (default) | Vocabulary · Reading *or* Listening · Grammar · Pronunciation · Speaking · Writing · Unit check | 7 |
 | **Listening + Speaking** | Vocabulary · Listening · Grammar · Pronunciation · Speaking (guided) · Speaking (free) · Unit check | 7 |
 | **Reading + Writing** | Vocabulary · Reading · Grammar · Writing (guided) · Reading 2 · Writing (free) · Unit check | 7 |
-| **Compact** | Vocabulary · Reading *or* Listening · Grammar · Writing *or* Speaking (the pair) · Unit check | 5 (4 without the check) |
+| **Compact** | Vocabulary · Reading *or* Listening · Grammar · Writing *or* Speaking (the pair) · Unit check | 4–5 (Grammar and the check are switches; at least one stays on) |
 | **Custom** | Start from any template; remove, double or reorder | 4–7 |
 
-Until the Pronunciation module exists, templates leave it out (Balanced and Listening + Speaking have 6 modules) and show it as "coming soon". Every template has an "End with a unit check" switch.
+Until the Pronunciation module exists, templates leave it out (Balanced and Listening + Speaking have 6 modules) and show it as "coming soon". Every template has a "Grammar module" and an "End with a unit check" switch.
 
 ### Builder rules
 
-1. **Always present:** Vocabulary, Grammar, and a skill pair: Reading + Writing or Listening + Speaking. The Unit check is optional; when present it counts toward the 4–7 and is always last.
+1. **Always present:** Vocabulary and a skill pair: Reading + Writing or Listening + Speaking. Grammar (2026-10-31) and the Unit check are optional; the Unit check, when present, is always last. Grammar points are required (1–2) only with a Grammar module; without one they are optional and, if picked, still shape the texts and tasks.
 2. **4 ≤ modules ≤ 7.** Writing and Speaking come after the first text (Reading or Listening).
 3. **Pronunciation needs spoken work:** offered only when the unit has a Listening or Speaking module (so Reading + Writing never shows it).
 4. **A doubled module does a different job:**

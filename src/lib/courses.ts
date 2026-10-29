@@ -61,10 +61,12 @@ export function templateSlots(template: Exclude<UnitTemplate, 'custom'>, input: 
 /**
  * The template's modules in order (custom: the compact plan, as a starting point). Modules that
  * can't be built yet (Pronunciation) are left out until they can; withCheck false drops the Unit
- * check.
+ * check, withGrammar false the Grammar module.
  */
-export function templateKinds(template: UnitTemplate, input: InputSkill = 'reading', withCheck = true): ModuleKind[] {
-  return templateSlots(template === 'custom' ? 'compact' : template, input).filter((k) => AVAILABLE_KINDS.has(k) && (withCheck || k !== 'unit_check'))
+export function templateKinds(template: UnitTemplate, input: InputSkill = 'reading', withCheck = true, withGrammar = true): ModuleKind[] {
+  return templateSlots(template === 'custom' ? 'compact' : template, input).filter(
+    (k) => AVAILABLE_KINDS.has(k) && (withCheck || k !== 'unit_check') && (withGrammar || k !== 'grammar'),
+  )
 }
 
 /** Whether every module of the plan can be built today. */
@@ -81,7 +83,6 @@ export type PlanProblem =
   | 'too_many'
   | 'vocabulary_first'
   | 'check_last'
-  | 'needs_grammar'
   | 'needs_pair'
   | 'grammar_after_input'
   | 'output_after_input'
@@ -92,9 +93,9 @@ export type PlanProblem =
 
 /**
  * What is wrong with a unit's module plan (empty = fine). Rules (design §Builder rules): 4–7
- * modules; Vocabulary first and once; Grammar once, after the first text; at least one skill
- * pair, Reading + Writing or Listening + Speaking, the productive skill after the first text;
- * the Unit check optional, last and once; Pronunciation only with Listening or Speaking;
+ * modules; Vocabulary first and once; at least one skill pair, Reading + Writing or Listening +
+ * Speaking, the productive skill after the first text; Grammar optional, once, after the first
+ * text; the Unit check optional, last and once; Pronunciation only with Listening or Speaking;
  * Reading/Listening/Speaking/Writing at most twice.
  */
 export function planProblems(kinds: ModuleKind[], opts: { allowUnavailable?: boolean } = {}): PlanProblem[] {
@@ -105,7 +106,6 @@ export function planProblems(kinds: ModuleKind[], opts: { allowUnavailable?: boo
   const has = (k: ModuleKind) => count(k) > 0
   if (kinds[0] !== 'vocabulary' || count('vocabulary') !== 1) problems.add('vocabulary_first')
   if (has('unit_check') && (kinds[kinds.length - 1] !== 'unit_check' || count('unit_check') !== 1)) problems.add('check_last')
-  if (!has('grammar')) problems.add('needs_grammar')
   if (!((has('reading') && has('writing')) || (has('listening') && has('speaking')))) problems.add('needs_pair')
   const firstInput = kinds.findIndex((k) => INPUT.has(k))
   for (const k of ['grammar', 'pronunciation'] as const) {
@@ -622,6 +622,8 @@ export interface UnitInput {
   input: InputSkill
   /** Templates: end with a Unit check (custom plans say so themselves). */
   withCheck: boolean
+  /** Templates: include the Grammar module (custom plans say so themselves). */
+  withGrammar: boolean
   /** The teacher's own text for the first reading or listening module ('' = the AI writes it). */
   sourceText: string
   /** Custom template only: the modules in order. */
@@ -729,11 +731,14 @@ export function sanitizeUnitInput(raw: unknown, level: CourseLevel): UnitInput &
   if (!template) throw new CourseValidationError('template is required')
   const input: InputSkill = b.input === 'listening' ? 'listening' : 'reading'
   const withCheck = b.withCheck !== false
-  const kinds = template === 'custom' ? list(b.kinds).filter((k): k is ModuleKind => MODULE_KINDS.includes(k as ModuleKind)) : templateKinds(template, input, withCheck)
+  const withGrammar = b.withGrammar !== false
+  const kinds = template === 'custom' ? list(b.kinds).filter((k): k is ModuleKind => MODULE_KINDS.includes(k as ModuleKind)) : templateKinds(template, input, withCheck, withGrammar)
   const problems = planProblems(kinds)
   if (problems.length) throw new CourseValidationError(`invalid module plan: ${problems.join(', ')}`)
   const grammarIds = [...new Set(list(b.grammarIds).filter((g): g is string => typeof g === 'string'))]
-  if (grammarIds.length === 0 || grammarIds.length > MAX_GRAMMAR_PER_UNIT) throw new CourseValidationError(`pick 1–${MAX_GRAMMAR_PER_UNIT} grammar points`)
+  // Grammar points are required with a Grammar module and optional without one (they still shape the texts).
+  const minGrammar = kinds.includes('grammar') ? 1 : 0
+  if (grammarIds.length < minGrammar || grammarIds.length > MAX_GRAMMAR_PER_UNIT) throw new CourseValidationError(`pick ${minGrammar}–${MAX_GRAMMAR_PER_UNIT} grammar points`)
   if (!grammarIds.every((g) => grammarAllowed(g, level))) throw new CourseValidationError('a grammar point is above the course level')
   return {
     topic: str(b.topic, COURSE_TOPIC_MAX, 'topic'),
@@ -743,6 +748,7 @@ export function sanitizeUnitInput(raw: unknown, level: CourseLevel): UnitInput &
     grammarIds,
     notes: str(b.notes, UNIT_NOTES_MAX, 'notes', false),
     withCheck: kinds.includes('unit_check'),
+    withGrammar: kinds.includes('grammar'),
     sourceText: str(b.sourceText, SOURCE_TEXT_MAX, 'your text', false),
   }
 }

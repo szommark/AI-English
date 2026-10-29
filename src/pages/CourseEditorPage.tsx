@@ -439,7 +439,7 @@ function UnitPanel(props: {
               {unit.topic} · {c(`template_${unit.template}`)} · {c('minutes', { n: minutes })}
             </p>
             <p className="text-sm text-foreground">
-              <span className="text-muted-foreground">{c('grammar')}:</span> {unit.grammarIds.map(props.grammarTitle).join(' · ')}
+              <span className="text-muted-foreground">{c('grammar')}:</span> {unit.grammarIds.length ? unit.grammarIds.map(props.grammarTitle).join(' · ') : '—'}
             </p>
           </div>
           <div className="flex items-center gap-1">

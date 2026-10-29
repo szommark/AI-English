@@ -59,6 +59,9 @@ const LEVEL_GUIDE: Record<CourseLevel, string> = {
 
 const LANG_NAME: Record<ExplainLang, string> = { hu: 'Hungarian', en: 'English', de: 'German' }
 
+/** Added when the teacher picked no grammar points (a unit without a Grammar module may have none). */
+const NO_GRAMMAR = 'This unit has no grammar focus: wherever these instructions mention the grammar point(s), leave that part out and use language natural for the level.'
+
 /** The unit's grammar points for the prompt, with the curriculum's Hungarian-learner hint. */
 function grammarList(ids: string[]): { title: string; hint?: string }[] {
   return ids.map((id) => {
@@ -102,6 +105,7 @@ export function buildBlueprintPrompt(input: BlueprintInput): { systemPrompt: str
     '  "grammarNotes": 1–2 sentences on how the grammar point(s) appear naturally in that text and what learners should notice }',
     'Pick words learners at this level really need for the topic; avoid words they certainly know already. Words already taught in earlier units of the course ("previousUnits") must not be repeated in "words".',
     input.sourceText ? 'The unit is built around the teacher\'s own text ("teacherText"): take the words from it (as they appear in it) wherever you can.' : '',
+    input.grammarIds.length ? '' : `${NO_GRAMMAR} Reply "grammarNotes": "".`,
   ]
     .filter(Boolean)
     .join('\n')
@@ -253,7 +257,7 @@ function recipe(input: ModuleGenInput): string[] {
         'This is the Unit check, the last module: a short mixed quiz on the whole unit. No info steps.',
         'Reply with ONE JSON object: { "intro": one sentence, "steps": [...] } with 9 question steps, mixed:',
         '- three on the unit\'s words (gap with options, choice or match),',
-        '- three on the grammar point(s) (gap, choice or order),',
+        input.grammarIds.length ? '- three on the grammar point(s) (gap, choice or order),' : '- three on useful phrases and structures from the unit\'s texts (gap, choice or order),',
         '- two choice steps on the unit\'s main text ("firstPassage"),',
         input.previousWords.length
           ? '- one gap or choice step recycling a word from an earlier unit ("previousWords").'
@@ -271,7 +275,10 @@ export function buildModulePrompt(input: ModuleGenInput): { systemPrompt: string
     LEVEL_GUIDE[input.level],
     ...recipe(input),
     ...STEP_SCHEMA,
-  ].join('\n')
+    input.grammarIds.length ? '' : NO_GRAMMAR,
+  ]
+    .filter(Boolean)
+    .join('\n')
   return {
     systemPrompt,
     user: JSON.stringify({
