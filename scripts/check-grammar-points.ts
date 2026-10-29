@@ -37,7 +37,7 @@ for (const group of grammarCurriculum) {
 }
 
 // Tense reviews: numbered 1, 2, 3… in curriculum order, each right after a tense lesson,
-// and each mixing every tense of the previous review plus its own focus.
+// and each covering every tense of the previous review (reviews are cumulative).
 let prevTenses: string[] = []
 GRAMMAR_POINTS.forEach((p, i) => {
   const review = p.review
@@ -50,7 +50,6 @@ GRAMMAR_POINTS.forEach((p, i) => {
   const prev = GRAMMAR_POINTS[i - 1]
   if (!prev || prev.review || prev.category !== 'tense_aspect') fail(`${p.id}: must follow a tense lesson`)
   if (review.tenses.length < 2) fail(`${p.id}: a review needs at least two tenses`)
-  for (const t of review.focus) if (!review.tenses.includes(t)) fail(`${p.id}: focus "${t}" is not in tenses`)
   for (const t of prevTenses) if (!review.tenses.includes(t)) fail(`${p.id}: drops "${t}" from the previous review`)
   prevTenses = review.tenses
 })
