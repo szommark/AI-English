@@ -178,18 +178,17 @@ function englishTagRule(explain: ExplainLanguage): string {
 }
 
 /**
- * Extra instructions for a numbered tense review session: no new grammar, a mixed revision
- * of every tense met so far, weighted towards the ones just introduced or compared.
+ * Extra instructions for a numbered tense review session: no new grammar, an even revision
+ * of every tense met so far — never just a group of them.
  */
 function reviewLine(item: GrammarItem, kind: 'lesson' | 'exercises'): string {
   const review = item.review
   if (!review) return ''
-  const list = (tenses: string[]) => tenses.join(', ')
   const task =
     kind === 'lesson'
-      ? `Teach no new grammar. Instead of building up one point, recap the form and main use of the tenses side by side (a comparison table works well), contrast them in example pairs, point out the typical mix-ups, and end with how to choose between them.`
-      : `Each item must make the learner CHOOSE between these tenses; mix them so the right answer is a different tense from item to item, and give each sentence a clear time clue (e.g. now, yesterday, since 2020, tomorrow) so exactly one tense fits.`
-  return `\nThis is TENSE REVIEW ${review.number}, a review session. The learner has studied these tenses: ${list(review.tenses)}. Give the most weight to: ${list(review.focus)}. ${task}\n`
+      ? `Teach no new grammar. Cover EVERY tense in this list with equal weight, not just a group of them (e.g. not only the future or past tenses). Instead of building up one point, recap the form and main use of all of them side by side — when there are more than five, group them by time (present, past, future) across the segments so each tense appears on the board — contrast them in example pairs, point out the typical mix-ups, and end with how to choose between them. The practice sentences must use different tenses from the list.`
+      : `Cover EVERY tense in this list, not just a group of them: across the whole sheet (all three sections), use each tense in at least one answer, spread them evenly, and never use the same tense in two items in a row. Each item must make the learner CHOOSE between these tenses, so give each sentence a clear time clue (e.g. now, yesterday, since 2020, tomorrow) so exactly one tense fits.`
+  return `\nThis is TENSE REVIEW ${review.number}, a review of all the tenses the learner has studied so far: ${review.tenses.join(', ')}. ${task}\n`
 }
 
 /**
