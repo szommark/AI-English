@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
-import { CheckCircle2, XCircle } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CheckCircle2, Mic, Square, XCircle } from 'lucide-react'
 import WordSpeakButton from '../WordSpeakButton'
 import RichText from './RichText'
 import { useCourseCopy } from '../../data/courseCopy'
 import { GAP } from '../../lib/grammarExercises'
-import { orderTiles, seededShuffle, stepScore, type CourseStep, type ModulePassage, type StepAnswer } from '../../lib/courses'
+import { OPEN_MAX, countWords, isOpenAnswer, orderTiles, seededShuffle, stepScore, type CourseStep, type ModulePassage, type OpenAnswer, type StepAnswer } from '../../lib/courses'
 
 interface Props {
   step: CourseStep
@@ -15,6 +15,8 @@ interface Props {
   passage?: ModulePassage
   seed: string
   speak: (text: string) => void
+  /** Listening: the module's recording. */
+  audioUrl?: string | null
 }
 
 const optionBase = 'w-full rounded-xl border-2 px-4 py-3 text-left text-base transition-colors disabled:cursor-default'
@@ -43,6 +45,11 @@ export default function StepView(props: Props) {
       return <MatchStep {...props} step={step} />
     case 'order':
       return <OrderStep {...props} step={step} />
+    case 'listen':
+      return <ListenStep audioUrl={props.audioUrl} />
+    case 'write':
+    case 'speak':
+      return <OpenStep {...props} step={step} />
   }
 }
 
@@ -313,6 +320,200 @@ function OrderStep({ step, answer, onAnswer, checked, seed }: Props & { step: Ex
                 {w}
               </button>
             ),
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function ListenStep({ audioUrl }: { audioUrl?: string | null }) {
+  const { c } = useCourseCopy()
+  return (
+    <div className="space-y-4">
+      <h2 className="text-xl font-semibold text-foreground">{c('listenTitle')}</h2>
+      <p className="text-sm text-muted-foreground">{c('listenHint')}</p>
+      {audioUrl ? <audio controls preload="auto" src={audioUrl} className="w-full" /> : <p className="text-sm text-red-600">{c('noRecording')}</p>}
+    </div>
+  )
+}
+
+interface RecognitionLike {
+  lang: string
+  continuous: boolean
+  interimResults: boolean
+  onresult: ((e: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null
+  onend: (() => void) | null
+  onerror: (() => void) | null
+  start: () => void
+  stop: () => void
+}
+
+function recognitionCtor(): (new () => RecognitionLike) | null {
+  const w = window as unknown as { SpeechRecognition?: new () => RecognitionLike; webkitSpeechRecognition?: new () => RecognitionLike }
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null
+}
+
+/**
+ * Continuous dictation for a speaking task: final phrases are appended to the answer as they
+ * come, the phrase being spoken shows live. Without speech recognition the learner types.
+ */
+function useDictation(onFinal: (text: string) => void) {
+  const [supported] = useState(() => typeof window !== 'undefined' && recognitionCtor() !== null)
+  const [listening, setListening] = useState(false)
+  const [interim, setInterim] = useState('')
+  const [seconds, setSeconds] = useState(0)
+  const ref = useRef<RecognitionLike | null>(null)
+  const finalRef = useRef(onFinal)
+  finalRef.current = onFinal
+
+  useEffect(() => {
+    if (!listening) return
+    const started = Date.now()
+    const t = window.setInterval(() => setSeconds(Math.round((Date.now() - started) / 1000)), 500)
+    return () => window.clearInterval(t)
+  }, [listening])
+
+  useEffect(() => () => ref.current?.stop(), [])
+
+  function start() {
+    const Ctor = recognitionCtor()
+    if (!Ctor) return
+    const r = new Ctor()
+    r.lang = 'en-US'
+    r.continuous = true
+    r.interimResults = true
+    r.onresult = (e) => {
+      let live = ''
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const text = e.results[i][0].transcript
+        if (e.results[i].isFinal) finalRef.current(text.trim())
+        else live += text
+      }
+      setInterim(live)
+    }
+    r.onend = () => {
+      setListening(false)
+      setInterim('')
+    }
+    r.onerror = () => setListening(false)
+    ref.current = r
+    setSeconds(0)
+    setListening(true)
+    r.start()
+  }
+
+  function stop() {
+    ref.current?.stop()
+    setListening(false)
+  }
+
+  return { supported, listening, interim, seconds, start, stop }
+}
+
+function OpenStep({ step, answer, onAnswer, speak }: Props & { step: Extract<CourseStep, { type: 'write' | 'speak' }> }) {
+  const { c } = useCourseCopy()
+  const marked: OpenAnswer | null = isOpenAnswer(answer) ? answer : null
+  const draft = marked ? marked.text : typeof answer === 'string' ? answer : ''
+  const words = countWords(draft)
+  const dictation = useDictation((text) => onAnswer(`${draftRef.current}${draftRef.current && text ? ' ' : ''}${text}`))
+  const draftRef = useRef(draft)
+  draftRef.current = draft
+  const speaking = step.type === 'speak'
+  const showModelNow = !!step.model && (marked || (speaking && step.modelFirst))
+
+  return (
+    <div className="space-y-4">
+      <p className="text-lg font-medium leading-snug text-foreground">{step.prompt}</p>
+      <p className="text-sm text-muted-foreground">
+        {speaking ? c('speakHint', { n: step.seconds }) : c('writeHint', { min: step.minWords, max: step.maxWords })}
+      </p>
+      {step.targets && step.targets.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 text-sm">
+          <span className="text-muted-foreground">{c('tryToUse')}</span>
+          {step.targets.map((t) => (
+            <span key={t} className="rounded-md bg-[var(--teal-accent-soft)] px-2 py-0.5 text-foreground">
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+      {showModelNow && !marked && (
+        <div className="rounded-xl border border-border bg-secondary/50 p-3 text-sm">
+          <div className="flex items-start gap-2">
+            <p className="flex-1 text-foreground">
+              <span className="font-semibold">{c('modelAnswer')}:</span> {step.model}
+            </p>
+            <WordSpeakButton label={c('listen')} onSpeak={() => speak(step.model as string)} />
+          </div>
+        </div>
+      )}
+
+      {!marked && speaking && dictation.supported && (
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => (dictation.listening ? dictation.stop() : dictation.start())}
+            className={`inline-flex items-center gap-2 rounded-full px-5 py-3 font-semibold ${dictation.listening ? 'bg-red-600 text-white' : 'bg-[var(--teal-accent)] text-primary'}`}
+          >
+            {dictation.listening ? <Square className="h-4 w-4" /> : <Mic className="h-5 w-5" />}
+            {dictation.listening ? c('stopRecording') : draft ? c('recordMore') : c('startRecording')}
+          </button>
+          {dictation.listening && (
+            <span className="text-sm text-muted-foreground">
+              {dictation.seconds}s / {step.seconds}s
+            </span>
+          )}
+        </div>
+      )}
+      {!marked && speaking && !dictation.supported && <p className="text-sm text-muted-foreground">{c('noMic')}</p>}
+
+      {!marked && (
+        <>
+          <textarea
+            value={draft + (dictation.interim ? `${draft ? ' ' : ''}${dictation.interim}` : '')}
+            onChange={(e) => onAnswer(e.target.value)}
+            readOnly={dictation.listening}
+            placeholder={speaking ? c('speakPlaceholder') : c('writePlaceholder')}
+            className="min-h-[9rem] w-full rounded-xl border-2 border-border bg-card px-4 py-3 text-base text-foreground focus:border-[var(--teal-accent)] focus:outline-none"
+          />
+          {!speaking && (
+            <p className={`text-xs ${words > step.maxWords || (words > 0 && words < step.minWords) ? 'text-amber-700' : 'text-muted-foreground'}`}>
+              {c('wordCount', { n: words, min: step.minWords, max: step.maxWords })}
+              {words < Math.ceil(step.minWords / 2) && ` · ${c('writeMore', { n: Math.ceil(step.minWords / 2) })}`}
+            </p>
+          )}
+          {speaking && draft && <p className="text-xs text-muted-foreground">{c('transcriptHint')}</p>}
+        </>
+      )}
+
+      {marked && (
+        <div className="space-y-3">
+          <div className="rounded-xl border border-border bg-card p-3 text-sm text-foreground/90 whitespace-pre-wrap">{marked.text}</div>
+          <div className="rounded-xl bg-[var(--teal-accent-soft)] p-4">
+            <p className="text-2xl font-bold text-foreground">
+              {marked.score}/{OPEN_MAX}
+            </p>
+            <p className="mt-1 text-base text-foreground">{marked.feedback}</p>
+            {marked.corrections.length > 0 && (
+              <ul className="mt-3 space-y-1 text-sm">
+                {marked.corrections.map((x, i) => (
+                  <li key={i}>
+                    <span className="text-red-700 line-through dark:text-red-300">{x.wrong}</span> → <span className="font-medium text-emerald-800 dark:text-emerald-200">{x.right}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {step.model && (
+            <div className="rounded-xl border border-border bg-secondary/50 p-3 text-sm">
+              <div className="flex items-start gap-2">
+                <p className="flex-1 text-foreground">
+                  <span className="font-semibold">{c('modelAnswer')}:</span> {step.model}
+                </p>
+                {speaking && <WordSpeakButton label={c('listen')} onSpeak={() => speak(step.model as string)} />}
+              </div>
+            </div>
           )}
         </div>
       )}

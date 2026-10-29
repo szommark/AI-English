@@ -1,10 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { createHash } from 'node:crypto'
 import { supabaseAdmin } from './supabaseAdmin.js'
+import { synthesizeSsml } from './azure.js'
+import { compScriptSsml } from './compTests.js'
 import { HttpError } from './examTasks.js'
 import { emailsFor } from './vocabListProgress.js'
 import { isActiveStudent } from './tenseExplorerSettings.js'
 import { awardXp } from './gamification.js'
-import { courseGenerationsToday, generateBlueprint, generateModule } from './courseGenerate.js'
+import { FEEDBACK_CALL_TYPE, courseGenerationsToday, evaluateOpenAnswer, generateBlueprint, generateModule } from './courseGenerate.js'
 import {
   COURSE_GENERATIONS_PER_DAY,
   COURSE_TITLE_MAX,
@@ -12,6 +15,9 @@ import {
   CourseValidationError,
   EST_MINUTES,
   MAX_UNITS_PER_COURSE,
+  OPEN_ANSWER_MAX,
+  OPEN_TYPES,
+  isOpenAnswer,
   defaultModuleTitle,
   planVariants,
   sanitizeAnswers,
@@ -25,6 +31,7 @@ import {
   type CourseBlueprint,
   type CourseEnrollment,
   type CourseLevel,
+  type CourseStep,
   type CourseModule,
   type CourseSummary,
   type CourseUnit,
@@ -34,6 +41,8 @@ import {
   type ModuleCompletion,
   type ModuleContent,
   type ModuleKind,
+  type ModulePassage,
+  type OpenAnswer,
   type ModuleVariant,
   type MyCourse,
   type MyCourseModule,
@@ -45,6 +54,7 @@ import {
   type UnitTemplate,
 } from '../../src/lib/courses.js'
 import type { AwardResult } from '../../src/lib/gamification/types.js'
+import type { CompLevel, CompTestContent } from '../../src/lib/compTests.js'
 
 // Mini courses (src/lib/courses.ts; tables in supabase/migrations/20261029120000_courses.sql).
 //
@@ -59,7 +69,9 @@ import type { AwardResult } from '../../src/lib/gamification/types.js'
 //   POST   course-units&id=<courseId>    UnitInput → { course } (a new draft unit at the end; at most 4)
 //   PUT    course-units&id=<unitId>      { title?, topic?, canDos?, status?, move?: 'up'|'down' } → { course }
 //   DELETE course-units&id=<unitId>      → { course } (not the last unit)
-//   PUT    course-modules&id=<moduleId>  { title?, content } → { course }
+//   PUT    course-modules&id=<moduleId>  { title?, content } → { course } (listening: a changed script is recorded again)
+//   POST   course-module-audio&id=<moduleId>  → { course } (records a listening module's script with Azure TTS)
+//   POST   course-feedback               { moduleId, stepId, text } → { feedback } (preview: AI feedback, nothing saved)
 //   POST   course-blueprint&id=<unitId>  → { course, remaining } (AI outline of the unit)
 //   POST   course-module-generate&id=<moduleId>  → { course, remaining } (AI content of one module)
 //   GET    course-assign&id=             { enrollments } with each student's progress
@@ -72,6 +84,8 @@ import type { AwardResult } from '../../src/lib/gamification/types.js'
 //   GET    my-course&id=<enrollmentId>   { course } (MyCourse)
 //   POST   my-course-module&id=<enrollmentId>  { moduleId, restart? } → { attempt } (resumes the open one)
 //   POST   my-course-progress&id=<attemptId>   { stepIndex, answers } → { ok } (autosave)
+//   POST   my-course-feedback&id=<attemptId>   { stepId, text } → { answer } AI feedback on a write/speak step,
+//                                        once per step, stored on the attempt (FEEDBACK_PER_DAY per UTC day, 429)
 //   POST   my-course-complete&id=<attemptId>   { answers } → { completion, xp } scored on the server
 //
 // A course, unit, module, enrollment or attempt that doesn't exist and one that belongs to
@@ -84,6 +98,10 @@ const MODULE_COLUMNS = 'id, unit_id, position, kind, variant, title, est_minutes
 const ENROLLMENT_COLUMNS = 'id, course_id, student_id, source, assigned_by, started_at, completed_at'
 const ATTEMPT_COLUMNS = 'id, enrollment_id, module_id, module_version, content_snapshot, step_index, answers, score, max_score, started_at, completed_at'
 const MAX_ASSIGN_AT_ONCE = 100
+const AUDIO_BUCKET = 'course-audio'
+const SIGNED_URL_TTL_SEC = 3 * 3600
+/** AI feedback calls (written/spoken answers) a learner or teacher may make per UTC day. */
+const FEEDBACK_PER_DAY = 40
 
 interface CourseRow {
   id: string
@@ -227,11 +245,72 @@ async function loadOwnModule(moduleId: string, teacherId: string): Promise<{ mod
   return { module, ...(await loadOwnUnit(module.unit_id, teacherId)) }
 }
 
-function toModule(m: ModuleRow): CourseModule {
-  return { id: m.id, position: m.position, kind: m.kind, variant: m.variant, title: m.title, estMinutes: m.est_minutes, content: m.content, version: m.version }
+// --- Recordings (listening modules) -------------------------------------------------------
+
+/** What a recording depends on: a change of any of these needs a new one. */
+function audioKeyFor(level: CourseLevel, passage: ModulePassage): string {
+  return createHash('sha1').update(`${level}|${passage.style ?? ''}|${passage.text}`).digest('hex')
 }
 
-function toCourse(tree: Tree): Course {
+function audioCurrent(level: CourseLevel, m: Pick<ModuleRow, 'kind' | 'content'>): boolean {
+  if (m.kind !== 'listening') return true
+  const c = m.content
+  return !!c?.audio && !!c.passage && c.audio.key === audioKeyFor(level, c.passage)
+}
+
+async function signedAudio(path: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin.storage.from(AUDIO_BUCKET).createSignedUrl(path, SIGNED_URL_TTL_SEC)
+  if (error || !data) {
+    console.warn('Could not sign course audio', path, error)
+    return null
+  }
+  return data.signedUrl
+}
+
+/**
+ * Records the script with Azure TTS at the level's speed (the comprehension tests' voices) and
+ * returns the content with its audio. Old recordings stay: running attempts may still play them.
+ */
+async function recordModule(moduleId: string, level: CourseLevel, content: ModuleContent): Promise<ModuleContent> {
+  if (!content.passage) throw new Error('no script to record')
+  const key = audioKeyFor(level, content.passage)
+  const path = `${moduleId}/${key.slice(0, 12)}.mp3`
+  const script = { text: content.passage.text, style: content.passage.style, sections: [] } as CompTestContent
+  const audio = await synthesizeSsml(compScriptSsml(script, level as CompLevel))
+  const { error } = await supabaseAdmin.storage.from(AUDIO_BUCKET).upload(path, audio, { contentType: 'audio/mpeg', upsert: true })
+  if (error) throw error
+  return { ...content, audio: { path, key } }
+}
+
+/** A listening module's content with a current recording, when it can be made (otherwise unchanged). */
+async function withRecording(moduleId: string, level: CourseLevel, kind: ModuleKind, content: ModuleContent): Promise<ModuleContent> {
+  if (kind !== 'listening' || audioCurrent(level, { kind, content })) return content
+  try {
+    return await recordModule(moduleId, level, content)
+  } catch (err) {
+    console.error('Course module TTS failed', err)
+    const { audio: _stale, ...rest } = content
+    return rest
+  }
+}
+
+function toModule(m: ModuleRow, level: CourseLevel, urls: Map<string, string | null>): CourseModule {
+  return {
+    id: m.id,
+    position: m.position,
+    kind: m.kind,
+    variant: m.variant,
+    title: m.title,
+    estMinutes: m.est_minutes,
+    content: m.content,
+    version: m.version,
+    audioReady: audioCurrent(level, m),
+    audioUrl: urls.get(m.id) ?? null,
+  }
+}
+
+/** The teacher's view; urls (listening modules' signed recordings) only for responses. */
+function toCourse(tree: Tree, urls: Map<string, string | null> = new Map()): Course {
   const { course } = tree
   return {
     id: course.id,
@@ -253,7 +332,7 @@ function toCourse(tree: Tree): Course {
         // Before the outline is generated the column only holds the teacher's notes.
         blueprint: u.blueprint && Array.isArray(u.blueprint.words) ? u.blueprint : null,
         status: u.status,
-        modules: (tree.modules.get(u.id) ?? []).map(toModule),
+        modules: (tree.modules.get(u.id) ?? []).map((m) => toModule(m, course.level, urls)),
       }),
     ),
     createdAt: course.created_at,
@@ -261,10 +340,18 @@ function toCourse(tree: Tree): Course {
   }
 }
 
+async function courseView(tree: Tree): Promise<Course> {
+  const urls = new Map<string, string | null>()
+  for (const m of [...tree.modules.values()].flat()) {
+    if (m.kind === 'listening' && m.content?.audio && audioCurrent(tree.course.level, m)) urls.set(m.id, await signedAudio(m.content.audio.path))
+  }
+  return toCourse(tree, urls)
+}
+
 async function courseResponse(courseId: string): Promise<Course> {
   const row = await loadCourseRow(courseId)
   if (!row) throw new HttpError(404, { error: 'Not found' })
-  return toCourse(await loadTree(row))
+  return courseView(await loadTree(row))
 }
 
 async function touch(courseId: string) {
@@ -296,7 +383,7 @@ async function insertUnit(courseId: string, position: number, input: UnitInput &
       template: input.template,
       grammar_ids: input.grammarIds,
       // The teacher's notes travel with the outline until it is generated.
-      blueprint: input.notes ? { notes: input.notes } : null,
+      blueprint: input.notes || input.sourceText ? { ...(input.notes ? { notes: input.notes } : {}), ...(input.sourceText ? { sourceText: input.sourceText } : {}) } : null,
     })
     .select('id')
     .single()
@@ -363,7 +450,7 @@ export async function handleCourses(req: VercelRequest, res: VercelResponse, tea
 
   if (req.method === 'GET') {
     const row = await loadOwnCourse(uuid(req.query.id), teacherId)
-    res.status(200).json({ course: toCourse(await loadTree(row)) })
+    res.status(200).json({ course: await courseView(await loadTree(row)) })
     return
   }
 
@@ -524,13 +611,78 @@ export async function handleCourseModules(req: VercelRequest, res: VercelRespons
     patch.title = title
   }
   if (b.content !== undefined) {
-    patch.content = validated(() => sanitizeModuleContent(b.content))
+    const { audio: _fromBrowser, ...content } = validated(() => sanitizeModuleContent(b.content))
+    // An unchanged script keeps its recording; a changed one is recorded again.
+    const kept = module.content?.audio && audioCurrent(course.level, { kind: module.kind, content: { ...content, audio: module.content.audio } }) ? { ...content, audio: module.content.audio } : content
+    patch.content = await withRecording(module.id, course.level, module.kind, kept)
     patch.version = module.version + 1
   }
   const { error } = await supabaseAdmin.from('course_modules').update(patch).eq('id', module.id)
   if (error) throw error
   await touch(course.id)
   res.status(200).json({ course: await courseResponse(course.id) })
+}
+
+export async function handleCourseModuleAudio(req: VercelRequest, res: VercelResponse, teacherId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const { module, course } = await loadOwnModule(uuid(req.query.id), teacherId)
+  if (module.kind !== 'listening' || !module.content?.passage) throw new HttpError(400, { error: 'Not a listening module with a script' })
+  let content: ModuleContent
+  try {
+    content = await recordModule(module.id, course.level, module.content)
+  } catch (err) {
+    console.error('Course module TTS failed', err)
+    throw new HttpError(502, { error: 'tts_failed' })
+  }
+  const { error } = await supabaseAdmin.from('course_modules').update({ content, updated_at: new Date().toISOString() }).eq('id', module.id)
+  if (error) throw error
+  res.status(200).json({ course: await courseResponse(course.id) })
+}
+
+/** Text of an open answer: trimmed, not empty, not too long. */
+function openText(v: unknown): string {
+  const text = typeof v === 'string' ? v.trim() : ''
+  if (!text) throw new HttpError(400, { error: 'text is required' })
+  if (text.length > OPEN_ANSWER_MAX) throw new HttpError(400, { error: `text is longer than ${OPEN_ANSWER_MAX} characters` })
+  return text
+}
+
+async function checkFeedbackLimit(userId: string) {
+  if ((await courseGenerationsToday(userId, new Date(), FEEDBACK_CALL_TYPE)) >= FEEDBACK_PER_DAY) throw new HttpError(429, { error: 'daily_limit', limit: FEEDBACK_PER_DAY })
+}
+
+async function feedbackFor(step: CourseStep, text: string, course: CourseRow, unit: Pick<UnitRow, 'grammar_ids'>, userId: string) {
+  if (step.type !== 'write' && step.type !== 'speak') throw new HttpError(400, { error: 'Not a writing or speaking step' })
+  try {
+    return await evaluateOpenAnswer(
+      {
+        mode: step.type,
+        level: course.level,
+        explainLang: course.explain_lang,
+        prompt: step.prompt,
+        targets: step.targets ?? [],
+        grammarIds: unit.grammar_ids,
+        text,
+        ...(step.type === 'write' ? { minWords: step.minWords, maxWords: step.maxWords } : { seconds: step.seconds }),
+      },
+      userId,
+    )
+  } catch (err) {
+    console.error('Course feedback failed', err)
+    throw new HttpError(502, { error: 'feedback_failed' })
+  }
+}
+
+/** Teacher preview: the AI's feedback on a written/spoken answer, nothing saved. */
+export async function handleCourseFeedback(req: VercelRequest, res: VercelResponse, teacherId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const b = body(req)
+  const { module, unit, course } = await loadOwnModule(uuid(b.moduleId), teacherId)
+  const step = module.content?.steps.find((s) => s.id === b.stepId)
+  if (!step || !OPEN_TYPES.has(step.type)) throw new HttpError(400, { error: 'Not a writing or speaking step' })
+  const text = openText(b.text)
+  await checkFeedbackLimit(teacherId)
+  res.status(200).json({ feedback: await feedbackFor(step, text, course, unit, teacherId) })
 }
 
 async function checkGenerationLimit(teacherId: string): Promise<number> {
@@ -551,7 +703,9 @@ export async function handleCourseBlueprint(req: VercelRequest, res: VercelRespo
   const { unit, course } = await loadOwnUnit(uuid(req.query.id), teacherId)
   const tree = await loadTree(course)
   const used = await checkGenerationLimit(teacherId)
-  const notes = unit.blueprint && typeof (unit.blueprint as unknown as { notes?: unknown }).notes === 'string' ? (unit.blueprint as unknown as { notes: string }).notes : ''
+  const pre = (unit.blueprint ?? {}) as { notes?: unknown; sourceText?: unknown }
+  const notes = typeof pre.notes === 'string' ? pre.notes : ''
+  const sourceText = typeof pre.sourceText === 'string' ? pre.sourceText : ''
   let generated
   try {
     generated = await generateBlueprint(
@@ -563,6 +717,7 @@ export async function handleCourseBlueprint(req: VercelRequest, res: VercelRespo
         kinds: (tree.modules.get(unit.id) ?? []).map((m) => m.kind),
         notes,
         previous: earlierUnits(tree, unit.position),
+        ...(sourceText ? { sourceText } : {}),
       },
       teacherId,
     )
@@ -575,7 +730,7 @@ export async function handleCourseBlueprint(req: VercelRequest, res: VercelRespo
     .update({
       title: generated.title || unit.title,
       can_dos: generated.blueprint.canDos,
-      blueprint: { ...generated.blueprint, ...(notes ? { notes } : {}) },
+      blueprint: { ...generated.blueprint, ...(notes ? { notes } : {}), ...(sourceText ? { sourceText } : {}) },
       updated_at: new Date().toISOString(),
     })
     .eq('id', unit.id)
@@ -590,11 +745,10 @@ export async function handleCourseModuleGenerate(req: VercelRequest, res: Vercel
   if (!unit.blueprint || !Array.isArray(unit.blueprint.words)) throw new HttpError(409, { error: 'no_blueprint' })
   const tree = await loadTree(course)
   const siblings = tree.modules.get(unit.id) ?? []
-  const firstReading = siblings.find((m) => m.kind === 'reading' && m.variant !== 'second')
-  const passage = firstReading?.content?.passage ?? null
-  if ((module.kind === 'grammar' || module.kind === 'unit_check' || module.variant === 'second') && firstReading && !passage) {
-    throw new HttpError(409, { error: 'reading_first' })
-  }
+  const firstText = siblings.find((m) => (m.kind === 'reading' || m.kind === 'listening') && m.variant !== 'second')
+  const passage = firstText?.content?.passage ?? null
+  if (module.id !== firstText?.id && module.kind !== 'vocabulary' && firstText && !passage) throw new HttpError(409, { error: 'reading_first' })
+  const sourceText = module.id === firstText?.id && typeof unit.blueprint.sourceText === 'string' && unit.blueprint.sourceText ? unit.blueprint.sourceText : undefined
   const used = await checkGenerationLimit(teacherId)
   let content: ModuleContent
   try {
@@ -607,8 +761,9 @@ export async function handleCourseModuleGenerate(req: VercelRequest, res: Vercel
         unitTopic: unit.topic,
         grammarIds: unit.grammar_ids,
         blueprint: unit.blueprint,
-        passage: module.id === firstReading?.id ? null : passage,
+        passage: module.id === firstText?.id ? null : passage,
         previousWords: earlierUnits(tree, unit.position).flatMap((u) => u.words),
+        ...(sourceText ? { sourceText } : {}),
       },
       teacherId,
     )
@@ -617,6 +772,7 @@ export async function handleCourseModuleGenerate(req: VercelRequest, res: Vercel
     console.error('Course module generation failed', err)
     throw new HttpError(502, { error: 'generation_failed' })
   }
+  content = await withRecording(module.id, course.level, module.kind, content)
   const { error } = await supabaseAdmin
     .from('course_modules')
     .update({ content, version: module.version + 1, updated_at: new Date().toISOString() })
@@ -839,13 +995,15 @@ async function handleMyCourse(req: VercelRequest, res: VercelResponse, userId: s
   res.status(200).json({ course })
 }
 
-function toAttempt(row: AttemptRow): ModuleAttempt {
+async function toAttempt(row: AttemptRow): Promise<ModuleAttempt> {
+  const audio = row.content_snapshot.audio
   return {
     id: row.id,
     moduleId: row.module_id,
     stepIndex: row.step_index,
     answers: row.answers ?? {},
     content: row.content_snapshot,
+    audioUrl: audio ? await signedAudio(audio.path) : null,
     completedAt: row.completed_at,
     score: row.score,
     max: row.max_score,
@@ -873,7 +1031,7 @@ async function handleMyCourseModule(req: VercelRequest, res: VercelResponse, use
     .maybeSingle()
   if (openError) throw openError
   if (open && b.restart !== true) {
-    res.status(200).json({ attempt: toAttempt(open as AttemptRow) })
+    res.status(200).json({ attempt: await toAttempt(open as AttemptRow) })
     return
   }
   if (open) await supabaseAdmin.from('course_module_attempts').delete().eq('id', (open as AttemptRow).id)
@@ -885,7 +1043,7 @@ async function handleMyCourseModule(req: VercelRequest, res: VercelResponse, use
     .select(ATTEMPT_COLUMNS)
     .single()
   if (error) throw error
-  res.status(200).json({ attempt: toAttempt(data as AttemptRow) })
+  res.status(200).json({ attempt: await toAttempt(data as AttemptRow) })
 }
 
 async function loadMyAttempt(attemptId: string, userId: string): Promise<{ attempt: AttemptRow; enrollment: EnrollmentRow; tree: Tree }> {
@@ -896,13 +1054,44 @@ async function loadMyAttempt(attemptId: string, userId: string): Promise<{ attem
   return { attempt, ...(await loadMyEnrollment(attempt.enrollment_id, userId)) }
 }
 
+/** The AI-marked answers already stored on the attempt (the browser can't send or change them). */
+function storedOpenAnswers(attempt: AttemptRow): ModuleAnswers {
+  const out: ModuleAnswers = {}
+  for (const step of attempt.content_snapshot.steps) {
+    const a = attempt.answers?.[step.id]
+    if (OPEN_TYPES.has(step.type) && isOpenAnswer(a)) out[step.id] = a
+  }
+  return out
+}
+
+async function handleMyCourseFeedback(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const { attempt, tree } = await loadMyAttempt(uuid(req.query.id), userId)
+  if (attempt.completed_at) throw new HttpError(409, { error: 'already_completed' })
+  const b = body(req)
+  const step = attempt.content_snapshot.steps.find((s) => s.id === b.stepId)
+  if (!step || !OPEN_TYPES.has(step.type)) throw new HttpError(400, { error: 'Not a writing or speaking step' })
+  if (isOpenAnswer(attempt.answers?.[step.id])) throw new HttpError(409, { error: 'already_marked' })
+  const text = openText(b.text)
+  await checkFeedbackLimit(userId)
+  const unit = tree.units.find((u) => (tree.modules.get(u.id) ?? []).some((m) => m.id === attempt.module_id)) ?? { grammar_ids: [] }
+  const answer: OpenAnswer = { text, ...(await feedbackFor(step, text, tree.course, unit, userId)) }
+  const { error } = await supabaseAdmin
+    .from('course_module_attempts')
+    .update({ answers: { ...(attempt.answers ?? {}), [step.id]: answer }, updated_at: new Date().toISOString() })
+    .eq('id', attempt.id)
+    .is('completed_at', null)
+  if (error) throw error
+  res.status(200).json({ answer })
+}
+
 async function handleMyCourseProgress(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
   const { attempt } = await loadMyAttempt(uuid(req.query.id), userId)
   if (attempt.completed_at) throw new HttpError(409, { error: 'already_completed' })
   const b = body(req)
   const stepIndex = typeof b.stepIndex === 'number' && Number.isInteger(b.stepIndex) ? Math.max(0, Math.min(b.stepIndex, attempt.content_snapshot.steps.length)) : attempt.step_index
-  const answers = sanitizeAnswers(attempt.content_snapshot, b.answers)
+  const answers = { ...sanitizeAnswers(attempt.content_snapshot, b.answers), ...storedOpenAnswers(attempt) }
   const { error } = await supabaseAdmin
     .from('course_module_attempts')
     .update({ step_index: stepIndex, answers, updated_at: new Date().toISOString() })
@@ -916,7 +1105,7 @@ async function handleMyCourseComplete(req: VercelRequest, res: VercelResponse, u
   if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
   const { attempt, enrollment, tree } = await loadMyAttempt(uuid(req.query.id), userId)
   if (attempt.completed_at) throw new HttpError(409, { error: 'already_completed' })
-  const answers = sanitizeAnswers(attempt.content_snapshot, body(req).answers)
+  const answers = { ...sanitizeAnswers(attempt.content_snapshot, body(req).answers), ...storedOpenAnswers(attempt) }
   const { score, max } = scoreModule(attempt.content_snapshot, answers)
 
   const before = buildMyCourse(tree, enrollment, await attemptsFor([enrollment.id]), '')
@@ -966,6 +1155,7 @@ const STUDENT_HANDLERS: Record<string, (req: VercelRequest, res: VercelResponse,
   'my-course': handleMyCourse,
   'my-course-module': handleMyCourseModule,
   'my-course-progress': handleMyCourseProgress,
+  'my-course-feedback': handleMyCourseFeedback,
   'my-course-complete': handleMyCourseComplete,
 }
 

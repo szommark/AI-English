@@ -30,30 +30,41 @@ export const UNIT_NOTES_MAX = 500
 /** AI calls (unit outlines + modules) a teacher may make per UTC day. */
 export const COURSE_GENERATIONS_PER_DAY = 60
 
-/** Module kinds that can be built today; the rest show as "coming soon" (Phase 2). */
-export const AVAILABLE_KINDS: ReadonlySet<ModuleKind> = new Set(['vocabulary', 'reading', 'grammar', 'unit_check'])
+/** Module kinds that can be built today; Pronunciation shows as "coming soon". */
+export const AVAILABLE_KINDS: ReadonlySet<ModuleKind> = new Set(['vocabulary', 'reading', 'listening', 'grammar', 'speaking', 'writing', 'unit_check'])
 
 // --- Templates and builder rules -----------------------------------------------------------
 
-/** 'input' stands for the unit's Reading or Listening choice. */
-type TemplateSlot = ModuleKind | 'input'
+/**
+ * 'input' / 'output' stand for the unit's skill choice: Reading (+ Writing) or Listening
+ * (+ Speaking). In Balanced only the input changes; both productive skills are always there.
+ */
+type TemplateSlot = ModuleKind | 'input' | 'output'
 
 const TEMPLATE_SLOTS: Record<Exclude<UnitTemplate, 'custom'>, TemplateSlot[]> = {
   balanced: ['vocabulary', 'input', 'grammar', 'pronunciation', 'speaking', 'writing', 'unit_check'],
   'listening-speaking': ['vocabulary', 'listening', 'grammar', 'pronunciation', 'speaking', 'speaking', 'unit_check'],
   'reading-writing': ['vocabulary', 'reading', 'grammar', 'writing', 'reading', 'writing', 'unit_check'],
-  compact: ['vocabulary', 'input', 'grammar', 'unit_check'],
+  compact: ['vocabulary', 'input', 'grammar', 'output', 'unit_check'],
 }
 
-/** Whether the template lets the teacher choose Reading or Listening. */
+/** Whether the template lets the teacher choose Reading or Listening (Compact: the skill pair). */
 export function templateHasInputChoice(template: UnitTemplate): boolean {
   return template === 'balanced' || template === 'compact'
 }
 
-/** The template's modules in order (custom: the compact plan, as a starting point). */
-export function templateKinds(template: UnitTemplate, input: InputSkill = 'reading'): ModuleKind[] {
-  const slots = TEMPLATE_SLOTS[template === 'custom' ? 'compact' : template]
-  return slots.map((s) => (s === 'input' ? input : s))
+/** The template's modules as designed, Pronunciation included (for showing it as "coming soon"). */
+export function templateSlots(template: Exclude<UnitTemplate, 'custom'>, input: InputSkill = 'reading'): ModuleKind[] {
+  return TEMPLATE_SLOTS[template].map((s) => (s === 'input' ? input : s === 'output' ? (input === 'reading' ? 'writing' : 'speaking') : s))
+}
+
+/**
+ * The template's modules in order (custom: the compact plan, as a starting point). Modules that
+ * can't be built yet (Pronunciation) are left out until they can; withCheck false drops the Unit
+ * check.
+ */
+export function templateKinds(template: UnitTemplate, input: InputSkill = 'reading', withCheck = true): ModuleKind[] {
+  return templateSlots(template === 'custom' ? 'compact' : template, input).filter((k) => AVAILABLE_KINDS.has(k) && (withCheck || k !== 'unit_check'))
 }
 
 /** Whether every module of the plan can be built today. */
@@ -63,14 +74,17 @@ export function planAvailable(kinds: ModuleKind[]): boolean {
 
 const DOUBLE_OK: ReadonlySet<ModuleKind> = new Set(['reading', 'listening', 'speaking', 'writing'])
 const INPUT: ReadonlySet<ModuleKind> = new Set(['reading', 'listening'])
+const OUTPUT: ReadonlySet<ModuleKind> = new Set(['speaking', 'writing'])
 
 export type PlanProblem =
   | 'too_few'
   | 'too_many'
   | 'vocabulary_first'
   | 'check_last'
-  | 'needs_input'
+  | 'needs_grammar'
+  | 'needs_pair'
   | 'grammar_after_input'
+  | 'output_after_input'
   | 'pronunciation_needs_spoken'
   | 'pronunciation_after_input'
   | 'too_many_of_kind'
@@ -78,24 +92,29 @@ export type PlanProblem =
 
 /**
  * What is wrong with a unit's module plan (empty = fine). Rules (design §Builder rules): 4–7
- * modules; Vocabulary first and once; Unit check last and once; at least one Reading or
- * Listening; Grammar and Pronunciation at most once and after the first input module;
- * Pronunciation only with Listening or Speaking; Reading/Listening/Speaking/Writing at most twice.
+ * modules; Vocabulary first and once; Grammar once, after the first text; at least one skill
+ * pair, Reading + Writing or Listening + Speaking, the productive skill after the first text;
+ * the Unit check optional, last and once; Pronunciation only with Listening or Speaking;
+ * Reading/Listening/Speaking/Writing at most twice.
  */
 export function planProblems(kinds: ModuleKind[], opts: { allowUnavailable?: boolean } = {}): PlanProblem[] {
   const problems = new Set<PlanProblem>()
   if (kinds.length < MIN_MODULES) problems.add('too_few')
   if (kinds.length > MAX_MODULES) problems.add('too_many')
   const count = (k: ModuleKind) => kinds.filter((x) => x === k).length
+  const has = (k: ModuleKind) => count(k) > 0
   if (kinds[0] !== 'vocabulary' || count('vocabulary') !== 1) problems.add('vocabulary_first')
-  if (kinds[kinds.length - 1] !== 'unit_check' || count('unit_check') !== 1) problems.add('check_last')
+  if (has('unit_check') && (kinds[kinds.length - 1] !== 'unit_check' || count('unit_check') !== 1)) problems.add('check_last')
+  if (!has('grammar')) problems.add('needs_grammar')
+  if (!((has('reading') && has('writing')) || (has('listening') && has('speaking')))) problems.add('needs_pair')
   const firstInput = kinds.findIndex((k) => INPUT.has(k))
-  if (firstInput < 0) problems.add('needs_input')
   for (const k of ['grammar', 'pronunciation'] as const) {
     if (count(k) > 1) problems.add('too_many_of_kind')
   }
   const grammarAt = kinds.indexOf('grammar')
   if (grammarAt >= 0 && firstInput >= 0 && grammarAt < firstInput) problems.add('grammar_after_input')
+  const firstOutput = kinds.findIndex((k) => OUTPUT.has(k))
+  if (firstOutput >= 0 && firstInput >= 0 && firstOutput < firstInput) problems.add('output_after_input')
   const pronAt = kinds.indexOf('pronunciation')
   if (pronAt >= 0) {
     if (!kinds.some((k) => k === 'listening' || k === 'speaking')) problems.add('pronunciation_needs_spoken')
@@ -152,6 +171,12 @@ export const EST_MINUTES: Record<ModuleKind, number> = {
 export const VOCAB_COUNT: Record<CourseLevel, number> = { A1: 8, A2: 9, B1: 11, B2: 12, C1: 13, C2: 13 }
 /** Reading text length in words, by level. */
 export const READING_WORDS: Record<CourseLevel, number> = { A1: 100, A2: 150, B1: 250, B2: 400, C1: 500, C2: 550 }
+/** Listening script length in words (about 1–3 minutes at the level's speed), by level. */
+export const LISTENING_WORDS: Record<CourseLevel, number> = { A1: 90, A2: 120, B1: 200, B2: 300, C1: 380, C2: 420 }
+/** A writing task's word range, by level. */
+export const WRITING_WORDS: Record<CourseLevel, [number, number]> = { A1: [20, 35], A2: [40, 60], B1: [80, 120], B2: [130, 170], C1: [180, 220], C2: [200, 260] }
+/** A speaking task's length in seconds, by level. */
+export const SPEAKING_SECONDS: Record<CourseLevel, number> = { A1: 30, A2: 45, B1: 60, B2: 90, C1: 120, C2: 120 }
 
 /** Grammar points a unit at this level may pick: that level's and the ones below it. */
 export function grammarAllowed(id: string, level: CourseLevel): boolean {
@@ -190,23 +215,41 @@ export type CourseStep =
   | { id: string; type: 'match'; prompt: string; pairs: { left: string; right: string }[] }
   /** Put the word tiles in order to make `answer`. */
   | { id: string; type: 'order'; prompt: string; answer: string; explain?: string }
+  /** Listen to the module's recording (listening modules; the script is the passage). */
+  | { id: string; type: 'listen' }
+  /** Write a short text; the AI gives feedback and a score out of 10. */
+  | { id: string; type: 'write'; prompt: string; minWords: number; maxWords: number; model?: string; targets?: string[] }
+  /**
+   * Answer out loud (speech recognition, or typed when there is no microphone); the AI gives
+   * feedback and a score out of 10. modelFirst: the model answer is shown before answering
+   * (guided), otherwise after the feedback.
+   */
+  | { id: string; type: 'speak'; prompt: string; seconds: number; model?: string; modelFirst?: boolean; targets?: string[] }
 
 export type StepType = CourseStep['type']
-export const STEP_TYPES: StepType[] = ['info', 'words', 'text', 'choice', 'gap', 'match', 'order']
+export const STEP_TYPES: StepType[] = ['info', 'words', 'text', 'listen', 'choice', 'gap', 'match', 'order', 'write', 'speak']
 export const QUESTION_TYPES: ReadonlySet<StepType> = new Set(['choice', 'gap', 'match', 'order'])
+/** Steps marked by the AI (on the server) rather than by a key. */
+export const OPEN_TYPES: ReadonlySet<StepType> = new Set(['write', 'speak'])
+/** What an open step is worth. */
+export const OPEN_MAX = 10
 
 export interface ModulePassage {
   title: string
-  /** Paragraphs separated by blank lines. */
+  /** Paragraphs separated by blank lines; a dialogue's lines start with "Name: ". */
   text: string
+  /** Listening: one voice or two. */
+  style?: 'monologue' | 'dialogue'
 }
 
 export interface ModuleContent {
   /** One line telling the learner what this module does. */
   intro: string
-  /** Reading modules (and any module that refers back to a text). */
+  /** Reading modules, the listening script, and any module that refers back to the unit's text. */
   passage?: ModulePassage
   steps: CourseStep[]
+  /** Listening: the recording in the course-audio bucket (set by the server; key = what it was made from). */
+  audio?: { path: string; key: string }
 }
 
 /** The AI outline of a unit, written before its modules (and fed to every module prompt). */
@@ -218,6 +261,8 @@ export interface CourseBlueprint {
   passageBrief: string
   /** How the grammar point(s) show up in this unit's texts. */
   grammarNotes: string
+  /** The teacher's own text for the unit's first reading or listening module. */
+  sourceText?: string
 }
 
 export const MAX_STEPS = 20
@@ -228,6 +273,10 @@ export const PASSAGE_MAX = 6_000
 export const MAX_OPTIONS = 5
 export const MAX_PAIRS = 8
 export const MAX_ACCEPTED = 6
+export const MAX_TARGETS = 8
+/** The teacher's own text for a unit (an article, or a listening script). */
+export const SOURCE_TEXT_MAX = 6_000
+export const OPEN_ANSWER_MAX = 3_000
 
 export class CourseValidationError extends Error {}
 
@@ -241,6 +290,16 @@ function str(v: unknown, max: number, field: string, required = true): string {
 function optStr(v: unknown, max: number): string | undefined {
   const s = typeof v === 'string' ? v.trim().slice(0, max) : ''
   return s || undefined
+}
+
+function int(v: unknown, min: number, max: number, field: string): number {
+  const n = typeof v === 'number' ? Math.round(v) : typeof v === 'string' ? parseInt(v, 10) : NaN
+  if (!Number.isFinite(n) || n < min || n > max) throw new CourseValidationError(`${field} must be ${min}–${max}`)
+  return n
+}
+
+function cleanTargets(v: unknown): string[] {
+  return [...new Set((Array.isArray(v) ? v : []).map((t) => (typeof t === 'string' ? t.trim().slice(0, 80) : '')).filter(Boolean))].slice(0, MAX_TARGETS)
 }
 
 const obj = (v: unknown) => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {})
@@ -303,6 +362,28 @@ function sanitizeStep(raw: unknown): CourseStep {
       const explain = optStr(s.explain, STEP_TEXT_MAX)
       return { id, type: 'order', prompt: str(s.prompt, STEP_TEXT_MAX, 'prompt'), answer, ...(explain ? { explain } : {}) }
     }
+    case 'listen':
+      return { id, type: 'listen' }
+    case 'write': {
+      const minWords = int(s.minWords, 5, 400, 'minWords')
+      const maxWords = int(s.maxWords, minWords, 500, 'maxWords')
+      const model = optStr(s.model, 2_000)
+      const targets = cleanTargets(s.targets)
+      return { id, type: 'write', prompt: str(s.prompt, STEP_TEXT_MAX, 'prompt'), minWords, maxWords, ...(model ? { model } : {}), ...(targets.length ? { targets } : {}) }
+    }
+    case 'speak': {
+      const model = optStr(s.model, 2_000)
+      const targets = cleanTargets(s.targets)
+      return {
+        id,
+        type: 'speak',
+        prompt: str(s.prompt, STEP_TEXT_MAX, 'prompt'),
+        seconds: int(s.seconds, 10, 300, 'seconds'),
+        ...(model ? { model } : {}),
+        ...(model && s.modelFirst === true ? { modelFirst: true } : {}),
+        ...(targets.length ? { targets } : {}),
+      }
+    }
     default:
       throw new CourseValidationError('unknown step type')
   }
@@ -319,10 +400,17 @@ export function sanitizeModuleContent(raw: unknown): ModuleContent {
   const steps = list(c.steps).map(sanitizeStep)
   if (steps.length === 0 || steps.length > MAX_STEPS) throw new CourseValidationError(`a module needs 1–${MAX_STEPS} steps`)
   const p = obj(c.passage)
-  const passage = typeof p.text === 'string' && p.text.trim() ? { title: str(p.title, 160, 'passage title', false), text: str(p.text, PASSAGE_MAX, 'passage') } : undefined
-  if (!passage && steps.some((s) => s.type === 'text')) throw new CourseValidationError('a text step needs a passage')
-  return { intro: str(c.intro, 300, 'intro', false), ...(passage ? { passage } : {}), steps: normalizeSteps(steps) }
+  const style: ModulePassage['style'] = p.style === 'dialogue' || p.style === 'monologue' ? p.style : undefined
+  const passage =
+    typeof p.text === 'string' && p.text.trim() ? { title: str(p.title, 160, 'passage title', false), text: str(p.text, PASSAGE_MAX, 'passage'), ...(style ? { style } : {}) } : undefined
+  if (!passage && steps.some((s) => s.type === 'text' || s.type === 'listen')) throw new CourseValidationError('a text or listen step needs a passage')
+  const a = obj(c.audio)
+  const audio = typeof a.path === 'string' && AUDIO_PATH_RE.test(a.path) && typeof a.key === 'string' && /^[0-9a-f]{40}$/.test(a.key) ? { path: a.path, key: a.key } : undefined
+  return { intro: str(c.intro, 300, 'intro', false), ...(passage ? { passage } : {}), steps: normalizeSteps(steps), ...(audio ? { audio } : {}) }
 }
+
+/** Where the server keeps a listening module's recording: "<moduleId>/<key prefix>.mp3". */
+export const AUDIO_PATH_RE = /^[0-9a-f-]{36}\/[0-9a-f]{12}\.mp3$/
 
 export function sanitizeBlueprint(raw: unknown): CourseBlueprint {
   const b = obj(raw)
@@ -350,15 +438,53 @@ export function sanitizeBlueprint(raw: unknown): CourseBlueprint {
 // --- Answers and scoring -------------------------------------------------------------------
 // Answers by step id: choice → option index; gap → the text typed or the option tapped;
 // match → for each left item, the index of the right item picked; order → the tiles in the
-// order the learner put them.
+// order the learner put them; write/speak → the text with the AI's feedback (OpenAnswer),
+// stored by the server only.
 
-export type StepAnswer = number | string | number[] | string[]
+/** The AI's verdict on a written or spoken answer. */
+export interface OpenFeedback {
+  /** 0–10. */
+  score: number
+  /** 2–4 short sentences in the course's explanation language. */
+  feedback: string
+  /** Up to 4 corrections of the learner's own words. */
+  corrections: { wrong: string; right: string }[]
+}
+
+export type OpenAnswer = { text: string } & OpenFeedback
+
+export type StepAnswer = number | string | number[] | string[] | OpenAnswer
 export type ModuleAnswers = Record<string, StepAnswer>
+
+export function isOpenAnswer(a: unknown): a is OpenAnswer {
+  return !!a && typeof a === 'object' && !Array.isArray(a) && typeof (a as OpenAnswer).text === 'string' && typeof (a as OpenAnswer).score === 'number'
+}
 
 /** Points a step is worth (0 for steps that only show something). */
 export function stepMax(step: CourseStep): number {
   if (step.type === 'match') return step.pairs.length
+  if (OPEN_TYPES.has(step.type)) return OPEN_MAX
   return QUESTION_TYPES.has(step.type) ? 1 : 0
+}
+
+export function countWords(text: string): number {
+  return text.trim() ? text.trim().split(/\s+/).length : 0
+}
+
+/** Cleans the model's verdict: score 0–10, short feedback, at most 4 corrections. */
+export function sanitizeFeedback(raw: unknown): OpenFeedback {
+  const r = obj(raw)
+  const score = typeof r.score === 'number' ? r.score : typeof r.score === 'string' ? parseFloat(r.score) : NaN
+  if (!Number.isFinite(score)) throw new CourseValidationError('feedback needs a score')
+  const text = (v: unknown) => (typeof v === 'string' ? v.trim().slice(0, 200) : '')
+  return {
+    score: Math.max(0, Math.min(OPEN_MAX, Math.round(score))),
+    feedback: str(r.feedback, 1_200, 'feedback'),
+    corrections: list(r.corrections)
+      .map((x) => ({ wrong: text(obj(x).wrong), right: text(obj(x).right) }))
+      .filter((x) => x.wrong && x.right && x.wrong !== x.right)
+      .slice(0, 4),
+  }
 }
 
 /** Points the answer earns. */
@@ -373,6 +499,9 @@ export function stepScore(step: CourseStep, answer: StepAnswer | undefined): num
       return Array.isArray(answer) ? step.pairs.filter((_, i) => answer[i] === i).length : 0
     case 'order':
       return Array.isArray(answer) && answer.join(' ').toLowerCase() === sentenceTiles(step.answer).join(' ').toLowerCase() ? 1 : 0
+    case 'write':
+    case 'speak':
+      return isOpenAnswer(answer) ? answer.score : 0
     default:
       return 0
   }
@@ -393,7 +522,10 @@ export function scoreModule(content: ModuleContent, answers: ModuleAnswers): Mod
   return { score, max }
 }
 
-/** Keeps only answers of the right shape for existing question steps. */
+/**
+ * Keeps only answers of the right shape for existing question steps. Open answers (write/speak)
+ * are never taken from the browser: the server stores them with the AI's feedback.
+ */
 export function sanitizeAnswers(content: ModuleContent, raw: unknown): ModuleAnswers {
   const input = obj(raw)
   const out: ModuleAnswers = {}
@@ -438,6 +570,10 @@ export interface CourseModule {
   estMinutes: number
   content: ModuleContent | null
   version: number
+  /** Listening: whether the recording matches the current script (always true for other kinds). */
+  audioReady: boolean
+  /** Listening: a signed URL of the current recording (teacher preview). */
+  audioUrl: string | null
 }
 
 export interface CourseUnit {
@@ -482,7 +618,12 @@ export interface CourseSummary {
 export interface UnitInput {
   topic: string
   template: UnitTemplate
+  /** Compact: the skill pair (reading → Reading + Writing, listening → Listening + Speaking); Balanced: the text. */
   input: InputSkill
+  /** Templates: end with a Unit check (custom plans say so themselves). */
+  withCheck: boolean
+  /** The teacher's own text for the first reading or listening module ('' = the AI writes it). */
+  sourceText: string
   /** Custom template only: the modules in order. */
   kinds?: ModuleKind[]
   grammarIds: string[]
@@ -564,6 +705,8 @@ export interface ModuleAttempt {
   stepIndex: number
   answers: ModuleAnswers
   content: ModuleContent
+  /** Listening: a signed URL of the attempt's recording. */
+  audioUrl: string | null
   completedAt: string | null
   score: number | null
   max: number | null
@@ -585,7 +728,8 @@ export function sanitizeUnitInput(raw: unknown, level: CourseLevel): UnitInput &
   const template = UNIT_TEMPLATES.find((t) => t === b.template)
   if (!template) throw new CourseValidationError('template is required')
   const input: InputSkill = b.input === 'listening' ? 'listening' : 'reading'
-  const kinds = template === 'custom' ? list(b.kinds).filter((k): k is ModuleKind => MODULE_KINDS.includes(k as ModuleKind)) : templateKinds(template, input)
+  const withCheck = b.withCheck !== false
+  const kinds = template === 'custom' ? list(b.kinds).filter((k): k is ModuleKind => MODULE_KINDS.includes(k as ModuleKind)) : templateKinds(template, input, withCheck)
   const problems = planProblems(kinds)
   if (problems.length) throw new CourseValidationError(`invalid module plan: ${problems.join(', ')}`)
   const grammarIds = [...new Set(list(b.grammarIds).filter((g): g is string => typeof g === 'string'))]
@@ -598,6 +742,8 @@ export function sanitizeUnitInput(raw: unknown, level: CourseLevel): UnitInput &
     kinds,
     grammarIds,
     notes: str(b.notes, UNIT_NOTES_MAX, 'notes', false),
+    withCheck: kinds.includes('unit_check'),
+    sourceText: str(b.sourceText, SOURCE_TEXT_MAX, 'your text', false),
   }
 }
 
@@ -617,7 +763,7 @@ export function sanitizeCreateInput(raw: unknown): CourseCreateInput & { unit: U
   return { ...sanitizeCourseFields(b), level, unit: sanitizeUnitInput(b.unit, level) }
 }
 
-/** Whether every module of the unit has content (so it can be published). */
+/** Whether every module of the unit has content and every listening module its recording (so it can be published). */
 export function unitReady(unit: Pick<CourseUnit, 'modules'>): boolean {
-  return unit.modules.length > 0 && unit.modules.every((m) => m.content !== null)
+  return unit.modules.length > 0 && unit.modules.every((m) => m.content !== null && m.audioReady)
 }

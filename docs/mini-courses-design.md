@@ -1,6 +1,6 @@
 # Mini Courses — Design Brief
 
-Status: design agreed 2026-10-29; Phase 1 built on `feat/mini-courses`.
+Status: design agreed 2026-10-29; Phase 1 merged (PR #140); listening, speaking and writing modules + the rule change of 2026-10-30 on `feat/mini-courses-skills`.
 
 ## What it is
 
@@ -14,7 +14,7 @@ It mostly **sequences tools Avalon already has**: Grammar Coach exercises, the c
 |---|---|
 | Who creates | Teachers only |
 | Course length | **1–4 units.** A course starts with one unit; the teacher can add units to their own course (4 is the ceiling for now) |
-| Unit length | **4–7 modules**; the 7-module Balanced unit is the maximum |
+| Unit length | **4–7 modules**: at least Vocabulary + Grammar + a skill pair (Reading + Writing or Listening + Speaking); the Unit check is optional (with it the minimum is 5); 7 is the maximum |
 | Order | Fixed and linear, self-paced. No calendar |
 | Content | AI-generated, teacher-curated (every module editable before publishing) |
 | Visibility | Private or public, set by the teacher. Public courses appear in the library instantly; admins can hide any |
@@ -47,13 +47,15 @@ A full 4-unit Balanced course is 28 modules, about 4–5 hours of study.
 | **Balanced** (default) | Vocabulary · Reading *or* Listening · Grammar · Pronunciation · Speaking · Writing · Unit check | 7 |
 | **Listening + Speaking** | Vocabulary · Listening · Grammar · Pronunciation · Speaking (guided) · Speaking (free) · Unit check | 7 |
 | **Reading + Writing** | Vocabulary · Reading · Grammar · Writing (guided) · Reading 2 · Writing (free) · Unit check | 7 |
-| **Compact** | Vocabulary · Reading *or* Listening · Grammar · Unit check | 4 |
+| **Compact** | Vocabulary · Reading *or* Listening · Grammar · Writing *or* Speaking (the pair) · Unit check | 5 (4 without the check) |
 | **Custom** | Start from any template; remove, double or reorder | 4–7 |
+
+Until the Pronunciation module exists, templates leave it out (Balanced and Listening + Speaking have 6 modules) and show it as "coming soon". Every template has an "End with a unit check" switch.
 
 ### Builder rules
 
-1. **Always present:** Vocabulary, at least one Reading or Listening, Unit check. The Unit check counts toward the 4–7 and is always last.
-2. **4 ≤ modules ≤ 7.**
+1. **Always present:** Vocabulary, Grammar, and a skill pair: Reading + Writing or Listening + Speaking. The Unit check is optional; when present it counts toward the 4–7 and is always last.
+2. **4 ≤ modules ≤ 7.** Writing and Speaking come after the first text (Reading or Listening).
 3. **Pronunciation needs spoken work:** offered only when the unit has a Listening or Speaking module (so Reading + Writing never shows it).
 4. **A doubled module does a different job:**
    - Reading 2 / Listening 2: a new text on the same topic, using the same words and grammar.
@@ -61,6 +63,14 @@ A full 4-unit Balanced course is 28 modules, about 4–5 hours of study.
    - Writing: guided (model text, gap/reorder, then a short controlled text) → free (the full task).
    - Vocabulary, Grammar, Pronunciation and Unit check can't be doubled.
 5. **Vocabulary comes first.** Grammar comes after the first input module, because it's noticed in that text. Otherwise the teacher may reorder.
+6. **The teacher's own text (optional):** an article or a listening script pasted into the unit form (up to 6,000 characters). The AI takes the unit's words from it and builds the first Reading or Listening module around it unchanged (for Listening it is read aloud); otherwise the AI writes the text.
+
+### Listening, speaking and writing (built 2026-10-30)
+
+- **Listening:** the script is recorded with Azure TTS (the comprehension tests' voices, the level's speed) into the private `course-audio` bucket when the module is written or its script edited; students get a signed URL. Steps: warm-up → listen → questions (with a "Listen again" button) → transcript last. A unit can't be published while a listening module's recording is missing ("Make recording").
+- **Writing:** model text → practice on its useful phrases → a write step (word range by level: A1 20–35 … C1 180–220). Guided = a short controlled text; free = the full task with planning tips.
+- **Speaking:** useful phrases → a choice → speak steps. The learner records (browser speech recognition, continuous) or types; the transcript can be corrected. Guided shows the model answer first; free/main tasks show it after the feedback.
+- **AI marking:** write/speak answers are marked by the AI (score /10: task 4, accuracy 3, range 3; 2–4 sentences of feedback in the explanation language; up to 4 corrections). Once per step, stored on the attempt by the server — the browser can't set a score. 40 feedback calls per user per day (`course_feedback`). An open step is worth 10 points in the module score. "Get feedback" waits for at least half the minimum word count.
 
 ## Module specs
 
@@ -177,8 +187,8 @@ Each phase is one or a few PRs; the migration is hand-run before merge as usual.
 - Student `/my-courses` + player, autosave/resume, results, XP.
 
 **Phase 2 — The remaining modules**
-- Listening (TTS + audio), Speaking guided/free, Writing guided/free with AI feedback, Pronunciation.
-- All five templates and the Custom editor fully available; doubled-module variants.
+- Built: Listening (TTS + audio), Speaking guided/free, Writing guided/free with AI feedback; skill-pair rules, optional Unit check, the teacher's own text.
+- Still to do: Pronunciation (then it returns to Balanced and Listening + Speaking).
 
 **Phase 3 — Library and self-enroll**
 - Public visibility, library tab with filters and author credit, assign from library.

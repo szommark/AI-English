@@ -27,8 +27,20 @@ function blankStep(type: StepType): CourseStep {
       return { id: '', type, prompt: 'Match the words to their meanings.', pairs: [{ left: '', right: '' }, { left: '', right: '' }] }
     case 'order':
       return { id: '', type, prompt: 'Put the words in order.', answer: '' }
+    case 'listen':
+      return { id: '', type }
+    case 'write':
+      return { id: '', type, prompt: '', minWords: 60, maxWords: 100 }
+    case 'speak':
+      return { id: '', type, prompt: '', seconds: 60 }
   }
 }
+
+const listOf = (s: string) =>
+  s
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
 
 /**
  * Edit a module by hand: its intro, its text (reading modules) and every step — change, add,
@@ -89,6 +101,19 @@ export default function ModuleEditor({ content, onSave, onCancel }: { content: M
             value={draft.passage.text}
             onChange={(e) => setDraft({ ...draft, passage: { ...(draft.passage as NonNullable<ModuleContent['passage']>), text: e.target.value } })}
           />
+          {draft.steps.some((st) => st.type === 'listen') && (
+            <>
+              <select
+                className={`${inputClass} w-auto`}
+                value={draft.passage.style ?? 'monologue'}
+                onChange={(e) => setDraft({ ...draft, passage: { ...(draft.passage as NonNullable<ModuleContent['passage']>), style: e.target.value as 'monologue' | 'dialogue' } })}
+              >
+                <option value="monologue">{c('style_monologue')}</option>
+                <option value="dialogue">{c('style_dialogue')}</option>
+              </select>
+              <p className={hintClass}>{c('scriptHint')}</p>
+            </>
+          )}
         </div>
       )}
 
@@ -128,7 +153,7 @@ export default function ModuleEditor({ content, onSave, onCancel }: { content: M
 
       <div className="flex flex-wrap items-center gap-2">
         <select className={`${inputClass} w-auto`} value={addType} onChange={(e) => setAddType(e.target.value as StepType)}>
-          {STEP_TYPES.filter((t) => t !== 'text' || draft.passage).map((t) => (
+          {STEP_TYPES.filter((t) => (t !== 'text' && t !== 'listen') || draft.passage).map((t) => (
             <option key={t} value={t}>
               {c(`step_${t}`)}
             </option>
@@ -167,6 +192,34 @@ function StepFields({ step, onChange }: { step: CourseStep; onChange: (s: Course
       )
     case 'text':
       return <p className={hintClass}>{c('textStepHint')}</p>
+    case 'listen':
+      return <p className={hintClass}>{c('listenStepHint')}</p>
+    case 'write':
+    case 'speak':
+      return (
+        <div className="space-y-2">
+          <textarea className={`${small} min-h-[4rem]`} value={step.prompt} placeholder={c('fieldTask')} onChange={(e) => onChange({ ...step, prompt: e.target.value })} />
+          {step.type === 'write' ? (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-muted-foreground">{c('fieldWords')}</span>
+              <input type="number" className={`${small} w-20`} value={step.minWords} onChange={(e) => onChange({ ...step, minWords: Number(e.target.value) })} />
+              <span>–</span>
+              <input type="number" className={`${small} w-20`} value={step.maxWords} onChange={(e) => onChange({ ...step, maxWords: Number(e.target.value) })} />
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-muted-foreground">{c('fieldSeconds')}</span>
+              <input type="number" className={`${small} w-20`} value={step.seconds} onChange={(e) => onChange({ ...step, seconds: Number(e.target.value) })} />
+              <label className="ml-2 inline-flex items-center gap-1.5">
+                <input type="checkbox" checked={!!step.modelFirst} onChange={(e) => onChange({ ...step, modelFirst: e.target.checked || undefined })} />
+                {c('fieldModelFirst')}
+              </label>
+            </div>
+          )}
+          <textarea className={`${small} min-h-[4rem]`} value={step.model ?? ''} placeholder={c('fieldModel')} onChange={(e) => onChange({ ...step, model: e.target.value || undefined })} />
+          <input className={small} value={(step.targets ?? []).join(', ')} placeholder={c('fieldTargets')} onChange={(e) => onChange({ ...step, targets: listOf(e.target.value) })} />
+        </div>
+      )
     case 'words':
       return (
         <div className="space-y-2">
