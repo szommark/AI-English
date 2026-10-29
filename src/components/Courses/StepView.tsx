@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, Mic, Square, XCircle } from 'lucide-react'
 import WordSpeakButton from '../WordSpeakButton'
 import RichText from './RichText'
+import RoleplayStep from './RoleplayStep'
 import { useCourseCopy } from '../../data/courseCopy'
 import { GAP } from '../../lib/grammarExercises'
-import { OPEN_MAX, countWords, isOpenAnswer, orderTiles, seededShuffle, stepScore, type CourseStep, type ModulePassage, type OpenAnswer, type StepAnswer } from '../../lib/courses'
+import { OPEN_MAX, countWords, isOpenAnswer, orderTiles, seededShuffle, stepScore, type CourseStep, type ModulePassage, type OpenAnswer, type RoleplayLine, type StepAnswer } from '../../lib/courses'
 
 interface Props {
   step: CourseStep
@@ -17,6 +18,8 @@ interface Props {
   speak: (text: string) => void
   /** Listening: the module's recording. */
   audioUrl?: string | null
+  /** Role-play: the Tutor Bot's next line. */
+  onTurn?: (history: RoleplayLine[]) => Promise<{ reply: string; done: boolean }>
 }
 
 const optionBase = 'w-full rounded-xl border-2 px-4 py-3 text-left text-base transition-colors disabled:cursor-default'
@@ -50,6 +53,8 @@ export default function StepView(props: Props) {
     case 'write':
     case 'speak':
       return <OpenStep {...props} step={step} />
+    case 'roleplay':
+      return <RoleplayStep step={step} answer={props.answer} onAnswer={props.onAnswer} onTurn={props.onTurn} />
   }
 }
 

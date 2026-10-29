@@ -22,6 +22,14 @@ It mostly **sequences tools Avalon already has**: Grammar Coach exercises, the c
 | Price | Free now; one access check so a paywall can be added later in one place |
 | Deferred | Combining units/courses (when built: **copy with credit**, never a live link), CEFR level rules for combining, scheduling, paywall |
 
+## Changes after testing (2026-10-31)
+
+- **Listening:** scripts are real-life situations (mostly dialogues) and plain spoken text; Markdown and stage directions are stripped before recording (`plainScript`), and older recordings made with them are re-made automatically. Students see **all the questions on one screen** under a pinned player and answer while listening, then check them together.
+- **Grammar:** every item uses a different verb, subject and situation; a tense review spreads the items over **all** its tenses and practises choosing between them.
+- **Speaking = Tutor Bot role-play:** the main speaking task is a live spoken conversation with the Tutor Bot (its photo, voice and hands-free listening; typing as a fallback) in a real-life situation with goals and a set number of turns; the AI marks the learner's side (/10). Guided Speaking keeps one short "speak" step before it.
+- **Flags + AI fixes:** students can flag any exercise (the Grammar Coach reasons). The AI checks it at once; if it is really wrong it is corrected in the course and in the student's attempt. The teacher sees every check (before/after, verdict) under "Exercises flagged by students" and can undo a fix. Table `course_item_fixes`, 20 flags per student per day.
+- **Reusing recordings:** a unit that starts with Listening and has no pasted text may reuse one of the same teacher's earlier recordings at the same level (course units or listening comprehension tests) when the AI judges its topic close to the unit; the script and audio are reused and the words come from it.
+
 ## Concepts
 
 | Level | Coursebook equivalent | In the app |

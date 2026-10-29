@@ -225,12 +225,27 @@ export type CourseStep =
    * (guided), otherwise after the feedback.
    */
   | { id: string; type: 'speak'; prompt: string; seconds: number; model?: string; modelFirst?: boolean; targets?: string[] }
+  /**
+   * A spoken role-play with the Tutor Bot in a real-life situation: the bot plays botName
+   * (botRole tells it how), opens with `opening`, and the learner has up to `turns` turns to
+   * reach the goals. The AI marks the learner's side at the end (score out of 10).
+   */
+  | { id: string; type: 'roleplay'; situation: string; botName: string; botRole: string; opening: string; goals: string[]; turns: number; targets?: string[] }
 
 export type StepType = CourseStep['type']
-export const STEP_TYPES: StepType[] = ['info', 'words', 'text', 'listen', 'choice', 'gap', 'match', 'order', 'write', 'speak']
+export const STEP_TYPES: StepType[] = ['info', 'words', 'text', 'listen', 'choice', 'gap', 'match', 'order', 'write', 'speak', 'roleplay']
 export const QUESTION_TYPES: ReadonlySet<StepType> = new Set(['choice', 'gap', 'match', 'order'])
 /** Steps marked by the AI (on the server) rather than by a key. */
-export const OPEN_TYPES: ReadonlySet<StepType> = new Set(['write', 'speak'])
+export const OPEN_TYPES: ReadonlySet<StepType> = new Set(['write', 'speak', 'roleplay'])
+/** A role-play's learner turns, by level. */
+export const ROLEPLAY_TURNS: Record<CourseLevel, number> = { A1: 4, A2: 4, B1: 5, B2: 6, C1: 7, C2: 7 }
+export const ROLEPLAY_LINE_MAX = 500
+
+/** Why a student flags an exercise (the same reasons as the Grammar Coach flags). */
+export const FLAG_REASONS = ['answer_rejected', 'wrong_key', 'faulty_logic', 'unclear', 'typo', 'other'] as const
+export type FlagReason = (typeof FLAG_REASONS)[number]
+/** Exercises a student can flag (the AI checks and fixes them). */
+export const FLAGGABLE_TYPES: ReadonlySet<StepType> = QUESTION_TYPES
 /** What an open step is worth. */
 export const OPEN_MAX = 10
 
@@ -263,6 +278,17 @@ export interface CourseBlueprint {
   grammarNotes: string
   /** The teacher's own text for the unit's first reading or listening module. */
   sourceText?: string
+  /** A recording the teacher made before (course unit or comprehension test) reused for the first listening module. */
+  reusedAudio?: ReusedAudio
+}
+
+export interface ReusedAudio {
+  from: 'course' | 'comp-test'
+  /** Path in course-audio (from: course) or comp-test-audio (from: comp-test). */
+  path: string
+  title: string
+  text: string
+  style?: 'monologue' | 'dialogue'
 }
 
 export const MAX_STEPS = 20
@@ -276,7 +302,8 @@ export const MAX_ACCEPTED = 6
 export const MAX_TARGETS = 8
 /** The teacher's own text for a unit (an article, or a listening script). */
 export const SOURCE_TEXT_MAX = 6_000
-export const OPEN_ANSWER_MAX = 3_000
+/** A written answer, a spoken one, or a role-play transcript. */
+export const OPEN_ANSWER_MAX = 6_000
 
 export class CourseValidationError extends Error {}
 
@@ -371,6 +398,25 @@ function sanitizeStep(raw: unknown): CourseStep {
       const targets = cleanTargets(s.targets)
       return { id, type: 'write', prompt: str(s.prompt, STEP_TEXT_MAX, 'prompt'), minWords, maxWords, ...(model ? { model } : {}), ...(targets.length ? { targets } : {}) }
     }
+    case 'roleplay': {
+      const goals = list(s.goals)
+        .map((g) => (typeof g === 'string' ? g.trim().slice(0, 200) : ''))
+        .filter(Boolean)
+        .slice(0, 5)
+      if (goals.length === 0) throw new CourseValidationError('a role-play needs at least one goal')
+      const targets = cleanTargets(s.targets)
+      return {
+        id,
+        type: 'roleplay',
+        situation: str(s.situation, STEP_TEXT_MAX, 'situation'),
+        botName: str(s.botName, 60, 'botName'),
+        botRole: str(s.botRole, STEP_TEXT_MAX, 'botRole'),
+        opening: str(s.opening, 400, 'opening'),
+        goals,
+        turns: int(s.turns, 2, 12, 'turns'),
+        ...(targets.length ? { targets } : {}),
+      }
+    }
     case 'speak': {
       const model = optStr(s.model, 2_000)
       const targets = cleanTargets(s.targets)
@@ -407,6 +453,22 @@ export function sanitizeModuleContent(raw: unknown): ModuleContent {
   const a = obj(c.audio)
   const audio = typeof a.path === 'string' && AUDIO_PATH_RE.test(a.path) && typeof a.key === 'string' && /^[0-9a-f]{40}$/.test(a.key) ? { path: a.path, key: a.key } : undefined
   return { intro: str(c.intro, 300, 'intro', false), ...(passage ? { passage } : {}), steps: normalizeSteps(steps), ...(audio ? { audio } : {}) }
+}
+
+/**
+ * A script as it is read aloud: no Markdown (bold/italic markers, headings, code ticks) and no
+ * bracketed stage directions, so text-to-speech never says "asterisk".
+ */
+export function plainScript(text: string): string {
+  return text
+    .replace(/\*\*|__|`/g, '')
+    .replace(/(^|[\s(])[*_]+(?=\S)/g, '$1')
+    .replace(/(\S)[*_]+(?=[\s.,!?;:)]|$)/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*[-•]\s+/gm, '')
+    .replace(/[ \t]*[([](?:laughs?|pause|sighs?|music|sound[^)\]]*|background[^)\]]*)[)\]][ \t]*/gi, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim()
 }
 
 /** Where the server keeps a listening module's recording: "<moduleId>/<key prefix>.mp3". */
@@ -501,6 +563,7 @@ export function stepScore(step: CourseStep, answer: StepAnswer | undefined): num
       return Array.isArray(answer) && answer.join(' ').toLowerCase() === sentenceTiles(step.answer).join(' ').toLowerCase() ? 1 : 0
     case 'write':
     case 'speak':
+    case 'roleplay':
       return isOpenAnswer(answer) ? answer.score : 0
     default:
       return 0
@@ -537,6 +600,28 @@ export function sanitizeAnswers(content: ModuleContent, raw: unknown): ModuleAns
     else if (step.type === 'order' && Array.isArray(a) && a.length <= 20 && a.every((x) => typeof x === 'string')) out[step.id] = (a as string[]).map((x) => x.slice(0, 60))
   }
   return out
+}
+
+/** Two steps with the same content (ids aside). */
+export function sameStep(a: CourseStep, b: CourseStep): boolean {
+  const strip = (s: CourseStep) => JSON.stringify({ ...s, id: '' })
+  return strip(a) === strip(b)
+}
+
+/** One line describing an exercise, for the teacher's list of AI fixes. */
+export function stepSummary(step: CourseStep): string {
+  switch (step.type) {
+    case 'choice':
+      return `${step.prompt} — ${step.options.map((o, i) => (i === step.answer ? `[${o}]` : o)).join(' / ')}`
+    case 'gap':
+      return `${step.sentence} — ${step.accepted.join(' | ')}${step.options ? ` (${step.options.join(', ')})` : ''}`
+    case 'match':
+      return `${step.prompt} — ${step.pairs.map((p) => `${p.left} → ${p.right}`).join('; ')}`
+    case 'order':
+      return `${step.prompt} — ${step.answer}`
+    default:
+      return step.type
+  }
 }
 
 /** A stable shuffle (the same order on every reload), seeded by a string. */
@@ -712,6 +797,38 @@ export interface ModuleAttempt {
   completedAt: string | null
   score: number | null
   max: number | null
+}
+
+/** The AI's answer to a student's flag. */
+export interface FlagResult {
+  /** Whether the exercise was really wrong (and is now fixed). */
+  wrong: boolean
+  /** Short explanation in the course's explanation language. */
+  explanation: string
+  /** The corrected exercise (null when nothing was wrong). */
+  step: CourseStep | null
+}
+
+/** One flag the AI checked, for the teacher. */
+export interface CourseItemFix {
+  id: string
+  moduleId: string
+  moduleTitle: string
+  unitPosition: number
+  reason: FlagReason
+  note: string
+  stepBefore: CourseStep
+  stepAfter: CourseStep | null
+  verdict: string
+  status: 'fixed' | 'kept' | 'undone'
+  seen: boolean
+  createdAt: string
+}
+
+/** One line of a role-play, in order. */
+export interface RoleplayLine {
+  role: 'bot' | 'learner'
+  text: string
 }
 
 export interface ModuleCompletion {

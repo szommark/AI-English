@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import ModulePlayer from '../components/Courses/ModulePlayer'
 import { useCourseCopy } from '../data/courseCopy'
-import { completeModule, fetchMyCourse, markOpenStep, saveModuleProgress, startModule } from '../lib/courseApi'
+import { completeModule, fetchMyCourse, flagStep, markOpenStep, roleplayTurn, saveModuleProgress, startModule } from '../lib/courseApi'
 import { mergeAwards } from '../lib/gamificationApi'
 import { publishXpResult } from '../lib/gamification/xpEvents'
 import type { ModuleAttempt, MyCourseModule, MyCourseNext } from '../lib/courses'
@@ -55,6 +55,8 @@ function Player({ enrollmentId, moduleId }: { enrollmentId: string; moduleId: st
         const { text: _text, ...feedback } = await markOpenStep(attempt.id, stepId, text)
         return feedback
       }}
+      onRoleplayTurn={(stepId, history) => roleplayTurn(attempt.id, stepId, history)}
+      onFlag={(stepId, reason, note, answer) => flagStep(attempt.id, stepId, reason, note, answer)}
       onProgress={(stepIndex, answers) => void saveModuleProgress(attempt.id, stepIndex, answers)}
       onFinish={async (answers) => {
         const { completion, xp } = await completeModule(attempt.id, answers)

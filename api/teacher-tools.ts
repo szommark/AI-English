@@ -33,6 +33,8 @@ import {
   handleCourseAssign,
   handleCourseBlueprint,
   handleCourseFeedback,
+  handleCourseFixes,
+  handleCourseRoleplay,
   handleCourseModuleAudio,
   handleCourseModuleGenerate,
   handleCourseModules,
@@ -72,6 +74,10 @@ import { EXAM_FIELDS, LISTENING_FORMATS, TASK_GENERATIONS_PER_DAY, TASK_LEVELS }
 //
 // Comprehension tests (reading/listening tests assigned to students; see api/_lib/compTests.ts):
 //   comp-tests, comp-test-generate, comp-test-audio, comp-test-assign, comp-test-result
+//
+// Mini courses (units of coursebook-style modules assigned to students; see api/_lib/courses.ts):
+//   courses, course-publish, course-units, course-modules, course-module-audio, course-blueprint,
+//   course-module-generate, course-feedback, course-roleplay, course-fixes, course-assign
 
 // AI task generation and TTS rendering can take tens of seconds.
 export const config = { maxDuration: 60 }
@@ -355,6 +361,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'course-feedback':
         await handleCourseFeedback(req, res, user.id)
+        return
+      case 'course-roleplay':
+        await handleCourseRoleplay(req, res, user.id)
+        return
+      case 'course-fixes':
+        await handleCourseFixes(req, res, user.id)
         return
       case 'course-blueprint':
         await handleCourseBlueprint(req, res, user.id)
