@@ -32,8 +32,28 @@ export const featureDe: Record<string, { title: string; description: string }> =
       'Schriftliche Prüfungen für das érettségi (Abitur) Englisch/Deutsch auf mittlerem und erhöhtem Niveau; schriftliche und mündliche Sprachprüfungen B1, B2 und C1 in Englisch/Deutsch.',
   },
   'live-events': {
-    title: 'Live-Online-Events',
+    title: 'Live-Events',
+    description: 'Online-Stunden und Clubs vor Ort mit einer Lehrkraft und anderen Lernenden.',
+  },
+  'online-events': {
+    title: 'Online-Events',
     description: 'Live-Online-Stunden und Gruppenveranstaltungen mit einer Lehrkraft.',
+  },
+  'onsite-clubs': {
+    title: 'Clubs vor Ort',
+    description: 'Triff andere Lernende persönlich in Englisch-Clubs, die von einer Lehrkraft geleitet werden.',
+  },
+  'language-lab': {
+    title: 'Sprachlabor',
+    description: 'Grammatik, Wortschatz und Aussprache: die Bausteine deines Englisch.',
+  },
+  'skill-development': {
+    title: 'Kompetenztraining',
+    description: 'Sprich mit deinem KI-Tutor, übe echte Alltagssituationen und arbeite Mini-Kurse durch.',
+  },
+  'course-library': {
+    title: 'Kursbibliothek',
+    description: 'Kurze Lektionen im Lehrbuchstil mit Wortschatz-, Grammatik- und Kompetenzübungen.',
   },
 }
 

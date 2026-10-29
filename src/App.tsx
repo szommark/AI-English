@@ -4,6 +4,7 @@ import { AuthProvider, hasTeacherAccess, useAuth, type UserRole } from './lib/Au
 import { LanguageProvider } from './lib/i18n'
 import AppLayout from './components/AppLayout'
 import LandingPage from './pages/LandingPage'
+import FeatureGroupPage from './pages/FeatureGroupPage'
 import CategoryGridPage from './pages/CategoryGridPage'
 import SubcategoryGridPage from './pages/SubcategoryGridPage'
 import ScenarioSelectPage from './pages/ScenarioSelectPage'
@@ -86,6 +87,9 @@ function AppRoutes() {
     <Routes>
       <Route element={<AppLayout />}>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/language-lab" element={<FeatureGroupPage groupId="language-lab" />} />
+      <Route path="/skill-development" element={<FeatureGroupPage groupId="skill-development" />} />
+      <Route path="/live-events" element={<FeatureGroupPage groupId="live-events" />} />
       <Route
         path="/conversational-english"
         element={

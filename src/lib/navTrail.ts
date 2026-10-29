@@ -1,6 +1,6 @@
 import { matchPath } from 'react-router-dom'
 import { categories, getCategory, getCategoryForScenario } from '../data/categories'
-import { getFeature } from '../data/features'
+import { getFeature, getParentGroup } from '../data/features'
 import { getPhoneme } from '../data/phonemes'
 import { getLessonSession, getLessonUnit } from '../data/pronunciationLessons'
 import { getScenario } from '../data/scenarios'
@@ -29,14 +29,24 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
   const path = pathname.replace(/\/+$/, '') || '/'
   const at = (pattern: string) => matchPath({ path: pattern, end: true }, path)
 
+  /** The home-page group a feature sits under (e.g. Language Lab), as a linked crumb. */
+  function groupOf(featureId: string): Crumb[] {
+    const group = getParentGroup(featureId)
+    return group ? [{ label: localizeFeature(lang, group).title, to: group.route }] : []
+  }
+  /** A feature reached from a group page: group › feature. */
+  const inGroup = (featureId: string): Crumb[] => [...groupOf(featureId), { label: localizeFeatureById(featureId, lang) }]
+
   const conversational: Crumb = { label: t('crumbConversational'), to: '/conversational-english' }
+  const conv: Crumb[] = [...groupOf('conversational-english'), conversational]
+  const lab = groupOf('pronunciation-session')
 
   /** Conversational English › category › subcategory, all linked. */
   function scenarioTrail(scenarioId: string): Crumb[] {
     const match = getCategoryForScenario(scenarioId)
-    if (!match) return [conversational]
+    if (!match) return conv
     return [
-      conversational,
+      ...conv,
       { label: localizeCategory(lang, match.category), to: `/conversational-english/${match.category.id}` },
       {
         label: localizeSubcategory(lang, match.subcategory),
@@ -53,19 +63,19 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
 
   if (path === '/') return []
 
-  if (at('/conversational-english')) return finish([conversational])
+  if (at('/conversational-english')) return finish(conv)
 
   if ((m = at('/conversational-english/:categoryId'))) {
     const category = categories.find((c) => c.id === m!.params.categoryId)
-    return finish(category ? [conversational, { label: localizeCategory(lang, category) }] : [conversational])
+    return finish(category ? [...conv, { label: localizeCategory(lang, category) }] : conv)
   }
 
   if ((m = at('/conversational-english/:categoryId/:subcategoryId'))) {
     const category = categories.find((c) => c.id === m!.params.categoryId)
     const sub = category?.subcategories.find((s) => s.id === m!.params.subcategoryId)
-    if (!category || !sub) return finish([conversational])
+    if (!category || !sub) return finish(conv)
     return finish([
-      conversational,
+      ...conv,
       { label: localizeCategory(lang, category), to: `/conversational-english/${category.id}` },
       { label: localizeSubcategory(lang, sub) },
     ])
@@ -88,15 +98,19 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
 
   if ((m = at('/coming-soon/:featureId'))) {
     const feature = getFeature(m.params.featureId!)
-    if (feature) return finish([{ label: localizeFeature(lang, feature).title }])
+    if (feature) return finish(inGroup(feature.id))
     const category = getCategory(m.params.featureId!)
-    if (category) return finish([conversational, { label: localizeCategory(lang, category) }])
+    if (category) return finish([...conv, { label: localizeCategory(lang, category) }])
     return []
   }
 
-  if (at('/tutor-bot')) return finish([{ label: localizeFeatureById('tutor-bot', lang) }])
-  if (at('/grammar-coach')) return finish([{ label: localizeFeatureById('grammar-coach', lang) }])
-  if (at('/vocabulary')) return finish([{ label: localizeFeatureById('vocabulary', lang) }])
+  for (const id of ['language-lab', 'skill-development', 'live-events']) {
+    if (at(`/${id}`)) return finish([{ label: localizeFeatureById(id, lang) }])
+  }
+  if (at('/tutor-bot')) return finish(inGroup('tutor-bot'))
+  if (at('/grammar-coach')) return finish(inGroup('grammar-coach'))
+  if (at('/vocabulary')) return finish(inGroup('vocabulary'))
+  if (at('/my-courses')) return finish(inGroup('course-library'))
 
   const exams: Crumb = { label: localizeFeatureById('exam-prep', lang), to: '/exams' }
   if (at('/exams')) return finish([exams])
@@ -112,15 +126,16 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
 
   const pronunciationRoot: Crumb = { label: t('crumbPronunciation'), to: '/pronunciation' }
   const soundBank: Crumb = { label: t('crumbSoundBank'), to: '/pronunciation?tab=sound-bank' }
-  if (at('/pronunciation')) return finish([pronunciationRoot])
+  if (at('/pronunciation')) return finish([...lab, pronunciationRoot])
   if ((m = at('/pronunciation/sounds/:phonemeId'))) {
     const phoneme = getPhoneme(m.params.phonemeId!)
-    return finish([pronunciationRoot, soundBank, { label: phoneme ? `/${phoneme.ipaSymbol}/` : m.params.phonemeId! }])
+    return finish([...lab, pronunciationRoot, soundBank, { label: phoneme ? `/${phoneme.ipaSymbol}/` : m.params.phonemeId! }])
   }
   if ((m = at('/pronunciation/:sessionId/:unitId')) && getLessonSession(m.params.sessionId!)) {
     const sessionId = m.params.sessionId!
     const unit = getLessonUnit(m.params.unitId!)?.unit
     return finish([
+      ...lab,
       pronunciationRoot,
       { label: sessionCrumbLabel(sessionId, t), to: `/pronunciation?tab=${sessionId}` },
       { label: unit ? unit.title : m.params.unitId! },

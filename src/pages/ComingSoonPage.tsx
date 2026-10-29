@@ -1,21 +1,12 @@
 import { Navigate, useParams } from 'react-router-dom'
-import { Plane, Bot, BookOpen, Briefcase, Mic, Languages, GraduationCap, Radio, Sparkles, type LucideIcon } from 'lucide-react'
+import { Sparkles, type LucideIcon } from 'lucide-react'
 import { getFeature } from '../data/features'
 import type { FeatureAccent } from '../data/features'
 import { getCategory } from '../data/categories'
+import { featureIcons } from '../components/FeatureTile'
 import { localizeCategory, localizeFeature, useLanguage } from '../lib/i18n'
 
-const icons: Record<string, LucideIcon> = {
-  Plane,
-  Bot,
-  BookOpen,
-  Briefcase,
-  Mic,
-  Languages,
-  GraduationCap,
-  Radio,
-  Sparkles,
-}
+const icons: Record<string, LucideIcon> = { ...featureIcons, Sparkles }
 
 const accentClasses: Record<FeatureAccent, string> = {
   indigo: 'bg-indigo-100 text-indigo-600',

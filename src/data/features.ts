@@ -11,9 +11,35 @@ export interface Feature {
   accent: FeatureAccent
   status: FeatureStatus
   route: string
+  /** Group tiles only: ids of the features shown as sub-tiles on the group's page. */
+  children?: string[]
 }
 
 export const features: Feature[] = [
+  {
+    id: 'language-lab',
+    title: 'Language Lab',
+    titleHu: 'Nyelvi labor',
+    description: 'Grammar, vocabulary and pronunciation: the building blocks of your English.',
+    descriptionHu: 'Nyelvtan, szókincs és kiejtés: az angoltudásod építőkockái.',
+    icon: 'FlaskConical',
+    accent: 'amber',
+    status: 'active',
+    route: '/language-lab',
+    children: ['grammar-coach', 'vocabulary', 'pronunciation-session'],
+  },
+  {
+    id: 'skill-development',
+    title: 'Skill Development',
+    titleHu: 'Készségfejlesztés',
+    description: 'Speak with your AI tutor, rehearse real-life situations and work through mini courses.',
+    descriptionHu: 'Beszélgess az AI oktatóval, gyakorolj valós élethelyzeteket és végezz el mini kurzusokat.',
+    icon: 'Sprout',
+    accent: 'violet',
+    status: 'active',
+    route: '/skill-development',
+    children: ['tutor-bot', 'conversational-english', 'course-library'],
+  },
   {
     id: 'conversational-english',
     title: 'Conversational English',
@@ -35,6 +61,17 @@ export const features: Feature[] = [
     accent: 'violet',
     status: 'active',
     route: '/tutor-bot',
+  },
+  {
+    id: 'course-library',
+    title: 'Course Library',
+    titleHu: 'Kurzustár',
+    description: 'Short coursebook-style units with vocabulary, grammar and skills practice.',
+    descriptionHu: 'Rövid, tankönyvszerű leckék szókincs-, nyelvtan- és készséggyakorlással.',
+    icon: 'Library',
+    accent: 'teal',
+    status: 'active',
+    route: '/my-courses',
   },
   {
     id: 'grammar-coach',
@@ -93,17 +130,48 @@ export const features: Feature[] = [
   },
   {
     id: 'live-events',
-    title: 'Live Online Events',
-    titleHu: 'Élő online események',
+    title: 'Live Events',
+    titleHu: 'Élő események',
+    description: 'Online sessions and on-site clubs with a teacher and other learners.',
+    descriptionHu: 'Online foglalkozások és személyes klubok tanárral és más tanulókkal.',
+    icon: 'Radio',
+    accent: 'fuchsia',
+    status: 'active',
+    route: '/live-events',
+    children: ['online-events', 'onsite-clubs'],
+  },
+  {
+    id: 'online-events',
+    title: 'Online Events',
+    titleHu: 'Online események',
     description: 'Live online sessions and group events with a teacher.',
     descriptionHu: 'Élő online foglalkozások és közös programok tanárral.',
     icon: 'Radio',
     accent: 'fuchsia',
     status: 'coming-soon',
-    route: '/coming-soon/live-events',
+    route: '/coming-soon/online-events',
+  },
+  {
+    id: 'onsite-clubs',
+    title: 'On-site Clubs',
+    titleHu: 'Személyes klubok',
+    description: 'Meet other learners in person at English clubs led by a teacher.',
+    descriptionHu: 'Találkozz más tanulókkal személyesen, tanár vezette angol klubokon.',
+    icon: 'Users',
+    accent: 'fuchsia',
+    status: 'coming-soon',
+    route: '/coming-soon/onsite-clubs',
   },
 ]
 
+/** The tiles on the home page, in order; group tiles open a page of sub-tiles. */
+export const homeTileIds = ['language-lab', 'skill-development', 'business-english', 'exam-prep', 'live-events']
+
 export function getFeature(id: string): Feature | undefined {
   return features.find((f) => f.id === id)
+}
+
+/** The group tile a feature sits under, if any. */
+export function getParentGroup(id: string): Feature | undefined {
+  return features.find((f) => f.children?.includes(id))
 }
