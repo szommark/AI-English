@@ -5,6 +5,7 @@ import PageHeading from '../components/PageHeading'
 import ModulePlayer from '../components/Courses/ModulePlayer'
 import ModuleEditor from '../components/Courses/ModuleEditor'
 import CourseAssignPanel from '../components/Courses/CourseAssignPanel'
+import CourseFixesPanel from '../components/Courses/CourseFixesPanel'
 import UnitForm, { EMPTY_UNIT, toUnitInput, unitFormReady, type UnitFormValue } from '../components/Courses/UnitForm'
 import { KIND_ICONS } from '../components/Courses/kindMeta'
 import { cardClass, hintClass, inputClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../components/TeacherTools/ui'
@@ -19,6 +20,7 @@ import {
   generateModuleContent,
   generateUnitOutline,
   previewFeedback,
+  previewRoleplay,
   recordModuleAudio,
   saveCourseFields,
   saveModule,
@@ -357,6 +359,8 @@ export default function CourseEditorPage() {
         )
       )}
 
+      <CourseFixesPanel courseId={course.id} onCourse={apply} />
+
       <CourseAssignPanel courseId={course.id} published={course.status === 'published'} />
 
       {preview && preview.module.content && (
@@ -369,6 +373,7 @@ export default function CourseEditorPage() {
             seed={preview.module.id}
             audioUrl={preview.module.audioUrl}
             onEvaluate={(stepId, text) => previewFeedback(preview.module.id, stepId, text)}
+            onRoleplayTurn={(stepId, history) => previewRoleplay(preview.module.id, stepId, history)}
             onFinish={async (answers) => scoreModule(preview.module.content as NonNullable<CourseModule['content']>, answers)}
             onExit={() => setPreview(null)}
             resultActions={() => (
@@ -519,6 +524,11 @@ function UnitPanel(props: {
             <p className={labelClass}>{c('wordSet', { n: unit.blueprint.words.length })}</p>
             <p className="mt-1 text-sm text-muted-foreground">{unit.blueprint.words.map((w) => w.term).join(' · ')}</p>
           </div>
+          {unit.blueprint.reusedAudio && (
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{c('reusedRecording')}:</span> {unit.blueprint.reusedAudio.title}
+            </p>
+          )}
           {unit.blueprint.passageBrief && (
             <p className="text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{c('textBrief')}:</span> {unit.blueprint.passageBrief}

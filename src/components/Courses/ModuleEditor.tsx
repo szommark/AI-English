@@ -33,6 +33,8 @@ function blankStep(type: StepType): CourseStep {
       return { id: '', type, prompt: '', minWords: 60, maxWords: 100 }
     case 'speak':
       return { id: '', type, prompt: '', seconds: 60 }
+    case 'roleplay':
+      return { id: '', type, situation: '', botName: 'Receptionist', botRole: '', opening: '', goals: [''], turns: 5 }
   }
 }
 
@@ -194,6 +196,26 @@ function StepFields({ step, onChange }: { step: CourseStep; onChange: (s: Course
       return <p className={hintClass}>{c('textStepHint')}</p>
     case 'listen':
       return <p className={hintClass}>{c('listenStepHint')}</p>
+    case 'roleplay':
+      return (
+        <div className="space-y-2">
+          <textarea className={`${small} min-h-[4rem]`} value={step.situation} placeholder={c('fieldSituation')} onChange={(e) => onChange({ ...step, situation: e.target.value })} />
+          <div className="flex flex-wrap items-center gap-2">
+            <input className={`${small} w-48`} value={step.botName} placeholder={c('fieldBotName')} onChange={(e) => onChange({ ...step, botName: e.target.value })} />
+            <span className="text-sm text-muted-foreground">{c('fieldTurns')}</span>
+            <input type="number" className={`${small} w-20`} value={step.turns} onChange={(e) => onChange({ ...step, turns: Number(e.target.value) })} />
+          </div>
+          <textarea className={`${small} min-h-[3rem]`} value={step.botRole} placeholder={c('fieldBotRole')} onChange={(e) => onChange({ ...step, botRole: e.target.value })} />
+          <input className={small} value={step.opening} placeholder={c('fieldOpening')} onChange={(e) => onChange({ ...step, opening: e.target.value })} />
+          <textarea
+            className={`${small} min-h-[3rem]`}
+            value={step.goals.join('\n')}
+            placeholder={c('fieldGoals')}
+            onChange={(e) => onChange({ ...step, goals: e.target.value.split('\n') })}
+          />
+          <input className={small} value={(step.targets ?? []).join(', ')} placeholder={c('fieldTargets')} onChange={(e) => onChange({ ...step, targets: listOf(e.target.value) })} />
+        </div>
+      )
     case 'write':
     case 'speak':
       return (

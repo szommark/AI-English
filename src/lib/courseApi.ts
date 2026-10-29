@@ -5,6 +5,11 @@ import type {
   Course,
   CourseCreateInput,
   CourseEnrollment,
+  CourseItemFix,
+  FlagReason,
+  FlagResult,
+  RoleplayLine,
+  StepAnswer,
   CourseSummary,
   CourseUnit,
   ExplainLang,
@@ -98,6 +103,21 @@ export async function previewFeedback(moduleId: string, stepId: string, text: st
   return (await request<{ feedback: OpenFeedback }>(`${BASE}course-feedback`, json('POST', { moduleId, stepId, text }))).feedback
 }
 
+/** Teacher preview: the Tutor Bot's next role-play line (nothing saved). */
+export async function previewRoleplay(moduleId: string, stepId: string, history: RoleplayLine[]): Promise<{ reply: string; done: boolean }> {
+  return request(`${BASE}course-roleplay`, json('POST', { moduleId, stepId, history }))
+}
+
+/** Flags the AI checked in this course (opening the list marks them seen). */
+export async function fetchFixes(courseId: string): Promise<CourseItemFix[]> {
+  return (await request<{ fixes: CourseItemFix[] }>(withId('course-fixes', courseId))).fixes
+}
+
+/** Puts an AI-fixed exercise back the way it was. */
+export async function undoFix(courseId: string, fixId: string): Promise<{ fixes: CourseItemFix[]; course: Course }> {
+  return request(withId('course-fixes', courseId), json('POST', { fixId }))
+}
+
 export async function generateUnitOutline(unitId: string): Promise<{ course: Course; remaining: number }> {
   return request(withId('course-blueprint', unitId), { method: 'POST' })
 }
@@ -144,6 +164,15 @@ export async function saveModuleProgress(attemptId: string, stepIndex: number, a
 /** The AI's feedback on a written/spoken answer, stored on the attempt (once per step). */
 export async function markOpenStep(attemptId: string, stepId: string, text: string): Promise<OpenAnswer> {
   return (await request<{ answer: OpenAnswer }>(`${STUDENT}my-course-feedback&id=${encodeURIComponent(attemptId)}`, json('POST', { stepId, text }))).answer
+}
+
+export async function roleplayTurn(attemptId: string, stepId: string, history: RoleplayLine[]): Promise<{ reply: string; done: boolean }> {
+  return request(`${STUDENT}my-course-roleplay&id=${encodeURIComponent(attemptId)}`, json('POST', { stepId, history }))
+}
+
+/** Flags an exercise; the AI checks it and fixes it when it is wrong. */
+export async function flagStep(attemptId: string, stepId: string, reason: FlagReason, note: string, answer: StepAnswer | undefined): Promise<FlagResult> {
+  return (await request<{ result: FlagResult }>(`${STUDENT}my-course-flag&id=${encodeURIComponent(attemptId)}`, json('POST', { stepId, reason, note, answer }))).result
 }
 
 export async function completeModule(attemptId: string, answers: ModuleAnswers): Promise<{ completion: ModuleCompletion; xp: AwardResult[] }> {

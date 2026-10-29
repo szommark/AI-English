@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2, FileText, Headphones, Loader2, Trophy, X, XCircle } from 'lucide-react'
 import StepView, { TextStep } from './StepView'
+import FlagButton from './FlagButton'
+import { learnerTurns } from './RoleplayStep'
 import { useCourseCopy } from '../../data/courseCopy'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import {
+  FLAGGABLE_TYPES,
   OPEN_TYPES,
   QUESTION_TYPES,
   countWords,
@@ -13,7 +16,10 @@ import {
   type CourseStep,
   type ModuleAnswers,
   type ModuleContent,
+  type FlagReason,
+  type FlagResult,
   type OpenFeedback,
+  type RoleplayLine,
   type StepAnswer,
 } from '../../lib/courses'
 
@@ -44,6 +50,10 @@ interface Props {
   audioUrl?: string | null
   /** Writing/speaking: asks the AI to mark the answer (rejects with an error code). */
   onEvaluate?: (stepId: string, text: string) => Promise<OpenFeedback>
+  /** Role-play: the Tutor Bot's next line. */
+  onRoleplayTurn?: (stepId: string, history: RoleplayLine[]) => Promise<{ reply: string; done: boolean }>
+  /** Flags an exercise: the AI checks it and returns the fixed exercise when it was wrong (students only). */
+  onFlag?: (stepId: string, reason: FlagReason, note: string, answer: StepAnswer | undefined) => Promise<FlagResult>
 }
 
 function answered(step: CourseStep, answer: StepAnswer | undefined): boolean {
@@ -68,15 +78,62 @@ function rightAnswerText(step: CourseStep): string | null {
   return null
 }
 
+/** The question steps right after a listen step: answered on one screen while the recording plays. */
+function listenGroup(steps: CourseStep[], at: number): CourseStep[] {
+  if (steps[at]?.type !== 'listen') return []
+  const group: CourseStep[] = []
+  for (let i = at + 1; i < steps.length && QUESTION_TYPES.has(steps[i].type); i++) group.push(steps[i])
+  return group
+}
+
+/** A checked question's verdict, under the question (listening screen). */
+function InlineResult({ step, answer }: { step: CourseStep; answer: StepAnswer | undefined }) {
+  const { c } = useCourseCopy()
+  const score = stepScore(step, answer)
+  const full = score === stepMax(step)
+  const right = rightAnswerText(step)
+  const explain = 'explain' in step ? step.explain : undefined
+  return (
+    <div className={`mt-2 rounded-lg p-2.5 text-sm ${full ? 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-100' : 'bg-red-50 text-red-900 dark:bg-red-950/50 dark:text-red-100'}`}>
+      <p className="flex items-center gap-1.5 font-semibold">
+        {full ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+        {full ? c('correct') : step.type === 'match' && score > 0 ? c('partly', { n: score, m: stepMax(step) }) : c('notQuite')}
+      </p>
+      {!full && right && (
+        <p className="mt-0.5">
+          {c('rightAnswer')}: <span className="font-semibold">{right}</span>
+        </p>
+      )}
+      {explain && <p className="mt-0.5 opacity-90">{explain}</p>}
+    </div>
+  )
+}
+
 /**
  * A module, one step per screen (mobile first): Check marks a question once and locks it,
  * Continue moves on and autosaves; after the last step the module is scored and the result
  * shown. Used by the student's player and the teacher's preview.
  */
-export default function ModulePlayer({ title, content, seed, initialStep = 0, initialAnswers = {}, onProgress, onFinish, onExit, resultActions, audioUrl, onEvaluate }: Props) {
+export default function ModulePlayer({
+  title,
+  content,
+  seed,
+  initialStep = 0,
+  initialAnswers = {},
+  onProgress,
+  onFinish,
+  onExit,
+  resultActions,
+  audioUrl,
+  onEvaluate,
+  onRoleplayTurn,
+  onFlag,
+}: Props) {
   const { c } = useCourseCopy()
   const { speak } = useSpeechSynthesis()
-  const steps = content.steps
+  // Exercises the AI fixed after a flag replace the originals in this attempt.
+  const [fixedSteps, setFixedSteps] = useState<Record<string, CourseStep>>({})
+  const steps = content.steps.map((s) => fixedSteps[s.id] ?? s)
   const [index, setIndex] = useState(Math.min(initialStep, steps.length))
   const [answers, setAnswers] = useState<ModuleAnswers>(initialAnswers)
   const [checked, setChecked] = useState(false)
@@ -122,7 +179,8 @@ export default function ModulePlayer({ title, content, seed, initialStep = 0, in
   }, [])
 
   function next() {
-    const nextIndex = index + 1
+    // From the listening screen, past all of its questions.
+    const nextIndex = index + 1 + listenGroup(steps, index).length
     setChecked(false)
     setTextOpen(false)
     setAudioOpen(false)
@@ -135,6 +193,22 @@ export default function ModulePlayer({ title, content, seed, initialStep = 0, in
     }
     setIndex(nextIndex)
     onProgress?.(nextIndex, answers)
+  }
+
+  function flagControl(s: CourseStep) {
+    if (!onFlag || !FLAGGABLE_TYPES.has(s.type)) return null
+    return (
+      <div className="pt-2">
+        <FlagButton
+          key={s.id}
+          onFlag={async (reason, note) => {
+            const result = await onFlag(s.id, reason, note, answers[s.id])
+            if (result.step) setFixedSteps((prev) => ({ ...prev, [s.id]: result.step as CourseStep }))
+            return result
+          }}
+        />
+      </div>
+    )
   }
 
   async function mark() {
@@ -203,11 +277,66 @@ export default function ModulePlayer({ title, content, seed, initialStep = 0, in
   }
 
   if (!step) return null
+
+  const group = listenGroup(steps, index)
+  if (group.length > 0) {
+    const unanswered = group.filter((s) => !answered(s, answers[s.id])).length
+    return (
+      <div className="mx-auto flex min-h-[calc(100dvh-9rem)] max-w-xl flex-col">
+        <div className="flex items-center gap-3 py-2">
+          <button type="button" onClick={onExit} aria-label={c('exit')} className="rounded-lg p-2 text-muted-foreground hover:bg-secondary">
+            <X className="h-5 w-5" />
+          </button>
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={index}>
+            <div className="h-full rounded-full bg-[var(--teal-accent)] transition-all" style={{ width: `${(index / steps.length) * 100}%` }} />
+          </div>
+        </div>
+        <div className="sticky top-0 z-10 -mx-4 space-y-2 border-b border-border bg-background/95 px-4 py-3 backdrop-blur">
+          <h2 className="text-lg font-semibold text-foreground">{c('listenAndAnswer')}</h2>
+          {audioUrl ? <audio controls preload="auto" src={audioUrl} className="w-full" /> : <p className="text-sm text-red-600">{c('noRecording')}</p>}
+        </div>
+        <p className="pt-3 text-sm text-muted-foreground">{c('listenAndAnswerHint')}</p>
+        <ol className="flex-1 space-y-6 py-4">
+          {group.map((s, n) => (
+            <li key={s.id} className="space-y-1">
+              <p className="text-xs font-semibold text-[var(--teal-accent-strong)]">{c('questionN', { n: n + 1, m: group.length })}</p>
+              <StepView
+                step={s}
+                answer={answers[s.id]}
+                onAnswer={(a) => setAnswers((prev) => ({ ...prev, [s.id]: a }))}
+                checked={checked}
+                passage={content.passage}
+                seed={seed}
+                speak={(t) => speak(t)}
+                audioUrl={audioUrl}
+              />
+              {checked && <InlineResult step={s} answer={answers[s.id]} />}
+              {flagControl(s)}
+            </li>
+          ))}
+        </ol>
+        <div className="sticky bottom-0 -mx-4 space-y-2 border-t border-border bg-background/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+          {!checked && unanswered > 0 && <p className="text-xs text-muted-foreground">{c('unansweredLeft', { n: unanswered })}</p>}
+          <button
+            type="button"
+            disabled={!checked && unanswered === group.length}
+            onClick={() => (checked ? next() : setChecked(true))}
+            className="w-full rounded-xl bg-[var(--teal-accent)] px-5 py-3.5 text-base font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40"
+          >
+            {checked ? c('continue') : c('checkAll')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   const score = checked && isQuestion ? stepScore(step, answer) : 0
   const full = checked && isQuestion && score === stepMax(step)
   const right = rightAnswerText(step)
   // A written answer needs at least half the minimum length before it's worth an AI call.
-  const longEnough = typeof answer === 'string' && (step.type === 'write' ? countWords(answer) >= Math.ceil(step.minWords / 2) : answer.trim().length > 0)
+  const longEnough =
+    typeof answer === 'string' &&
+    (step.type === 'write' ? countWords(answer) >= Math.ceil(step.minWords / 2) : step.type === 'roleplay' ? learnerTurns(answer) >= Math.min(2, step.turns) : answer.trim().length > 0)
   const canGo = isOpen ? marked || (!marking && longEnough) : !isQuestion || checked || answered(step, answer)
   const explain = 'explain' in step ? step.explain : undefined
 
@@ -261,7 +390,9 @@ export default function ModulePlayer({ title, content, seed, initialStep = 0, in
             seed={seed}
             speak={(t) => speak(t)}
             audioUrl={audioUrl}
+            onTurn={onRoleplayTurn ? (history) => onRoleplayTurn(step.id, history) : undefined}
           />
+          {flagControl(step)}
         </div>
 
         <div className="sticky bottom-0 -mx-4 space-y-3 border-t border-border bg-background/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
