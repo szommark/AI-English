@@ -178,6 +178,21 @@ function englishTagRule(explain: ExplainLanguage): string {
 }
 
 /**
+ * Extra instructions for a numbered tense review session: no new grammar, a mixed revision
+ * of every tense met so far, weighted towards the ones just introduced or compared.
+ */
+function reviewLine(item: GrammarItem, kind: 'lesson' | 'exercises'): string {
+  const review = item.review
+  if (!review) return ''
+  const list = (tenses: string[]) => tenses.join(', ')
+  const task =
+    kind === 'lesson'
+      ? `Teach no new grammar. Instead of building up one point, recap the form and main use of the tenses side by side (a comparison table works well), contrast them in example pairs, point out the typical mix-ups, and end with how to choose between them.`
+      : `Each item must make the learner CHOOSE between these tenses; mix them so the right answer is a different tense from item to item, and give each sentence a clear time clue (e.g. now, yesterday, since 2020, tomorrow) so exactly one tense fits.`
+  return `\nThis is TENSE REVIEW ${review.number}, a review session. The learner has studied these tenses: ${list(review.tenses)}. Give the most weight to: ${list(review.focus)}. ${task}\n`
+}
+
+/**
  * Pure prompt builder — no network call — so the same prompt can be sent to whichever
  * provider the learner picked for Grammar Coach (see api/_lib/modelRouter.ts). `lang` is
  * the learner's UI language (practice translations); `explain` is the language the
@@ -206,7 +221,7 @@ ${englishTagRule(explain)}`
   const learnerDescription = lang === 'hu' ? 'a Hungarian learner' : lang === 'de' ? 'a German-speaking learner' : 'a learner'
 
   const systemPrompt = `You are a patient, experienced English grammar teacher recording a narrated board lesson for ${learnerDescription} on the grammar point "${item.title}" (CEFR level ${cefrLevel}). Explain at this level; keep vocabulary and example sentences appropriate to it.
-${hintLine}
+${hintLine}${reviewLine(item, 'lesson')}
 Respond with ONLY valid JSON (no markdown, no code fences) matching EXACTLY this shape:
 {"segments":[{"widget":<widget>,"narration":"..."}],"practice":[{"en":"..."${translationField ? `,"${translationField}":"..."` : ''}}]}
 
@@ -245,7 +260,7 @@ export function buildGrammarExercisesPrompt(
   const learnerDescription = lang === 'hu' ? 'a Hungarian learner' : lang === 'de' ? 'a German-speaking learner' : 'a learner'
 
   const systemPrompt = `You are an English grammar teacher writing a written exercise sheet for ${learnerDescription} on the grammar point "${item.title}" (CEFR level ${cefrLevel}). Every sentence must practise this exact grammar point, with vocabulary appropriate to the level.
-${hintLine}
+${hintLine}${reviewLine(item, 'exercises')}
 Respond with ONLY valid JSON (no markdown, no code fences) matching EXACTLY this shape:
 {"formInstruction":"...","transformInstruction":"...","order":[{"answer":"...","alternatives":["..."],"extra":"..."}],"form":[{"sentence":"...","cue":"...","answers":["..."]}],"transform":[{"source":"...","cue":"...","answers":["..."]}]}
 
