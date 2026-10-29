@@ -14,6 +14,8 @@ import type {
   ModuleContent,
   MyCourse,
   MyCourseSummary,
+  OpenAnswer,
+  OpenFeedback,
   PublishStatus,
   UnitInput,
 } from './courses'
@@ -87,6 +89,15 @@ export async function saveModule(moduleId: string, patch: { title?: string; cont
   return (await request<{ course: Course }>(withId('course-modules', moduleId), json('PUT', patch))).course
 }
 
+export async function recordModuleAudio(moduleId: string): Promise<Course> {
+  return (await request<{ course: Course }>(withId('course-module-audio', moduleId), { method: 'POST' })).course
+}
+
+/** Teacher preview: the AI's feedback on a written/spoken answer (nothing saved). */
+export async function previewFeedback(moduleId: string, stepId: string, text: string): Promise<OpenFeedback> {
+  return (await request<{ feedback: OpenFeedback }>(`${BASE}course-feedback`, json('POST', { moduleId, stepId, text }))).feedback
+}
+
 export async function generateUnitOutline(unitId: string): Promise<{ course: Course; remaining: number }> {
   return request(withId('course-blueprint', unitId), { method: 'POST' })
 }
@@ -128,6 +139,11 @@ export async function startModule(enrollmentId: string, moduleId: string, restar
 /** Autosave; failures are ignored (the next step saves again). */
 export async function saveModuleProgress(attemptId: string, stepIndex: number, answers: ModuleAnswers): Promise<void> {
   await request(`${STUDENT}my-course-progress&id=${encodeURIComponent(attemptId)}`, json('POST', { stepIndex, answers })).catch(() => undefined)
+}
+
+/** The AI's feedback on a written/spoken answer, stored on the attempt (once per step). */
+export async function markOpenStep(attemptId: string, stepId: string, text: string): Promise<OpenAnswer> {
+  return (await request<{ answer: OpenAnswer }>(`${STUDENT}my-course-feedback&id=${encodeURIComponent(attemptId)}`, json('POST', { stepId, text }))).answer
 }
 
 export async function completeModule(attemptId: string, answers: ModuleAnswers): Promise<{ completion: ModuleCompletion; xp: AwardResult[] }> {

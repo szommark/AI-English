@@ -1,9 +1,21 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, FileText, Loader2, Trophy, X, XCircle } from 'lucide-react'
+import { CheckCircle2, FileText, Headphones, Loader2, Trophy, X, XCircle } from 'lucide-react'
 import StepView, { TextStep } from './StepView'
 import { useCourseCopy } from '../../data/courseCopy'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
-import { QUESTION_TYPES, stepMax, stepScore, type CourseStep, type ModuleAnswers, type ModuleContent, type StepAnswer } from '../../lib/courses'
+import {
+  OPEN_TYPES,
+  QUESTION_TYPES,
+  countWords,
+  isOpenAnswer,
+  stepMax,
+  stepScore,
+  type CourseStep,
+  type ModuleAnswers,
+  type ModuleContent,
+  type OpenFeedback,
+  type StepAnswer,
+} from '../../lib/courses'
 
 /** What the results screen shows after the last step. */
 export interface PlayerResult {
@@ -28,6 +40,10 @@ interface Props {
   onExit: () => void
   /** Buttons under the result (next module, back to the course, restart…). */
   resultActions: (result: PlayerResult) => React.ReactNode
+  /** Listening: the module's recording. */
+  audioUrl?: string | null
+  /** Writing/speaking: asks the AI to mark the answer (rejects with an error code). */
+  onEvaluate?: (stepId: string, text: string) => Promise<OpenFeedback>
 }
 
 function answered(step: CourseStep, answer: StepAnswer | undefined): boolean {
@@ -57,7 +73,7 @@ function rightAnswerText(step: CourseStep): string | null {
  * Continue moves on and autosaves; after the last step the module is scored and the result
  * shown. Used by the student's player and the teacher's preview.
  */
-export default function ModulePlayer({ title, content, seed, initialStep = 0, initialAnswers = {}, onProgress, onFinish, onExit, resultActions }: Props) {
+export default function ModulePlayer({ title, content, seed, initialStep = 0, initialAnswers = {}, onProgress, onFinish, onExit, resultActions, audioUrl, onEvaluate }: Props) {
   const { c } = useCourseCopy()
   const { speak } = useSpeechSynthesis()
   const steps = content.steps
@@ -68,12 +84,19 @@ export default function ModulePlayer({ title, content, seed, initialStep = 0, in
   const [result, setResult] = useState<PlayerResult | null>(null)
   const [finishing, setFinishing] = useState(false)
   const [finishError, setFinishError] = useState(false)
+  const [audioOpen, setAudioOpen] = useState(false)
+  const [marking, setMarking] = useState(false)
+  const [markError, setMarkError] = useState<string | null>(null)
 
   const step = steps[index] as CourseStep | undefined
   // The Text button only once the text has been shown (modules without a text step: always).
   const textAt = steps.findIndex((s) => s.type === 'text')
+  // "Listen again" once the recording has been played.
+  const listenAt = steps.findIndex((s) => s.type === 'listen')
   const isQuestion = !!step && QUESTION_TYPES.has(step.type)
+  const isOpen = !!step && OPEN_TYPES.has(step.type)
   const answer = step ? answers[step.id] : undefined
+  const marked = isOpen && isOpenAnswer(answer)
 
   useEffect(() => {
     window.scrollTo({ top: 0 })
@@ -102,6 +125,8 @@ export default function ModulePlayer({ title, content, seed, initialStep = 0, in
     const nextIndex = index + 1
     setChecked(false)
     setTextOpen(false)
+    setAudioOpen(false)
+    setMarkError(null)
     if (nextIndex >= steps.length) {
       setIndex(steps.length)
       onProgress?.(steps.length, answers)
@@ -112,9 +137,24 @@ export default function ModulePlayer({ title, content, seed, initialStep = 0, in
     onProgress?.(nextIndex, answers)
   }
 
+  async function mark() {
+    if (!step || !onEvaluate || typeof answer !== 'string') return
+    setMarking(true)
+    setMarkError(null)
+    try {
+      const feedback = await onEvaluate(step.id, answer.trim())
+      setAnswers((prev) => ({ ...prev, [step.id]: { text: answer.trim(), ...feedback } }))
+    } catch (err) {
+      setMarkError((err as { code?: string })?.code === 'daily_limit' ? c('feedbackLimit') : c('feedbackError'))
+    } finally {
+      setMarking(false)
+    }
+  }
+
   function primary() {
     if (!step) return
     if (isQuestion && !checked) setChecked(true)
+    else if (isOpen && !marked) void mark()
     else next()
   }
 
@@ -166,7 +206,9 @@ export default function ModulePlayer({ title, content, seed, initialStep = 0, in
   const score = checked && isQuestion ? stepScore(step, answer) : 0
   const full = checked && isQuestion && score === stepMax(step)
   const right = rightAnswerText(step)
-  const canGo = !isQuestion || checked || answered(step, answer)
+  // A written answer needs at least half the minimum length before it's worth an AI call.
+  const longEnough = typeof answer === 'string' && (step.type === 'write' ? countWords(answer) >= Math.ceil(step.minWords / 2) : answer.trim().length > 0)
+  const canGo = isOpen ? marked || (!marking && longEnough) : !isQuestion || checked || answered(step, answer)
   const explain = 'explain' in step ? step.explain : undefined
 
   return (
@@ -178,6 +220,17 @@ export default function ModulePlayer({ title, content, seed, initialStep = 0, in
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-secondary" role="progressbar" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={index}>
           <div className="h-full rounded-full bg-[var(--teal-accent)] transition-all" style={{ width: `${(index / steps.length) * 100}%` }} />
         </div>
+        {audioUrl && listenAt >= 0 && index > listenAt && (
+          <button
+            type="button"
+            onClick={() => setAudioOpen((v) => !v)}
+            aria-pressed={audioOpen}
+            className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-secondary"
+          >
+            <Headphones className="h-4 w-4" />
+            {c('listenAgain')}
+          </button>
+        )}
         {content.passage && step.type !== 'text' && (textAt < 0 || index > textAt) && (
           <button
             type="button"
@@ -189,6 +242,7 @@ export default function ModulePlayer({ title, content, seed, initialStep = 0, in
           </button>
         )}
       </div>
+      {audioOpen && audioUrl && <audio controls autoPlay src={audioUrl} className="w-full" />}
 
       <form
         className="flex flex-1 flex-col"
@@ -206,6 +260,7 @@ export default function ModulePlayer({ title, content, seed, initialStep = 0, in
             passage={content.passage}
             seed={seed}
             speak={(t) => speak(t)}
+            audioUrl={audioUrl}
           />
         </div>
 
@@ -227,12 +282,30 @@ export default function ModulePlayer({ title, content, seed, initialStep = 0, in
               {explain && <p className="mt-1 opacity-90">{explain}</p>}
             </div>
           )}
+          {markError && (
+            <p role="alert" className="text-sm text-red-600">
+              {markError}
+            </p>
+          )}
           <button
             type="submit"
             disabled={!canGo}
             className="w-full rounded-xl bg-[var(--teal-accent)] px-5 py-3.5 text-base font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40"
           >
-            {isQuestion && !checked ? c('check') : index === steps.length - 1 ? c('finish') : c('continue')}
+            {marking ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {c('marking')}
+              </span>
+            ) : isQuestion && !checked ? (
+              c('check')
+            ) : isOpen && !marked ? (
+              c('getFeedback')
+            ) : index === steps.length - 1 ? (
+              c('finish')
+            ) : (
+              c('continue')
+            )}
           </button>
         </div>
       </form>

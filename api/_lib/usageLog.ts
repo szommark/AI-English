@@ -14,6 +14,7 @@ export type LlmCallType =
   | 'exam_task_gen'
   | 'comp_test_gen'
   | 'course_gen'
+  | 'course_feedback'
 
 /**
  * Records one LLM call in groq_usage_log (name is historical — it holds Groq and Gemini),

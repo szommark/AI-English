@@ -32,6 +32,8 @@ import { handleCompAssign, handleCompAudio, handleCompGenerate, handleCompResult
 import {
   handleCourseAssign,
   handleCourseBlueprint,
+  handleCourseFeedback,
+  handleCourseModuleAudio,
   handleCourseModuleGenerate,
   handleCourseModules,
   handleCoursePublish,
@@ -347,6 +349,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'course-modules':
         await handleCourseModules(req, res, user.id)
+        return
+      case 'course-module-audio':
+        await handleCourseModuleAudio(req, res, user.id)
+        return
+      case 'course-feedback':
+        await handleCourseFeedback(req, res, user.id)
         return
       case 'course-blueprint':
         await handleCourseBlueprint(req, res, user.id)

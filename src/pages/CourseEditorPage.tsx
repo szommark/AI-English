@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowDown, ArrowUp, Eye, Loader2, Pencil, Plus, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Eye, Headphones, Loader2, Pencil, Plus, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
 import PageHeading from '../components/PageHeading'
 import ModulePlayer from '../components/Courses/ModulePlayer'
 import ModuleEditor from '../components/Courses/ModuleEditor'
@@ -18,6 +18,8 @@ import {
   fetchCourse,
   generateModuleContent,
   generateUnitOutline,
+  previewFeedback,
+  recordModuleAudio,
   saveCourseFields,
   saveModule,
   setCourseStatus,
@@ -125,7 +127,7 @@ export default function CourseEditorPage() {
     return item ? (lang === 'hu' ? item.titleHu : item.title) : id
   }
 
-  async function run(action: () => Promise<Course>, errorKey: 'saveError' | 'publishError' = 'saveError') {
+  async function run(action: () => Promise<Course>, errorKey: 'saveError' | 'publishError' | 'recordError' = 'saveError') {
     setBusy(true)
     setError(null)
     try {
@@ -201,6 +203,7 @@ export default function CourseEditorPage() {
   const moduleStatus = (m: CourseModule) => {
     if (gen?.kind === 'module' && gen.moduleId === m.id) return { text: c('writing'), cls: 'text-[var(--teal-accent-strong)]' }
     if (failed === m.id) return { text: c('failed'), cls: 'text-red-600' }
+    if (m.content && !m.audioReady) return { text: c('needsRecording'), cls: 'text-amber-700' }
     if (m.content) return { text: c('stepCount', { n: m.content.steps.length }), cls: 'text-muted-foreground' }
     return { text: c('notWritten'), cls: 'text-muted-foreground' }
   }
@@ -344,6 +347,7 @@ export default function CourseEditorPage() {
             onWriteMissing={() => void writeUnit(course, unit.id)}
             onRewriteOutline={() => void rewriteOutline(unit)}
             onRewriteModule={(m) => void rewriteModule(m)}
+            onRecord={(m) => void run(() => recordModuleAudio(m.id), 'recordError')}
             onPreview={(m) => setPreview({ module: m, run: 0 })}
             onSaveModule={async (m, content) => apply(await saveModule(m.id, { content }))}
             onUnit={(patch) => void run(() => updateUnit(unit.id, patch), patch.status ? 'publishError' : 'saveError')}
@@ -363,6 +367,8 @@ export default function CourseEditorPage() {
             title={preview.module.title}
             content={preview.module.content}
             seed={preview.module.id}
+            audioUrl={preview.module.audioUrl}
+            onEvaluate={(stepId, text) => previewFeedback(preview.module.id, stepId, text)}
             onFinish={async (answers) => scoreModule(preview.module.content as NonNullable<CourseModule['content']>, answers)}
             onExit={() => setPreview(null)}
             resultActions={() => (
@@ -394,6 +400,7 @@ function UnitPanel(props: {
   onWriteMissing: () => void
   onRewriteOutline: () => void
   onRewriteModule: (m: CourseModule) => void
+  onRecord: (m: CourseModule) => void
   onPreview: (m: CourseModule) => void
   onSaveModule: (m: CourseModule, content: NonNullable<CourseModule['content']>) => Promise<void>
   onUnit: (patch: Partial<Pick<CourseUnit, 'title' | 'canDos' | 'status'>> & { move?: 'up' | 'down' }) => void
@@ -540,6 +547,12 @@ function UnitPanel(props: {
                   </span>
                 </span>
                 <span className="flex flex-wrap gap-1.5">
+                  {m.content && !m.audioReady && (
+                    <button type="button" className={`${primaryButtonClass} inline-flex items-center gap-1`} disabled={working || busy} onClick={() => props.onRecord(m)}>
+                      <Headphones className="h-3.5 w-3.5" />
+                      {c('makeRecording')}
+                    </button>
+                  )}
                   {m.content && (
                     <>
                       <button type="button" className={`${secondaryButtonClass} inline-flex items-center gap-1`} onClick={() => props.onPreview(m)}>

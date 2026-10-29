@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import ModulePlayer from '../components/Courses/ModulePlayer'
 import { useCourseCopy } from '../data/courseCopy'
-import { completeModule, fetchMyCourse, saveModuleProgress, startModule } from '../lib/courseApi'
+import { completeModule, fetchMyCourse, markOpenStep, saveModuleProgress, startModule } from '../lib/courseApi'
 import { mergeAwards } from '../lib/gamificationApi'
 import { publishXpResult } from '../lib/gamification/xpEvents'
 import type { ModuleAttempt, MyCourseModule, MyCourseNext } from '../lib/courses'
@@ -50,6 +50,11 @@ function Player({ enrollmentId, moduleId }: { enrollmentId: string; moduleId: st
       seed={attempt.id}
       initialStep={attempt.stepIndex}
       initialAnswers={attempt.answers}
+      audioUrl={attempt.audioUrl}
+      onEvaluate={async (stepId, text) => {
+        const { text: _text, ...feedback } = await markOpenStep(attempt.id, stepId, text)
+        return feedback
+      }}
       onProgress={(stepIndex, answers) => void saveModuleProgress(attempt.id, stepIndex, answers)}
       onFinish={async (answers) => {
         const { completion, xp } = await completeModule(attempt.id, answers)
