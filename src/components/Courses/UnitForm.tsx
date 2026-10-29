@@ -33,14 +33,16 @@ export interface UnitFormValue {
   notes: string
   /** Templates: end with a Unit check. */
   withCheck: boolean
+  /** Templates: include the Grammar module. */
+  withGrammar: boolean
   /** The teacher's own text for the first reading/listening module. */
   sourceText: string
 }
 
-export const EMPTY_UNIT: UnitFormValue = { topic: '', template: 'compact', input: 'reading', kinds: templateKinds('compact'), grammarIds: [], notes: '', withCheck: true, sourceText: '' }
+export const EMPTY_UNIT: UnitFormValue = { topic: '', template: 'compact', input: 'reading', kinds: templateKinds('compact'), grammarIds: [], notes: '', withCheck: true, withGrammar: true, sourceText: '' }
 
 export function planOf(value: UnitFormValue): ModuleKind[] {
-  return value.template === 'custom' ? value.kinds : templateKinds(value.template, value.input, value.withCheck)
+  return value.template === 'custom' ? value.kinds : templateKinds(value.template, value.input, value.withCheck, value.withGrammar)
 }
 
 export function toUnitInput(value: UnitFormValue): UnitInput {
@@ -52,13 +54,15 @@ export function toUnitInput(value: UnitFormValue): UnitInput {
     grammarIds: value.grammarIds,
     notes: value.notes.trim(),
     withCheck: planOf(value).includes('unit_check'),
+    withGrammar: planOf(value).includes('grammar'),
     sourceText: value.sourceText.trim(),
   }
 }
 
-/** Whether the form can be sent: a topic, 1–2 grammar points and a plan that passes every rule. */
+/** Whether the form can be sent: a topic, 1–2 grammar points when there is a Grammar module, and a plan that passes every rule. */
 export function unitFormReady(value: UnitFormValue): boolean {
-  return value.topic.trim().length > 0 && value.grammarIds.length > 0 && planProblems(planOf(value)).length === 0
+  const plan = planOf(value)
+  return value.topic.trim().length > 0 && (value.grammarIds.length > 0 || !plan.includes('grammar')) && planProblems(plan).length === 0
 }
 
 /** Kinds the custom plan may add (Pronunciation shows as coming soon). */
@@ -125,7 +129,7 @@ export default function UnitForm({ level, value, onChange }: { level: CourseLeve
                 {t !== 'custom' && (
                   <span className="mt-2 flex flex-wrap gap-1">
                     {templateSlots(t, value.input)
-                      .filter((k) => value.withCheck || k !== 'unit_check')
+                      .filter((k) => (value.withCheck || k !== 'unit_check') && (value.withGrammar || k !== 'grammar'))
                       .map((k, i) =>
                         AVAILABLE_KINDS.has(k) ? (
                           <span key={i} className="rounded bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground">
@@ -169,6 +173,19 @@ export default function UnitForm({ level, value, onChange }: { level: CourseLeve
           <input type="checkbox" checked={value.withCheck} onChange={(e) => set({ withCheck: e.target.checked })} />
           {c('withCheck')}
         </label>
+      )}
+      {value.template !== 'custom' && (
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input type="checkbox" checked={value.withGrammar} onChange={(e) => set({ withGrammar: e.target.checked })} />
+          {c('withGrammar')}
+        </label>
+      )}
+      {value.template !== 'custom' && problems.length > 0 && (
+        <ul className="space-y-0.5 text-xs text-red-600">
+          {problems.map((p) => (
+            <li key={p}>{c(`problem_${p}`)}</li>
+          ))}
+        </ul>
       )}
 
       {value.template === 'custom' && (
@@ -246,8 +263,8 @@ export default function UnitForm({ level, value, onChange }: { level: CourseLeve
       )}
 
       <div className="space-y-2">
-        <span className={labelClass}>{c('grammar')}</span>
-        <p className={hintClass}>{c('grammarHint', { n: MAX_GRAMMAR_PER_UNIT })}</p>
+        <span className={labelClass}>{plan.includes('grammar') ? c('grammar') : c('grammarOptional')}</span>
+        <p className={hintClass}>{plan.includes('grammar') ? c('grammarHint', { n: MAX_GRAMMAR_PER_UNIT }) : c('grammarOptionalHint', { n: MAX_GRAMMAR_PER_UNIT })}</p>
         {value.grammarIds.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {value.grammarIds.map((id) => (
