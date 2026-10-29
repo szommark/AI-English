@@ -183,7 +183,7 @@ export async function setWeeklyGoal(days: number): Promise<GamificationMe> {
 }
 
 /** Two awards recorded one after the other, shown as one. */
-function mergeAwards(first: AwardResult, second: AwardResult): AwardResult {
+export function mergeAwards(first: AwardResult, second: AwardResult): AwardResult {
   return {
     ...second,
     baseXp: first.baseXp + second.baseXp,

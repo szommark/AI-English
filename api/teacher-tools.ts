@@ -29,6 +29,15 @@ import {
 } from './_lib/examTasks.js'
 import { findSources } from './_lib/sourceFinder.js'
 import { handleCompAssign, handleCompAudio, handleCompGenerate, handleCompResult, handleCompTests } from './_lib/compTests.js'
+import {
+  handleCourseAssign,
+  handleCourseBlueprint,
+  handleCourseModuleGenerate,
+  handleCourseModules,
+  handleCoursePublish,
+  handleCourses,
+  handleCourseUnits,
+} from './_lib/courses.js'
 import { generationsToday } from './_lib/examTaskGenerate.js'
 import { EXAM_FIELDS, LISTENING_FORMATS, TASK_GENERATIONS_PER_DAY, TASK_LEVELS } from '../src/lib/examTasks.js'
 
@@ -326,6 +335,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'comp-test-result':
         await handleCompResult(req, res, user.id)
+        return
+      case 'courses':
+        await handleCourses(req, res, user.id)
+        return
+      case 'course-publish':
+        await handleCoursePublish(req, res, user.id)
+        return
+      case 'course-units':
+        await handleCourseUnits(req, res, user.id)
+        return
+      case 'course-modules':
+        await handleCourseModules(req, res, user.id)
+        return
+      case 'course-blueprint':
+        await handleCourseBlueprint(req, res, user.id)
+        return
+      case 'course-module-generate':
+        await handleCourseModuleGenerate(req, res, user.id)
+        return
+      case 'course-assign':
+        await handleCourseAssign(req, res, user.id)
         return
       case 'teachers':
         await handleTeachers(req, res, user.id)

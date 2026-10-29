@@ -17,6 +17,7 @@ const LONG_DATE = new Intl.DateTimeFormat('hu-HU', { year: 'numeric', month: 'lo
 function sectionName(section: string): string {
   if (section === 'teacher') return 'Tanári jutalom' // Teacher bonus (Phase 4)
   if (section === 'challenge') return 'Kihívások' // Challenge rewards (Phase 4b)
+  if (section === 'courses') return 'Mini kurzusok'
   return getFeature(section)?.titleHu ?? section
 }
 

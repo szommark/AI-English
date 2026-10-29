@@ -48,6 +48,12 @@ const CompTestsPage = lazy(() => import('./pages/CompTestsPage'))
 const CompTestEditorPage = lazy(() => import('./pages/CompTestEditorPage'))
 const MyTestsPage = lazy(() => import('./pages/MyTestsPage'))
 const MyTestPage = lazy(() => import('./pages/MyTestPage'))
+const CoursesPage = lazy(() => import('./pages/CoursesPage'))
+const CourseNewPage = lazy(() => import('./pages/CourseNewPage'))
+const CourseEditorPage = lazy(() => import('./pages/CourseEditorPage'))
+const MyCoursesPage = lazy(() => import('./pages/MyCoursesPage'))
+const MyCoursePage = lazy(() => import('./pages/MyCoursePage'))
+const CoursePlayerPage = lazy(() => import('./pages/CoursePlayerPage'))
 
 /** Word lists moved into the Teacher Toolkit: old /teacher/lists/... links still work. */
 function LegacyListRedirect() {
@@ -274,6 +280,36 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/my-courses"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <MyCoursesPage />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-courses/:enrollmentId"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <MyCoursePage />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-courses/:enrollmentId/:moduleId"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <CoursePlayerPage />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/my-tests"
         element={
           <ProtectedRoute>
@@ -423,6 +459,36 @@ function AppRoutes() {
           <RoleProtectedRoute role="teacher">
             <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
               <CompTestEditorPage />
+            </Suspense>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/tools/courses"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <CoursesPage />
+            </Suspense>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/tools/courses/new"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <CourseNewPage />
+            </Suspense>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/teacher/tools/courses/:courseId"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <CourseEditorPage />
             </Suspense>
           </RoleProtectedRoute>
         }

@@ -2056,6 +2056,12 @@ const messages = {
     en: 'Reading and listening tests made with AI on any topic and level: print them or assign them, and see the results here.',
     de: 'Lese- und Hörverstehenstests mit KI zu jedem Thema und Niveau: drucken oder zuweisen, Ergebnisse hier sehen.',
   },
+  ttCoursesTitle: { hu: 'Mini kurzusok', en: 'Mini courses', de: 'Mini-Kurse' },
+  ttCoursesDesc: {
+    hu: 'Tankönyvszerű leckék mobilra: szókincs, olvasás, nyelvtan és záró teszt egy-egy témában. MI-vel készülnek, te átnézed és kiosztod.',
+    en: 'Coursebook-style units for phones: vocabulary, reading, grammar and a unit check on a topic. Made with AI, reviewed and assigned by you.',
+    de: 'Lehrbuchartige Lektionen fürs Handy: Wortschatz, Lesen, Grammatik und ein Abschlusstest zu einem Thema. Mit KI erstellt, von dir geprüft und zugewiesen.',
+  },
   ttGoalsDesc: {
     hu: 'Célok a diákjaiddal a GROW-modell szerint. Te elindítod, a diák kiegészíti és megerősíti.',
     en: 'Goals with your students, using the GROW model. You start them; the student completes and confirms.',
@@ -2065,6 +2071,7 @@ const messages = {
   // Learner goals (src/components/Goals/, /my-goals, /teacher/tools/goals).
   myGoals: { hu: 'Céljaim', en: 'My goals', de: 'Meine Ziele' },
   myTests: { hu: 'Tesztjeim', en: 'My tests', de: 'Meine Tests' },
+  myCourses: { hu: 'Kurzusaim', en: 'My courses', de: 'Meine Kurse' },
   glPageSubtitle: {
     hu: 'Cél, hol tartasz most, lehetőségek, teendők: a GROW-modell négy lépése.',
     en: 'Goal, where you are now, options, next steps: the four steps of the GROW model.',

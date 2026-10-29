@@ -8,6 +8,7 @@ import BadgeMedal from './BadgeMedal'
 function sectionName(section: string): string {
   if (section === 'teacher') return 'Teacher bonus'
   if (section === 'challenge') return 'Challenge rewards'
+  if (section === 'courses') return 'Mini courses'
   return getFeature(section)?.title ?? section
 }
 
