@@ -20,6 +20,8 @@ import ReportUpdatesNotice from './ReportProblem/ReportUpdatesNotice'
 interface AuthPromptValue {
   /** Opens the sign-in modal; after a successful sign-in the app navigates to `route`. */
   promptSignIn: (route?: string) => void
+  /** Opens the same modal on its Create account tab. */
+  promptSignUp: () => void
 }
 
 const AuthPromptContext = createContext<AuthPromptValue | undefined>(undefined)
@@ -92,6 +94,7 @@ export default function AppLayout() {
   const navigate = useNavigate()
 
   const [authOpen, setAuthOpen] = useState(false)
+  const [authSignUp, setAuthSignUp] = useState(false)
   // null = closed; crashed = opened from the crash screen (prefilled description).
   const [report, setReport] = useState<{ crashed: boolean; flag?: ContentFlagTarget } | null>(null)
   const closeReport = useCallback(() => setReport(null), [])
@@ -119,6 +122,12 @@ export default function AppLayout() {
     () => ({
       promptSignIn: (route) => {
         setPendingRoute(route ?? null)
+        setAuthSignUp(false)
+        setAuthOpen(true)
+      },
+      promptSignUp: () => {
+        setPendingRoute(null)
+        setAuthSignUp(true)
         setAuthOpen(true)
       },
     }),
@@ -256,6 +265,7 @@ export default function AppLayout() {
 
         {authOpen && (
           <AuthModal
+            signUp={authSignUp}
             onClose={() => {
               setAuthOpen(false)
               setPendingRoute(null)

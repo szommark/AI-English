@@ -1,6 +1,6 @@
 import AuthPanel from './AuthPanel'
 
-export default function AuthModal({ onClose }: { onClose: () => void }) {
+export default function AuthModal({ onClose, signUp = false }: { onClose: () => void; signUp?: boolean }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
@@ -17,7 +17,7 @@ export default function AuthModal({ onClose }: { onClose: () => void }) {
         >
           ✕
         </button>
-        <AuthPanel />
+        <AuthPanel initialMode={signUp ? 'signup' : 'signin'} />
       </div>
     </div>
   )
