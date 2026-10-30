@@ -4,13 +4,14 @@ import { Target } from 'lucide-react'
 import { useLanguage } from '../../lib/i18n'
 import type { LearnerGoal } from '../../lib/goals'
 import { fetchGoals } from '../../lib/goalsApi'
+import { planSummary } from '../../lib/goalPlans'
 
 /**
  * Home-page strip: a goal the teacher sent (always, until confirmed) and the active goals the
  * learner chose to show here, each with its next step. Renders nothing when there are none.
  */
 export default function HomeGoalsCard() {
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const [goals, setGoals] = useState<LearnerGoal[]>([])
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function HomeGoalsCard() {
               const start = g.ratings[0]
               const now = g.ratings.at(-1)
               const next = g.steps.find((s) => !s.done)
+              const plan = planSummary(g.milestones)
               return (
                 <li key={g.id} className="rounded-xl bg-card px-4 py-3 shadow-sm">
                   <p className="font-medium text-foreground">{g.title}</p>
@@ -76,6 +78,11 @@ export default function HomeGoalsCard() {
                       ) : (
                         <span className="text-muted-foreground">{t('glHomeAllDone')}</span>
                       )}
+                    </p>
+                  )}
+                  {plan?.next && (
+                    <p className="mt-1 text-sm text-foreground">
+                      {t('gpNext', { title: plan.next.title, date: new Date(`${plan.next.dueOn}T00:00:00`).toLocaleDateString(lang) })}
                     </p>
                   )}
                 </li>

@@ -1,4 +1,5 @@
 import { WEEKLY_GOAL_MAX_DAYS, WEEKLY_GOAL_MIN_DAYS } from './gamification/constants.js'
+import type { GoalMilestone } from './goalPlans.js'
 
 // Learner goals, set with the GROW model: Goal · Reality (self-assessment) · Options · Will.
 // Shared by the browser and api/_lib/learnerGoals.ts, so keep it free of browser imports.
@@ -55,6 +56,8 @@ export interface LearnerGoal {
   draftRating: GoalRating | null
   /** Oldest first: the first one is the starting point. */
   ratings: GoalRatingPoint[]
+  /** The teacher's milestone plan (src/lib/goalPlans.ts), in order; empty when there is none. */
+  milestones: GoalMilestone[]
   createdAt: string
   confirmedAt: string | null
   closedAt: string | null

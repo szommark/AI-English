@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import type { GoalInput, GoalRating, LearnerGoal } from './goals'
+import type { GoalPlanInput } from './goalPlans'
 
 // Client for the learner goals (?action=goals… on /api/gamification, api/_lib/learnerGoals.ts).
 
@@ -63,6 +64,11 @@ export function setGoalStatus(id: string, status: 'achieved' | 'dropped' | 'acti
 
 export function setGoalOnHome(id: string, show: boolean): Promise<LearnerGoal[]> {
   return post('goal-home', { id, show })
+}
+
+/** Teacher: replaces the goal's milestones and tasks (src/lib/goalPlans.ts). */
+export function saveGoalPlan(id: string, input: GoalPlanInput): Promise<LearnerGoal[]> {
+  return post('goal-plan-save', { id, ...input })
 }
 
 /** Teacher: withdraws a goal the student hasn't confirmed yet. */

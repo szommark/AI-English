@@ -4,6 +4,7 @@ import { GOAL_SKILLS, weeksLeft, type GoalRating, type LearnerGoal } from '../..
 import { deleteGoal, rateGoal, setGoalOnHome, setGoalStatus, setGoalStep } from '../../lib/goalsApi'
 import { cardClass, primaryButtonClass, secondaryButtonClass } from '../TeacherTools/ui'
 import RatingInput, { toRating, withSkill } from './RatingInput'
+import GoalPlanView from './GoalPlanView'
 import { GOAL_SKILL_LABEL, GOAL_STATUS_CLASS, GOAL_STATUS_LABEL, GOAL_TYPE_LABEL, goalErrorKey } from './labels'
 
 /** Start vs now on the goal (0–10), with the skills that were rated. */
@@ -47,6 +48,7 @@ export default function GoalCard({
   audience,
   onGoals,
   onEdit,
+  onPlan,
   canReopen = true,
 }: {
   goal: LearnerGoal
@@ -54,6 +56,8 @@ export default function GoalCard({
   /** Every change replies with the student's goal list. */
   onGoals: (goals: LearnerGoal[]) => void
   onEdit: () => void
+  /** Teacher: opens the milestone editor. */
+  onPlan?: () => void
   /** False when the student already has the most open goals. */
   canReopen?: boolean
 }) {
@@ -179,6 +183,8 @@ export default function GoalCard({
         </div>
       )}
 
+      <GoalPlanView goal={goal} audience={audience} />
+
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {hasActions && (
@@ -241,6 +247,11 @@ export default function GoalCard({
             <button type="button" disabled={busy} onClick={onEdit} className={secondaryButtonClass}>
               {t('glEdit')}
             </button>
+            {onPlan && !closed && (
+              <button type="button" disabled={busy} onClick={onPlan} className={secondaryButtonClass}>
+                {t('gpEditPlan')}
+              </button>
+            )}
             {pending && (
               <button
                 type="button"

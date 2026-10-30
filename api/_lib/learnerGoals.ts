@@ -14,6 +14,8 @@ import {
   type GoalStep,
   type LearnerGoal,
 } from '../../src/lib/goals.js'
+import { parseGoalPlanInput, type GoalMilestone } from '../../src/lib/goalPlans.js'
+import { PlanError, assignTasks, loadPlans, savePlan } from './goalPlans.js'
 
 // Learner goals (GROW), served from api/gamification.ts as ?action=goals… — see the table
 // comment in supabase/migrations/20261027120000_learner_goals.sql.
@@ -27,7 +29,8 @@ import {
 //   goal-status  POST  achieved / dropped / active again
 //   goal-home    POST  the student shows or hides it on the home page
 //   goal-delete  POST  a teacher withdraws a pending goal
-// Every mutation replies with the student's whole goal list.
+//   goal-plan-save POST  a teacher saves the goal's milestones and tasks (api/_lib/goalPlans.ts)
+// Every mutation replies with the student's whole goal list; each goal carries its milestones.
 
 const GOAL_COLUMNS =
   'id, student_id, created_by, status, goal_type, title, deadline, why, options, steps, days_per_week, draft_rating, show_on_home, created_at, confirmed_at, closed_at'
@@ -53,7 +56,7 @@ interface GoalRow {
 
 const STATUS_ORDER: Record<GoalStatus, number> = { pending: 0, active: 1, achieved: 2, dropped: 3 }
 
-function toGoal(row: GoalRow, ratings: GoalRatingPoint[]): LearnerGoal {
+function toGoal(row: GoalRow, ratings: GoalRatingPoint[], milestones: GoalMilestone[]): LearnerGoal {
   return {
     id: row.id,
     status: row.status,
@@ -68,6 +71,7 @@ function toGoal(row: GoalRow, ratings: GoalRatingPoint[]): LearnerGoal {
     showOnHome: row.show_on_home,
     draftRating: row.draft_rating,
     ratings,
+    milestones,
     createdAt: row.created_at,
     confirmedAt: row.confirmed_at,
     closedAt: row.closed_at,
@@ -102,7 +106,8 @@ async function loadGoalsFor(studentIds: string[]): Promise<Map<string, LearnerGo
     }
   }
 
-  for (const row of rows) byStudent.get(row.student_id)?.push(toGoal(row, ratings.get(row.id) ?? []))
+  const plans = await loadPlans(rows.map((r) => ({ id: r.id, studentId: r.student_id })))
+  for (const row of rows) byStudent.get(row.student_id)?.push(toGoal(row, ratings.get(row.id) ?? [], plans.get(row.id) ?? []))
   for (const goals of byStudent.values()) {
     goals.sort((a, b) => {
       const byStatus = STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
@@ -358,6 +363,8 @@ async function handleSave(req: VercelRequest, res: VercelResponse, userId: strin
   if (pending) {
     const rating = input.rating ?? row.draft_rating
     if (rating) await addRating(row.id, rating)
+    // The teacher's milestone plan: its courses, tests and lists are assigned now.
+    await assignTasks(row.id, row.student_id, row.created_by)
   }
   if (pending || input.daysPerWeek !== row.days_per_week) await applyWeeklyGoal(row.student_id, input.daysPerWeek)
   await replyWithGoals(res, row.student_id, true)
@@ -443,7 +450,41 @@ async function handleStatus(req: VercelRequest, res: VercelResponse, userId: str
     .update({ status, closed_at: status === 'active' ? null : now, updated_at: now })
     .eq('id', row.id)
   if (error) throw error
+  // Reopened: any plan task not assigned yet (a declined pending goal) is assigned now.
+  if (status === 'active') await assignTasks(row.id, row.student_id, row.created_by)
   await replyWithGoals(res, row.student_id, true)
+}
+
+async function handlePlanSave(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+  const body = (req.body ?? {}) as Record<string, unknown>
+  const found = await loadGoalForUser(res, userId, body.id)
+  if (!found) return
+  // Only the teacher plans; a closed goal's plan stays as it was.
+  if (!found.asTeacher) {
+    res.status(403).json({ error: 'Forbidden' })
+    return
+  }
+  if (!isOpenGoal(found.row)) {
+    res.status(409).json({ error: 'goalClosed' })
+    return
+  }
+  const parsed = parseGoalPlanInput(body)
+  if ('error' in parsed) {
+    res.status(400).json({ error: parsed.error })
+    return
+  }
+  try {
+    await savePlan(found.row, parsed.input, userId)
+  } catch (err) {
+    if (!(err instanceof PlanError)) throw err
+    res.status(400).json({ error: err.code })
+    return
+  }
+  await replyWithGoals(res, found.row.student_id, false)
 }
 
 async function handleHome(req: VercelRequest, res: VercelResponse, userId: string) {
@@ -490,6 +531,7 @@ const HANDLERS: Record<string, (req: VercelRequest, res: VercelResponse, userId:
   'goal-status': handleStatus,
   'goal-home': handleHome,
   'goal-delete': handleDelete,
+  'goal-plan-save': handlePlanSave,
 }
 
 export const GOAL_ACTIONS = new Set(Object.keys(HANDLERS))

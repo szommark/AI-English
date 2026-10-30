@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import PageHeading from '../components/PageHeading'
 import AccentToggle from '../components/AccentToggle'
 import PracticeSession, { type SessionSummary } from '../components/Vocabulary/PracticeSession'
@@ -76,7 +77,12 @@ export default function VocabularyPage() {
   const [listFilter, setListFilter] = useState<WordlistFilter>(DEFAULT_WORDLIST_FILTER)
   /** The last Fast practice run's exercise types: the default for the next run. */
   const [drillExercises, setDrillExercises] = useState<PracticeExercise[]>([...DRILL_ROUNDS])
-  const [view, setView] = useState<View>({ name: 'tabs' })
+  // ?list=<id> (a goal milestone's task) opens that teacher list.
+  const [params] = useSearchParams()
+  const [view, setView] = useState<View>(() => {
+    const listId = params.get('list')
+    return listId ? { name: 'list', ref: { kind: 'teacher', id: listId }, initial: null } : { name: 'tabs' }
+  })
   const [accent, setAccent] = useState<AccentPreference>(() => getAccentPreference())
   const tts = useSpeechSynthesis('female', accent)
 
