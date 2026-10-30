@@ -10,7 +10,7 @@ import type { MyCourse } from '../lib/courses'
 /** /my-courses/:enrollmentId: the course's units as chapters, each module locked, open or done. */
 export default function MyCoursePage() {
   const { enrollmentId = '' } = useParams()
-  const { c, kind } = useCourseCopy()
+  const { c, kind, credit } = useCourseCopy()
   const [course, setCourse] = useState<MyCourse | null>(null)
   const [error, setError] = useState<'load' | 'missing' | null>(null)
 
@@ -30,7 +30,7 @@ export default function MyCoursePage() {
       <Link to="/my-courses" className="inline-block text-sm text-muted-foreground hover:underline">
         {c('backToMyCourses')}
       </Link>
-      <PageHeading title={course.title} subtitle={`${course.level} · ${c('fromTeacher', { email: course.teacherEmail })}`} />
+      <PageHeading title={course.title} subtitle={`${course.level} · ${credit(course)}`} />
       <div className="flex items-center gap-3">
         <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-secondary">
           <span className="block h-full rounded-full bg-[var(--teal-accent)]" style={{ width: `${pct}%` }} />

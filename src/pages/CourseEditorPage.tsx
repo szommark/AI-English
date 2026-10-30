@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowDown, ArrowUp, Eye, Headphones, Loader2, Pencil, Plus, RefreshCw, Sparkles, Trash2 } from 'lucide-react'
 import PageHeading from '../components/PageHeading'
-import ModulePlayer from '../components/Courses/ModulePlayer'
+import ModulePreview from '../components/Courses/ModulePreview'
+import CourseVisibilityPanel from '../components/Courses/CourseVisibilityPanel'
 import ModuleEditor from '../components/Courses/ModuleEditor'
 import CourseAssignPanel from '../components/Courses/CourseAssignPanel'
 import CourseFixesPanel from '../components/Courses/CourseFixesPanel'
@@ -19,15 +20,13 @@ import {
   fetchCourse,
   generateModuleContent,
   generateUnitOutline,
-  previewFeedback,
-  previewRoleplay,
   recordModuleAudio,
   saveCourseFields,
   saveModule,
   setCourseStatus,
   updateUnit,
 } from '../lib/courseApi'
-import { EXPLAIN_LANGS, MAX_UNITS_PER_COURSE, scoreModule, unitReady, type Course, type CourseModule, type CourseUnit, type ExplainLang } from '../lib/courses'
+import { EXPLAIN_LANGS, MAX_UNITS_PER_COURSE, unitReady, type Course, type CourseModule, type CourseUnit, type ExplainLang } from '../lib/courses'
 
 /** What the AI is writing right now: a unit's outline or one module. */
 type GenTarget = { kind: 'outline'; unitId: string } | { kind: 'module'; moduleId: string }
@@ -48,7 +47,7 @@ export default function CourseEditorPage() {
   const [adding, setAdding] = useState(false)
   const [newUnit, setNewUnit] = useState<UnitFormValue>(EMPTY_UNIT)
   const [editing, setEditing] = useState<string | null>(null)
-  const [preview, setPreview] = useState<{ module: CourseModule; run: number } | null>(null)
+  const [preview, setPreview] = useState<CourseModule | null>(null)
   const [gen, setGen] = useState<GenTarget | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
   const [remaining, setRemaining] = useState<number | null>(null)
@@ -350,7 +349,7 @@ export default function CourseEditorPage() {
             onRewriteOutline={() => void rewriteOutline(unit)}
             onRewriteModule={(m) => void rewriteModule(m)}
             onRecord={(m) => void run(() => recordModuleAudio(m.id), 'recordError')}
-            onPreview={(m) => setPreview({ module: m, run: 0 })}
+            onPreview={setPreview}
             onSaveModule={async (m, content) => apply(await saveModule(m.id, { content }))}
             onUnit={(patch) => void run(() => updateUnit(unit.id, patch), patch.status ? 'publishError' : 'saveError')}
             onDelete={() => window.confirm(c('deleteUnitConfirm')) && void run(() => deleteUnit(unit.id))}
@@ -361,34 +360,11 @@ export default function CourseEditorPage() {
 
       <CourseFixesPanel courseId={course.id} onCourse={apply} />
 
+      <CourseVisibilityPanel course={course} onCourse={apply} />
+
       <CourseAssignPanel courseId={course.id} published={course.status === 'published'} />
 
-      {preview && preview.module.content && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-background px-4" role="dialog" aria-modal="true" aria-label={c('preview')}>
-          <p className="mx-auto max-w-xl pt-3 text-center text-xs font-semibold uppercase tracking-wide text-[var(--teal-accent-strong)]">{c('previewBanner')}</p>
-          <ModulePlayer
-            key={preview.run}
-            title={preview.module.title}
-            content={preview.module.content}
-            seed={preview.module.id}
-            audioUrl={preview.module.audioUrl}
-            onEvaluate={(stepId, text) => previewFeedback(preview.module.id, stepId, text)}
-            onRoleplayTurn={(stepId, history) => previewRoleplay(preview.module.id, stepId, history)}
-            onFinish={async (answers) => scoreModule(preview.module.content as NonNullable<CourseModule['content']>, answers)}
-            onExit={() => setPreview(null)}
-            resultActions={() => (
-              <>
-                <button type="button" className="rounded-xl bg-[var(--teal-accent)] px-5 py-3 font-semibold text-primary" onClick={() => setPreview({ ...preview, run: preview.run + 1 })}>
-                  {c('restart')}
-                </button>
-                <button type="button" className="rounded-xl border border-border px-5 py-3 font-semibold text-foreground" onClick={() => setPreview(null)}>
-                  {c('closePreview')}
-                </button>
-              </>
-            )}
-          />
-        </div>
-      )}
+      {preview && <ModulePreview module={preview} onClose={() => setPreview(null)} />}
     </div>
   )
 }

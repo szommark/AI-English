@@ -52,6 +52,8 @@ const MyTestPage = lazy(() => import('./pages/MyTestPage'))
 const CoursesPage = lazy(() => import('./pages/CoursesPage'))
 const CourseNewPage = lazy(() => import('./pages/CourseNewPage'))
 const CourseEditorPage = lazy(() => import('./pages/CourseEditorPage'))
+const CourseLibraryPage = lazy(() => import('./pages/CourseLibraryPage'))
+const AdminCoursesPage = lazy(() => import('./pages/AdminCoursesPage'))
 const MyCoursesPage = lazy(() => import('./pages/MyCoursesPage'))
 const MyCoursePage = lazy(() => import('./pages/MyCoursePage'))
 const CoursePlayerPage = lazy(() => import('./pages/CoursePlayerPage'))
@@ -488,6 +490,16 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/teacher/tools/courses/library/:courseId"
+        element={
+          <RoleProtectedRoute role="teacher">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <CourseLibraryPage />
+            </Suspense>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
         path="/teacher/tools/courses/:courseId"
         element={
           <RoleProtectedRoute role="teacher">
@@ -556,6 +568,16 @@ function AppRoutes() {
         element={
           <RoleProtectedRoute role="admin">
             <AdminFeedbackPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/courses"
+        element={
+          <RoleProtectedRoute role="admin">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <AdminCoursesPage />
+            </Suspense>
           </RoleProtectedRoute>
         }
       />

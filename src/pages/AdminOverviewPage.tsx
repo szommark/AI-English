@@ -24,6 +24,9 @@ export default function AdminOverviewPage() {
             <Link to="/admin/feedback" className="text-sm text-indigo-600 hover:underline">
               Problem reports
             </Link>
+            <Link to="/admin/courses" className="text-sm text-indigo-600 hover:underline">
+              Mini courses
+            </Link>
             <Link to="/admin/personas" className="text-sm text-indigo-600 hover:underline">
               Tutor Bot personas
             </Link>

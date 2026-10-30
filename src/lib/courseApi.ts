@@ -2,7 +2,11 @@ import { supabase } from './supabase'
 import { TeacherToolsError } from './teacherToolsApi'
 import type { AwardResult } from './gamification/types'
 import type {
+  AdminCourse,
   Course,
+  CourseVisibility,
+  LibraryCourse,
+  ShelfCourse,
   CourseCreateInput,
   CourseEnrollment,
   CourseItemFix,
@@ -75,6 +79,11 @@ export async function setCourseStatus(id: string, status: PublishStatus): Promis
   return (await request<{ course: Course }>(withId('course-publish', id), json('POST', { status }))).course
 }
 
+/** Private (own students only) or public (the library, credited by authorName). */
+export async function setCourseVisibility(id: string, visibility: CourseVisibility, authorName: string): Promise<Course> {
+  return (await request<{ course: Course }>(withId('course-visibility', id), json('POST', { visibility, authorName }))).course
+}
+
 export async function addUnit(courseId: string, input: UnitInput): Promise<Course> {
   return (await request<{ course: Course }>(withId('course-units', courseId), json('POST', input))).course
 }
@@ -142,7 +151,37 @@ export async function withdrawEnrollment(courseId: string, enrollmentId: string)
   ).enrollments
 }
 
+// --- Library and admin ---------------------------------------------------------------------
+
+export async function fetchLibrary(): Promise<LibraryCourse[]> {
+  return (await request<{ courses: LibraryCourse[] }>(`${BASE}course-library`)).courses
+}
+
+/** A library course to read and preview (published units only, unless it is the caller's). */
+export async function fetchLibraryCourse(id: string): Promise<{ course: Course; mine: boolean; listed: boolean }> {
+  return request(withId('course-library', id))
+}
+
+export async function fetchAdminCourses(): Promise<AdminCourse[]> {
+  return (await request<{ courses: AdminCourse[] }>(`${BASE}course-admin`)).courses
+}
+
+export async function updateAdminCourse(id: string, patch: { hidden?: boolean; selfEnroll?: boolean }): Promise<AdminCourse[]> {
+  return (await request<{ courses: AdminCourse[] }>(withId('course-admin', id), json('PUT', patch))).courses
+}
+
 // --- Student -------------------------------------------------------------------------------
+
+/** Public courses an admin opened for students to start themselves. */
+export async function fetchCourseShelf(): Promise<ShelfCourse[]> {
+  return (await request<{ courses: ShelfCourse[] }>(`${STUDENT}course-shelf`)).courses
+}
+
+/** Starts a shelf course (or returns the enrollment already there). */
+export async function enrollInCourse(courseId: string): Promise<string> {
+  return (await request<{ enrollmentId: string }>(`${STUDENT}course-enroll&id=${encodeURIComponent(courseId)}`, { method: 'POST' })).enrollmentId
+}
+
 
 export async function fetchMyCourses(): Promise<MyCourseSummary[]> {
   return (await request<{ courses: MyCourseSummary[] }>(`${STUDENT}my-courses`)).courses
