@@ -4,7 +4,7 @@
 
 import { useCallback } from 'react'
 import { useLanguage, type Lang } from '../lib/i18n'
-import type { ModuleKind } from '../lib/courses'
+import type { ModuleKind, MyCourseSummary } from '../lib/courses'
 
 const COPY = {
   // Teacher list
@@ -313,9 +313,9 @@ const COPY = {
   // Student
   myCoursesTitle: { hu: 'Kurzusaim', en: 'My courses', de: 'Meine Kurse' },
   myCoursesSubtitle: {
-    hu: 'A tanáraid által kiosztott mini kurzusok. Modulonként kb. 10 perc, a haladásod mentődik.',
-    en: 'Mini courses your teachers assigned. About 10 minutes a module; your progress is saved.',
-    de: 'Mini-Kurse, die deine Lehrkräfte zugewiesen haben. Etwa 10 Minuten pro Modul; dein Fortschritt wird gespeichert.',
+    hu: 'A tanáraid által kiosztott és a magad választotta mini kurzusok. Modulonként kb. 10 perc, a haladásod mentődik.',
+    en: 'Mini courses your teachers assigned and ones you started. About 10 minutes a module; your progress is saved.',
+    de: 'Mini-Kurse, die deine Lehrkräfte zugewiesen haben, und solche, die du selbst gestartet hast. Etwa 10 Minuten pro Modul; dein Fortschritt wird gespeichert.',
   },
   myCoursesEmpty: { hu: 'Még nincs kurzusod. Ha a tanárod kioszt egyet, itt jelenik meg.', en: 'No courses yet. When your teacher assigns one, it appears here.', de: 'Noch keine Kurse. Wenn deine Lehrkraft einen zuweist, erscheint er hier.' },
   fromTeacher: { hu: 'tanár: {email}', en: 'from {email}', de: 'von {email}' },
@@ -449,6 +449,93 @@ const COPY = {
   roleplayError: { hu: 'A Tutor Bot most nem tudott válaszolni. Próbáld újra.', en: "The Tutor Bot couldn't answer right now. Try again.", de: 'Der Tutor Bot konnte gerade nicht antworten. Versuche es erneut.' },
   roleplayLimit: { hu: 'Mára elfogyott a beszélgetési keret.', en: "You've used today's conversations.", de: 'Die heutigen Gespräche sind aufgebraucht.' },
 
+  // Visibility (editor)
+  visibilityHeading: { hu: 'Ki találja meg?', en: 'Who can find it?', de: 'Wer kann ihn finden?' },
+  visibility_private: { hu: 'Privát', en: 'Private', de: 'Privat' },
+  visibility_public: { hu: 'Nyilvános', en: 'Public', de: 'Öffentlich' },
+  visibilityPrivateHint: {
+    hu: 'Csak te látod, és csak a saját diákjaidnak oszthatod ki.',
+    en: 'Only you see it, and you assign it to your own students.',
+    de: 'Nur du siehst ihn und weist ihn deinen eigenen Schülern zu.',
+  },
+  visibilityPublicHint: {
+    hu: 'Bekerül a kurzustárba: más tanárok megnézhetik és kioszthatják a diákjaiknak (szerkeszteni nem tudják). Az adminok kiválaszthatják, hogy a diákok maguk is elindíthassák.',
+    en: 'It goes into the library: other teachers can preview it and assign it to their students (they can’t edit it). Admins may pick it for students to start themselves.',
+    de: 'Er kommt in die Kursbibliothek: andere Lehrkräfte können ihn ansehen und ihren Schülern zuweisen (bearbeiten können sie ihn nicht). Admins können ihn auswählen, damit Schüler ihn selbst starten.',
+  },
+  authorName: { hu: 'Szerzőként megjelenő név', en: 'Shown as (author)', de: 'Angezeigt als (Autor)' },
+  authorNameHint: {
+    hu: 'Ezt a nevet látják a tanárok és a diákok a kurzusnál. Az e-mail címed nem jelenik meg.',
+    en: 'Teachers and students see this name on the course. Your email isn’t shown.',
+    de: 'Lehrkräfte und Schüler sehen diesen Namen am Kurs. Deine E-Mail wird nicht gezeigt.',
+  },
+  saveName: { hu: 'Név mentése', en: 'Save name', de: 'Namen speichern' },
+  makePrivateConfirm: {
+    hu: 'Kiveszed a kurzustárból? Akik már kiosztották vagy elkezdték, megtartják.',
+    en: 'Take it out of the library? Teachers and students who already have it keep it.',
+    de: 'Aus der Bibliothek nehmen? Wer ihn schon zugewiesen oder begonnen hat, behält ihn.',
+  },
+  publicNeedsPublish: { hu: 'A kurzustárban csak közzététel után jelenik meg.', en: 'It shows in the library once it’s published.', de: 'Er erscheint in der Bibliothek, sobald er veröffentlicht ist.' },
+  inLibraryNow: { hu: 'Most a kurzustárban van.', en: 'It’s in the library now.', de: 'Er ist jetzt in der Bibliothek.' },
+  adminHiddenNote: {
+    hu: 'Egy admin elrejtette a kurzustárból. Akik már elkezdték, megtartják.',
+    en: 'An admin hid it from the library. Anyone who already has it keeps it.',
+    de: 'Ein Admin hat ihn in der Bibliothek ausgeblendet. Wer ihn schon hat, behält ihn.',
+  },
+  selfEnrollNote: {
+    hu: 'Egy admin kiválasztotta: a diákok maguk is elindíthatják.',
+    en: 'An admin picked it: students can start it themselves.',
+    de: 'Ein Admin hat ihn ausgewählt: Schüler können ihn selbst starten.',
+  },
+
+  // Library (teachers)
+  tabMine: { hu: 'Saját kurzusaim', en: 'My courses', de: 'Meine Kurse' },
+  tabLibrary: { hu: 'Kurzustár', en: 'Library', de: 'Bibliothek' },
+  libraryHint: {
+    hu: 'Nyilvános kurzusok, más tanároké is. Nézd meg őket, és oszd ki a diákjaidnak.',
+    en: 'Public courses by other teachers too. Preview them and assign them to your students.',
+    de: 'Öffentliche Kurse, auch von anderen Lehrkräften. Sieh sie dir an und weise sie deinen Schülern zu.',
+  },
+  libraryEmpty: { hu: 'Még nincs nyilvános kurzus.', en: 'No public courses yet.', de: 'Noch keine öffentlichen Kurse.' },
+  libraryNoMatch: { hu: 'Nincs a szűrőnek megfelelő kurzus.', en: 'No course matches the filters.', de: 'Kein Kurs passt zu den Filtern.' },
+  filterLevel: { hu: 'Szint', en: 'Level', de: 'Niveau' },
+  filterAllLevels: { hu: 'Minden szint', en: 'All levels', de: 'Alle Niveaus' },
+  filterFocus: { hu: 'Készségek', en: 'Skills', de: 'Fertigkeiten' },
+  filterAllFocus: { hu: 'Mind', en: 'All', de: 'Alle' },
+  'focus_reading-writing': { hu: 'Olvasás + írás', en: 'Reading + writing', de: 'Lesen + Schreiben' },
+  'focus_listening-speaking': { hu: 'Hallás + beszéd', en: 'Listening + speaking', de: 'Hören + Sprechen' },
+  filterSearch: { hu: 'Keresés', en: 'Search', de: 'Suche' },
+  filterSearchPlaceholder: { hu: 'Cím, téma vagy szerző', en: 'Title, topic or author', de: 'Titel, Thema oder Autor' },
+  filterOnlyMine: { hu: 'Csak amit kiosztottam', en: 'Only ones I assigned', de: 'Nur von mir zugewiesene' },
+  byAuthor: { hu: 'Szerző: {name}', en: 'by {name}', de: 'von {name}' },
+  yours: { hu: 'Saját', en: 'Yours', de: 'Deiner' },
+  assignedByMe: { hu: '{n} diákodnak kiosztva', en: 'Assigned to {n} of your students', de: '{n} deiner Schüler zugewiesen' },
+  notListed: { hu: 'Már nincs a kurzustárban', en: 'No longer in the library', de: 'Nicht mehr in der Bibliothek' },
+  notListedHint: {
+    hu: 'Ez a kurzus már nincs a kurzustárban: újra nem oszthatod ki, de a diákjaid megtartják, és követheted a haladásukat.',
+    en: 'This course has left the library: you can’t assign it again, but your students keep it and you can follow their progress.',
+    de: 'Dieser Kurs ist nicht mehr in der Bibliothek: du kannst ihn nicht erneut zuweisen, aber deine Schüler behalten ihn und du kannst ihren Fortschritt verfolgen.',
+  },
+  backToLibrary: { hu: '← Vissza a kurzustárhoz', en: '← Back to the library', de: '← Zurück zur Bibliothek' },
+  editMine: { hu: 'Szerkesztés', en: 'Edit', de: 'Bearbeiten' },
+  libraryReadOnly: {
+    hu: 'Más tanár kurzusa: megnézheted és kioszthatod, de nem szerkesztheted.',
+    en: 'Another teacher’s course: you can preview and assign it, not edit it.',
+    de: 'Kurs einer anderen Lehrkraft: du kannst ihn ansehen und zuweisen, aber nicht bearbeiten.',
+  },
+  canDosShort: { hu: 'A lecke végére a diák:', en: 'By the end the learner can:', de: 'Am Ende kann der Lernende:' },
+
+  // Start a course (students)
+  shelfTitle: { hu: 'Kezdj el egy kurzust', en: 'Start a course', de: 'Starte einen Kurs' },
+  shelfHint: {
+    hu: 'Ezeket bárki elkezdheti, tanár nélkül is.',
+    en: 'Anyone can start these, with or without a teacher.',
+    de: 'Diese kann jeder starten, mit oder ohne Lehrkraft.',
+  },
+  shelfStart: { hu: 'Elkezdem', en: 'Start', de: 'Starten' },
+  shelfError: { hu: 'Nem sikerült elindítani. Próbáld újra.', en: "Couldn't start it. Try again.", de: 'Starten fehlgeschlagen. Versuche es erneut.' },
+  selfStarted: { hu: 'saját választás', en: 'started by you', de: 'selbst gestartet' },
+
   // Module kinds
   kind_vocabulary: { hu: 'Szókincs', en: 'Vocabulary', de: 'Wortschatz' },
   kind_reading: { hu: 'Olvasás', en: 'Reading', de: 'Lesen' },
@@ -473,5 +560,11 @@ export function useCourseCopy() {
     [lang],
   )
   const kind = useCallback((k: ModuleKind) => COPY[`kind_${k}`][lang], [lang])
-  return { c, kind, lang }
+  /** Who a learner's course is from: the assigning teacher (or 'started by you'), and the author of a public course. */
+  const credit = useCallback(
+    (course: Pick<MyCourseSummary, 'teacherEmail' | 'authorName' | 'source'>) =>
+      [course.source === 'self' ? c('selfStarted') : c('fromTeacher', { email: course.teacherEmail }), course.authorName && c('byAuthor', { name: course.authorName })].filter(Boolean).join(' · '),
+    [c],
+  )
+  return { c, kind, credit, lang }
 }

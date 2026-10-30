@@ -6,6 +6,7 @@ import { audioKeyFor as compAudioKeyFor, compScriptSsml } from './compTests.js'
 import { HttpError } from './examTasks.js'
 import { emailsFor } from './vocabListProgress.js'
 import { isActiveStudent } from './tenseExplorerSettings.js'
+import { getUserRole } from './roles.js'
 import { awardXp } from './gamification.js'
 import {
   FEEDBACK_CALL_TYPE,
@@ -38,6 +39,7 @@ import {
   defaultModuleTitle,
   planVariants,
   sanitizeAnswers,
+  sanitizeAuthorName,
   sanitizeCourseFields,
   sanitizeCreateInput,
   sanitizeModuleContent,
@@ -55,6 +57,10 @@ import {
   type CourseModule,
   type CourseSummary,
   type CourseUnit,
+  type CourseVisibility,
+  type AdminCourse,
+  type LibraryCourse,
+  type ShelfCourse,
   type ExplainLang,
   type ModuleAnswers,
   type ModuleAttempt,
@@ -99,8 +105,18 @@ import type { CompLevel, CompTestContent } from '../../src/lib/compTests.js'
 //   POST   course-blueprint&id=<unitId>  → { course, remaining } (AI outline of the unit)
 //   POST   course-module-generate&id=<moduleId>  → { course, remaining } (AI content of one module)
 //   GET    course-assign&id=             { enrollments } with each student's progress
-//   POST   course-assign&id=             { studentIds } → { enrollments } (connected students, published course)
+//   POST   course-assign&id=             { studentIds } → { enrollments } (connected students; the caller's
+//                                        published course or a library course)
 //   DELETE course-assign&id=&enrollmentId=  withdraw (the student's progress goes too)
+//   GET    course-assign lists and withdraws only the caller's own assignments.
+//   POST   course-visibility&id=         { visibility: 'public'|'private', authorName } → { course }
+//   GET    course-library[&id=]          the library: public, published, not hidden courses (LibraryCourse[]),
+//                                        or one of them to read and preview ({ course, mine, listed })
+//   course-feedback / course-roleplay also preview modules of courses in the library.
+//
+// Admin (api/teacher-tools.ts, admin role only):
+//   GET    course-admin                  { courses } every public course (AdminCourse[])
+//   PUT    course-admin&id=              { hidden?, selfEnroll? } → { courses }
 // AI calls are counted together: at most COURSE_GENERATIONS_PER_DAY per UTC day (429).
 //
 // Student (api/gamification.ts, any signed-in user, only their own enrollments):
@@ -114,12 +130,14 @@ import type { CompLevel, CompTestContent } from '../../src/lib/compTests.js'
 //   POST   my-course-flag&id=<attemptId>       { stepId, reason, note?, answer? } → { result } the AI checks the
 //                                        exercise and fixes it in the course when it is wrong (FLAGS_PER_DAY)
 //   POST   my-course-complete&id=<attemptId>   { answers } → { completion, xp } scored on the server
+//   GET    course-shelf                  { courses } (ShelfCourse[]) public courses an admin opened for self-enroll
+//   POST   course-enroll&id=<courseId>   → { enrollmentId } start one (or the enrollment already there)
 //
 // A course, unit, module, enrollment or attempt that doesn't exist and one that belongs to
 // someone else both return 404.
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const COURSE_COLUMNS = 'id, teacher_id, title, topic, level, explain_lang, status, visibility, admin_hidden, self_enroll, access_tier, created_at, updated_at'
+const COURSE_COLUMNS = 'id, teacher_id, title, topic, level, explain_lang, status, visibility, author_name, admin_hidden, self_enroll, access_tier, created_at, updated_at'
 const UNIT_COLUMNS = 'id, course_id, position, title, topic, template, grammar_ids, can_dos, blueprint, status'
 const MODULE_COLUMNS = 'id, unit_id, position, kind, variant, title, est_minutes, content, version'
 const ENROLLMENT_COLUMNS = 'id, course_id, student_id, source, assigned_by, started_at, completed_at'
@@ -142,7 +160,8 @@ interface CourseRow {
   level: CourseLevel
   explain_lang: ExplainLang
   status: PublishStatus
-  visibility: 'private' | 'public'
+  visibility: CourseVisibility
+  author_name: string
   admin_hidden: boolean
   self_enroll: boolean
   access_tier: string
@@ -276,6 +295,30 @@ async function loadOwnModule(moduleId: string, teacherId: string): Promise<{ mod
   return { module, ...(await loadOwnUnit(module.unit_id, teacherId)) }
 }
 
+/**
+ * Whether a teacher may look at (and preview) the course: their own, one in the library, or —
+ * for an admin — any public course, hidden ones too.
+ */
+async function canView(course: CourseRow, userId: string): Promise<boolean> {
+  if (course.teacher_id === userId || inLibrary(course)) return true
+  return course.visibility === 'public' && (await getUserRole(userId)) === 'admin'
+}
+
+/** A module the teacher may preview: in their own course, or in a published unit of a course they may view. */
+async function loadPreviewModule(moduleId: string, userId: string): Promise<{ module: ModuleRow; unit: UnitRow; course: CourseRow }> {
+  const { data, error } = await supabaseAdmin.from('course_modules').select(MODULE_COLUMNS).eq('id', moduleId).maybeSingle()
+  if (error) throw error
+  if (!data) throw new HttpError(404, { error: 'Not found' })
+  const module = data as ModuleRow
+  const { data: unitData, error: unitError } = await supabaseAdmin.from('course_units').select(UNIT_COLUMNS).eq('id', module.unit_id).maybeSingle()
+  if (unitError) throw unitError
+  const unit = unitData as UnitRow | null
+  const course = unit ? await loadCourseRow(unit.course_id) : null
+  if (!unit || !course) throw new HttpError(404, { error: 'Not found' })
+  if (course.teacher_id !== userId && (unit.status !== 'published' || !(await canView(course, userId)))) throw new HttpError(404, { error: 'Not found' })
+  return { module, unit, course }
+}
+
 // --- Recordings (listening modules) -------------------------------------------------------
 
 /**
@@ -355,6 +398,9 @@ function toCourse(tree: Tree, urls: Map<string, string | null> = new Map()): Cou
     explainLang: course.explain_lang,
     status: course.status,
     visibility: course.visibility,
+    authorName: course.author_name,
+    adminHidden: course.admin_hidden,
+    selfEnroll: course.self_enroll,
     units: tree.units.map(
       (u): CourseUnit => ({
         id: u.id,
@@ -397,12 +443,22 @@ async function touch(courseId: string) {
 // --- Access (the one place a paywall will plug in) -----------------------------------------
 
 /**
- * Whether the student may open the course: today, a published course they are enrolled in.
- * Phase 3 adds self-enroll (public, admin-picked, not hidden); the paywall later checks
- * course.access_tier here too.
+ * Whether the student may open the course: a published course they are enrolled in (assigned,
+ * or started from the shelf). Hiding a course or closing self-enroll later doesn't take it away
+ * from students who started it. The paywall later checks course.access_tier here too.
  */
 export function canAccessCourse(course: Pick<CourseRow, 'status'>, enrollment: EnrollmentRow | null): boolean {
   return !!enrollment && course.status === 'published'
+}
+
+/** Whether a student may start the course themselves: public, published, not hidden, admin-picked. */
+export function canSelfEnroll(course: Pick<CourseRow, 'status' | 'visibility' | 'admin_hidden' | 'self_enroll'>): boolean {
+  return inLibrary(course) && course.self_enroll
+}
+
+/** Whether the course is in the teachers' library: public, published and not hidden by an admin. */
+export function inLibrary(course: Pick<CourseRow, 'status' | 'visibility' | 'admin_hidden'>): boolean {
+  return course.visibility === 'public' && course.status === 'published' && !course.admin_hidden
 }
 
 // --- Teacher: courses ----------------------------------------------------------------------
@@ -441,11 +497,11 @@ export async function handleCourses(req: VercelRequest, res: VercelResponse, tea
   if (req.method === 'GET' && req.query.id === undefined) {
     const { data, error } = await supabaseAdmin
       .from('courses')
-      .select('id, title, topic, level, status, updated_at')
+      .select('id, title, topic, level, status, visibility, updated_at')
       .eq('teacher_id', teacherId)
       .order('updated_at', { ascending: false })
     if (error) throw error
-    const rows = (data ?? []) as Pick<CourseRow, 'id' | 'title' | 'topic' | 'level' | 'status' | 'updated_at'>[]
+    const rows = (data ?? []) as Pick<CourseRow, 'id' | 'title' | 'topic' | 'level' | 'status' | 'visibility' | 'updated_at'>[]
     const ids = rows.map((r) => r.id)
     const units = new Map<string, string[]>()
     const moduleCount = new Map<string, number>()
@@ -474,6 +530,7 @@ export async function handleCourses(req: VercelRequest, res: VercelResponse, tea
       topic: r.topic,
       level: r.level,
       status: r.status,
+      visibility: r.visibility,
       unitCount: units.get(r.id)?.length ?? 0,
       moduleCount: moduleCount.get(r.id) ?? 0,
       enrolledCount: enrolled.get(r.id) ?? 0,
@@ -542,6 +599,19 @@ export async function handleCoursePublish(req: VercelRequest, res: VercelRespons
     if (error) throw error
   }
   const { error } = await supabaseAdmin.from('courses').update({ status, updated_at: new Date().toISOString() }).eq('id', row.id)
+  if (error) throw error
+  res.status(200).json({ course: await courseResponse(row.id) })
+}
+
+/** Private (own students only) or public (the library, credited by authorName). */
+export async function handleCourseVisibility(req: VercelRequest, res: VercelResponse, teacherId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const row = await loadOwnCourse(uuid(req.query.id), teacherId)
+  const b = body(req)
+  if (b.visibility !== 'public' && b.visibility !== 'private') throw new HttpError(400, { error: 'visibility must be public or private' })
+  const patch: Record<string, unknown> = { visibility: b.visibility, updated_at: new Date().toISOString() }
+  if (b.visibility === 'public') patch.author_name = validated(() => sanitizeAuthorName(b.authorName))
+  const { error } = await supabaseAdmin.from('courses').update(patch).eq('id', row.id)
   if (error) throw error
   res.status(200).json({ course: await courseResponse(row.id) })
 }
@@ -742,7 +812,7 @@ async function roleplayTurn(step: CourseStep | undefined, rawHistory: unknown, l
 export async function handleCourseRoleplay(req: VercelRequest, res: VercelResponse, teacherId: string) {
   if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
   const b = body(req)
-  const { module, course } = await loadOwnModule(uuid(b.moduleId), teacherId)
+  const { module, course } = await loadPreviewModule(uuid(b.moduleId), teacherId)
   res.status(200).json(await roleplayTurn(module.content?.steps.find((s) => s.id === b.stepId), b.history, course.level, teacherId))
 }
 
@@ -838,7 +908,7 @@ export async function handleCourseFixes(req: VercelRequest, res: VercelResponse,
 export async function handleCourseFeedback(req: VercelRequest, res: VercelResponse, teacherId: string) {
   if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
   const b = body(req)
-  const { module, unit, course } = await loadOwnModule(uuid(b.moduleId), teacherId)
+  const { module, unit, course } = await loadPreviewModule(uuid(b.moduleId), teacherId)
   const step = module.content?.steps.find((s) => s.id === b.stepId)
   if (!step || !OPEN_TYPES.has(step.type)) throw new HttpError(400, { error: 'Not a writing or speaking step' })
   const text = openText(b.text)
@@ -1122,6 +1192,8 @@ function buildMyCourse(tree: Tree, enrollment: EnrollmentRow, attempts: AttemptR
     topic: tree.course.topic,
     level: tree.course.level,
     teacherEmail,
+    authorName: tree.course.visibility === 'public' ? tree.course.author_name : '',
+    source: enrollment.source,
     unitCount: units.length,
     modulesDone: done,
     modulesTotal: total,
@@ -1133,8 +1205,9 @@ function buildMyCourse(tree: Tree, enrollment: EnrollmentRow, attempts: AttemptR
 
 // --- Teacher: assigning --------------------------------------------------------------------
 
-async function listEnrollments(tree: Tree): Promise<CourseEnrollment[]> {
-  const { data, error } = await supabaseAdmin.from('course_enrollments').select(ENROLLMENT_COLUMNS).eq('course_id', tree.course.id)
+/** The teacher's own students on the course (a library course is assigned by many teachers). */
+async function listEnrollments(tree: Tree, teacherId: string): Promise<CourseEnrollment[]> {
+  const { data, error } = await supabaseAdmin.from('course_enrollments').select(ENROLLMENT_COLUMNS).eq('course_id', tree.course.id).eq('assigned_by', teacherId)
   if (error) throw error
   const rows = (data ?? []) as EnrollmentRow[]
   const attempts = await attemptsFor(rows.map((r) => r.id))
@@ -1163,17 +1236,32 @@ async function listEnrollments(tree: Tree): Promise<CourseEnrollment[]> {
     .sort((a, b) => a.studentEmail.localeCompare(b.studentEmail))
 }
 
+/** Whether the teacher has assigned the course to anyone (they keep following them after it leaves the library). */
+async function hasAssigned(courseId: string, teacherId: string): Promise<boolean> {
+  const { count, error } = await supabaseAdmin.from('course_enrollments').select('id', { count: 'exact', head: true }).eq('course_id', courseId).eq('assigned_by', teacherId)
+  if (error) throw error
+  return (count ?? 0) > 0
+}
+
+/**
+ * The teacher's own course, or a library course (assign from the library). A course that has left
+ * the library can still be followed and withdrawn by teachers who assigned it, not assigned again.
+ */
 export async function handleCourseAssign(req: VercelRequest, res: VercelResponse, teacherId: string) {
-  const course = await loadOwnCourse(uuid(req.query.id), teacherId)
+  const course = await loadCourseRow(uuid(req.query.id))
+  if (!course) throw new HttpError(404, { error: 'Not found' })
+  const assignable = course.teacher_id === teacherId || inLibrary(course)
+  if (!assignable && !(await hasAssigned(course.id, teacherId))) throw new HttpError(404, { error: 'Not found' })
   const tree = await loadTree(course)
 
   if (req.method === 'GET') {
-    res.status(200).json({ enrollments: await listEnrollments(tree) })
+    res.status(200).json({ enrollments: await listEnrollments(tree, teacherId) })
     return
   }
 
   if (req.method === 'POST') {
     if (course.status !== 'published') throw new HttpError(409, { error: 'not_published' })
+    if (!assignable) throw new HttpError(409, { error: 'not_in_library' })
     const b = body(req)
     const ids = Array.isArray(b.studentIds) ? [...new Set(b.studentIds.filter((x): x is string => typeof x === 'string' && UUID_RE.test(x)))] : []
     if (ids.length === 0 || ids.length > MAX_ASSIGN_AT_ONCE) throw new HttpError(400, { error: 'studentIds is required' })
@@ -1185,23 +1273,259 @@ export async function handleCourseAssign(req: VercelRequest, res: VercelResponse
         { onConflict: 'course_id,student_id', ignoreDuplicates: true },
       )
     if (error) throw error
-    res.status(200).json({ enrollments: await listEnrollments(tree) })
+    // A student who had started it on their own is now this teacher's to follow.
+    const { error: claimError } = await supabaseAdmin
+      .from('course_enrollments')
+      .update({ source: 'assigned', assigned_by: teacherId })
+      .eq('course_id', course.id)
+      .in('student_id', ids)
+      .is('assigned_by', null)
+    if (claimError) throw claimError
+    res.status(200).json({ enrollments: await listEnrollments(tree, teacherId) })
     return
   }
 
   if (req.method === 'DELETE') {
     const enrollmentId = uuid(req.query.enrollmentId)
-    const { data, error } = await supabaseAdmin.from('course_enrollments').delete().eq('id', enrollmentId).eq('course_id', course.id).select('id')
+    const { data, error } = await supabaseAdmin.from('course_enrollments').delete().eq('id', enrollmentId).eq('course_id', course.id).eq('assigned_by', teacherId).select('id')
     if (error) throw error
     if (!data || data.length === 0) throw new HttpError(404, { error: 'Not found' })
-    res.status(200).json({ enrollments: await listEnrollments(tree) })
+    res.status(200).json({ enrollments: await listEnrollments(tree, teacherId) })
     return
   }
 
   throw new HttpError(405, { error: 'Method not allowed' })
 }
 
+// --- Library -------------------------------------------------------------------------------
+
+type CourseOutline = LibraryCourse['units']
+
+/** The published units of the courses and their modules (no content), by course id. */
+async function outlines(courseIds: string[]): Promise<Map<string, CourseOutline>> {
+  const out = new Map<string, CourseOutline>(courseIds.map((id) => [id, []]))
+  if (courseIds.length === 0) return out
+  const { data: unitData, error } = await supabaseAdmin.from('course_units').select('id, course_id, position, title, topic').in('course_id', courseIds).eq('status', 'published').order('position')
+  if (error) throw error
+  const units = (unitData ?? []) as Pick<UnitRow, 'id' | 'course_id' | 'position' | 'title' | 'topic'>[]
+  const modules = new Map<string, LibraryCourse['units'][number]['modules']>(units.map((u) => [u.id, []]))
+  if (units.length) {
+    const { data, error: modError } = await supabaseAdmin
+      .from('course_modules')
+      .select('unit_id, position, kind, title, est_minutes')
+      .in(
+        'unit_id',
+        units.map((u) => u.id),
+      )
+      .order('position')
+    if (modError) throw modError
+    for (const m of (data ?? []) as Pick<ModuleRow, 'unit_id' | 'kind' | 'title' | 'est_minutes'>[]) modules.get(m.unit_id)?.push({ kind: m.kind, title: m.title, estMinutes: m.est_minutes })
+  }
+  for (const u of units) out.get(u.course_id)?.push({ title: u.title, topic: u.topic, modules: modules.get(u.id) ?? [] })
+  return out
+}
+
+const minutesOf = (units: CourseOutline) => units.reduce((s, u) => s + u.modules.reduce((t, m) => t + m.estMinutes, 0), 0)
+
+/** At most this many courses in one library listing (newest first). */
+const LIBRARY_MAX = 300
+
+/**
+ * GET course-library: the library (public, published, not hidden) plus courses that left it but
+ * that the teacher still has students on. GET course-library&id=: one of them to read and
+ * preview — published units only, without the author's outline notes, unless it is the caller's.
+ */
+export async function handleCourseLibrary(req: VercelRequest, res: VercelResponse, teacherId: string) {
+  if (req.method !== 'GET') throw new HttpError(405, { error: 'Method not allowed' })
+
+  if (req.query.id !== undefined) {
+    const row = await loadCourseRow(uuid(req.query.id))
+    if (!row || !((await canView(row, teacherId)) || (await hasAssigned(row.id, teacherId)))) throw new HttpError(404, { error: 'Not found' })
+    const tree = await loadTree(row)
+    const mine = row.teacher_id === teacherId
+    const shown: Tree = mine ? tree : { ...tree, units: tree.units.filter((u) => u.status === 'published').map((u) => ({ ...u, blueprint: null })) }
+    res.status(200).json({ course: await courseView(shown), mine, listed: inLibrary(row) })
+    return
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('courses')
+    .select(COURSE_COLUMNS)
+    .eq('visibility', 'public')
+    .eq('status', 'published')
+    .eq('admin_hidden', false)
+    .order('updated_at', { ascending: false })
+    .limit(LIBRARY_MAX)
+  if (error) throw error
+  const rows = (data ?? []) as CourseRow[]
+  const { data: mineData, error: mineError } = await supabaseAdmin.from('course_enrollments').select('course_id').eq('assigned_by', teacherId)
+  if (mineError) throw mineError
+  const assigned = new Map<string, number>()
+  for (const e of mineData ?? []) assigned.set(e.course_id as string, (assigned.get(e.course_id as string) ?? 0) + 1)
+  // Other teachers' courses the caller has students on that are no longer in the library.
+  const missing = [...assigned.keys()].filter((id) => !rows.some((r) => r.id === id))
+  if (missing.length) {
+    const { data: extra, error: extraError } = await supabaseAdmin.from('courses').select(COURSE_COLUMNS).in('id', missing).neq('teacher_id', teacherId).eq('status', 'published')
+    if (extraError) throw extraError
+    rows.push(...((extra ?? []) as CourseRow[]))
+  }
+  const units = await outlines(rows.map((r) => r.id))
+  const courses: LibraryCourse[] = rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    topic: r.topic,
+    level: r.level,
+    authorName: r.author_name,
+    mine: r.teacher_id === teacherId,
+    listed: inLibrary(r),
+    units: units.get(r.id) ?? [],
+    estMinutes: minutesOf(units.get(r.id) ?? []),
+    assignedByMe: assigned.get(r.id) ?? 0,
+    updatedAt: r.updated_at,
+  }))
+  res.status(200).json({ courses })
+}
+
+// --- Admin ---------------------------------------------------------------------------------
+
+async function listAdminCourses(): Promise<AdminCourse[]> {
+  const { data, error } = await supabaseAdmin.from('courses').select(COURSE_COLUMNS).eq('visibility', 'public').order('updated_at', { ascending: false })
+  if (error) throw error
+  const rows = (data ?? []) as CourseRow[]
+  const assigned = new Map<string, number>()
+  const self = new Map<string, number>()
+  if (rows.length) {
+    const { data: enr, error: enrError } = await supabaseAdmin
+      .from('course_enrollments')
+      .select('course_id, source')
+      .in(
+        'course_id',
+        rows.map((r) => r.id),
+      )
+    if (enrError) throw enrError
+    for (const e of enr ?? []) {
+      const counts = e.source === 'self' ? self : assigned
+      counts.set(e.course_id as string, (counts.get(e.course_id as string) ?? 0) + 1)
+    }
+  }
+  const emails = await emailsFor([...new Set(rows.map((r) => r.teacher_id))])
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    level: r.level,
+    authorName: r.author_name,
+    teacherEmail: emails.get(r.teacher_id) ?? '',
+    status: r.status,
+    hidden: r.admin_hidden,
+    selfEnroll: r.self_enroll,
+    assignedCount: assigned.get(r.id) ?? 0,
+    selfCount: self.get(r.id) ?? 0,
+    updatedAt: r.updated_at,
+  }))
+}
+
+/**
+ * Admins only. GET course-admin: every public course. PUT course-admin&id= { hidden?, selfEnroll? }:
+ * hidden takes it out of the library and off the shelf (students who started it keep it);
+ * selfEnroll puts it on the students' "Start a course" shelf.
+ */
+export async function handleCourseAdmin(req: VercelRequest, res: VercelResponse, userId: string) {
+  if ((await getUserRole(userId)) !== 'admin') throw new HttpError(403, { error: 'Forbidden' })
+  if (req.method === 'GET') {
+    res.status(200).json({ courses: await listAdminCourses() })
+    return
+  }
+  if (req.method !== 'PUT') throw new HttpError(405, { error: 'Method not allowed' })
+  const row = await loadCourseRow(uuid(req.query.id))
+  if (!row || row.visibility !== 'public') throw new HttpError(404, { error: 'Not found' })
+  const b = body(req)
+  const patch: Record<string, boolean> = {}
+  if (typeof b.hidden === 'boolean') patch.admin_hidden = b.hidden
+  if (typeof b.selfEnroll === 'boolean') patch.self_enroll = b.selfEnroll
+  if (Object.keys(patch).length === 0) throw new HttpError(400, { error: 'hidden or selfEnroll is required' })
+  // Not updated_at: that is the author's last edit.
+  const { error } = await supabaseAdmin.from('courses').update(patch).eq('id', row.id)
+  if (error) throw error
+  res.status(200).json({ courses: await listAdminCourses() })
+}
+
 // --- Student -------------------------------------------------------------------------------
+
+/** GET course-shelf: the courses a student may start themselves, with their enrollment when started. */
+async function handleCourseShelf(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'GET') throw new HttpError(405, { error: 'Method not allowed' })
+  const { data, error } = await supabaseAdmin
+    .from('courses')
+    .select(COURSE_COLUMNS)
+    .eq('visibility', 'public')
+    .eq('status', 'published')
+    .eq('admin_hidden', false)
+    .eq('self_enroll', true)
+    .order('level')
+    .order('updated_at', { ascending: false })
+  if (error) throw error
+  const rows = ((data ?? []) as CourseRow[]).filter(canSelfEnroll)
+  const units = await outlines(rows.map((r) => r.id))
+  const enrolled = new Map<string, string>()
+  if (rows.length) {
+    const { data: enr, error: enrError } = await supabaseAdmin
+      .from('course_enrollments')
+      .select('id, course_id')
+      .eq('student_id', userId)
+      .in(
+        'course_id',
+        rows.map((r) => r.id),
+      )
+    if (enrError) throw enrError
+    for (const e of enr ?? []) enrolled.set(e.course_id as string, e.id as string)
+  }
+  const courses: ShelfCourse[] = rows
+    .map((r) => {
+      const outline = units.get(r.id) ?? []
+      const modules = outline.flatMap((u) => u.modules)
+      return {
+        id: r.id,
+        title: r.title,
+        topic: r.topic,
+        level: r.level,
+        authorName: r.author_name,
+        unitCount: outline.length,
+        modulesTotal: modules.length,
+        estMinutes: minutesOf(outline),
+        kinds: [...new Set(modules.map((m) => m.kind))],
+        enrollmentId: enrolled.get(r.id) ?? null,
+      }
+    })
+    .filter((c) => c.modulesTotal > 0)
+  res.status(200).json({ courses })
+}
+
+/** POST course-enroll&id=<courseId>: start a shelf course → { enrollmentId } (the existing one when already started). */
+async function handleCourseEnroll(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const row = await loadCourseRow(uuid(req.query.id))
+  if (!row) throw new HttpError(404, { error: 'Not found' })
+  const { data: existing, error: existingError } = await supabaseAdmin.from('course_enrollments').select('id').eq('course_id', row.id).eq('student_id', userId).maybeSingle()
+  if (existingError) throw existingError
+  if (existing && canAccessCourse(row, existing as EnrollmentRow)) {
+    res.status(200).json({ enrollmentId: existing.id })
+    return
+  }
+  if (!canSelfEnroll(row)) throw new HttpError(404, { error: 'Not found' })
+  const { data, error } = await supabaseAdmin
+    .from('course_enrollments')
+    .upsert({ course_id: row.id, student_id: userId, source: 'self', assigned_by: null }, { onConflict: 'course_id,student_id', ignoreDuplicates: true })
+    .select('id')
+  if (error) throw error
+  let enrollmentId = (data ?? [])[0]?.id as string | undefined
+  if (!enrollmentId) {
+    // Lost a race with a second tap: read the row the other request made.
+    const { data: again, error: againError } = await supabaseAdmin.from('course_enrollments').select('id').eq('course_id', row.id).eq('student_id', userId).single()
+    if (againError) throw againError
+    enrollmentId = again.id as string
+  }
+  res.status(200).json({ enrollmentId })
+}
 
 async function loadMyEnrollment(enrollmentId: string, studentId: string): Promise<{ enrollment: EnrollmentRow; tree: Tree }> {
   const { data, error } = await supabaseAdmin.from('course_enrollments').select(ENROLLMENT_COLUMNS).eq('id', enrollmentId).eq('student_id', studentId).maybeSingle()
@@ -1213,8 +1537,15 @@ async function loadMyEnrollment(enrollmentId: string, studentId: string): Promis
   return { enrollment, tree: await loadTree(course) }
 }
 
-async function teacherEmail(tree: Tree): Promise<string> {
-  return (await emailsFor([tree.course.teacher_id])).get(tree.course.teacher_id) ?? ''
+/** Who the course is from for the student: the teacher who assigned it (none when they started it themselves). */
+function assignerOf(enrollment: EnrollmentRow, tree: Tree): string | null {
+  if (enrollment.source === 'self') return null
+  return enrollment.assigned_by ?? tree.course.teacher_id
+}
+
+async function teacherEmail(enrollment: EnrollmentRow, tree: Tree): Promise<string> {
+  const id = assignerOf(enrollment, tree)
+  return id ? ((await emailsFor([id])).get(id) ?? '') : ''
 }
 
 function summaryOf(course: MyCourse): MyCourseSummary {
@@ -1234,14 +1565,15 @@ async function handleMyCourses(req: VercelRequest, res: VercelResponse, userId: 
     const course = await loadCourseRow(e.course_id)
     if (!course || !canAccessCourse(course, e)) continue
     const tree = await loadTree(course)
-    if (!emails.has(course.teacher_id)) emails.set(course.teacher_id, await teacherEmail(tree))
+    const from = assignerOf(e, tree)
+    if (from && !emails.has(from)) emails.set(from, await teacherEmail(e, tree))
     courses.push(
       summaryOf(
         buildMyCourse(
           tree,
           e,
           attempts.filter((a) => a.enrollment_id === e.id),
-          emails.get(course.teacher_id) ?? '',
+          from ? (emails.get(from) ?? '') : '',
         ),
       ),
     )
@@ -1252,7 +1584,7 @@ async function handleMyCourses(req: VercelRequest, res: VercelResponse, userId: 
 async function handleMyCourse(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'GET') throw new HttpError(405, { error: 'Method not allowed' })
   const { enrollment, tree } = await loadMyEnrollment(uuid(req.query.id), userId)
-  const course = buildMyCourse(tree, enrollment, await attemptsFor([enrollment.id]), await teacherEmail(tree))
+  const course = buildMyCourse(tree, enrollment, await attemptsFor([enrollment.id]), await teacherEmail(enrollment, tree))
   res.status(200).json({ course })
 }
 
@@ -1511,6 +1843,8 @@ const STUDENT_HANDLERS: Record<string, (req: VercelRequest, res: VercelResponse,
   'my-course-roleplay': handleMyCourseRoleplay,
   'my-course-flag': handleMyCourseFlag,
   'my-course-complete': handleMyCourseComplete,
+  'course-shelf': handleCourseShelf,
+  'course-enroll': handleCourseEnroll,
 }
 
 export const COURSE_STUDENT_ACTIONS = new Set(Object.keys(STUDENT_HANDLERS))

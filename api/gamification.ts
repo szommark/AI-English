@@ -87,7 +87,8 @@ import type {
 //   goals:   learner goals (GROW) for the learner and their teachers — api/_lib/learnerGoals.ts
 //   tests:   my-tests, my-test, my-test-submit — comprehension tests a teacher assigned (api/_lib/compTests.ts)
 //   courses: my-courses, my-course, my-course-module, my-course-progress, my-course-complete —
-//            mini courses a teacher assigned (api/_lib/courses.ts)
+//            mini courses a teacher assigned; course-shelf, course-enroll — public courses an admin
+//            opened for self-enroll (api/_lib/courses.ts)
 
 const ALLOWED_AWARD_FIELDS = new Set(['activityType', 'itemRef', 'language', 'performanceScore', 'units'])
 const MAX_ITEM_REF_LENGTH = 200

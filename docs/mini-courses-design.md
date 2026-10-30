@@ -199,9 +199,9 @@ Each phase is one or a few PRs; the migration is hand-run before merge as usual.
 - Still to do: Pronunciation (then it returns to Balanced and Listening + Speaking).
 
 **Phase 3 — Library and self-enroll**
-- Public visibility, library tab with filters and author credit, assign from library.
-- `/admin/courses`: hide + open for self-enroll.
-- Student "Start a course" shelf and self-enroll; Report a problem for course content.
+- Built: Private/Public switch in the editor with a "Shown as" author name (`courses.author_name`), library tab with level / skill / search filters and author credit, a read-and-preview page per library course, assign from the library (each teacher sees and withdraws only their own students; a student who started a course alone is taken over by the teacher who assigns it).
+- Built: `/admin/courses`: hide + open for self-enroll (students already on a course keep it).
+- Built: student "Start a course" shelf on `/my-courses` and self-enroll. Bad content is already covered by the in-player flag (AI check and fix).
 
 **Later (not designed yet)**
 - Combining units/courses from other teachers (copy with credit via `source_unit_id`), level rules for combining; raising the 4-unit ceiling.

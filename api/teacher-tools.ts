@@ -30,8 +30,11 @@ import {
 import { findSources } from './_lib/sourceFinder.js'
 import { handleCompAssign, handleCompAudio, handleCompGenerate, handleCompResult, handleCompTests } from './_lib/compTests.js'
 import {
+  handleCourseAdmin,
   handleCourseAssign,
   handleCourseBlueprint,
+  handleCourseLibrary,
+  handleCourseVisibility,
   handleCourseFeedback,
   handleCourseFixes,
   handleCourseRoleplay,
@@ -77,7 +80,8 @@ import { EXAM_FIELDS, LISTENING_FORMATS, TASK_GENERATIONS_PER_DAY, TASK_LEVELS }
 //
 // Mini courses (units of coursebook-style modules assigned to students; see api/_lib/courses.ts):
 //   courses, course-publish, course-units, course-modules, course-module-audio, course-blueprint,
-//   course-module-generate, course-feedback, course-roleplay, course-fixes, course-assign
+//   course-module-generate, course-feedback, course-roleplay, course-fixes, course-assign,
+//   course-visibility, course-library, course-admin (admins only)
 
 // AI task generation and TTS rendering can take tens of seconds.
 export const config = { maxDuration: 60 }
@@ -376,6 +380,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'course-assign':
         await handleCourseAssign(req, res, user.id)
+        return
+      case 'course-visibility':
+        await handleCourseVisibility(req, res, user.id)
+        return
+      case 'course-library':
+        await handleCourseLibrary(req, res, user.id)
+        return
+      case 'course-admin':
+        await handleCourseAdmin(req, res, user.id)
         return
       case 'teachers':
         await handleTeachers(req, res, user.id)

@@ -27,6 +27,8 @@ export const MAX_GRAMMAR_PER_UNIT = 2
 export const COURSE_TITLE_MAX = 160
 export const COURSE_TOPIC_MAX = 160
 export const UNIT_NOTES_MAX = 500
+/** The name a teacher is credited by on a public course. */
+export const AUTHOR_NAME_MAX = 80
 /** AI calls (unit outlines + modules) a teacher may make per UTC day. */
 export const COURSE_GENERATIONS_PER_DAY = 60
 
@@ -681,11 +683,19 @@ export interface Course {
   level: CourseLevel
   explainLang: ExplainLang
   status: PublishStatus
-  visibility: 'private' | 'public'
+  visibility: CourseVisibility
+  /** The name the teacher is credited by in the library ('' until the course is made public). */
+  authorName: string
+  /** An admin took it out of the library (students who started it keep it). */
+  adminHidden: boolean
+  /** An admin picked it for students to start themselves. */
+  selfEnroll: boolean
   units: CourseUnit[]
   createdAt: string
   updatedAt: string
 }
+
+export type CourseVisibility = 'private' | 'public'
 
 export interface CourseSummary {
   id: string
@@ -693,6 +703,7 @@ export interface CourseSummary {
   topic: string
   level: CourseLevel
   status: PublishStatus
+  visibility: CourseVisibility
   unitCount: number
   moduleCount: number
   enrolledCount: number
@@ -774,7 +785,11 @@ export interface MyCourseSummary {
   title: string
   topic: string
   level: CourseLevel
+  /** The teacher who assigned it ('' for a course the learner started themselves). */
   teacherEmail: string
+  /** Credit on a public course ('' for a private one). */
+  authorName: string
+  source: 'assigned' | 'self'
   unitCount: number
   modulesDone: number
   modulesTotal: number
@@ -829,6 +844,106 @@ export interface CourseItemFix {
 export interface RoleplayLine {
   role: 'bot' | 'learner'
   text: string
+}
+
+// --- Library and self-enroll ---------------------------------------------------------------
+
+/** A module as the library lists it (no content). */
+export interface LibraryModule {
+  kind: ModuleKind
+  title: string
+  estMinutes: number
+}
+
+/** A public course in the teachers' library. */
+export interface LibraryCourse {
+  id: string
+  title: string
+  topic: string
+  level: CourseLevel
+  authorName: string
+  /** The caller made it. */
+  mine: boolean
+  /**
+   * In the library now (public, published, not hidden). False for a course listed only because
+   * the caller has students on it from before.
+   */
+  listed: boolean
+  units: { title: string; topic: string; modules: LibraryModule[] }[]
+  estMinutes: number
+  /** The caller's students on it. */
+  assignedByMe: number
+  updatedAt: string
+}
+
+/** A course a student may start themselves (public, admin-picked). */
+export interface ShelfCourse {
+  id: string
+  title: string
+  topic: string
+  level: CourseLevel
+  authorName: string
+  unitCount: number
+  modulesTotal: number
+  estMinutes: number
+  kinds: ModuleKind[]
+  /** Already started: the learner's enrollment. */
+  enrollmentId: string | null
+}
+
+/** A public course on the admin's list. */
+export interface AdminCourse {
+  id: string
+  title: string
+  level: CourseLevel
+  authorName: string
+  teacherEmail: string
+  status: PublishStatus
+  hidden: boolean
+  selfEnroll: boolean
+  /** Students assigned by any teacher. */
+  assignedCount: number
+  /** Students who started it themselves. */
+  selfCount: number
+  updatedAt: string
+}
+
+export type SkillFocus = 'reading-writing' | 'listening-speaking'
+export const SKILL_FOCUSES: SkillFocus[] = ['reading-writing', 'listening-speaking']
+
+/** The skill pairs a course works on, from its module kinds (a course can have both). */
+export function skillFocuses(kinds: Iterable<ModuleKind>): Set<SkillFocus> {
+  const out = new Set<SkillFocus>()
+  for (const k of kinds) {
+    if (k === 'reading' || k === 'writing') out.add('reading-writing')
+    if (k === 'listening' || k === 'speaking') out.add('listening-speaking')
+  }
+  return out
+}
+
+/** The library filters: level, skill pair and a search over title, topic and author. */
+export function matchesLibraryFilter(course: LibraryCourse, filter: { level: CourseLevel | ''; focus: SkillFocus | ''; query: string }): boolean {
+  if (filter.level && course.level !== filter.level) return false
+  if (filter.focus && !skillFocuses(course.units.flatMap((u) => u.modules.map((m) => m.kind))).has(filter.focus)) return false
+  const q = filter.query.trim().toLowerCase()
+  if (!q) return true
+  return [course.title, course.topic, course.authorName, ...course.units.flatMap((u) => [u.title, u.topic])].some((s) => s.toLowerCase().includes(q))
+}
+
+/** The name a teacher is credited by: trimmed, required, at most AUTHOR_NAME_MAX characters. */
+export function sanitizeAuthorName(raw: unknown): string {
+  return str(raw, AUTHOR_NAME_MAX, 'name')
+}
+
+/** A first guess at the credit name from an email ("anna.kovacs@…" → "Anna Kovacs"). */
+export function authorNameFromEmail(email: string): string {
+  const local = email.split('@')[0] ?? ''
+  return local
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+    .slice(0, AUTHOR_NAME_MAX)
 }
 
 export interface ModuleCompletion {

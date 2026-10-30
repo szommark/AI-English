@@ -6,8 +6,12 @@ import { fetchTeacherRoster, type RosterEntry } from '../../lib/teacherApi'
 import { assignCourse, fetchEnrollments, withdrawEnrollment } from '../../lib/courseApi'
 import type { CourseEnrollment } from '../../lib/courses'
 
-/** Assign a published course to connected students and follow how far each one has got. */
-export default function CourseAssignPanel({ courseId, published }: { courseId: string; published: boolean }) {
+/**
+ * Assign a published course (the teacher's own or a library one) to connected students and follow
+ * how far each one has got. A library course that has left the library (unlisted) can't be
+ * assigned again; the students already on it stay listed.
+ */
+export default function CourseAssignPanel({ courseId, published, unlisted = false }: { courseId: string; published: boolean; unlisted?: boolean }) {
   const { c, lang } = useCourseCopy()
   const [roster, setRoster] = useState<RosterEntry[] | null>(null)
   const [enrollments, setEnrollments] = useState<CourseEnrollment[] | null>(null)
@@ -53,10 +57,10 @@ export default function CourseAssignPanel({ courseId, published }: { courseId: s
   return (
     <section className={cardClass}>
       <h2 className="font-semibold text-foreground">{c('assignHeading')}</h2>
-      {!published && <p className={hintClass}>{c('assignNeedsPublish')}</p>}
+      {!published && !unlisted && <p className={hintClass}>{c('assignNeedsPublish')}</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {published && roster && (
+      {published && !unlisted && roster && (
         <div className="space-y-2">
           {roster.length === 0 ? (
             <p className={hintClass}>{c('noStudents')}</p>
