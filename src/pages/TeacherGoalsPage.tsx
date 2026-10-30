@@ -4,6 +4,7 @@ import { Target } from 'lucide-react'
 import PageHeading from '../components/PageHeading'
 import GoalCard from '../components/Goals/GoalCard'
 import GoalForm from '../components/Goals/GoalForm'
+import GoalPlanEditor from '../components/Goals/GoalPlanEditor'
 import { inputClass, labelClass, primaryButtonClass } from '../components/TeacherTools/ui'
 import { useLanguage } from '../lib/i18n'
 import { MAX_OPEN_GOALS, isOpenGoal, type GoalInput, type LearnerGoal } from '../lib/goals'
@@ -24,6 +25,7 @@ export default function TeacherGoalsPage() {
   const [goalsByStudent, setGoalsByStudent] = useState<Map<string, LearnerGoal[]>>(new Map())
   const [error, setError] = useState(false)
   const [editing, setEditing] = useState<'new' | LearnerGoal | null>(null)
+  const [planning, setPlanning] = useState<LearnerGoal | null>(null)
 
   useEffect(() => {
     Promise.all([fetchTeacherRoster(), fetchClassGoals()])
@@ -52,6 +54,7 @@ export default function TeacherGoalsPage() {
 
   function pickStudent(id: string) {
     setEditing(null)
+    setPlanning(null)
     setParams({ student: id }, { replace: true })
   }
 
@@ -82,7 +85,7 @@ export default function TeacherGoalsPage() {
                 })}
               </select>
             </label>
-            <button type="button" disabled={!canAdd || !!editing} onClick={() => setEditing('new')} className={primaryButtonClass}>
+            <button type="button" disabled={!canAdd || !!editing || !!planning} onClick={() => setEditing('new')} className={primaryButtonClass}>
               {t('glNew')}
             </button>
           </div>
@@ -120,7 +123,19 @@ export default function TeacherGoalsPage() {
             />
           )}
 
-          {!editing && goals.length === 0 && (
+          {planning && (
+            <GoalPlanEditor
+              key={planning.id}
+              goal={planning}
+              onSaved={(next) => {
+                setGoals(next)
+                setPlanning(null)
+              }}
+              onCancel={() => setPlanning(null)}
+            />
+          )}
+
+          {!editing && !planning && goals.length === 0 && (
             <div className="rounded-2xl border border-dashed border-border p-8 text-center">
               <Target className="mx-auto h-8 w-8 text-[var(--teal-accent-strong)]" />
               <p className="mt-3 text-sm text-muted-foreground">{t('glTeacherNoGoals')}</p>
@@ -128,7 +143,10 @@ export default function TeacherGoalsPage() {
           )}
 
           {!editing &&
-            goals.map((g) => <GoalCard key={g.id} goal={g} audience="teacher" onGoals={setGoals} onEdit={() => setEditing(g)} />)}
+            !planning &&
+            goals.map((g) => (
+              <GoalCard key={g.id} goal={g} audience="teacher" onGoals={setGoals} onEdit={() => setEditing(g)} onPlan={() => setPlanning(g)} />
+            ))}
         </>
       )}
     </div>

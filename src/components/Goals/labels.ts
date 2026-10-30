@@ -1,5 +1,7 @@
+import { BookOpen, ClipboardCheck, GraduationCap, MessagesSquare, type LucideIcon } from 'lucide-react'
 import type { MessageKey } from '../../lib/i18n'
 import type { GoalSkill, GoalStatus, GoalType } from '../../lib/goals'
+import type { ScenarioMode, TaskKind } from '../../lib/goalPlans'
 import { GoalRequestError } from '../../lib/goalsApi'
 
 export const GOAL_TYPE_LABEL: Record<GoalType, MessageKey> = {
@@ -35,10 +37,32 @@ export const GOAL_STATUS_CLASS: Record<GoalStatus, string> = {
   dropped: 'bg-secondary text-muted-foreground',
 }
 
+export const TASK_KIND_LABEL: Record<TaskKind, MessageKey> = {
+  course: 'gpKindCourse',
+  scenario: 'gpKindScenario',
+  word_list: 'gpKindWordList',
+  comp_test: 'gpKindCompTest',
+}
+
+export const TASK_KIND_ICON: Record<TaskKind, LucideIcon> = {
+  course: GraduationCap,
+  scenario: MessagesSquare,
+  word_list: BookOpen,
+  comp_test: ClipboardCheck,
+}
+
+export const SCENARIO_MODE_LABEL: Record<ScenarioMode, MessageKey> = {
+  test: 'gpModeTest',
+  practice: 'gpModePractice',
+  any: 'gpModeAny',
+}
+
 /** The message for a failed goal request. */
 export function goalErrorKey(err: unknown): MessageKey {
   if (err instanceof GoalRequestError) {
     if (err.code === 'goalRequired') return 'glErrGoalRequired'
+    if (err.code === 'content') return 'gpErrContent'
+    if (err.code === 'milestone') return 'gpErrMilestone'
   }
   return 'glSaveError'
 }
