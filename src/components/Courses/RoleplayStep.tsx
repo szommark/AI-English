@@ -129,30 +129,28 @@ export default function RoleplayStep({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-border bg-secondary/40 p-3 text-sm">
-        <div className="flex items-start gap-3">
-          {/* The partner, big: the small photo stays next to each of its lines below. */}
-          <img src={tutorPhoto} alt="" className="h-20 w-20 shrink-0 rounded-full object-cover ring-2 ring-[var(--teal-accent-border)] sm:h-24 sm:w-24" />
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-foreground">{c('roleplaySituation')}</p>
-            <p className="mt-1 text-foreground/90">
-              <InlineText text={step.situation} />
-            </p>
-          </div>
-        </div>
-        <p className="mt-2 font-semibold text-foreground">{c('roleplayGoals')}</p>
-        <ul className="mt-1 list-disc space-y-0.5 pl-5 text-foreground/90">
-          {step.goals.map((g) => (
-            <li key={g}>
-              <InlineText text={g} />
-            </li>
-          ))}
-        </ul>
-        {step.targets && step.targets.length > 0 && (
-          <p className="mt-2 text-muted-foreground">
-            {c('tryToUse')} <span className="text-foreground">{step.targets.join(', ')}</span>
+      <div className="grid gap-4 rounded-xl border border-border bg-secondary/40 p-3 text-sm sm:grid-cols-[minmax(0,18rem)_1fr] sm:items-center">
+        {/* The partner, big (its own column): the small photo stays next to each of its lines below. */}
+        <TutorPortrait />
+        <div className="min-w-0">
+          <p className="font-semibold text-foreground">{c('roleplaySituation')}</p>
+          <p className="mt-1 text-foreground/90">
+            <InlineText text={step.situation} />
           </p>
-        )}
+          <p className="mt-3 font-semibold text-foreground">{c('roleplayGoals')}</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-foreground/90">
+            {step.goals.map((g) => (
+              <li key={g}>
+                <InlineText text={g} />
+              </li>
+            ))}
+          </ul>
+          {step.targets && step.targets.length > 0 && (
+            <p className="mt-3 text-muted-foreground">
+              {c('tryToUse')} <span className="text-foreground">{step.targets.join(', ')}</span>
+            </p>
+          )}
+        </div>
       </div>
 
       {shown.length > 0 && (
@@ -245,4 +243,9 @@ export default function RoleplayStep({
       )}
     </div>
   )
+}
+
+/** The Tutor Bot as the person in the situation: big, its own column next to the task (above it on a phone). */
+export function TutorPortrait() {
+  return <img src={tutorPhoto} alt="" className="mx-auto aspect-square w-48 rounded-3xl object-cover object-top ring-2 ring-[var(--teal-accent-border)] sm:w-full sm:max-w-[18rem]" />
 }

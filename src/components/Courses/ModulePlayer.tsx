@@ -77,6 +77,11 @@ function answered(step: CourseStep, answer: StepAnswer | undefined): boolean {
   }
 }
 
+/** An info screen with little on it (a warm-up, an exercise's example): room for the module's picture. */
+function roomyInfo(step: CourseStep): boolean {
+  return step.type === 'info' && !step.audio && step.body.length <= 320 && !/^\s*\|/m.test(step.body) && !/^\s*TIMELINE:/im.test(step.body)
+}
+
 function rightAnswerText(step: CourseStep): string | null {
   if (step.type === 'choice') return step.options[step.answer]
   if (step.type === 'gap') return step.accepted[0]
@@ -241,11 +246,12 @@ export default function ModulePlayer({
     )
   }
 
-  // The module's picture, above the step it goes with.
+  // The module's picture, above the step it goes with, and on every info screen with room for it.
   const imageAt = content.image?.path ? imageStepIndex(steps) : -1
   const picture = content.image?.path ? (
     <img src={courseImageUrl(content.image.path)} alt={content.image.alt} className="mb-4 aspect-[3/2] w-full rounded-xl border border-border object-cover" loading="lazy" />
   ) : null
+  const showPicture = !!picture && !!step && (index === imageAt || roomyInfo(step))
 
   async function mark() {
     if (!step || !onEvaluate || typeof answer !== 'string') return
@@ -419,7 +425,7 @@ export default function ModulePlayer({
         }}
       >
         <div className="flex-1 py-4">
-          {imageAt === index && picture}
+          {showPicture && picture}
           <StepView
             step={step}
             answer={answer}

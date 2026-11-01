@@ -64,7 +64,10 @@ export default function StepView(props: Props) {
   }
 }
 
-/** Useful phrases: one line each, with a speaker that reads the line's bold phrase (or the whole line). */
+/**
+ * Useful phrases: one line each ("**phrase** – example"), with a speaker that reads the whole
+ * phrase before the dash, bold or not (the whole line when there is no dash).
+ */
 function AudioLines({ text, speak }: { text: string; speak: (text: string) => void }) {
   const { c } = useCourseCopy()
   const lines = text
@@ -74,7 +77,7 @@ function AudioLines({ text, speak }: { text: string; speak: (text: string) => vo
   return (
     <ul className="space-y-2">
       {lines.map((line, i) => {
-        const phrase = line.match(/\*\*([^*]+)\*\*/)?.[1] ?? line
+        const phrase = line.split(/\s[–—-]\s/)[0]
         return (
           <li key={i} className="flex items-start gap-3 rounded-xl border border-border bg-card p-3 text-base text-foreground/90">
             <p className="flex-1">

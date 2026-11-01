@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Mic, RotateCcw } from 'lucide-react'
-import tutorPhoto from '../../assets/tutor-avatar.jpg'
+import { TutorPortrait } from './RoleplayStep'
 import { TUTOR_VOICE_GENDER } from '../TutorBot/TutorAvatar'
 import WordSpeakButton from '../WordSpeakButton'
 import { InlineText, plainLine } from './RichText'
@@ -187,42 +187,44 @@ export default function SpeakStep({ step, answer, onAnswer, speak }: { step: Spe
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <img src={tutorPhoto} alt="" className="h-20 w-20 shrink-0 rounded-full object-cover ring-2 ring-[var(--teal-accent-border)] sm:h-24 sm:w-24" />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-muted-foreground">{botName}</p>
-          {phase === 'recording' && (
-            <div className="mt-1 flex items-center gap-2">
-              <Countdown left={left} total={step.seconds} />
-              <span className="text-xs text-muted-foreground">{c('speakCountdown')}</span>
+      {/* The bot big, in its own column; its question, the countdown and the task beside it. */}
+      <div className="grid gap-4 sm:grid-cols-[minmax(0,18rem)_1fr] sm:items-center">
+        <TutorPortrait />
+        <div className="min-w-0 space-y-3">
+          <div className="flex items-center gap-3">
+            <p className="flex-1 text-sm font-semibold text-muted-foreground">{botName}</p>
+            {phase === 'recording' && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{c('speakCountdown')}</span>
+                <Countdown left={left} total={step.seconds} />
+              </div>
+            )}
+          </div>
+          {phase !== 'ready' && (
+            <div className="flex items-start gap-2 rounded-2xl rounded-tl-sm bg-card p-3 text-base text-foreground ring-1 ring-border">
+              <p className="flex-1">
+                <InlineText text={line} />
+              </p>
+              <WordSpeakButton label={c('listen')} onSpeak={() => speak(plainLine(line))} />
+            </div>
+          )}
+          {step.botLine && (
+            <p className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">{c('speakTask')}:</span> <InlineText text={step.prompt} />
+            </p>
+          )}
+          {step.targets && step.targets.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 text-sm">
+              <span className="text-muted-foreground">{c('tryToUse')}</span>
+              {step.targets.map((t) => (
+                <span key={t} className="rounded-md bg-[var(--teal-accent-soft)] px-2 py-0.5 text-foreground">
+                  {t}
+                </span>
+              ))}
             </div>
           )}
         </div>
       </div>
-
-      {phase !== 'ready' && (
-        <div className="flex items-start gap-2 rounded-2xl rounded-tl-sm bg-card p-3 text-base text-foreground ring-1 ring-border">
-          <p className="flex-1">
-            <InlineText text={line} />
-          </p>
-          <WordSpeakButton label={c('listen')} onSpeak={() => speak(plainLine(line))} />
-        </div>
-      )}
-      {step.botLine && (
-        <p className="text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">{c('speakTask')}:</span> <InlineText text={step.prompt} />
-        </p>
-      )}
-      {step.targets && step.targets.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 text-sm">
-          <span className="text-muted-foreground">{c('tryToUse')}</span>
-          {step.targets.map((t) => (
-            <span key={t} className="rounded-md bg-[var(--teal-accent-soft)] px-2 py-0.5 text-foreground">
-              {t}
-            </span>
-          ))}
-        </div>
-      )}
 
       {phase === 'ready' && (
         <div className="space-y-2">

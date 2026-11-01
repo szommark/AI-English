@@ -17,6 +17,7 @@ import {
   generateBlueprint,
   draftGenerationRule,
   fixFlaggedItems,
+  recheckGaps,
   generateModule,
   pickRecording,
   reviewFlag,
@@ -903,6 +904,18 @@ export async function handleCourseModuleFix(req: VercelRequest, res: VercelRespo
       teacher_seen_at: new Date().toISOString(),
     })
   })
+  // The rewritten gap items get the same "only one answer fits" check as a new module.
+  if (log.length) {
+    const rechecked = await recheckGaps(
+      log.map((l) => l.step_after as CourseStep),
+      course.level,
+      teacherId,
+    )
+    rechecked.forEach((s, i) => {
+      log[i].step_after = s
+      steps = steps.map((x) => (x.id === s.id ? s : x))
+    })
+  }
   const content: ModuleContent = { ...module.content, steps }
   const { error } = await supabaseAdmin
     .from('course_modules')
@@ -2040,6 +2053,8 @@ async function handleMyCourseFlag(req: VercelRequest, res: VercelResponse, userI
       fixed = null
     }
   }
+  // A rewritten gap item gets the "only one answer fits" check too.
+  if (fixed?.type === 'gap') fixed = (await recheckGaps([fixed], tree.course.level, userId))[0]
   if (fixed) {
     const module = [...tree.modules.values()].flat().find((m) => m.id === attempt.module_id)
     if (module) await replaceStep(module, step, fixed)
