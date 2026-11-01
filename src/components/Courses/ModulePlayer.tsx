@@ -57,7 +57,7 @@ interface Props {
   onEvaluate?: (stepId: string, text: string) => Promise<OpenFeedback>
   /** Role-play: the Tutor Bot's next line. */
   onRoleplayTurn?: (stepId: string, history: RoleplayLine[]) => Promise<{ reply: string; done: boolean }>
-  /** Flags an exercise: the AI checks it and returns the fixed exercise when it was wrong (students only). */
+  /** Flags an exercise for its content: a student's flag is checked by the AI at once (the fixed exercise comes back when it was wrong); the author's preview flag is saved. */
   onFlag?: (stepId: string, reason: FlagReason, note: string, answer: StepAnswer | undefined) => Promise<FlagResult>
 }
 
@@ -200,34 +200,43 @@ export default function ModulePlayer({
     onProgress?.(nextIndex, answers)
   }
 
-  /** "Hard to use": a display report in the team's feedback inbox, with this screen attached. */
-  async function reportLayout(s: CourseStep, note: string) {
-    const at = steps.indexOf(s)
+  /** "Hard to use": a display report in the team's feedback inbox, with the page's steps attached. */
+  async function reportLayout(page: CourseStep[], note: string) {
+    const at = steps.indexOf(page[0])
     await submitFeedbackReport({
       kind: 'display',
-      description: [`Mini course "${title}", screen ${at + 1}/${steps.length} (${s.type}) is hard to use.`, note, `Screen: ${stepSummary(s)}`].filter(Boolean).join('\n\n').slice(0, 4000),
+      description: [`Mini course "${title}", screen ${at + 1}/${steps.length} (${page.map((s) => s.type).join(', ')}) is hard to use.`, note, ...page.map((s) => `Screen: ${stepSummary(s)}`)]
+        .filter(Boolean)
+        .join('\n\n')
+        .slice(0, 4000),
       pagePath: window.location.pathname,
       context: await collectFeedbackContext(lang),
     })
   }
 
+  /** One exercise's content flag (checked by the AI for students, saved for the author's fix). */
   function flagControl(s: CourseStep) {
-    const check = onFlag && FLAGGABLE_TYPES.has(s.type) ? onFlag : undefined
+    if (!onFlag || !FLAGGABLE_TYPES.has(s.type)) return null
     return (
       <div className="pt-2">
         <FlagButton
           key={s.id}
-          onFlag={
-            check
-              ? async (reason, note) => {
-                  const result = await check(s.id, reason, note, answers[s.id])
-                  if (result.step) setFixedSteps((prev) => ({ ...prev, [s.id]: result.step as CourseStep }))
-                  return result
-                }
-              : undefined
-          }
-          onLayout={(note) => reportLayout(s, note)}
+          mode="content"
+          onFlag={async (reason, note) => {
+            const result = await onFlag(s.id, reason, note, answers[s.id])
+            if (result.step) setFixedSteps((prev) => ({ ...prev, [s.id]: result.step as CourseStep }))
+            return result
+          }}
         />
+      </div>
+    )
+  }
+
+  /** Once per page: is this screen hard to use? */
+  function layoutControl(page: CourseStep[]) {
+    return (
+      <div className="border-t border-dashed border-border pt-3">
+        <FlagButton key={page[0].id} mode="layout" onLayout={(note) => reportLayout(page, note)} />
       </div>
     )
   }
@@ -343,6 +352,7 @@ export default function ModulePlayer({
             </li>
           ))}
         </ol>
+        <div className="pb-4">{layoutControl([steps[index], ...group])}</div>
         <div className="sticky bottom-0 -mx-4 space-y-2 border-t border-border bg-background/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
           {!checked && unanswered > 0 && <p className="text-xs text-muted-foreground">{c('unansweredLeft', { n: unanswered })}</p>}
           <button
@@ -422,6 +432,7 @@ export default function ModulePlayer({
             onTurn={onRoleplayTurn ? (history) => onRoleplayTurn(step.id, history) : undefined}
           />
           {flagControl(step)}
+          <div className="mt-6">{layoutControl([step])}</div>
         </div>
 
         <div className="sticky bottom-0 -mx-4 space-y-3 border-t border-border bg-background/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">

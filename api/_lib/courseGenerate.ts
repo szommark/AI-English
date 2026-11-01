@@ -836,3 +836,49 @@ export async function draftGenerationRule(input: RuleDraftInput, userId: string)
   if (typeof rule !== 'string' || !rule.trim()) throw new Error('no rule')
   return rule.trim().slice(0, 400)
 }
+
+// --- Fixing the items the author flagged in the preview ----------------------------------------
+
+export interface FlaggedItemsInput {
+  level: CourseLevel
+  explainLang: ExplainLang
+  /** The module's text, when its exercises are about it. */
+  passage: ModulePassage | null
+  items: { step: Step; reason: FlagReason; note: string }[]
+}
+
+/**
+ * The author flagged these items while previewing: unlike a student's flag, the teacher is right,
+ * so every item is corrected along their reason and note. One call for the module; the result is
+ * in the items' order ({ fixed: null } when the reply had nothing usable for it).
+ */
+export async function fixFlaggedItems(input: FlaggedItemsInput, userId: string): Promise<{ fixed: Record<string, unknown> | null; explanation: string }[]> {
+  const systemPrompt = [
+    `You correct exercises in an English course for learners at CEFR level ${input.level}. The teacher who wrote the course flagged these items while previewing it; the teacher is right that each one has a problem.`,
+    'Correct every item along the teacher\'s reason and note, changing as little as possible and keeping everything that is fine. Keep the same exercise type and JSON shape (a gap keeps exactly one ___; "answer" of a choice is the 0-based index of the right option; an order step lists other correct word orders in "alternatives").',
+    'When more than one answer fits: add context to the sentence (a second clause or a short lead-in line) or replace the extra option with one of the same word class that clearly does not fit — never synonyms as options. A correct answer the teacher mentions must be accepted.',
+    `Reply with ONE JSON object: { "items": [ { "n": the item number, "fixed": the corrected exercise, "explanation": one short sentence in ${LANG_NAME[input.explainLang]} on what you changed } ] } with one entry per item.`,
+  ].join('\n')
+  const user = JSON.stringify({
+    items: input.items.map((it, i) => {
+      const { id: _id, ...exercise } = it.step
+      return { n: i + 1, exercise, problem: FLAG_REASON_TEXT[it.reason].replace('the learner says', 'the teacher says'), ...(it.note ? { teacherNote: it.note } : {}) }
+    }),
+    ...(input.passage ? { text: input.passage.text.slice(0, 3_000) } : {}),
+  })
+  return generate(systemPrompt, user, userId, (raw) => {
+    const out = input.items.map(() => ({ fixed: null as Record<string, unknown> | null, explanation: '' }))
+    const items = parseJson(raw).items
+    for (const item of Array.isArray(items) ? items : []) {
+      if (!item || typeof item !== 'object') continue
+      const it = item as Record<string, unknown>
+      const at = Number(it.n) - 1
+      if (!out[at]) continue
+      out[at] = {
+        fixed: it.fixed && typeof it.fixed === 'object' && !Array.isArray(it.fixed) ? (it.fixed as Record<string, unknown>) : null,
+        explanation: typeof it.explanation === 'string' ? it.explanation.trim().slice(0, 600) : '',
+      }
+    }
+    return out
+  })
+}
