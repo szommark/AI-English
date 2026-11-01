@@ -193,6 +193,7 @@ const STEP_SCHEMA = [
   '- { "type": "roleplay", "situation", "botName", "botRole", "opening", "goals": [...], "turns", "targets": [...] }: a live spoken conversation with the Tutor Bot.',
   'Plain text only, except **bold** (and in info bodies the formatting described for that step). Never use single *asterisks*, _underscores_ or headings.',
   'Every question has exactly one clearly right answer. Vary which option is right.',
+  `DIALOGUE ITEMS: when an item is a short exchange, each line is a different person and the second line answers the first; label lines with roles ("Seller:", "You:"), not "A:"/"B:".`,
   `GAP RULES: every gap sentence gives enough context (a second clause, or a short lead-in sentence or line of dialogue) that only ONE answer fits; never a bare sentence where several of the words would make sense. In a gap with "options", the wrong options are the same word class as the answer but clearly wrong in this context: never synonyms or near-synonyms of the answer (e.g. not "twinkle" next to "flash"), never words that would also make a correct, natural sentence. A typed gap lists every correct answer in "accepted".`,
   'CHOICE RULES: exactly one option is defensible; the others are clearly wrong for a reason the learner can see, never just less common.',
   'EXERCISE BLOCKS (where this module asks for them): each block is ONE exercise type with at least 3 items, and starts with its own info step titled "Exercise N: <what to do>" whose body is a one-line instruction in English, a blank line, then "Example:" and one worked example with the answer shown as ==answer==. Never mix types inside a block.',
@@ -306,7 +307,7 @@ function recipe(input: ModuleGenInput): string[] {
         '1. info: "Warm-up" — SIMPLE and personal: one or two easy questions about the situation of the role-play (have you ever…, what do you usually say when…), with 3–4 of the unit\'s words in **bold**. No grammar.',
         `2. ${phrases('4–6')}`,
         '3. info: "Exercise 1: Complete the phrases" (see EXERCISE BLOCKS).',
-        '4–6. three gap steps on the useful phrases, with "options": each sentence is a short two-line exchange that gives the context ("A: The 10 o\'clock train is full. B: ___ the next one, please?"), so only one phrase fits.',
+        '4–6. three gap steps on the useful phrases, with "options": each is a short two-line exchange between TWO DIFFERENT people from the situation. Line 1 is the OTHER person (named by role, e.g. "Seller:", "Receptionist:"); line 2 is the learner ("You:"), who REPLIES to line 1 with a useful phrase, and the gap is in that phrase ("Seller: Hello! What can I get you?\\nYou: ___ a glass of mulled wine, please?" → "Could I have"). Line 2 must be a natural reply to line 1, never a second line of the same speaker. The wrong options are phrases that do not fit as that reply (wrong function or form), never ones that would also be correct.',
         '7. info: "Exercise 2: What would you say?" (see EXERCISE BLOCKS).',
         '8–10. three choice steps: a one-line situation; pick the most natural thing to say (one natural answer, the others wrong, rude or unnatural).',
         `11. speak: the one-exchange task — the person from the situation asks the learner ONE question ("botName", "botLine"), "prompt" says what to include in the answer, "seconds": ${Math.max(20, Math.round(SPEAKING_SECONDS[input.level] / 2))}, a model answer and 3 "targets".`,
@@ -596,6 +597,11 @@ export function applyGapCheck(content: ModuleContent, at: number[], raw: string)
   return { ...content, steps }
 }
 
+/** The "only one answer fits" check of items an AI fix just rewrote (the gap items among them); best effort. */
+export function recheckGaps(steps: CourseStep[], level: CourseLevel, userId: string): Promise<CourseStep[]> {
+  return checkGaps({ intro: '', steps }, { level } as ModuleGenInput, userId).then((c) => c.steps)
+}
+
 /** The automatic "only one answer fits" check of a new module's gap items; best effort. */
 async function checkGaps(content: ModuleContent, input: ModuleGenInput, userId: string): Promise<ModuleContent> {
   const prompt = buildGapCheckPrompt(content, input)
@@ -786,8 +792,8 @@ const FLAG_REASON_TEXT: Record<FlagReason, string> = {
 export async function reviewFlag(input: FlagReviewInput, userId: string): Promise<FlagReview> {
   const systemPrompt = [
     `You check an exercise from an English course (CEFR ${input.level}) that a learner flagged: ${FLAG_REASON_TEXT[input.reason]}.`,
-    'Decide honestly. It is WRONG when: the key is incorrect; another answer is equally correct but not accepted (then add it to "accepted", or fix the options so only one is right); two options are right; the prompt is ambiguous or unclear; there is a typo or a grammar mistake in it. It is NOT wrong just because the learner made a mistake.',
-    'When it is wrong, return the corrected exercise in the SAME JSON shape and type, changing as little as possible (for a gap keep exactly one ___; "answer" of a choice is the 0-based index of the right option). A gap answer that is correct and fits the sentence must be accepted. When several options fit, add context to the sentence or replace the extra option with one that clearly does not fit. A correct word order the learner built must be added to the order step\'s "alternatives".',
+    'Decide honestly. It is WRONG when: the key is incorrect; another answer is equally correct but not accepted (then add it to "accepted", or fix the options so only one is right); two options are right; the prompt is ambiguous or unclear; there is a typo or a grammar mistake in it; a short dialogue does not make sense (the second line is not a reply by a different person). It is NOT wrong just because the learner made a mistake.',
+    'When it is wrong, return the corrected exercise in the SAME JSON shape and type. If it is built wrong (a dialogue that does not work, an answer that cannot follow from the sentence), rebuild it as a new working item on the same word or phrase; otherwise change as little as possible (for a gap keep exactly one ___; "answer" of a choice is the 0-based index of the right option). A gap answer that is correct and fits the sentence must be accepted. When several options fit, add context to the sentence or replace the extra option with one that clearly does not fit. A correct word order the learner built must be added to the order step\'s "alternatives".',
     `Reply with ONE JSON object: { "wrong": true | false, "explanation": 1–2 short sentences to the learner in ${LANG_NAME[input.explainLang]}, "fixed": the corrected exercise, or null when it is not wrong }`,
   ].join('\n')
   const { id: _id, ...exercise } = input.step
@@ -855,7 +861,8 @@ export interface FlaggedItemsInput {
 export async function fixFlaggedItems(input: FlaggedItemsInput, userId: string): Promise<{ fixed: Record<string, unknown> | null; explanation: string }[]> {
   const systemPrompt = [
     `You correct exercises in an English course for learners at CEFR level ${input.level}. The teacher who wrote the course flagged these items while previewing it; the teacher is right that each one has a problem.`,
-    'Correct every item along the teacher\'s reason and note, changing as little as possible and keeping everything that is fine. Keep the same exercise type and JSON shape (a gap keeps exactly one ___; "answer" of a choice is the 0-based index of the right option; an order step lists other correct word orders in "alternatives").',
+    'Correct every item along the teacher\'s reason and note. First decide whether the item is BUILT wrong — e.g. a dialogue whose second line is not a reply by a different person, a gap whose answer cannot follow from the sentence, or options that do not work as the missing part. If so, REBUILD it: write a new, working item that practises the same word or phrase (patching the options is not enough). Otherwise change as little as possible and keep everything that is fine.',
+    'In a short exchange each line is a different person and the second line answers the first; label lines with roles ("Seller:", "You:"), and put the gap in the reply. Keep the same exercise type and JSON shape (a gap keeps exactly one ___; "answer" of a choice is the 0-based index of the right option; an order step lists other correct word orders in "alternatives").',
     'When more than one answer fits: add context to the sentence (a second clause or a short lead-in line) or replace the extra option with one of the same word class that clearly does not fit — never synonyms as options. A correct answer the teacher mentions must be accepted.',
     `Reply with ONE JSON object: { "items": [ { "n": the item number, "fixed": the corrected exercise, "explanation": one short sentence in ${LANG_NAME[input.explainLang]} on what you changed } ] } with one entry per item.`,
   ].join('\n')
