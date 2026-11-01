@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchAdminCourses, updateAdminCourse } from '../lib/courseApi'
 import type { AdminCourse } from '../lib/courses'
+import GenRulesPanel from '../components/Courses/GenRulesPanel'
 
 /**
  * /admin/courses: every public mini course with two switches — Hidden (out of the library and
@@ -100,6 +101,7 @@ export default function AdminCoursesPage() {
           </table>
         </div>
       )}
+      <GenRulesPanel />
     </div>
   )
 }

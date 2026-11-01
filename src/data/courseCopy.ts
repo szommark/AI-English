@@ -267,7 +267,6 @@ const COPY = {
   fieldTask: { hu: 'A feladat', en: 'The task', de: 'Die Aufgabe' },
   fieldWords: { hu: 'Szavak:', en: 'Words:', de: 'Wörter:' },
   fieldSeconds: { hu: 'Másodperc:', en: 'Seconds:', de: 'Sekunden:' },
-  fieldModelFirst: { hu: 'A mintát előre mutasd', en: 'Show the model first', de: 'Muster zuerst zeigen' },
   fieldModel: { hu: 'Mintaválasz (nem kötelező)', en: 'Model answer (optional)', de: 'Musterantwort (optional)' },
   fieldTargets: { hu: 'Használandó szavak, vesszővel', en: 'Words to use, separated by commas', de: 'Zu verwendende Wörter, mit Kommas' },
   fieldTitle: { hu: 'Cím', en: 'Title', de: 'Titel' },
@@ -383,7 +382,6 @@ const COPY = {
   closeText: { hu: 'Szöveg bezárása', en: 'Close the text', de: 'Text schließen' },
   textHint: { hu: 'Olvasd el a szöveget. A kérdéseknél a „Szöveg” gombbal újra megnyithatod.', en: 'Read the text. On the questions you can open it again with “Text”.', de: 'Lies den Text. Bei den Fragen kannst du ihn mit „Text“ wieder öffnen.' },
   wordsTitle: { hu: 'Ismerkedj meg a szavakkal', en: 'Meet the words', de: 'Lerne die Wörter kennen' },
-  wordsHint: { hu: 'Hallgasd meg és olvasd el őket; a következő feladatokban használod őket.', en: 'Listen and read; you’ll use them in the next tasks.', de: 'Hör zu und lies; du brauchst sie in den nächsten Aufgaben.' },
   listen: { hu: 'Meghallgatás', en: 'Listen', de: 'Anhören' },
   gapTapHint: { hu: 'Koppints a hiányzó szóra.', en: 'Tap the missing word.', de: 'Tippe auf das fehlende Wort.' },
   gapTypeHint: { hu: 'Írd be a hiányzó szót vagy szavakat.', en: 'Type the missing word(s).', de: 'Tippe das fehlende Wort (oder die Wörter).' },
@@ -535,6 +533,76 @@ const COPY = {
   shelfStart: { hu: 'Elkezdem', en: 'Start', de: 'Starten' },
   shelfError: { hu: 'Nem sikerült elindítani. Próbáld újra.', en: "Couldn't start it. Try again.", de: 'Starten fehlgeschlagen. Versuche es erneut.' },
   selfStarted: { hu: 'saját választás', en: 'started by you', de: 'selbst gestartet' },
+  flagLayoutThis: { hu: 'Nehezen használható ez a képernyő?', en: 'Is this screen hard to use?', de: 'Ist dieser Bildschirm schwer zu bedienen?' },
+  flagLayoutSent: {
+    hu: 'Köszönjük! Továbbítottuk a csapatnak.',
+    en: 'Thanks! We passed it on to the team.',
+    de: 'Danke! Wir haben es an das Team weitergegeben.',
+  },
+
+  // Revamp: word panels, gaps, quotes, the bot-led speaking task
+  wordsFlipHint: {
+    hu: 'Koppints egy panelre a jelentéséért; a hangszóróval meghallgathatod.',
+    en: 'Tap a panel to see its meaning; tap the speaker to hear it.',
+    de: 'Tippe auf ein Feld, um die Bedeutung zu sehen; mit dem Lautsprecher hörst du es.',
+  },
+  wordsFlipBack: { hu: 'Vissza', en: 'Back', de: 'Zurück' },
+  gapMaxWords: { hu: 'Legfeljebb {n} szó.', en: 'No more than {n} word(s).', de: 'Höchstens {n} Wort/Wörter.' },
+  quoteLabel: { hu: 'A szövegből', en: 'From the text', de: 'Aus dem Text' },
+  speakStart: { hu: 'Kezdés', en: 'Start', de: 'Starten' },
+  speakBotAsks: { hu: '{name} kérdez…', en: '{name} is asking…', de: '{name} fragt…' },
+  speakListening: { hu: 'Hallgatlak…', en: 'Listening…', de: 'Ich höre zu…' },
+  speakFinish: { hu: 'Kész', en: 'Done', de: 'Fertig' },
+  speakAgain: { hu: 'Újra', en: 'Try again', de: 'Noch einmal' },
+  speakCountdown: { hu: 'hátralévő idő', en: 'time left', de: 'Restzeit' },
+  speakTask: { hu: 'Feladat', en: 'Your task', de: 'Deine Aufgabe' },
+  speakEndHint: {
+    hu: 'Véget ér, ha lejár az idő, ha a Kész gombra koppintasz, vagy ha legalább 3 másodpercig csendben vagy.',
+    en: 'It ends when time runs out, when you tap Done, or after at least 3 seconds of silence.',
+    de: 'Es endet, wenn die Zeit abläuft, wenn du auf Fertig tippst oder nach mindestens 3 Sekunden Stille.',
+  },
+  speakFixHint: {
+    hu: 'Ezt írta le a gép; javíthatsz rajta, mielőtt visszajelzést kérsz.',
+    en: 'This is what was written down; you can correct it before asking for feedback.',
+    de: 'Das wurde aufgeschrieben; du kannst es korrigieren, bevor du Feedback anforderst.',
+  },
+  speakTypeHint: {
+    hu: 'Itt nincs mikrofon: írd be a válaszodat.',
+    en: 'No microphone here: type your answer.',
+    de: 'Hier gibt es kein Mikrofon: Tippe deine Antwort.',
+  },
+
+  // Revamp: module pictures (teacher)
+  imageTitle: { hu: 'Kép', en: 'Picture', de: 'Bild' },
+  imageMaking: { hu: 'A kép készül…', en: 'Making the picture…', de: 'Das Bild wird erstellt…' },
+  imageNone: { hu: 'Ennek a modulnak még nincs képe.', en: 'This module has no picture yet.', de: 'Dieses Modul hat noch kein Bild.' },
+  imageNew: { hu: 'Új kép', en: 'New picture', de: 'Neues Bild' },
+  imageUpload: { hu: 'Saját kép feltöltése', en: 'Upload my own', de: 'Eigenes Bild hochladen' },
+  imageRemove: { hu: 'Kép törlése', en: 'Remove picture', de: 'Bild entfernen' },
+  imagePromptLabel: { hu: 'Mit ábrázoljon (angolul)', en: 'What it shows (in English)', de: 'Was es zeigt (auf Englisch)' },
+  imageError: {
+    hu: 'A képet most nem sikerült elkészíteni. Próbáld újra később.',
+    en: "Couldn't make the picture right now. Try again later.",
+    de: 'Das Bild konnte gerade nicht erstellt werden. Versuche es später erneut.',
+  },
+  imageBadFile: { hu: 'Ezt a fájlt nem lehet képként használni.', en: "This file can't be used as a picture.", de: 'Diese Datei kann nicht als Bild verwendet werden.' },
+  imageLogoNote: {
+    hu: 'Az ingyenes képgenerátor (Pollinations) kis logót tesz a kép sarkába.',
+    en: 'The free image generator (Pollinations) puts a small logo in the corner.',
+    de: 'Der kostenlose Bildgenerator (Pollinations) setzt ein kleines Logo in die Ecke.',
+  },
+
+  // Revamp: editor fields
+  fieldTr: { hu: 'Fordítás (a panel hátoldalán)', en: 'Translation (back of the panel)', de: 'Übersetzung (Rückseite des Felds)' },
+  fieldAlternatives: {
+    hu: 'Más helyes sorrendek, | jellel elválasztva',
+    en: 'Other correct orders, separated by |',
+    de: 'Andere richtige Reihenfolgen, getrennt durch |',
+  },
+  fieldBotLine: { hu: 'A bot kérdése', en: "The bot's question", de: 'Die Frage des Bots' },
+  fieldQuote: { hu: 'Idézet a szövegből (nem kötelező)', en: 'Quote from the text (optional)', de: 'Zitat aus dem Text (optional)' },
+  fieldMaxWords: { hu: 'Max. szószám (gépelt válasz)', en: 'Max. words (typed answer)', de: 'Max. Wörter (getippte Antwort)' },
+  fieldAudioLines: { hu: 'Hangszóró minden sor mellett', en: 'Speaker next to every line', de: 'Lautsprecher neben jeder Zeile' },
 
   // Module kinds
   kind_vocabulary: { hu: 'Szókincs', en: 'Vocabulary', de: 'Wortschatz' },

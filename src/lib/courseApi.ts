@@ -10,6 +10,8 @@ import type {
   CourseCreateInput,
   CourseEnrollment,
   CourseItemFix,
+  CourseGenRule,
+  GenRuleStatus,
   FlagReason,
   FlagResult,
   RoleplayLine,
@@ -28,6 +30,7 @@ import type {
   PublishStatus,
   UnitInput,
 } from './courses'
+import { IMAGE_BUCKET } from './courses'
 
 // Client for the mini courses (api/_lib/courses.ts): the teacher's actions on
 // api/teacher-tools.ts and the student's on api/gamification.ts.
@@ -216,4 +219,46 @@ export async function flagStep(attemptId: string, stepId: string, reason: FlagRe
 
 export async function completeModule(attemptId: string, answers: ModuleAnswers): Promise<{ completion: ModuleCompletion; xp: AwardResult[] }> {
   return request(`${STUDENT}my-course-complete&id=${encodeURIComponent(attemptId)}`, json('POST', { answers }))
+}
+
+// --- Pictures ------------------------------------------------------------------------------
+
+/** A module picture's address (the course-images bucket is public). */
+export function courseImageUrl(path: string): string {
+  return supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path).data.publicUrl
+}
+
+/** An AI picture from the description (the generator's when none is given). */
+export async function makeModuleImage(moduleId: string, prompt?: string): Promise<Course> {
+  return (await request<{ course: Course }>(withId('course-module-image', moduleId), json('POST', { mode: 'ai', ...(prompt ? { prompt } : {}) }))).course
+}
+
+/** The teacher's own picture: resized in the browser to at most 1280 px, sent as JPEG. */
+export async function uploadModuleImage(moduleId: string, file: File): Promise<Course> {
+  const bitmap = await createImageBitmap(file)
+  const scale = Math.min(1, 1280 / Math.max(bitmap.width, bitmap.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(bitmap.width * scale)
+  canvas.height = Math.round(bitmap.height * scale)
+  canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  const data = canvas.toDataURL('image/jpeg', 0.85)
+  return (await request<{ course: Course }>(withId('course-module-image', moduleId), json('POST', { mode: 'upload', type: 'image/jpeg', data }))).course
+}
+
+export async function removeModuleImage(moduleId: string): Promise<Course> {
+  return (await request<{ course: Course }>(withId('course-module-image', moduleId), { method: 'DELETE' })).course
+}
+
+// --- Generator rules (admin) ---------------------------------------------------------------
+
+export async function fetchGenRules(): Promise<CourseGenRule[]> {
+  return (await request<{ rules: CourseGenRule[] }>(`${BASE}course-rules`)).rules
+}
+
+export async function updateGenRule(id: string, patch: { status?: GenRuleStatus; rule?: string }): Promise<CourseGenRule[]> {
+  return (await request<{ rules: CourseGenRule[] }>(withId('course-rules', id), json('PUT', patch))).rules
+}
+
+export async function deleteGenRule(id: string): Promise<CourseGenRule[]> {
+  return (await request<{ rules: CourseGenRule[] }>(withId('course-rules', id), { method: 'DELETE' })).rules
 }

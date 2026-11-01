@@ -85,6 +85,16 @@ const messages = {
     en: 'Typo or display glitch (e.g. a word shown twice)',
     de: 'Tippfehler oder Anzeigefehler (z. B. ein doppeltes Wort)',
   },
+  flagReasonSeveralFit: {
+    hu: 'Több válasz is jó lehet (nincs elég kontextus, vagy szinonimák a lehetőségek)',
+    en: 'More than one answer fits (too little context, or synonyms among the options)',
+    de: 'Mehr als eine Antwort passt (zu wenig Kontext oder Synonyme unter den Optionen)',
+  },
+  flagReasonLayout: {
+    hu: 'Nehezen használható / elrendezési gond',
+    en: 'Hard to use / layout problem',
+    de: 'Schwer zu bedienen / Layoutproblem',
+  },
   flagReasonOther: { hu: 'Egyéb', en: 'Something else', de: 'Etwas anderes' },
   flagDetailsLabel: { hu: 'Részletek (nem kötelező)', en: 'Details (optional)', de: 'Details (optional)' },
   flagItemLabel: { hu: 'A jelzett feladat', en: 'The flagged item', de: 'Die gemeldete Aufgabe' },

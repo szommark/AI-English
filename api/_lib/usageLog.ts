@@ -17,6 +17,7 @@ export type LlmCallType =
   | 'course_feedback'
   | 'course_fix'
   | 'course_roleplay'
+  | 'course_check'
 
 /**
  * Records one LLM call in groq_usage_log (name is historical — it holds Groq and Gemini),

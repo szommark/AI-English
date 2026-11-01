@@ -99,6 +99,8 @@ function varietyRules(ids: string[]): string[] {
 
 export interface BlueprintInput {
   level: CourseLevel
+  /** Hungarian or German courses get each word's translation for the back of the word panel. */
+  explainLang: ExplainLang
   courseTopic: string
   unitTopic: string
   grammarIds: string[]
@@ -123,7 +125,7 @@ export function buildBlueprintPrompt(input: BlueprintInput): { systemPrompt: str
     'Reply with ONE JSON object and nothing else:',
     '{ "title": a short, friendly unit title (2–5 words),',
     '  "canDos": 2–3 short learner goals starting "I can …", achievable by the end of this unit,',
-    `  "words": exactly ${VOCAB_COUNT[input.level]} useful words or short phrases for the unit topic at this level: each { "term", "pos" (noun, verb, adjective, adverb, phrase…), "meaning": a short learner-friendly English definition (no translation), "example": one natural example sentence using the term },`,
+    `  "words": exactly ${VOCAB_COUNT[input.level]} useful words or short phrases for the unit topic at this level: each { "term", "pos" (noun, verb, adjective, adverb, phrase…), "meaning": a short learner-friendly English definition (no translation), ${input.explainLang === 'en' ? '' : `"tr": the usual ${LANG_NAME[input.explainLang]} translation of the term in THIS sense (1–4 words), `}"example": one natural example sentence using the term },`,
     input.sourceText
       ? '  "passageBrief": 1–2 sentences describing the teacher\'s text ("teacherText"): its genre and what it is about,'
       : `  "passageBrief": 2–3 sentences describing the unit's main text (a reading text of about ${READING_WORDS[input.level]} words, or a listening script if the first text module is Listening): its genre (blog post, email, article, story, interview, podcast, conversation…), situation and what happens, so it naturally uses the words and the grammar,`,
@@ -173,20 +175,54 @@ export interface ModuleGenInput {
   previousWords: string[]
   /** First reading/listening module only: the teacher's own text, used as it is. */
   sourceText?: string
+  /** Rules an admin approved from flagged exercises (for this module kind or all). */
+  extraRules?: string[]
+  /** Listening: the task's one question type (picked at random when missing). */
+  listeningType?: ListeningQuestionType
 }
 
 const STEP_SCHEMA = [
   'Step types (each step is one phone screen; keep every text short):',
   '- { "type": "info", "title", "body" }: something to read — paragraphs separated by blank lines, **bold** for key words; at most 80 words.',
   '- { "type": "choice", "prompt", "options": [2–4 strings], "answer": the index (0-based) of the right option, "explain": one short sentence why }',
-  `- { "type": "gap", "sentence": one sentence with exactly one gap written as ${GAP}, "accepted": [the right answer, plus up to 2 equally correct variants], "options": [3–4 words or phrases to choose from, including the answer] (omit "options" for a typed answer), "explain": one short sentence }`,
+  `- { "type": "gap", "sentence": one or two sentences with exactly one gap written as ${GAP}, "accepted": [the right answer, plus up to 2 equally correct variants], "options": [3–4 words or phrases to choose from, including the answer] (omit "options" for a typed answer), "explain": one short sentence }`,
   '- { "type": "match", "prompt", "pairs": [{ "left", "right" }, …] }: 4–6 pairs; every right item different.',
-  '- { "type": "order", "prompt", "answer": one correct sentence of 4–10 words } (the app shuffles its words into tiles).',
+  '- { "type": "order", "prompt", "answer": one correct sentence of 4–10 words, "alternatives": [every OTHER correct order of exactly the same words, e.g. with a time phrase or adverb moved; [] if there is none] } (the app shuffles the words into tiles and accepts the answer and every alternative).',
   '- { "type": "write", "prompt": the writing task (who to, why, what to include), "minWords", "maxWords", "model": a model answer within the word range, "targets": 3–5 of the unit\'s words to use }',
-  '- { "type": "speak", "prompt": what to say (a question, a situation or a long-turn task), "seconds": how long to talk, "model": a model answer, "modelFirst": true to show the model before the learner speaks, "targets": 3–5 of the unit\'s words to use }',
+  '- { "type": "speak", "botName": who asks (a role, e.g. "Receptionist"), "botLine": the ONE question that person asks the learner, spoken by the Tutor Bot, "prompt": one line telling the learner what to include in their answer, "seconds": how long to talk, "model": a model answer, "targets": 3–5 of the unit\'s words to use }: a one-exchange speaking task with the Tutor Bot.',
   '- { "type": "roleplay", "situation", "botName", "botRole", "opening", "goals": [...], "turns", "targets": [...] }: a live spoken conversation with the Tutor Bot.',
+  'Plain text only, except **bold** (and in info bodies the formatting described for that step). Never use single *asterisks*, _underscores_ or headings.',
   'Every question has exactly one clearly right answer. Vary which option is right.',
+  `GAP RULES: every gap sentence gives enough context (a second clause, or a short lead-in sentence or line of dialogue) that only ONE answer fits; never a bare sentence where several of the words would make sense. In a gap with "options", the wrong options are the same word class as the answer but clearly wrong in this context: never synonyms or near-synonyms of the answer (e.g. not "twinkle" next to "flash"), never words that would also make a correct, natural sentence. A typed gap lists every correct answer in "accepted".`,
+  'CHOICE RULES: exactly one option is defensible; the others are clearly wrong for a reason the learner can see, never just less common.',
+  'EXERCISE BLOCKS (where this module asks for them): each block is ONE exercise type with at least 3 items, and starts with its own info step titled "Exercise N: <what to do>" whose body is a one-line instruction in English, a blank line, then "Example:" and one worked example with the answer shown as ==answer==. Never mix types inside a block.',
 ]
+
+/** The picture each module gets: a description for the image generator. */
+const IMAGE_FIELD =
+  'Also add "image": { "prompt": an English description (max 40 words) of ONE realistic illustration that helps the learner with this module — the scene of the text, recording or conversation, or the theme of the words; people, place and action; no text, letters, signs or captions in the picture, "alt": a short alt text } at the top level of your JSON object.'
+
+/** A listening module's one question type, picked per module so the course varies. */
+type ListeningQuestionType = 'choice' | 'truefalse' | 'gap_closed' | 'gap_open'
+
+export function listeningQuestionType(level: CourseLevel, random = Math.random()): ListeningQuestionType {
+  // A typed answer only from B1 on.
+  const types: ListeningQuestionType[] = level === 'A1' || level === 'A2' ? ['choice', 'truefalse', 'gap_closed'] : ['choice', 'truefalse', 'gap_closed', 'gap_open']
+  return types[Math.min(types.length - 1, Math.floor(random * types.length))]
+}
+
+function listeningQuestions(type: ListeningQuestionType, level: CourseLevel): string {
+  switch (type) {
+    case 'choice':
+      return 'choice steps with 3 options each (one right)'
+    case 'truefalse':
+      return 'choice steps with options exactly ["True", "False"] (the statements paraphrase what is said; about half true)'
+    case 'gap_closed':
+      return 'gap steps WITH "options" (3–4 each): sentences about the recording, the answer a word or two heard in it'
+    case 'gap_open':
+      return `gap steps WITHOUT options: sentences about the recording, the answer a word or short phrase heard in it, with "maxWords": ${level === 'B1' ? 2 : 3} (the most words an answer may have) and every correct variant in "accepted"`
+  }
+}
 
 function recipe(input: ModuleGenInput): string[] {
   const typed = input.level === 'A1' || input.level === 'A2' ? 'with "options"' : 'about half with "options", half typed'
@@ -227,10 +263,9 @@ function recipe(input: ModuleGenInput): string[] {
           : `Write the script from "passageBrief"${input.variant === 'second' ? ' but from another angle (another speaker, genre or situation)' : ''}: about ${LISTENING_WORDS[input.level]} words of natural spoken English (contractions, light fillers). It must be a REAL-LIFE situation the learner could meet, preferably a dialogue between two people (a phone call, booking or buying something, asking for help or directions, a problem at a hotel, shop, station or office, colleagues or friends making plans) where every line starts with the speaker's first name and a colon ("Anna: …"); or a real monologue (a voicemail, an announcement, a guide or a host talking to a group). Not an article read aloud. Use at least half of "words" and the grammar point(s), naturally.`,
         `Reply with ONE JSON object: { "intro": one sentence, "passage": { "title"${own ? '' : ', "text"'}, "style": "monologue" | "dialogue" }, "steps": [...] } with these steps in order (after your first step the app shows the recording with ALL the question steps below it on one screen):`,
         '1. info: "Before you listen" — one prediction question about the situation.',
-        '2. one choice step on the main idea (who is talking, where, why).',
-        '3–6. four choice steps on details that are clearly spoken, in the order they are heard; two of them with options ["True", "False"].',
-        `7–8. two gap steps: sentences about the recording in the order they are heard, the answer is a word or two heard in it, ${typed}.`,
-        'Questions follow the recording from start to end, so the learner can answer them one after another while listening; they test what is said, never spelling or world knowledge. Keep each question short.',
+        `2–7. six ${listeningQuestions(input.listeningType ?? 'choice', input.level)}, on details that are clearly spoken, in the EXACT order they are heard: question 2 is about the beginning of the recording, question 7 about its end.`,
+        '8. one more question of the SAME type on the main idea (who is talking, where, why, or what the outcome is): the general question comes LAST.',
+        'ALL seven questions are the same type — never mix types in this task. They test what is said, never spelling or world knowledge. Keep each question short.',
       ]
     case 'writing':
       if (input.variant === 'free')
@@ -255,21 +290,27 @@ function recipe(input: ModuleGenInput): string[] {
       const turns = ROLEPLAY_TURNS[input.level]
       const roleplay = (n: number, hard: boolean) =>
         `roleplay: a REAL-LIFE situation on the unit topic where the learner must speak (phoning to book or complain, asking for help, buying something, a job interview, making plans with a colleague…). "situation": 2–3 sentences to the learner ("You …") saying where they are, who they talk to and what they want; "botName": the other person's role as a short name ("Receptionist", "Shop assistant", "Tom (your colleague)"); "botRole": how that person behaves (friendly, busy, one small problem to solve${hard ? ', one unexpected question' : ''}); "opening": that person's first line; "goals": ${hard ? '3–4' : '2–3'} short things the learner must do ("Ask about the price", "Give your phone number"); "turns": ${n}; "targets": 3–5 of the unit's words to use.`
+      const phrases = (n: string) =>
+        `info with "audio": true: "Useful phrases" — ${n} phrases for the situation, ONE per line: the phrase in **bold**, then " – " and a short example of it in use (the app puts a speaker button on every line, so no other lines).`
       if (input.variant === 'free')
         return [
           'This is the free Speaking module (after a guided one): a live role-play with the Tutor Bot, done alone.',
           'Reply with ONE JSON object: { "intro": one sentence, "steps": [...] } with these steps in order:',
-          '1. info: "Your task" — the situation in one line and 3–4 useful phrases in **bold**, each on its own line.',
-          `2. ${roleplay(turns + 1, true)}`,
+          '1. info: "Your task" — the situation in two short lines: where the learner is, who they talk to and what they want.',
+          `2. ${phrases('3–4')}`,
+          `3. ${roleplay(turns + 1, true)}`,
         ]
       return [
-        `This is the ${input.variant === 'guided' ? 'guided Speaking module (a free one follows)' : 'Speaking module'}: useful phrases, then a live spoken role-play with the Tutor Bot (speech is transcribed; the bot answers out loud).`,
+        `This is the ${input.variant === 'guided' ? 'guided Speaking module (a free one follows)' : 'Speaking module'}: a warm-up, useful phrases, two short exercise blocks, a one-exchange task and a live spoken role-play with the Tutor Bot (speech is transcribed; the bot speaks out loud).`,
         'Reply with ONE JSON object: { "intro": one sentence, "steps": [...] } with these steps in order:',
-        '1. info: "Useful phrases" — 4–6 phrases for the situation in **bold**, each on its own line with a short example.',
-        input.variant === 'guided'
-          ? `2. speak: one short guided answer to practise a key phrase, "seconds": ${Math.max(20, Math.round(SPEAKING_SECONDS[input.level] / 2))}, with the model shown first ("modelFirst": true) and 3 "targets".`
-          : '2. choice: the best thing to say in a short situation (one natural answer, the others wrong or impolite).',
-        `3. ${roleplay(input.variant === 'guided' ? Math.max(3, turns - 1) : turns, false)}`,
+        '1. info: "Warm-up" — SIMPLE and personal: one or two easy questions about the situation of the role-play (have you ever…, what do you usually say when…), with 3–4 of the unit\'s words in **bold**. No grammar.',
+        `2. ${phrases('4–6')}`,
+        '3. info: "Exercise 1: Complete the phrases" (see EXERCISE BLOCKS).',
+        '4–6. three gap steps on the useful phrases, with "options": each sentence is a short two-line exchange that gives the context ("A: The 10 o\'clock train is full. B: ___ the next one, please?"), so only one phrase fits.',
+        '7. info: "Exercise 2: What would you say?" (see EXERCISE BLOCKS).',
+        '8–10. three choice steps: a one-line situation; pick the most natural thing to say (one natural answer, the others wrong, rude or unnatural).',
+        `11. speak: the one-exchange task — the person from the situation asks the learner ONE question ("botName", "botLine"), "prompt" says what to include in the answer, "seconds": ${Math.max(20, Math.round(SPEAKING_SECONDS[input.level] / 2))}, a model answer and 3 "targets".`,
+        `12. ${roleplay(input.variant === 'guided' ? Math.max(3, turns - 1) : turns, false)}`,
       ]
     }
     case 'grammar':
@@ -277,11 +318,14 @@ function recipe(input: ModuleGenInput): string[] {
         'This is the Grammar module: guided discovery from the unit\'s main text ("firstPassage"), then practice.',
         'Reply with ONE JSON object: { "intro": one sentence, "steps": [...] } with these steps in order:',
         '1. choice: "Find it in the text" — which of 3–4 sentences (one quoted from the text) uses the target structure.',
-        `2. info: "Grammar box" — written in ${explainIn}: the form (pattern) and the use in 2–4 short lines, then 2–3 English example sentences in **bold**; aimed at Hungarian learners (mention the typical mistake if there is one).`,
-        `3–5. three gap steps practising the form, ${typed}; "explain" in ${explainIn}.`,
-        `6–7. two choice steps: pick the correct sentence or form; "explain" in ${explainIn}.`,
-        '8–9. two order steps: build a sentence with the structure.',
-        'Use the unit topic and words in the sentences. Only the grammar box and "explain" texts are in ' + explainIn + '; everything else is in English.',
+        `2. info: "Grammar box" — VISUAL, not a paragraph of prose. Explanations in ${explainIn}, examples in English. Use these building blocks (each on its own lines): a one-line rule of use; a small table of the form, written as Markdown table lines ("| Positive | Negative | Question |", then "| --- | --- | --- |", then 1–2 rows, the key form ==highlighted==); 2–3 English example sentences with the key form ==highlighted==; the typical mistake of Hungarian learners as a pair of lines "✗ wrong sentence" and "✓ right sentence"; and when the point is about time, ONE line "TIMELINE: example (past); example (now); example (past-now)…" where each zone is past, now, future, past-now or now-future. At most 90 words in all.`,
+        '3. info: "Exercise 1: Complete with the right form" (see EXERCISE BLOCKS).',
+        `4–6. three gap steps practising the form, ${typed}; the BASE word is ALWAYS given in brackets right after the gap ("She ${GAP} (go) to work by bus every day."), so the learner works on the form, not on guessing the word; "explain" in ${explainIn}.`,
+        '7. info: "Exercise 2: Choose the correct sentence" (see EXERCISE BLOCKS).',
+        `8–10. three choice steps: pick the correct sentence or form; "explain" in ${explainIn}.`,
+        '11. info: "Exercise 3: Put the words in order" (see EXERCISE BLOCKS).',
+        '12–14. three order steps: build a sentence with the structure; list every other correct word order in "alternatives".',
+        'Use the unit topic and words in the sentences. Only the grammar box and "explain" texts are in ' + explainIn + '; everything else (also the exercise instructions) is in English.',
         ...varietyRules(input.grammarIds),
       ]
     case 'unit_check':
@@ -290,7 +334,7 @@ function recipe(input: ModuleGenInput): string[] {
         'Reply with ONE JSON object: { "intro": one sentence, "steps": [...] } with 9 question steps, mixed:',
         '- three on the unit\'s words (gap with options, choice or match),',
         input.grammarIds.length ? '- three on the grammar point(s) (gap, choice or order), each with a different verb' + (reviewTenses(input.grammarIds).length ? ' and a different tense of the review' : '') + ',' : '- three on useful phrases and structures from the unit\'s texts (gap, choice or order),',
-        '- two choice steps on the unit\'s main text ("firstPassage"),',
+        '- two choice steps on the unit\'s main text ("firstPassage"), each with "quote": the 1–3 sentences of that text the question is about, copied exactly (the learner reads them with the question, so it tests understanding, not memory; the question paraphrases, it does not copy the quote),',
         input.previousWords.length
           ? '- one gap or choice step recycling a word from an earlier unit ("previousWords").'
           : '- one more step on the words.',
@@ -307,7 +351,9 @@ export function buildModulePrompt(input: ModuleGenInput): { systemPrompt: string
     LEVEL_GUIDE[input.level],
     ...recipe(input),
     ...STEP_SCHEMA,
+    IMAGE_FIELD,
     input.grammarIds.length ? '' : NO_GRAMMAR,
+    input.extraRules?.length ? `More rules, learned from exercises learners flagged:\n${input.extraRules.map((r) => `- ${r}`).join('\n')}` : '',
   ]
     .filter(Boolean)
     .join('\n')
@@ -375,7 +421,10 @@ function lenientSteps(raw: unknown, input: ModuleGenInput): CourseStep[] {
       const sec = Number(step.seconds)
       step.seconds = Number.isFinite(sec) && sec >= 10 && sec <= 300 ? sec : SPEAKING_SECONDS[input.level]
       if (!Array.isArray(step.targets) || !step.targets.length) step.targets = defaultTargets
+      // The model answer comes after the learner's own (the bot-led exchange).
+      delete step.modelFirst
     }
+    if (step.type === 'info' && input.kind !== 'speaking') delete step.audio
     try {
       steps.push(sanitizeModuleContent({ steps: [step] }).steps[0])
     } catch {
@@ -424,7 +473,10 @@ export function parseModule(raw: string, input: ModuleGenInput): ModuleContent {
   }
 
   const intro = typeof parsed.intro === 'string' ? parsed.intro.trim().slice(0, 300) : ''
-  return sanitizeModuleContent({ intro, ...(passage ? { passage } : {}), steps: normalizeSteps(steps) })
+  // The picture is made afterwards (course-module-image); the description waits in the content.
+  const im = parsed.image && typeof parsed.image === 'object' ? (parsed.image as Record<string, unknown>) : {}
+  const image = typeof im.prompt === 'string' && im.prompt.trim() ? { path: '', prompt: im.prompt, alt: typeof im.alt === 'string' ? im.alt : '' } : undefined
+  return sanitizeModuleContent({ intro, ...(passage ? { passage } : {}), steps: normalizeSteps(steps), ...(image ? { image } : {}) })
 }
 
 // --- Model calls ----------------------------------------------------------------------------
@@ -489,9 +541,85 @@ export function generateBlueprint(input: BlueprintInput, userId: string): Promis
   return generate(systemPrompt, user, userId, parseBlueprint)
 }
 
-export function generateModule(input: ModuleGenInput, userId: string): Promise<ModuleContent> {
-  const { systemPrompt, user } = buildModulePrompt(input)
-  return generate(systemPrompt, user, userId, (raw) => parseModule(raw, input))
+export async function generateModule(input: ModuleGenInput, userId: string): Promise<ModuleContent> {
+  const full = input.kind === 'listening' && !input.listeningType ? { ...input, listeningType: listeningQuestionType(input.level) } : input
+  const { systemPrompt, user } = buildModulePrompt(full)
+  const content = await generate(systemPrompt, user, userId, (raw) => parseModule(raw, full))
+  return checkGaps(content, full, userId)
+}
+
+// --- A second look at the gap items -----------------------------------------------------------
+
+/** AI checks that are not new content: the gap check and drafting rules from flags (not counted in the daily limit). */
+export const CHECK_CALL_TYPE = 'course_check'
+/** The gap check is skipped when it takes longer (the whole generation must fit in the function's time). */
+const GAP_CHECK_MS = 20_000
+
+export function buildGapCheckPrompt(content: ModuleContent, input: Pick<ModuleGenInput, 'level'>): { systemPrompt: string; user: string; at: number[] } | null {
+  const at = content.steps.flatMap((s, i) => (s.type === 'gap' ? [i] : []))
+  if (at.length === 0) return null
+  const systemPrompt = [
+    `You check gap-fill items from an English course for learners at CEFR level ${input.level}, one by one, like a careful teacher.`,
+    'For each item, put every option into the gap (for an item without options, think of every word a learner might reasonably type there) and read the sentence.',
+    'An item is WRONG when more than one option makes a correct, natural sentence in that context (synonyms such as "twinkle" and "flash", or a sentence with too little context to tell which word is meant), when the key does not fit, or when an item without options has other correct answers missing from "accepted".',
+    `For a WRONG item return a fixed version that changes as little as possible: add context (a second clause or a short lead-in line), replace a wrong option with a word of the same class that clearly does not fit, or add the missing correct answers to "accepted". Keep exactly one ${GAP}, keep any base word in brackets, and keep the same answer where you can.`,
+    'Reply with ONE JSON object: { "items": [ { "n": the item number, "ok": true } or { "n", "ok": false, "sentence", "accepted": [...], "options": [...] (only when the item had options) } ] } with one entry per item.',
+  ].join('\n')
+  const user = JSON.stringify({
+    items: at.map((i, n) => {
+      const s = content.steps[i] as Extract<CourseStep, { type: 'gap' }>
+      return { n: n + 1, sentence: s.sentence, accepted: s.accepted, ...(s.options ? { options: s.options } : {}) }
+    }),
+  })
+  return { systemPrompt, user, at }
+}
+
+/** Applies the check's fixes; an item whose fix does not validate stays as it was. */
+export function applyGapCheck(content: ModuleContent, at: number[], raw: string): ModuleContent {
+  const items = parseJson(raw).items
+  const steps = [...content.steps]
+  for (const item of Array.isArray(items) ? items : []) {
+    if (!item || typeof item !== 'object') continue
+    const it = item as Record<string, unknown>
+    const index = at[Number(it.n) - 1]
+    if (index === undefined || it.ok !== false) continue
+    const before = steps[index] as Extract<CourseStep, { type: 'gap' }>
+    try {
+      const fixed = sanitizeModuleContent({
+        steps: [{ ...before, sentence: it.sentence ?? before.sentence, accepted: it.accepted ?? before.accepted, ...(before.options ? { options: it.options ?? before.options } : {}) }],
+      }).steps[0]
+      if (fixed.type === 'gap') steps[index] = { ...fixed, id: before.id }
+    } catch {
+      // keep the original
+    }
+  }
+  return { ...content, steps }
+}
+
+/** The automatic "only one answer fits" check of a new module's gap items; best effort. */
+async function checkGaps(content: ModuleContent, input: ModuleGenInput, userId: string): Promise<ModuleContent> {
+  const prompt = buildGapCheckPrompt(content, input)
+  if (!prompt) return content
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    const call = callModel(COURSE_MODEL, prompt.systemPrompt, [{ role: 'user', content: prompt.user }], { json: true, maxTokens: 4000, reasoningEffort: 'low', temperature: 0.2 })
+    const timeout = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), GAP_CHECK_MS)
+    })
+    const result = await Promise.race([call, timeout])
+    if (!result) {
+      // A late reply or error is ignored.
+      call.catch(() => undefined)
+      throw new Error('gap check timed out')
+    }
+    await logModelUsage({ userId, scenarioId: 'teacher-tools', callType: CHECK_CALL_TYPE, modelId: COURSE_MODEL, usage: result.usage })
+    return applyGapCheck(content, prompt.at, result.content)
+  } catch (err) {
+    console.warn('Course gap check skipped', String(err).slice(0, 300))
+    return content
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 // --- Feedback on written and spoken answers ---------------------------------------------------
@@ -524,6 +652,9 @@ export function buildFeedbackPrompt(input: FeedbackInput): { systemPrompt: strin
     `You are a kind, precise English teacher marking a ${what} by a learner at CEFR level ${input.level}, a Hungarian speaker studying alone.`,
     input.mode === 'roleplay' ? 'For "task", judge whether the learner reached the goals ("goals") and kept the conversation going naturally.' : '',
     spoken ? 'Ignore punctuation, capital letters and obvious speech-recognition slips; judge what was said.' : '',
+    spoken
+      ? 'This is natural speech: slips of the tongue, false starts, quick self-corrections and repetitions ("I go– I went", "the the", "on… in Monday") are NOT grammar mistakes. Never take marks off for them and never list them in "corrections"; neither words that look like speech-recognition errors (a similar-sounding wrong word).'
+      : '',
     'Score 0–10 for this level: task (did they do what the prompt asks, with enough content and length) 0–4, accuracy (grammar, word choice) 0–3, range (uses the target words and the grammar point naturally) 0–3. A good answer for the level gets 7–8; 10 is rare.',
     `Reply with ONE JSON object: { "score": a whole number 0–10, "feedback": 2–4 short sentences to the learner ("you") in ${LANG_NAME[input.explainLang]}: first what was good, then the one or two most useful things to improve, "corrections": up to 4 { "wrong": the learner's exact words, "right": the corrected version } (only real mistakes; [] if none) }`,
   ]
@@ -640,8 +771,10 @@ const FLAG_REASON_TEXT: Record<FlagReason, string> = {
   answer_rejected: 'the learner says their correct answer was rejected',
   wrong_key: 'the learner says the given solution is wrong',
   faulty_logic: 'the learner says the exercise is faulty or has more than one right answer',
+  several_fit: 'the learner says more than one answer fits (too little context, or options that are synonyms)',
   unclear: 'the learner says the task or instruction is unclear',
   typo: 'the learner says there is a typo or a mistake in the text',
+  layout: 'the learner says the screen is hard to use',
   other: 'the learner reports another problem',
 }
 
@@ -654,7 +787,7 @@ export async function reviewFlag(input: FlagReviewInput, userId: string): Promis
   const systemPrompt = [
     `You check an exercise from an English course (CEFR ${input.level}) that a learner flagged: ${FLAG_REASON_TEXT[input.reason]}.`,
     'Decide honestly. It is WRONG when: the key is incorrect; another answer is equally correct but not accepted (then add it to "accepted", or fix the options so only one is right); two options are right; the prompt is ambiguous or unclear; there is a typo or a grammar mistake in it. It is NOT wrong just because the learner made a mistake.',
-    'When it is wrong, return the corrected exercise in the SAME JSON shape and type, changing as little as possible (for a gap keep exactly one ___; "answer" of a choice is the 0-based index of the right option). A gap answer that is correct and fits the sentence must be accepted.',
+    'When it is wrong, return the corrected exercise in the SAME JSON shape and type, changing as little as possible (for a gap keep exactly one ___; "answer" of a choice is the 0-based index of the right option). A gap answer that is correct and fits the sentence must be accepted. When several options fit, add context to the sentence or replace the extra option with one that clearly does not fit. A correct word order the learner built must be added to the order step\'s "alternatives".',
     `Reply with ONE JSON object: { "wrong": true | false, "explanation": 1–2 short sentences to the learner in ${LANG_NAME[input.explainLang]}, "fixed": the corrected exercise, or null when it is not wrong }`,
   ].join('\n')
   const { id: _id, ...exercise } = input.step
@@ -670,4 +803,36 @@ export async function reviewFlag(input: FlagReviewInput, userId: string): Promis
     const fixed = parsed.fixed && typeof parsed.fixed === 'object' && !Array.isArray(parsed.fixed) ? (parsed.fixed as Record<string, unknown>) : null
     return { wrong: parsed.wrong === true && !!fixed, explanation, fixed: parsed.wrong === true ? fixed : null }
   }, FIX_CALL_TYPE)
+}
+
+// --- Rules learned from flags ---------------------------------------------------------------------
+
+export interface RuleDraftInput {
+  kind: ModuleKind
+  reason: FlagReason
+  /** The flagged exercises the AI confirmed and fixed: before and after. */
+  examples: { before: Step; after: Step | null; note: string }[]
+}
+
+/**
+ * One short, general rule for the module generator that would have prevented these flagged
+ * mistakes (an admin approves it before it is used).
+ */
+export async function draftGenerationRule(input: RuleDraftInput, userId: string): Promise<string> {
+  const systemPrompt = [
+    `Learners flagged several exercises in ${input.kind} modules of an AI-written English course: ${FLAG_REASON_TEXT[input.reason]}. A careful check confirmed and fixed them.`,
+    'Write ONE short, general instruction (one or two sentences, max 300 characters) for the AI that writes these modules, so that it does not make this kind of mistake again. Name the pattern, not the single items; no examples longer than a few words.',
+    'Reply with ONE JSON object: { "rule": the instruction }',
+  ].join('\n')
+  const strip = (s: Step | null) => {
+    if (!s) return null
+    const { id: _id, ...rest } = s
+    return rest
+  }
+  const user = JSON.stringify({ examples: input.examples.slice(0, 6).map((e) => ({ before: strip(e.before), after: strip(e.after), ...(e.note ? { learnerNote: e.note } : {}) })) })
+  const result = await callModel(COURSE_MODEL, systemPrompt, [{ role: 'user', content: user }], { json: true, maxTokens: 1500, reasoningEffort: 'low', temperature: 0.3 })
+  await logModelUsage({ userId, scenarioId: 'courses', callType: CHECK_CALL_TYPE, modelId: COURSE_MODEL, usage: result.usage })
+  const rule = parseJson(result.content).rule
+  if (typeof rule !== 'string' || !rule.trim()) throw new Error('no rule')
+  return rule.trim().slice(0, 400)
 }
