@@ -5,12 +5,17 @@ import FlagButton from './FlagButton'
 import { learnerTurns } from './RoleplayStep'
 import { useCourseCopy } from '../../data/courseCopy'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
+import { courseImageUrl } from '../../lib/courseApi'
+import { submitFeedbackReport } from '../../lib/feedbackApi'
+import { collectFeedbackContext } from '../../lib/feedbackContext'
 import {
   FLAGGABLE_TYPES,
   OPEN_TYPES,
   QUESTION_TYPES,
   countWords,
+  imageStepIndex,
   isOpenAnswer,
+  stepSummary,
   stepMax,
   stepScore,
   type CourseStep,
@@ -129,7 +134,7 @@ export default function ModulePlayer({
   onRoleplayTurn,
   onFlag,
 }: Props) {
-  const { c } = useCourseCopy()
+  const { c, lang } = useCourseCopy()
   const { speak } = useSpeechSynthesis()
   // Exercises the AI fixed after a flag replace the originals in this attempt.
   const [fixedSteps, setFixedSteps] = useState<Record<string, CourseStep>>({})
@@ -195,21 +200,43 @@ export default function ModulePlayer({
     onProgress?.(nextIndex, answers)
   }
 
+  /** "Hard to use": a display report in the team's feedback inbox, with this screen attached. */
+  async function reportLayout(s: CourseStep, note: string) {
+    const at = steps.indexOf(s)
+    await submitFeedbackReport({
+      kind: 'display',
+      description: [`Mini course "${title}", screen ${at + 1}/${steps.length} (${s.type}) is hard to use.`, note, `Screen: ${stepSummary(s)}`].filter(Boolean).join('\n\n').slice(0, 4000),
+      pagePath: window.location.pathname,
+      context: await collectFeedbackContext(lang),
+    })
+  }
+
   function flagControl(s: CourseStep) {
-    if (!onFlag || !FLAGGABLE_TYPES.has(s.type)) return null
+    const check = onFlag && FLAGGABLE_TYPES.has(s.type) ? onFlag : undefined
     return (
       <div className="pt-2">
         <FlagButton
           key={s.id}
-          onFlag={async (reason, note) => {
-            const result = await onFlag(s.id, reason, note, answers[s.id])
-            if (result.step) setFixedSteps((prev) => ({ ...prev, [s.id]: result.step as CourseStep }))
-            return result
-          }}
+          onFlag={
+            check
+              ? async (reason, note) => {
+                  const result = await check(s.id, reason, note, answers[s.id])
+                  if (result.step) setFixedSteps((prev) => ({ ...prev, [s.id]: result.step as CourseStep }))
+                  return result
+                }
+              : undefined
+          }
+          onLayout={(note) => reportLayout(s, note)}
         />
       </div>
     )
   }
+
+  // The module's picture, above the step it goes with.
+  const imageAt = content.image?.path ? imageStepIndex(steps) : -1
+  const picture = content.image?.path ? (
+    <img src={courseImageUrl(content.image.path)} alt={content.image.alt} className="mb-4 aspect-[3/2] w-full rounded-xl border border-border object-cover" loading="lazy" />
+  ) : null
 
   async function mark() {
     if (!step || !onEvaluate || typeof answer !== 'string') return
@@ -295,6 +322,7 @@ export default function ModulePlayer({
           <h2 className="text-lg font-semibold text-foreground">{c('listenAndAnswer')}</h2>
           {audioUrl ? <audio controls preload="auto" src={audioUrl} className="w-full" /> : <p className="text-sm text-red-600">{c('noRecording')}</p>}
         </div>
+        {imageAt === index && <div className="pt-3">{picture}</div>}
         <p className="pt-3 text-sm text-muted-foreground">{c('listenAndAnswerHint')}</p>
         <ol className="flex-1 space-y-6 py-4">
           {group.map((s, n) => (
@@ -381,6 +409,7 @@ export default function ModulePlayer({
         }}
       >
         <div className="flex-1 py-4">
+          {imageAt === index && picture}
           <StepView
             step={step}
             answer={answer}

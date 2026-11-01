@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, Mic, Square, XCircle } from 'lucide-react'
 import WordSpeakButton from '../WordSpeakButton'
-import RichText from './RichText'
+import RichText, { InlineText, plainLine } from './RichText'
 import RoleplayStep from './RoleplayStep'
+import SpeakStep from './SpeakStep'
 import { useCourseCopy } from '../../data/courseCopy'
 import { GAP } from '../../lib/grammarExercises'
-import { OPEN_MAX, countWords, isOpenAnswer, orderTiles, seededShuffle, stepScore, type CourseStep, type ModulePassage, type OpenAnswer, type RoleplayLine, type StepAnswer } from '../../lib/courses'
+import { OPEN_MAX, countWords, isOpenAnswer, orderTiles, seededShuffle, stepScore, type CourseStep, type CourseWord, type ModulePassage, type OpenAnswer, type RoleplayLine, type StepAnswer } from '../../lib/courses'
 
 interface Props {
   step: CourseStep
@@ -33,7 +34,7 @@ export default function StepView(props: Props) {
       return (
         <div className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">{step.title}</h2>
-          <RichText text={step.body} className="text-base leading-relaxed text-foreground/90" />
+          {step.audio ? <AudioLines text={step.body} speak={props.speak} /> : <RichText text={step.body} className="text-base leading-relaxed text-foreground/90" />}
         </div>
       )
     case 'words':
@@ -51,11 +52,92 @@ export default function StepView(props: Props) {
     case 'listen':
       return <ListenStep audioUrl={props.audioUrl} />
     case 'write':
-    case 'speak':
       return <OpenStep {...props} step={step} />
+    case 'speak':
+      return isOpenAnswer(props.answer) ? (
+        <OpenStep {...props} step={step} />
+      ) : (
+        <SpeakStep step={step} answer={typeof props.answer === 'string' ? props.answer : ''} onAnswer={props.onAnswer} speak={props.speak} />
+      )
     case 'roleplay':
       return <RoleplayStep step={step} answer={props.answer} onAnswer={props.onAnswer} onTurn={props.onTurn} />
   }
+}
+
+/** Useful phrases: one line each, with a speaker that reads the line's bold phrase (or the whole line). */
+function AudioLines({ text, speak }: { text: string; speak: (text: string) => void }) {
+  const { c } = useCourseCopy()
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+  return (
+    <ul className="space-y-2">
+      {lines.map((line, i) => {
+        const phrase = line.match(/\*\*([^*]+)\*\*/)?.[1] ?? line
+        return (
+          <li key={i} className="flex items-start gap-3 rounded-xl border border-border bg-card p-3 text-base text-foreground/90">
+            <p className="flex-1">
+              <InlineText text={line} />
+            </p>
+            <WordSpeakButton label={c('listen')} onSpeak={() => speak(plainLine(phrase))} />
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+/** One word: front = the word, its class, an example and a speaker; tap to flip to the meaning. */
+function WordPanel({ word, speak }: { word: CourseWord; speak: (text: string) => void }) {
+  const { c } = useCourseCopy()
+  const [flipped, setFlipped] = useState(false)
+  const flip = () => setFlipped((f) => !f)
+  const face = 'col-start-1 row-start-1 rounded-xl border p-4 [backface-visibility:hidden]'
+  return (
+    <li className="[perspective:1000px]">
+      <div
+        role="button"
+        tabIndex={0}
+        aria-pressed={flipped}
+        aria-label={word.term}
+        onClick={flip}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            flip()
+          }
+        }}
+        className={`grid cursor-pointer transition-transform duration-500 [transform-style:preserve-3d] ${flipped ? '[transform:rotateY(180deg)]' : ''}`}
+      >
+        <div className={`${face} border-border bg-card`} aria-hidden={flipped}>
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-lg font-semibold text-foreground">
+                {word.term}
+                {word.pos && <span className="ml-2 text-xs font-normal italic text-muted-foreground">{word.pos}</span>}
+              </p>
+              {word.example && <p className="mt-2 text-sm italic text-muted-foreground">“{word.example}”</p>}
+            </div>
+            {/* The speaker plays the word; it doesn't flip the panel. */}
+            <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+              <WordSpeakButton label={c('listen')} onSpeak={() => speak(word.example ? `${word.term}. ${word.example}` : word.term)} />
+            </span>
+          </div>
+        </div>
+        <div className={`${face} flex flex-col justify-center border-[var(--teal-accent-border)] bg-[var(--teal-accent-soft)] [transform:rotateY(180deg)]`} aria-hidden={!flipped}>
+          {word.tr ? (
+            <>
+              <p className="text-lg font-semibold text-foreground">{word.tr}</p>
+              <p className="mt-1 text-sm text-foreground/80">{word.meaning}</p>
+            </>
+          ) : (
+            <p className="text-base font-medium text-foreground">{word.meaning}</p>
+          )}
+        </div>
+      </div>
+    </li>
+  )
 }
 
 function WordsStep({ step, speak }: Props & { step: Extract<CourseStep, { type: 'words' }> }) {
@@ -64,23 +146,11 @@ function WordsStep({ step, speak }: Props & { step: Extract<CourseStep, { type: 
     <div className="space-y-4">
       <div>
         <h2 className="text-xl font-semibold text-foreground">{c('wordsTitle')}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{c('wordsHint')}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{c('wordsFlipHint')}</p>
       </div>
       <ul className="space-y-3">
         {step.words.map((w) => (
-          <li key={w.term} className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-start gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-lg font-semibold text-foreground">
-                  {w.term}
-                  {w.pos && <span className="ml-2 text-xs font-normal italic text-muted-foreground">{w.pos}</span>}
-                </p>
-                <p className="mt-1 text-base text-foreground/90">{w.meaning}</p>
-                {w.example && <p className="mt-2 text-sm italic text-muted-foreground">“{w.example}”</p>}
-              </div>
-              <WordSpeakButton label={c('listen')} onSpeak={() => speak(w.example ? `${w.term}. ${w.example}` : w.term)} />
-            </div>
-          </li>
+          <WordPanel key={w.term} word={w} speak={speak} />
         ))}
       </ul>
     </div>
@@ -100,12 +170,28 @@ export function TextStep({ passage }: { passage?: ModulePassage }) {
 }
 
 function Prompt({ text }: { text: string }) {
-  return <p className="text-lg font-medium leading-snug text-foreground">{text}</p>
+  return (
+    <p className="text-lg font-medium leading-snug text-foreground">
+      <InlineText text={text} />
+    </p>
+  )
+}
+
+/** The lines of the unit's text a review question is about. */
+function Quote({ text }: { text: string }) {
+  const { c } = useCourseCopy()
+  return (
+    <blockquote className="rounded-xl border-l-4 border-[var(--teal-accent)] bg-secondary/50 px-4 py-3 text-base italic text-foreground/90">
+      <span className="mb-1 block text-xs font-semibold not-italic uppercase tracking-wide text-muted-foreground">{c('quoteLabel')}</span>
+      {text}
+    </blockquote>
+  )
 }
 
 function ChoiceStep({ step, answer, onAnswer, checked }: Props & { step: Extract<CourseStep, { type: 'choice' }> }) {
   return (
     <div className="space-y-4">
+      {step.quote && <Quote text={step.quote} />}
       <Prompt text={step.prompt} />
       <div className="space-y-2">
         {step.options.map((o, i) => {
@@ -157,11 +243,14 @@ function GapStep({ step, answer, onAnswer, checked, seed }: Props & { step: Extr
 
   return (
     <div className="space-y-5">
-      <p className="text-sm text-muted-foreground">{options ? c('gapTapHint') : c('gapTypeHint')}</p>
-      <p className="text-lg leading-loose text-foreground">
-        {before}
+      <p className="text-sm text-muted-foreground">
+        {options ? c('gapTapHint') : c('gapTypeHint')}
+        {!options && step.maxWords ? ` ${c('gapMaxWords', { n: step.maxWords })}` : ''}
+      </p>
+      <p className="whitespace-pre-line text-lg leading-loose text-foreground">
+        <InlineText text={before} />
         <span className={`mx-1 inline-block min-w-[4.5rem] border-b-2 px-1 text-center font-semibold ${slotClass}`}>{value || '·'}</span>
-        {after}
+        <InlineText text={after} />
       </p>
       {options ? (
         <div className="flex flex-wrap gap-2">
@@ -429,7 +518,9 @@ function OpenStep({ step, answer, onAnswer, speak }: Props & { step: Extract<Cou
 
   return (
     <div className="space-y-4">
-      <p className="text-lg font-medium leading-snug text-foreground">{step.prompt}</p>
+      <p className="text-lg font-medium leading-snug text-foreground">
+        <InlineText text={step.prompt} />
+      </p>
       <p className="text-sm text-muted-foreground">
         {speaking ? c('speakHint', { n: step.seconds }) : c('writeHint', { min: step.minWords, max: step.maxWords })}
       </p>

@@ -5,6 +5,7 @@ import PageHeading from '../components/PageHeading'
 import ModulePreview from '../components/Courses/ModulePreview'
 import CourseVisibilityPanel from '../components/Courses/CourseVisibilityPanel'
 import ModuleEditor from '../components/Courses/ModuleEditor'
+import ModuleImagePanel from '../components/Courses/ModuleImagePanel'
 import CourseAssignPanel from '../components/Courses/CourseAssignPanel'
 import CourseFixesPanel from '../components/Courses/CourseFixesPanel'
 import UnitForm, { EMPTY_UNIT, toUnitInput, unitFormReady, type UnitFormValue } from '../components/Courses/UnitForm'
@@ -19,6 +20,8 @@ import {
   deleteUnit,
   fetchCourse,
   generateModuleContent,
+  makeModuleImage,
+  courseImageUrl,
   generateUnitOutline,
   recordModuleAudio,
   saveCourseFields,
@@ -67,6 +70,17 @@ export default function CourseEditorPage() {
       .catch((err) => setLoadError(err instanceof TeacherToolsError && err.status === 404 ? 'missing' : 'load'))
   }, [courseId, apply])
 
+/** A freshly written module's picture from the AI's description; best effort (the teacher can retry in Edit). */
+  const pictureFor = useCallback(async (next: Course, moduleId: string): Promise<Course> => {
+    const m = next.units.flatMap((u) => u.modules).find((x) => x.id === moduleId)
+    if (!m?.content?.image || m.content.image.path || !m.content.image.prompt) return next
+    try {
+      return await makeModuleImage(moduleId)
+    } catch {
+      return next
+    }
+  }, [])
+
   const failMessage = (err: unknown) => (err instanceof TeacherToolsError && err.code === 'daily_limit' ? c('dailyLimit') : c('generateError'))
 
   /** Writes whatever the unit is missing: the outline, then each empty module in order. */
@@ -92,6 +106,8 @@ export default function CourseEditorPage() {
             current = r.course
             setRemaining(r.remaining)
             apply(current)
+            current = await pictureFor(current, m.id)
+            apply(current)
           } catch (err) {
             setFailed(m.id)
             throw err
@@ -105,7 +121,7 @@ export default function CourseEditorPage() {
     },
     // failMessage only reads the copy.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [apply],
+    [apply, pictureFor],
   )
 
   // Straight after "Create": write the first unit.
@@ -149,6 +165,7 @@ export default function CourseEditorPage() {
       const r = await generateModuleContent(m.id)
       setRemaining(r.remaining)
       apply(r.course)
+      apply(await pictureFor(r.course, m.id))
     } catch (err) {
       setFailed(m.id)
       setError(err instanceof TeacherToolsError && err.code === 'reading_first' ? c('readingFirst') : failMessage(err))
@@ -350,6 +367,7 @@ export default function CourseEditorPage() {
             onRewriteModule={(m) => void rewriteModule(m)}
             onRecord={(m) => void run(() => recordModuleAudio(m.id), 'recordError')}
             onPreview={setPreview}
+            onCourse={apply}
             onSaveModule={async (m, content) => apply(await saveModule(m.id, { content }))}
             onUnit={(patch) => void run(() => updateUnit(unit.id, patch), patch.status ? 'publishError' : 'saveError')}
             onDelete={() => window.confirm(c('deleteUnitConfirm')) && void run(() => deleteUnit(unit.id))}
@@ -383,6 +401,7 @@ function UnitPanel(props: {
   onRewriteModule: (m: CourseModule) => void
   onRecord: (m: CourseModule) => void
   onPreview: (m: CourseModule) => void
+  onCourse: (c: Course) => void
   onSaveModule: (m: CourseModule, content: NonNullable<CourseModule['content']>) => Promise<void>
   onUnit: (patch: Partial<Pick<CourseUnit, 'title' | 'canDos' | 'status'>> & { move?: 'up' | 'down' }) => void
   onDelete: () => void
@@ -524,6 +543,7 @@ function UnitPanel(props: {
                 <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--teal-accent-soft)] text-[var(--teal-accent-strong)]">
                   {writing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Icon className="h-5 w-5" />}
                 </span>
+                {m.content?.image?.path && <img src={courseImageUrl(m.content.image.path)} alt="" className="h-9 w-12 shrink-0 rounded-md object-cover" />}
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium text-foreground">
                     {m.position}. {m.title}
@@ -562,6 +582,7 @@ function UnitPanel(props: {
                   </button>
                 </span>
               </div>
+              {editing === m.id && m.content && <ModuleImagePanel module={m} onCourse={props.onCourse} disabled={working || busy} />}
               {editing === m.id && m.content && (
                 <ModuleEditor
                   content={m.content}

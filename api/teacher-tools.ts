@@ -39,6 +39,8 @@ import {
   handleCourseFixes,
   handleCourseRoleplay,
   handleCourseModuleAudio,
+  handleCourseModuleImage,
+  handleCourseRules,
   handleCourseModuleGenerate,
   handleCourseModules,
   handleCoursePublish,
@@ -363,6 +365,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case 'course-module-audio':
         await handleCourseModuleAudio(req, res, user.id)
         return
+      case 'course-module-image':
+        await handleCourseModuleImage(req, res, user.id)
+        return
       case 'course-feedback':
         await handleCourseFeedback(req, res, user.id)
         return
@@ -389,6 +394,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'course-admin':
         await handleCourseAdmin(req, res, user.id)
+        return
+      case 'course-rules':
+        await handleCourseRules(req, res, user.id)
         return
       case 'teachers':
         await handleTeachers(req, res, user.id)

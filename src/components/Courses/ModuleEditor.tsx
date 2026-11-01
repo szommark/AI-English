@@ -190,6 +190,10 @@ function StepFields({ step, onChange }: { step: CourseStep; onChange: (s: Course
           <input className={small} value={step.title} placeholder={c('fieldTitle')} onChange={(e) => onChange({ ...step, title: e.target.value })} />
           <textarea className={`${small} min-h-[6rem]`} value={step.body} placeholder={c('fieldBody')} onChange={(e) => onChange({ ...step, body: e.target.value })} />
           <p className={hintClass}>{c('boldHint')}</p>
+          <label className="inline-flex items-center gap-1.5 text-sm">
+            <input type="checkbox" checked={!!step.audio} onChange={(e) => onChange({ ...step, audio: e.target.checked || undefined })} />
+            {c('fieldAudioLines')}
+          </label>
         </>
       )
     case 'text':
@@ -220,6 +224,12 @@ function StepFields({ step, onChange }: { step: CourseStep; onChange: (s: Course
     case 'speak':
       return (
         <div className="space-y-2">
+          {step.type === 'speak' && (
+            <div className="grid gap-2 sm:grid-cols-[12rem_1fr]">
+              <input className={small} value={step.botName ?? ''} placeholder={c('fieldBotName')} onChange={(e) => onChange({ ...step, botName: e.target.value || undefined })} />
+              <input className={small} value={step.botLine ?? ''} placeholder={c('fieldBotLine')} onChange={(e) => onChange({ ...step, botLine: e.target.value || undefined })} />
+            </div>
+          )}
           <textarea className={`${small} min-h-[4rem]`} value={step.prompt} placeholder={c('fieldTask')} onChange={(e) => onChange({ ...step, prompt: e.target.value })} />
           {step.type === 'write' ? (
             <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -232,10 +242,6 @@ function StepFields({ step, onChange }: { step: CourseStep; onChange: (s: Course
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="text-muted-foreground">{c('fieldSeconds')}</span>
               <input type="number" className={`${small} w-20`} value={step.seconds} onChange={(e) => onChange({ ...step, seconds: Number(e.target.value) })} />
-              <label className="ml-2 inline-flex items-center gap-1.5">
-                <input type="checkbox" checked={!!step.modelFirst} onChange={(e) => onChange({ ...step, modelFirst: e.target.checked || undefined })} />
-                {c('fieldModelFirst')}
-              </label>
             </div>
           )}
           <textarea className={`${small} min-h-[4rem]`} value={step.model ?? ''} placeholder={c('fieldModel')} onChange={(e) => onChange({ ...step, model: e.target.value || undefined })} />
@@ -255,6 +261,7 @@ function StepFields({ step, onChange }: { step: CourseStep; onChange: (s: Course
                   <Trash2 className="h-4 w-4" />
                 </button>
                 <input className={`${small} sm:col-span-3`} value={w.meaning} placeholder={c('fieldMeaning')} onChange={(e) => setWord({ meaning: e.target.value })} />
+                <input className={`${small} sm:col-span-3`} value={w.tr ?? ''} placeholder={c('fieldTr')} onChange={(e) => setWord({ tr: e.target.value || undefined })} />
                 <input className={`${small} sm:col-span-3`} value={w.example} placeholder={c('fieldExample')} onChange={(e) => setWord({ example: e.target.value })} />
               </div>
             )
@@ -267,6 +274,7 @@ function StepFields({ step, onChange }: { step: CourseStep; onChange: (s: Course
     case 'choice':
       return (
         <div className="space-y-2">
+          <textarea className={`${small} min-h-[3rem]`} value={step.quote ?? ''} placeholder={c('fieldQuote')} onChange={(e) => onChange({ ...step, quote: e.target.value || undefined })} />
           <input className={small} value={step.prompt} placeholder={c('fieldPrompt')} onChange={(e) => onChange({ ...step, prompt: e.target.value })} />
           {step.options.map((o, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -306,6 +314,19 @@ function StepFields({ step, onChange }: { step: CourseStep; onChange: (s: Course
               onChange({ ...step, options: options.length ? options : undefined })
             }}
           />
+          {!step.options?.length && (
+            <label className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">{c('fieldMaxWords')}</span>
+              <input
+                type="number"
+                min={1}
+                max={6}
+                className={`${small} w-20`}
+                value={step.maxWords ?? ''}
+                onChange={(e) => onChange({ ...step, maxWords: e.target.value ? Number(e.target.value) : undefined })}
+              />
+            </label>
+          )}
           <input className={small} value={step.explain ?? ''} placeholder={c('fieldExplain')} onChange={(e) => onChange({ ...step, explain: e.target.value || undefined })} />
         </div>
       )
@@ -341,6 +362,15 @@ function StepFields({ step, onChange }: { step: CourseStep; onChange: (s: Course
         <div className="space-y-2">
           <input className={small} value={step.prompt} placeholder={c('fieldPrompt')} onChange={(e) => onChange({ ...step, prompt: e.target.value })} />
           <input className={small} value={step.answer} placeholder={c('fieldOrderAnswer')} onChange={(e) => onChange({ ...step, answer: e.target.value })} />
+          <input
+            className={small}
+            value={(step.alternatives ?? []).join(' | ')}
+            placeholder={c('fieldAlternatives')}
+            onChange={(e) => {
+              const alternatives = splitBar(e.target.value)
+              onChange({ ...step, alternatives: alternatives.length ? alternatives : undefined })
+            }}
+          />
           <input className={small} value={step.explain ?? ''} placeholder={c('fieldExplain')} onChange={(e) => onChange({ ...step, explain: e.target.value || undefined })} />
         </div>
       )

@@ -7,6 +7,7 @@ import { HttpError } from './examTasks.js'
 import { emailsFor } from './vocabListProgress.js'
 import { isActiveStudent } from './tenseExplorerSettings.js'
 import { getUserRole } from './roles.js'
+import { ImageError, makeAiImage, storeOwnImage } from './courseImages.js'
 import { awardXp } from './gamification.js'
 import {
   FEEDBACK_CALL_TYPE,
@@ -14,6 +15,7 @@ import {
   courseGenerationsToday,
   evaluateOpenAnswer,
   generateBlueprint,
+  draftGenerationRule,
   generateModule,
   pickRecording,
   reviewFlag,
@@ -31,7 +33,8 @@ import {
   OPEN_ANSWER_MAX,
   OPEN_TYPES,
   FLAGGABLE_TYPES,
-  FLAG_REASONS,
+  AI_FLAG_REASONS,
+  GEN_RULE_MAX,
   ROLEPLAY_LINE_MAX,
   isOpenAnswer,
   plainScript,
@@ -50,6 +53,8 @@ import {
   type CourseBlueprint,
   type CourseEnrollment,
   type CourseItemFix,
+  type CourseGenRule,
+  type GenRuleStatus,
   type FlagReason,
   type RoleplayLine,
   type CourseLevel,
@@ -98,6 +103,8 @@ import type { CompLevel, CompTestContent } from '../../src/lib/compTests.js'
 //   DELETE course-units&id=<unitId>      → { course } (not the last unit)
 //   PUT    course-modules&id=<moduleId>  { title?, content } → { course } (listening: a changed script is recorded again)
 //   POST   course-module-audio&id=<moduleId>  → { course } (records a listening module's script with Azure TTS)
+//   POST   course-module-image&id=<moduleId>  { mode: 'ai', prompt?, alt? } | { mode: 'upload', data, type, alt? } → { course }
+//   DELETE course-module-image&id=<moduleId>  → { course } (the module's picture, course-images bucket)
 //   POST   course-feedback               { moduleId, stepId, text } → { feedback } (preview: AI feedback, nothing saved)
 //   POST   course-roleplay               { moduleId, stepId, history } → { reply, done } (preview role-play)
 //   GET    course-fixes&id=              { fixes }: flags the AI checked (marks them seen)
@@ -117,6 +124,9 @@ import type { CompLevel, CompTestContent } from '../../src/lib/compTests.js'
 // Admin (api/teacher-tools.ts, admin role only):
 //   GET    course-admin                  { courses } every public course (AdminCourse[])
 //   PUT    course-admin&id=              { hidden?, selfEnroll? } → { courses }
+//   GET    course-rules                  { rules } generator rules drafted from repeated confirmed flags
+//   PUT    course-rules&id=              { status?, rule? } → { rules } (approve / reject / reword)
+//   DELETE course-rules&id=              → { rules }
 // AI calls are counted together: at most COURSE_GENERATIONS_PER_DAY per UTC day (429).
 //
 // Student (api/gamification.ts, any signed-in user, only their own enrollments):
@@ -716,7 +726,9 @@ export async function handleCourseModules(req: VercelRequest, res: VercelRespons
     patch.title = title
   }
   if (b.content !== undefined) {
-    const { audio: _fromBrowser, ...content } = validated(() => sanitizeModuleContent(b.content))
+    // The picture is changed only through course-module-image.
+    const { audio: _fromBrowser, image: _imageFromBrowser, ...edited } = validated(() => sanitizeModuleContent(b.content))
+    const content: ModuleContent = module.content?.image ? { ...edited, image: module.content.image } : edited
     // An unchanged script keeps its recording; a changed one is recorded again.
     const kept = module.content?.audio && audioCurrent(course.level, { kind: module.kind, content: { ...content, audio: module.content.audio } }) ? { ...content, audio: module.content.audio } : content
     patch.content = await withRecording(module.id, course.level, module.kind, kept)
@@ -741,6 +753,47 @@ export async function handleCourseModuleAudio(req: VercelRequest, res: VercelRes
   }
   const { error } = await supabaseAdmin.from('course_modules').update({ content, updated_at: new Date().toISOString() }).eq('id', module.id)
   if (error) throw error
+  res.status(200).json({ course: await courseResponse(course.id) })
+}
+
+/**
+ * The module's picture. POST { mode: 'ai', prompt?, alt? }: an AI picture from the description
+ * (the generator's, or the teacher's new one); POST { mode: 'upload', data, type, alt? }: the
+ * teacher's own picture; DELETE: no picture. Old files stay (attempts in progress may still show them).
+ */
+export async function handleCourseModuleImage(req: VercelRequest, res: VercelResponse, teacherId: string) {
+  const { module, course } = await loadOwnModule(uuid(req.query.id), teacherId)
+  if (!module.content) throw new HttpError(409, { error: 'no_content' })
+  const old = module.content.image
+  let image: ModuleContent['image']
+  if (req.method === 'DELETE') {
+    image = undefined
+  } else if (req.method === 'POST') {
+    const b = body(req)
+    const alt = typeof b.alt === 'string' ? b.alt : (old?.alt ?? '')
+    try {
+      if (b.mode === 'upload') {
+        if (typeof b.data !== 'string' || typeof b.type !== 'string') throw new HttpError(400, { error: 'data and type are required' })
+        image = await storeOwnImage(module.id, b.data, b.type, alt)
+      } else {
+        const prompt = typeof b.prompt === 'string' && b.prompt.trim() ? b.prompt : (old?.prompt ?? '')
+        if (!prompt.trim()) throw new HttpError(400, { error: 'prompt is required' })
+        image = await makeAiImage(module.id, prompt, alt)
+      }
+    } catch (err) {
+      if (err instanceof HttpError) throw err
+      if (err instanceof ImageError && b.mode === 'upload') throw new HttpError(400, { error: 'bad_image' })
+      console.error('Course image failed', err)
+      throw new HttpError(502, { error: 'image_failed' })
+    }
+  } else {
+    throw new HttpError(405, { error: 'Method not allowed' })
+  }
+  const { image: _old, ...rest } = module.content
+  const content: ModuleContent = image ? { ...rest, image } : rest
+  const { error } = await supabaseAdmin.from('course_modules').update({ content, updated_at: new Date().toISOString() }).eq('id', module.id)
+  if (error) throw error
+  await touch(course.id)
   res.status(200).json({ course: await courseResponse(course.id) })
 }
 
@@ -1039,6 +1092,7 @@ export async function handleCourseBlueprint(req: VercelRequest, res: VercelRespo
     generated = await generateBlueprint(
       {
         level: course.level,
+        explainLang: course.explain_lang,
         courseTopic: course.topic,
         unitTopic: unit.topic,
         grammarIds: unit.grammar_ids,
@@ -1080,6 +1134,7 @@ export async function handleCourseModuleGenerate(req: VercelRequest, res: Vercel
   const ownText = typeof unit.blueprint.sourceText === 'string' && unit.blueprint.sourceText ? unit.blueprint.sourceText : undefined
   const sourceText = module.id === firstText?.id ? (ownText ?? reuse?.text) : undefined
   const used = await checkGenerationLimit(teacherId)
+  const extraRules = await approvedRules(module.kind)
   let content: ModuleContent
   try {
     content = await generateModule(
@@ -1094,6 +1149,7 @@ export async function handleCourseModuleGenerate(req: VercelRequest, res: Vercel
         passage: module.id === firstText?.id ? null : passage,
         previousWords: earlierUnits(tree, unit.position).flatMap((u) => u.words),
         ...(sourceText ? { sourceText } : {}),
+        ...(extraRules.length ? { extraRules } : {}),
       },
       teacherId,
     )
@@ -1449,6 +1505,122 @@ export async function handleCourseAdmin(req: VercelRequest, res: VercelResponse,
   res.status(200).json({ courses: await listAdminCourses() })
 }
 
+// --- Generation rules learned from flags -------------------------------------------------------
+
+/** Confirmed flags of one kind (same reason, same module kind) that make the AI draft a rule. */
+export const RULE_THRESHOLD = 3
+const RULE_COLUMNS = 'id, module_kind, reason, rule, status, flag_count, created_at'
+
+interface RuleRow {
+  id: string
+  module_kind: ModuleKind | null
+  reason: FlagReason
+  rule: string
+  status: GenRuleStatus
+  flag_count: number
+  created_at: string
+}
+
+const toRule = (r: RuleRow): CourseGenRule => ({ id: r.id, kind: r.module_kind, reason: r.reason, rule: r.rule, status: r.status, flagCount: r.flag_count, createdAt: r.created_at })
+
+/** The approved rules for a module kind (its own and the ones for every kind). */
+async function approvedRules(kind: ModuleKind): Promise<string[]> {
+  const { data, error } = await supabaseAdmin.from('course_gen_rules').select('rule, module_kind').eq('status', 'approved').order('created_at').limit(40)
+  if (error) {
+    // Before the migration (or on a hiccup) a module is still written, just without them.
+    console.warn('Loading generation rules failed', error)
+    return []
+  }
+  return (data ?? []).filter((r) => r.module_kind === null || r.module_kind === kind).map((r) => r.rule as string)
+}
+
+/**
+ * After a flag the AI confirmed and fixed: once RULE_THRESHOLD such flags (same reason, same
+ * module kind) came in since the last rule for them, the AI drafts a rule for the admin to
+ * approve. Best effort: the student's flag never fails because of it.
+ */
+async function proposeRuleIfRepeated(kind: ModuleKind, reason: FlagReason, userId: string): Promise<void> {
+  try {
+    const { data: last, error: lastError } = await supabaseAdmin
+      .from('course_gen_rules')
+      .select('created_at')
+      .eq('module_kind', kind)
+      .eq('reason', reason)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (lastError) throw lastError
+    const { data: fixes, error } = await supabaseAdmin
+      .from('course_item_fixes')
+      .select('module_id, note, step_before, step_after')
+      .eq('reason', reason)
+      .eq('status', 'fixed')
+      .gt('created_at', (last?.created_at as string | undefined) ?? '1970-01-01T00:00:00Z')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    if (error) throw error
+    if ((fixes ?? []).length < RULE_THRESHOLD) return
+    const { data: mods, error: modError } = await supabaseAdmin
+      .from('course_modules')
+      .select('id, kind')
+      .in('id', [...new Set((fixes ?? []).map((f) => f.module_id as string))])
+    if (modError) throw modError
+    const ofKind = new Set((mods ?? []).filter((m) => m.kind === kind).map((m) => m.id as string))
+    const same = (fixes ?? []).filter((f) => ofKind.has(f.module_id as string))
+    if (same.length < RULE_THRESHOLD) return
+    const rule = await draftGenerationRule(
+      { kind, reason, examples: same.map((f) => ({ before: f.step_before as CourseStep, after: (f.step_after as CourseStep | null) ?? null, note: (f.note as string) ?? '' })) },
+      userId,
+    )
+    const { error: insError } = await supabaseAdmin.from('course_gen_rules').insert({ module_kind: kind, reason, rule, status: 'proposed', flag_count: same.length })
+    if (insError) throw insError
+  } catch (err) {
+    console.warn('Proposing a generation rule failed', err)
+  }
+}
+
+async function listRules(): Promise<CourseGenRule[]> {
+  const { data, error } = await supabaseAdmin.from('course_gen_rules').select(RULE_COLUMNS).order('created_at', { ascending: false }).limit(200)
+  if (error) throw error
+  return ((data ?? []) as RuleRow[]).map(toRule)
+}
+
+/**
+ * Admins only. GET course-rules: { rules }. PUT course-rules&id= { status?, rule? } → { rules }
+ * (approve, reject or reword a proposal). DELETE course-rules&id= → { rules }.
+ */
+export async function handleCourseRules(req: VercelRequest, res: VercelResponse, userId: string) {
+  if ((await getUserRole(userId)) !== 'admin') throw new HttpError(403, { error: 'Forbidden' })
+  if (req.method === 'GET') {
+    res.status(200).json({ rules: await listRules() })
+    return
+  }
+  const id = uuid(req.query.id)
+  if (req.method === 'DELETE') {
+    const { error } = await supabaseAdmin.from('course_gen_rules').delete().eq('id', id)
+    if (error) throw error
+    res.status(200).json({ rules: await listRules() })
+    return
+  }
+  if (req.method !== 'PUT') throw new HttpError(405, { error: 'Method not allowed' })
+  const b = body(req)
+  const patch: Record<string, unknown> = {}
+  if (b.status === 'proposed' || b.status === 'approved' || b.status === 'rejected') {
+    patch.status = b.status
+    patch.decided_at = b.status === 'proposed' ? null : new Date().toISOString()
+    patch.decided_by = b.status === 'proposed' ? null : userId
+  }
+  if (b.rule !== undefined) {
+    const rule = typeof b.rule === 'string' ? b.rule.trim() : ''
+    if (!rule || rule.length > GEN_RULE_MAX) throw new HttpError(400, { error: `rule must be 1–${GEN_RULE_MAX} characters` })
+    patch.rule = rule
+  }
+  if (Object.keys(patch).length === 0) throw new HttpError(400, { error: 'status or rule is required' })
+  const { error } = await supabaseAdmin.from('course_gen_rules').update(patch).eq('id', id)
+  if (error) throw error
+  res.status(200).json({ rules: await listRules() })
+}
+
 // --- Student -------------------------------------------------------------------------------
 
 /** GET course-shelf: the courses a student may start themselves, with their enrollment when started. */
@@ -1707,7 +1879,8 @@ async function handleMyCourseFlag(req: VercelRequest, res: VercelResponse, userI
   if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
   const { attempt, tree } = await loadMyAttempt(uuid(req.query.id), userId)
   const b = body(req)
-  const reason = FLAG_REASONS.find((r) => r === b.reason)
+  // Layout flags go to the feedback inbox from the browser; here only what the AI can check.
+  const reason = AI_FLAG_REASONS.find((r) => r === b.reason)
   if (!reason) throw new HttpError(400, { error: 'reason is required' })
   const note = typeof b.note === 'string' ? b.note.trim().slice(0, 500) : ''
   const snapshot = attempt.content_snapshot
@@ -1766,6 +1939,10 @@ async function handleMyCourseFlag(req: VercelRequest, res: VercelResponse, userI
     status: fixed ? 'fixed' : 'kept',
   })
   if (logError) throw logError
+  if (fixed) {
+    const kind = [...tree.modules.values()].flat().find((m) => m.id === attempt.module_id)?.kind
+    if (kind) await proposeRuleIfRepeated(kind, reason, userId)
+  }
   res.status(200).json({ result: { wrong: !!fixed, explanation: review.explanation, step: fixed } })
 }
 

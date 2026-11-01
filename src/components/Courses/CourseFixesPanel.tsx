@@ -10,8 +10,10 @@ const REASON_LABEL: Record<FlagReason, MessageKey> = {
   answer_rejected: 'flagReasonAnswerRejected',
   wrong_key: 'flagReasonWrongKey',
   faulty_logic: 'flagReasonFaultyLogic',
+  several_fit: 'flagReasonSeveralFit',
   unclear: 'flagReasonUnclear',
   typo: 'flagReasonTypo',
+  layout: 'flagReasonLayout',
   other: 'flagReasonOther',
 }
 

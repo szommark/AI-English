@@ -200,33 +200,42 @@ export interface CourseWord {
   /** An example sentence using the term. */
   example: string
   pos?: string
+  /** The meaning in the course's explanation language (Hungarian or German courses), shown on the back of the word panel. */
+  tr?: string
 }
 
 export type CourseStep =
-  /** Text to read: a warm-up question, a grammar box, a tip. Paragraphs separated by blank lines; **bold** allowed. */
-  | { id: string; type: 'info'; title: string; body: string }
+  /**
+   * Text to read: a warm-up question, a grammar box, a tip. Paragraphs separated by blank lines;
+   * **bold**, ==highlight==, "| a | b |" tables, ✓/✗ example lines and a "TIMELINE:" line allowed.
+   * audio: every line gets a speaker button (useful phrases).
+   */
+  | { id: string; type: 'info'; title: string; body: string; audio?: boolean }
   /** Meet the words: one card per word with audio. */
   | { id: string; type: 'words'; words: CourseWord[] }
   /** Read the module's passage. */
   | { id: string; type: 'text' }
-  /** Pick one option. */
-  | { id: string; type: 'choice'; prompt: string; options: string[]; answer: number; explain?: string }
-  /** A sentence with one gap ("___"): tap a word from `options`, or type when there are none. */
-  | { id: string; type: 'gap'; sentence: string; accepted: string[]; options?: string[]; explain?: string }
+  /** Pick one option. quote: the lines of the unit's text the question is about, shown with it (unit check). */
+  | { id: string; type: 'choice'; prompt: string; options: string[]; answer: number; explain?: string; quote?: string }
+  /**
+   * A sentence with one gap ("___"): tap a word from `options`, or type when there are none.
+   * maxWords: a typed answer's word limit, shown to the learner.
+   */
+  | { id: string; type: 'gap'; sentence: string; accepted: string[]; options?: string[]; explain?: string; maxWords?: number }
   /** Match each left item to its right item. */
   | { id: string; type: 'match'; prompt: string; pairs: { left: string; right: string }[] }
-  /** Put the word tiles in order to make `answer`. */
-  | { id: string; type: 'order'; prompt: string; answer: string; explain?: string }
+  /** Put the word tiles in order to make `answer` (or one of the other correct orders in `alternatives`). */
+  | { id: string; type: 'order'; prompt: string; answer: string; alternatives?: string[]; explain?: string }
   /** Listen to the module's recording (listening modules; the script is the passage). */
   | { id: string; type: 'listen' }
   /** Write a short text; the AI gives feedback and a score out of 10. */
   | { id: string; type: 'write'; prompt: string; minWords: number; maxWords: number; model?: string; targets?: string[] }
   /**
-   * Answer out loud (speech recognition, or typed when there is no microphone); the AI gives
-   * feedback and a score out of 10. modelFirst: the model answer is shown before answering
-   * (guided), otherwise after the feedback.
+   * One spoken exchange with the Tutor Bot: the bot (as botName) asks botLine, the learner answers
+   * out loud against a countdown (speech recognition, or typed when there is no microphone); the
+   * AI gives feedback and a score out of 10. The model answer is shown once the learner has answered.
    */
-  | { id: string; type: 'speak'; prompt: string; seconds: number; model?: string; modelFirst?: boolean; targets?: string[] }
+  | { id: string; type: 'speak'; prompt: string; seconds: number; model?: string; modelFirst?: boolean; targets?: string[]; botName?: string; botLine?: string }
   /**
    * A spoken role-play with the Tutor Bot in a real-life situation: the bot plays botName
    * (botRole tells it how), opens with `opening`, and the learner has up to `turns` turns to
@@ -243,11 +252,18 @@ export const OPEN_TYPES: ReadonlySet<StepType> = new Set(['write', 'speak', 'rol
 export const ROLEPLAY_TURNS: Record<CourseLevel, number> = { A1: 4, A2: 4, B1: 5, B2: 6, C1: 7, C2: 7 }
 export const ROLEPLAY_LINE_MAX = 500
 
-/** Why a student flags an exercise (the same reasons as the Grammar Coach flags). */
-export const FLAG_REASONS = ['answer_rejected', 'wrong_key', 'faulty_logic', 'unclear', 'typo', 'other'] as const
+/**
+ * Why a student flags an exercise: the Grammar Coach flag reasons, plus "more than one answer
+ * fits" and "hard to use / layout". Layout flags go to the admin feedback inbox, not to the AI.
+ */
+export const FLAG_REASONS = ['answer_rejected', 'wrong_key', 'faulty_logic', 'several_fit', 'unclear', 'typo', 'layout', 'other'] as const
 export type FlagReason = (typeof FLAG_REASONS)[number]
-/** Exercises a student can flag (the AI checks and fixes them). */
+/** The reasons the AI checks (and fixes); 'layout' is a bug report for the team. */
+export const AI_FLAG_REASONS: readonly FlagReason[] = FLAG_REASONS.filter((r) => r !== 'layout')
+/** Exercises a student can flag for their content (the AI checks and fixes them). */
 export const FLAGGABLE_TYPES: ReadonlySet<StepType> = QUESTION_TYPES
+/** Any screen can be flagged as hard to use. */
+export const LAYOUT_FLAG_TYPES: ReadonlySet<StepType> = new Set(STEP_TYPES)
 /** What an open step is worth. */
 export const OPEN_MAX = 10
 
@@ -267,7 +283,22 @@ export interface ModuleContent {
   steps: CourseStep[]
   /** Listening: the recording in the course-audio bucket (set by the server; key = what it was made from). */
   audio?: { path: string; key: string }
+  /** The module's picture in the public course-images bucket (AI-made or the teacher's own). */
+  image?: ModuleImage
 }
+
+export interface ModuleImage {
+  /** "<moduleId>/<12 hex>.jpg|png|webp" in course-images; "" while the picture is still to be made. */
+  path: string
+  /** Short alt text. */
+  alt: string
+  /** What the AI image was made from (empty for an uploaded picture). */
+  prompt: string
+}
+
+export const IMAGE_BUCKET = 'course-images'
+export const IMAGE_PATH_RE = /^[0-9a-f-]{36}\/[0-9a-f]{12}\.(jpg|png|webp)$/
+export const IMAGE_PROMPT_MAX = 400
 
 /** The AI outline of a unit, written before its modules (and fed to every module prompt). */
 export interface CourseBlueprint {
@@ -343,15 +374,24 @@ export function sanitizeWord(raw: unknown): CourseWord {
   }
   const pos = optStr(w.pos, 30)
   if (pos) word.pos = pos
+  const tr = optStr(w.tr, 120)
+  if (tr) word.tr = tr
   return word
 }
+
+/** The tiles of an order sentence, for comparing two orders of the same words. */
+const tileKey = (sentence: string) =>
+  sentenceTiles(sentence)
+    .map((t) => t.toLowerCase())
+    .sort()
+    .join(' ')
 
 function sanitizeStep(raw: unknown): CourseStep {
   const s = obj(raw)
   const id = typeof s.id === 'string' ? s.id : ''
   switch (s.type) {
     case 'info':
-      return { id, type: 'info', title: str(s.title, 160, 'title'), body: str(s.body, INFO_BODY_MAX, 'body') }
+      return { id, type: 'info', title: str(s.title, 160, 'title'), body: str(s.body, INFO_BODY_MAX, 'body'), ...(s.audio === true ? { audio: true } : {}) }
     case 'words': {
       const words = list(s.words).map(sanitizeWord)
       if (words.length === 0 || words.length > MAX_WORDS) throw new CourseValidationError(`a words step needs 1–${MAX_WORDS} words`)
@@ -365,7 +405,8 @@ function sanitizeStep(raw: unknown): CourseStep {
       const answer = typeof s.answer === 'number' && Number.isInteger(s.answer) ? s.answer : -1
       if (answer < 0 || answer >= options.length) throw new CourseValidationError('a choice needs its right option')
       const explain = optStr(s.explain, STEP_TEXT_MAX)
-      return { id, type: 'choice', prompt: str(s.prompt, STEP_TEXT_MAX, 'prompt'), options, answer, ...(explain ? { explain } : {}) }
+      const quote = optStr(s.quote, STEP_TEXT_MAX)
+      return { id, type: 'choice', prompt: str(s.prompt, STEP_TEXT_MAX, 'prompt'), options, answer, ...(explain ? { explain } : {}), ...(quote ? { quote } : {}) }
     }
     case 'gap': {
       const sentence = str(s.sentence, STEP_TEXT_MAX, 'sentence')
@@ -376,7 +417,10 @@ function sanitizeStep(raw: unknown): CourseStep {
       if (options.length > MAX_OPTIONS + 1) throw new CourseValidationError(`a gap has at most ${MAX_OPTIONS + 1} options`)
       if (options.length && !options.some((o) => matchesAnswer(o, accepted))) throw new CourseValidationError('a gap’s options must include its answer')
       const explain = optStr(s.explain, STEP_TEXT_MAX)
-      return { id, type: 'gap', sentence, accepted, ...(options.length >= 2 ? { options } : {}), ...(explain ? { explain } : {}) }
+      // A word limit only for a typed answer, and never shorter than the key.
+      const limit = Number(s.maxWords)
+      const maxWords = options.length < 2 && Number.isInteger(limit) && limit >= 1 && limit <= 6 ? Math.max(limit, ...accepted.map(countWords)) : 0
+      return { id, type: 'gap', sentence, accepted, ...(options.length >= 2 ? { options } : {}), ...(explain ? { explain } : {}), ...(maxWords ? { maxWords } : {}) }
     }
     case 'match': {
       const pairs = list(s.pairs).map((p) => ({ left: str(obj(p).left, 200, 'left'), right: str(obj(p).right, 200, 'right') }))
@@ -389,7 +433,17 @@ function sanitizeStep(raw: unknown): CourseStep {
       const tiles = sentenceTiles(answer)
       if (tiles.length < 3 || tiles.length > 14) throw new CourseValidationError('an order sentence needs 3–14 words')
       const explain = optStr(s.explain, STEP_TEXT_MAX)
-      return { id, type: 'order', prompt: str(s.prompt, STEP_TEXT_MAX, 'prompt'), answer, ...(explain ? { explain } : {}) }
+      // Other correct orders: the same words, a different order (a moved adverb or time phrase).
+      const key = tileKey(answer)
+      const own = sentenceTiles(answer).join(' ').toLowerCase()
+      const alternatives = [
+        ...new Set(
+          list(s.alternatives)
+            .map((a) => (typeof a === 'string' ? a.trim().slice(0, 200) : ''))
+            .filter((a) => a && tileKey(a) === key && sentenceTiles(a).join(' ').toLowerCase() !== own),
+        ),
+      ].slice(0, MAX_ACCEPTED)
+      return { id, type: 'order', prompt: str(s.prompt, STEP_TEXT_MAX, 'prompt'), answer, ...(alternatives.length ? { alternatives } : {}), ...(explain ? { explain } : {}) }
     }
     case 'listen':
       return { id, type: 'listen' }
@@ -422,6 +476,8 @@ function sanitizeStep(raw: unknown): CourseStep {
     case 'speak': {
       const model = optStr(s.model, 2_000)
       const targets = cleanTargets(s.targets)
+      const botName = optStr(s.botName, 60)
+      const botLine = optStr(s.botLine, 400)
       return {
         id,
         type: 'speak',
@@ -430,6 +486,8 @@ function sanitizeStep(raw: unknown): CourseStep {
         ...(model ? { model } : {}),
         ...(model && s.modelFirst === true ? { modelFirst: true } : {}),
         ...(targets.length ? { targets } : {}),
+        ...(botName ? { botName } : {}),
+        ...(botLine ? { botLine } : {}),
       }
     }
     default:
@@ -454,7 +512,18 @@ export function sanitizeModuleContent(raw: unknown): ModuleContent {
   if (!passage && steps.some((s) => s.type === 'text' || s.type === 'listen')) throw new CourseValidationError('a text or listen step needs a passage')
   const a = obj(c.audio)
   const audio = typeof a.path === 'string' && AUDIO_PATH_RE.test(a.path) && typeof a.key === 'string' && /^[0-9a-f]{40}$/.test(a.key) ? { path: a.path, key: a.key } : undefined
-  return { intro: str(c.intro, 300, 'intro', false), ...(passage ? { passage } : {}), steps: normalizeSteps(steps), ...(audio ? { audio } : {}) }
+  const im = obj(c.image)
+  // No path yet: the AI's description, waiting for the picture to be made.
+  const imPath = typeof im.path === 'string' && IMAGE_PATH_RE.test(im.path) ? im.path : ''
+  const imPrompt = typeof im.prompt === 'string' ? im.prompt.trim().slice(0, IMAGE_PROMPT_MAX) : ''
+  const image: ModuleImage | undefined = imPath || imPrompt ? { path: imPath, alt: typeof im.alt === 'string' ? im.alt.trim().slice(0, 200) : '', prompt: imPrompt } : undefined
+  return { intro: str(c.intro, 300, 'intro', false), ...(passage ? { passage } : {}), steps: normalizeSteps(steps), ...(audio ? { audio } : {}), ...(image ? { image } : {}) }
+}
+
+/** The step a module's picture goes with: its words, text, recording, role-play or writing task (else the first). */
+export function imageStepIndex(steps: CourseStep[]): number {
+  const at = steps.findIndex((s) => s.type === 'words' || s.type === 'text' || s.type === 'listen' || s.type === 'roleplay' || s.type === 'write')
+  return at >= 0 ? at : 0
 }
 
 /**
@@ -561,8 +630,11 @@ export function stepScore(step: CourseStep, answer: StepAnswer | undefined): num
       return typeof answer === 'string' && matchesGap(step.sentence, answer, step.accepted) ? 1 : 0
     case 'match':
       return Array.isArray(answer) ? step.pairs.filter((_, i) => answer[i] === i).length : 0
-    case 'order':
-      return Array.isArray(answer) && answer.join(' ').toLowerCase() === sentenceTiles(step.answer).join(' ').toLowerCase() ? 1 : 0
+    case 'order': {
+      if (!Array.isArray(answer)) return 0
+      const built = answer.join(' ').toLowerCase()
+      return [step.answer, ...(step.alternatives ?? [])].some((s) => sentenceTiles(s).join(' ').toLowerCase() === built) ? 1 : 0
+    }
     case 'write':
     case 'speak':
     case 'roleplay':
@@ -815,6 +887,25 @@ export interface ModuleAttempt {
 }
 
 /** The AI's answer to a student's flag. */
+export type GenRuleStatus = 'proposed' | 'approved' | 'rejected'
+export const GEN_RULE_MAX = 400
+
+/**
+ * A rule for the module generator, drafted by the AI from repeated flags of the same kind
+ * (admin page). Approved rules are added to the prompt of every new module of that kind.
+ */
+export interface CourseGenRule {
+  id: string
+  /** The module kind it applies to; null = every module. */
+  kind: ModuleKind | null
+  reason: FlagReason
+  rule: string
+  status: GenRuleStatus
+  /** How many confirmed flags led to it. */
+  flagCount: number
+  createdAt: string
+}
+
 export interface FlagResult {
   /** Whether the exercise was really wrong (and is now fixed). */
   wrong: boolean
