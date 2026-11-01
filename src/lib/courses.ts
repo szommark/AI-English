@@ -391,7 +391,7 @@ function sanitizeStep(raw: unknown): CourseStep {
   const id = typeof s.id === 'string' ? s.id : ''
   switch (s.type) {
     case 'info':
-      return { id, type: 'info', title: str(s.title, 160, 'title'), body: str(s.body, INFO_BODY_MAX, 'body'), ...(s.audio === true ? { audio: true } : {}) }
+      return { id, type: 'info', title: str(s.title, 160, 'title'), body: fixNestedBold(str(s.body, INFO_BODY_MAX, 'body')), ...(s.audio === true ? { audio: true } : {}) }
     case 'words': {
       const words = list(s.words).map(sanitizeWord)
       if (words.length === 0 || words.length > MAX_WORDS) throw new CourseValidationError(`a words step needs 1–${MAX_WORDS} words`)
@@ -524,6 +524,14 @@ export function sanitizeModuleContent(raw: unknown): ModuleContent {
 export function imageStepIndex(steps: CourseStep[]): number {
   const at = steps.findIndex((s) => s.type === 'words' || s.type === 'text' || s.type === 'listen' || s.type === 'roleplay' || s.type === 'write')
   return at >= 0 ? at : 0
+}
+
+/**
+ * Bold written inside bold ("**Is there a place to **browse** the stalls?**") as one bold phrase;
+ * read as Markdown, the inner word would show plain.
+ */
+export function fixNestedBold(text: string): string {
+  return text.replace(/(^|[\s("“‘'])\*\*([^*\s][^*\n]*\s)\*\*([^*\s][^*\n]*?)\*\*([^*\n]*?[^*\s])?\*\*/gm, (_m, pre: string, a: string, b: string, c?: string) => `${pre}**${a}${b}${c ?? ''}**`)
 }
 
 /**

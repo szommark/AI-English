@@ -178,6 +178,8 @@ export default function SpeakStep({ step, answer, onAnswer, speak }: { step: Spe
       synthesis.cancel()
       const r = recRef.current
       recRef.current = null
+      // stop() still delivers the last results; after leaving (or being marked) they're dropped.
+      if (r) r.onresult = null
       r?.stop()
     },
     // On leaving the step only.

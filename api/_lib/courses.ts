@@ -142,7 +142,8 @@ import type { CompLevel, CompTestContent } from '../../src/lib/compTests.js'
 //   POST   my-course-module&id=<enrollmentId>  { moduleId, restart? } → { attempt } (resumes the open one)
 //   POST   my-course-progress&id=<attemptId>   { stepIndex, answers } → { ok } (autosave)
 //   POST   my-course-feedback&id=<attemptId>   { stepId, text } → { answer } AI feedback on a write/speak step,
-//                                        once per step, stored on the attempt (FEEDBACK_PER_DAY per UTC day, 429)
+//                                        once per step, stored on the attempt (FEEDBACK_PER_DAY per UTC day, 429);
+//                                        asked again, it returns the stored answer
 //   POST   my-course-roleplay&id=<attemptId>   { stepId, history } → { reply, done } the Tutor Bot's next line
 //   POST   my-course-flag&id=<attemptId>       { stepId, reason, note?, answer? } → { result } the AI checks the
 //                                        exercise and fixes it in the course when it is wrong (FLAGS_PER_DAY)
@@ -1985,7 +1986,13 @@ async function handleMyCourseFeedback(req: VercelRequest, res: VercelResponse, u
   const b = body(req)
   const step = attempt.content_snapshot.steps.find((s) => s.id === b.stepId)
   if (!step || !OPEN_TYPES.has(step.type)) throw new HttpError(400, { error: 'Not a writing or speaking step' })
-  if (isOpenAnswer(attempt.answers?.[step.id])) throw new HttpError(409, { error: 'already_marked' })
+  // Marked once per step: a page that lost the mark (e.g. a late speech-recognition result
+  // reopened the answer) gets the stored one back instead of an error it can't get past.
+  const stored = attempt.answers?.[step.id]
+  if (isOpenAnswer(stored)) {
+    res.status(200).json({ answer: stored })
+    return
+  }
   const text = openText(b.text)
   await checkFeedbackLimit(userId)
   const unit = tree.units.find((u) => (tree.modules.get(u.id) ?? []).some((m) => m.id === attempt.module_id)) ?? { grammar_ids: [] }
