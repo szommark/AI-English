@@ -40,6 +40,8 @@ import {
   handleCourseRoleplay,
   handleCourseModuleAudio,
   handleCourseModuleImage,
+  handleCoursePreviewFlag,
+  handleCourseModuleFix,
   handleCourseRules,
   handleCourseModuleGenerate,
   handleCourseModules,
@@ -367,6 +369,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return
       case 'course-module-image':
         await handleCourseModuleImage(req, res, user.id)
+        return
+      case 'course-preview-flag':
+        await handleCoursePreviewFlag(req, res, user.id)
+        return
+      case 'course-module-fix':
+        await handleCourseModuleFix(req, res, user.id)
         return
       case 'course-feedback':
         await handleCourseFeedback(req, res, user.id)

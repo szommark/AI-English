@@ -676,10 +676,20 @@ export function sanitizeAnswers(content: ModuleContent, raw: unknown): ModuleAns
   return out
 }
 
-/** Two steps with the same content (ids aside). */
+/** JSON with object keys sorted, so the same value always reads the same (jsonb reorders keys). */
+function canonical(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonical).join(',')}]`
+  if (v && typeof v === 'object')
+    return `{${Object.keys(v)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonical((v as Record<string, unknown>)[k])}`)
+      .join(',')}}`
+  return JSON.stringify(v) ?? 'null'
+}
+
+/** Two steps with the same content (ids aside; key order never matters). */
 export function sameStep(a: CourseStep, b: CourseStep): boolean {
-  const strip = (s: CourseStep) => JSON.stringify({ ...s, id: '' })
-  return strip(a) === strip(b)
+  return canonical({ ...a, id: '' }) === canonical({ ...b, id: '' })
 }
 
 /** One line describing an exercise, for the teacher's list of AI fixes. */
@@ -733,7 +743,21 @@ export interface CourseModule {
   audioReady: boolean
   /** Listening: a signed URL of the current recording (teacher preview). */
   audioUrl: string | null
+  /** The author's flags from previewing the module, waiting for "Fix flagged items" (empty for others). */
+  previewFlags: PreviewFlag[]
 }
+
+/** A teacher's flag on one item while previewing their own module. */
+export interface PreviewFlag {
+  stepId: string
+  reason: FlagReason
+  note: string
+  /** The item as it was flagged (a flag whose item changed since is dropped). */
+  step: CourseStep
+  createdAt: string
+}
+
+export const MAX_PREVIEW_FLAGS = 20
 
 export interface CourseUnit {
   id: string
@@ -907,6 +931,8 @@ export interface CourseGenRule {
 }
 
 export interface FlagResult {
+  /** A teacher's preview flag: saved for "Fix flagged items", not checked yet. */
+  saved?: boolean
   /** Whether the exercise was really wrong (and is now fixed). */
   wrong: boolean
   /** Short explanation in the course's explanation language. */

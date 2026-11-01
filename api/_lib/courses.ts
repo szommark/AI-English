@@ -16,6 +16,7 @@ import {
   evaluateOpenAnswer,
   generateBlueprint,
   draftGenerationRule,
+  fixFlaggedItems,
   generateModule,
   pickRecording,
   reviewFlag,
@@ -35,6 +36,7 @@ import {
   FLAGGABLE_TYPES,
   AI_FLAG_REASONS,
   GEN_RULE_MAX,
+  MAX_PREVIEW_FLAGS,
   ROLEPLAY_LINE_MAX,
   isOpenAnswer,
   plainScript,
@@ -55,6 +57,7 @@ import {
   type CourseItemFix,
   type CourseGenRule,
   type GenRuleStatus,
+  type PreviewFlag,
   type FlagReason,
   type RoleplayLine,
   type CourseLevel,
@@ -105,6 +108,9 @@ import type { CompLevel, CompTestContent } from '../../src/lib/compTests.js'
 //   POST   course-module-audio&id=<moduleId>  → { course } (records a listening module's script with Azure TTS)
 //   POST   course-module-image&id=<moduleId>  { mode: 'ai', prompt?, alt? } | { mode: 'upload', data, type, alt? } → { course }
 //   DELETE course-module-image&id=<moduleId>  → { course } (the module's picture, course-images bucket)
+//   POST   course-preview-flag&id=<moduleId>  { stepId, reason, note } → { course } (the author's flag while previewing)
+//   DELETE course-preview-flag&id=<moduleId>&stepId=  → { course }
+//   POST   course-module-fix&id=<moduleId>    → { course, fixed, left, remaining } (the AI fixes only the flagged items)
 //   POST   course-feedback               { moduleId, stepId, text } → { feedback } (preview: AI feedback, nothing saved)
 //   POST   course-roleplay               { moduleId, stepId, history } → { reply, done } (preview role-play)
 //   GET    course-fixes&id=              { fixes }: flags the AI checked (marks them seen)
@@ -149,7 +155,7 @@ import type { CompLevel, CompTestContent } from '../../src/lib/compTests.js'
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const COURSE_COLUMNS = 'id, teacher_id, title, topic, level, explain_lang, status, visibility, author_name, admin_hidden, self_enroll, access_tier, created_at, updated_at'
 const UNIT_COLUMNS = 'id, course_id, position, title, topic, template, grammar_ids, can_dos, blueprint, status'
-const MODULE_COLUMNS = 'id, unit_id, position, kind, variant, title, est_minutes, content, version'
+const MODULE_COLUMNS = 'id, unit_id, position, kind, variant, title, est_minutes, content, version, preview_flags'
 const ENROLLMENT_COLUMNS = 'id, course_id, student_id, source, assigned_by, started_at, completed_at'
 const ATTEMPT_COLUMNS = 'id, enrollment_id, module_id, module_version, content_snapshot, step_index, answers, score, max_score, started_at, completed_at'
 const MAX_ASSIGN_AT_ONCE = 100
@@ -202,6 +208,8 @@ interface ModuleRow {
   est_minutes: number
   content: ModuleContent | null
   version: number
+  /** The author's preview flags (PreviewFlag[]). */
+  preview_flags: PreviewFlag[] | null
 }
 
 interface EnrollmentRow {
@@ -394,6 +402,7 @@ function toModule(m: ModuleRow, level: CourseLevel, urls: Map<string, string | n
     version: m.version,
     audioReady: audioCurrent(level, m),
     audioUrl: urls.get(m.id) ?? null,
+    previewFlags: Array.isArray(m.preview_flags) ? m.preview_flags : [],
   }
 }
 
@@ -733,6 +742,7 @@ export async function handleCourseModules(req: VercelRequest, res: VercelRespons
     const kept = module.content?.audio && audioCurrent(course.level, { kind: module.kind, content: { ...content, audio: module.content.audio } }) ? { ...content, audio: module.content.audio } : content
     patch.content = await withRecording(module.id, course.level, module.kind, kept)
     patch.version = module.version + 1
+    patch.preview_flags = flagsStillValid(module.preview_flags, patch.content as ModuleContent)
   }
   const { error } = await supabaseAdmin.from('course_modules').update(patch).eq('id', module.id)
   if (error) throw error
@@ -795,6 +805,116 @@ export async function handleCourseModuleImage(req: VercelRequest, res: VercelRes
   if (error) throw error
   await touch(course.id)
   res.status(200).json({ course: await courseResponse(course.id) })
+}
+
+// --- The author's preview flags -------------------------------------------------------------
+
+/** The flags whose item is still in the module unchanged, with the item's current id. */
+function flagsStillValid(flags: PreviewFlag[] | null, content: ModuleContent): PreviewFlag[] {
+  const out: PreviewFlag[] = []
+  for (const f of flags ?? []) {
+    const now = content.steps.find((s) => sameStep(s, f.step))
+    if (now) out.push({ ...f, stepId: now.id, step: now })
+  }
+  return out
+}
+
+/**
+ * POST course-preview-flag&id=<moduleId> { stepId, reason, note }: the author flags an item while
+ * previewing (one flag per item; a new one replaces it). DELETE course-preview-flag&id=&stepId=
+ * removes it. Nothing goes to the AI until "Fix flagged items".
+ */
+export async function handleCoursePreviewFlag(req: VercelRequest, res: VercelResponse, teacherId: string) {
+  const { module, course } = await loadOwnModule(uuid(req.query.id), teacherId)
+  if (!module.content) throw new HttpError(409, { error: 'no_content' })
+  let flags = flagsStillValid(module.preview_flags, module.content)
+  if (req.method === 'DELETE') {
+    flags = flags.filter((f) => f.stepId !== req.query.stepId)
+  } else if (req.method === 'POST') {
+    const b = body(req)
+    const step = module.content.steps.find((s) => s.id === b.stepId)
+    if (!step || !FLAGGABLE_TYPES.has(step.type)) throw new HttpError(400, { error: 'This step cannot be flagged' })
+    const reason = AI_FLAG_REASONS.find((r) => r === b.reason)
+    if (!reason) throw new HttpError(400, { error: 'reason is required' })
+    const note = typeof b.note === 'string' ? b.note.trim().slice(0, 500) : ''
+    flags = [...flags.filter((f) => f.stepId !== step.id), { stepId: step.id, reason, note, step, createdAt: new Date().toISOString() }]
+    if (flags.length > MAX_PREVIEW_FLAGS) throw new HttpError(409, { error: 'too_many_flags', limit: MAX_PREVIEW_FLAGS })
+  } else {
+    throw new HttpError(405, { error: 'Method not allowed' })
+  }
+  const { error } = await supabaseAdmin.from('course_modules').update({ preview_flags: flags }).eq('id', module.id)
+  if (error) throw error
+  res.status(200).json({ course: await courseResponse(course.id) })
+}
+
+/**
+ * POST course-module-fix&id=<moduleId>: the AI corrects just the items the author flagged (one
+ * call, counted as a generation); the rest of the module stays as it is. Every change is logged
+ * with the students' flags, so the teacher can undo it there. Flags the AI could not fix stay.
+ */
+export async function handleCourseModuleFix(req: VercelRequest, res: VercelResponse, teacherId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const { module, course } = await loadOwnModule(uuid(req.query.id), teacherId)
+  if (!module.content) throw new HttpError(409, { error: 'no_content' })
+  const flags = flagsStillValid(module.preview_flags, module.content)
+  if (flags.length === 0) throw new HttpError(409, { error: 'no_flags' })
+  const used = await checkGenerationLimit(teacherId)
+  let results
+  try {
+    results = await fixFlaggedItems(
+      { level: course.level, explainLang: course.explain_lang, passage: module.content.passage ?? null, items: flags.map((f) => ({ step: f.step, reason: f.reason, note: f.note })) },
+      teacherId,
+    )
+  } catch (err) {
+    console.error('Fixing flagged items failed', err)
+    throw new HttpError(502, { error: 'fix_failed' })
+  }
+  let steps = module.content.steps
+  const left: PreviewFlag[] = []
+  const log: Record<string, unknown>[] = []
+  flags.forEach((f, i) => {
+    const r = results[i]
+    let fixed: CourseStep | null = null
+    if (r?.fixed) {
+      try {
+        const candidate = sanitizeModuleContent({ ...(module.content?.passage ? { passage: module.content.passage } : {}), steps: [{ ...r.fixed, type: f.step.type }] }).steps[0]
+        if (candidate.type === f.step.type && !sameStep(candidate, f.step)) fixed = { ...candidate, id: f.stepId }
+      } catch {
+        fixed = null
+      }
+    }
+    if (!fixed) {
+      left.push(f)
+      return
+    }
+    steps = steps.map((s) => (s.id === f.stepId ? (fixed as CourseStep) : s))
+    log.push({
+      course_id: course.id,
+      module_id: module.id,
+      attempt_id: null,
+      step_id: f.stepId,
+      flagged_by: teacherId,
+      reason: f.reason,
+      note: f.note,
+      step_before: f.step,
+      step_after: fixed,
+      verdict: (r?.explanation ?? '').slice(0, 1000),
+      status: 'fixed',
+      teacher_seen_at: new Date().toISOString(),
+    })
+  })
+  const content: ModuleContent = { ...module.content, steps }
+  const { error } = await supabaseAdmin
+    .from('course_modules')
+    .update({ content, version: module.version + (log.length ? 1 : 0), preview_flags: left, updated_at: new Date().toISOString() })
+    .eq('id', module.id)
+  if (error) throw error
+  if (log.length) {
+    const { error: logError } = await supabaseAdmin.from('course_item_fixes').insert(log)
+    if (logError) throw logError
+  }
+  await touch(course.id)
+  res.status(200).json({ course: await courseResponse(course.id), fixed: log.length, left: left.length, remaining: Math.max(0, COURSE_GENERATIONS_PER_DAY - used - 1) })
 }
 
 /** Text of an open answer: trimmed, not empty, not too long. */
@@ -1162,7 +1282,7 @@ export async function handleCourseModuleGenerate(req: VercelRequest, res: Vercel
   else content = await withRecording(module.id, course.level, module.kind, content)
   const { error } = await supabaseAdmin
     .from('course_modules')
-    .update({ content, version: module.version + 1, updated_at: new Date().toISOString() })
+    .update({ content, version: module.version + 1, preview_flags: [], updated_at: new Date().toISOString() })
     .eq('id', module.id)
   if (error) throw error
   await touch(course.id)
@@ -1399,7 +1519,13 @@ export async function handleCourseLibrary(req: VercelRequest, res: VercelRespons
     if (!row || !((await canView(row, teacherId)) || (await hasAssigned(row.id, teacherId)))) throw new HttpError(404, { error: 'Not found' })
     const tree = await loadTree(row)
     const mine = row.teacher_id === teacherId
-    const shown: Tree = mine ? tree : { ...tree, units: tree.units.filter((u) => u.status === 'published').map((u) => ({ ...u, blueprint: null })) }
+    const shown: Tree = mine
+      ? tree
+      : {
+          ...tree,
+          units: tree.units.filter((u) => u.status === 'published').map((u) => ({ ...u, blueprint: null })),
+          modules: new Map([...tree.modules].map(([id, mods]) => [id, mods.map((m) => ({ ...m, preview_flags: [] }))])),
+        }
     res.status(200).json({ course: await courseView(shown), mine, listed: inLibrary(row) })
     return
   }

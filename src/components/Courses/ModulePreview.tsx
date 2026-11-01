@@ -2,10 +2,21 @@ import { useState } from 'react'
 import ModulePlayer from './ModulePlayer'
 import { useCourseCopy } from '../../data/courseCopy'
 import { previewFeedback, previewRoleplay } from '../../lib/courseApi'
-import { scoreModule, type CourseModule } from '../../lib/courses'
+import { scoreModule, type CourseModule, type FlagReason } from '../../lib/courses'
 
-/** A teacher's full-screen preview of one module: the real player, nothing saved. */
-export default function ModulePreview({ module, onClose }: { module: CourseModule; onClose: () => void }) {
+/**
+ * A teacher's full-screen preview of one module: the real player, nothing saved — except, in the
+ * author's own course (onFlag), item flags for "Fix flagged items".
+ */
+export default function ModulePreview({
+  module,
+  onClose,
+  onFlag,
+}: {
+  module: CourseModule
+  onClose: () => void
+  onFlag?: (stepId: string, reason: FlagReason, note: string) => Promise<void>
+}) {
   const { c } = useCourseCopy()
   const [run, setRun] = useState(0)
   if (!module.content) return null
@@ -23,6 +34,14 @@ export default function ModulePreview({ module, onClose }: { module: CourseModul
         onEvaluate={(stepId, text) => previewFeedback(module.id, stepId, text)}
         onRoleplayTurn={(stepId, history) => previewRoleplay(module.id, stepId, history)}
         onFinish={async (answers) => scoreModule(content, answers)}
+        onFlag={
+          onFlag
+            ? async (stepId, reason, note) => {
+                await onFlag(stepId, reason, note)
+                return { wrong: false, saved: true, explanation: c('previewFlagSaved'), step: null }
+              }
+            : undefined
+        }
         onExit={onClose}
         resultActions={() => (
           <>

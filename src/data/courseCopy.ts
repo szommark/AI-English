@@ -406,12 +406,12 @@ const COPY = {
   flagError: { hu: 'Most nem sikerült ellenőrizni. Próbáld újra.', en: "Couldn't check it right now. Try again.", de: 'Prüfen hat gerade nicht geklappt. Versuche es erneut.' },
   flagLimit: { hu: 'Mára elfogyott a jelzések száma.', en: "You've used today's flags.", de: 'Die heutigen Meldungen sind aufgebraucht.' },
   flagAlready: { hu: 'Ezt a feladatot már jelezted.', en: "You've already flagged this exercise.", de: 'Diese Aufgabe hast du schon gemeldet.' },
-  fixesHeading: { hu: 'Diákok által jelzett feladatok', en: 'Exercises flagged by students', de: 'Von Schülern gemeldete Aufgaben' },
+  fixesHeading: { hu: 'Jelzett és javított feladatok', en: 'Flagged and fixed exercises', de: 'Gemeldete und korrigierte Aufgaben' },
   fixesNew: { hu: '{n} új', en: '{n} new', de: '{n} neu' },
   fixesHint: {
-    hu: 'Az MI minden jelzett feladatot azonnal átnéz; ha tényleg hibás, kijavítja a kurzusban. Itt látod, mit változtatott, és vissza is állíthatod.',
-    en: 'The AI checks every flagged exercise at once and fixes it in the course when it really is wrong. Here you see what it changed, and you can undo it.',
-    de: 'Die KI prüft jede gemeldete Aufgabe sofort und korrigiert sie im Kurs, wenn sie wirklich falsch ist. Hier siehst du, was sie geändert hat, und kannst es rückgängig machen.',
+    hu: 'Az MI minden jelzett feladatot azonnal átnéz; ha tényleg hibás, kijavítja a kurzusban. Az előnézetben általad jelzett feladatok javításai is ide kerülnek. Itt látod, mit változtatott, és vissza is állíthatod.',
+    en: 'The AI checks every flagged exercise at once and fixes it in the course when it really is wrong. The fixes of items you flagged in the preview are listed here too. Here you see what it changed, and you can undo it.',
+    de: 'Die KI prüft jede gemeldete Aufgabe sofort und korrigiert sie im Kurs, wenn sie wirklich falsch ist. Auch die Korrekturen der Aufgaben, die du in der Vorschau gemeldet hast, stehen hier. Hier siehst du, was sie geändert hat, und kannst es rückgängig machen.',
   },
   fixStatus_fixed: { hu: 'Kijavítva', en: 'Fixed', de: 'Korrigiert' },
   fixStatus_kept: { hu: 'Helyes maradt', en: 'Kept as it was', de: 'Unverändert' },
@@ -539,6 +539,29 @@ const COPY = {
     en: 'Thanks! We passed it on to the team.',
     de: 'Danke! Wir haben es an das Team weitergegeben.',
   },
+
+  // The author's preview flags
+  previewFlagSaved: {
+    hu: 'Elmentve. A szerkesztőben a „Jelzett feladatok javítása” gombbal javíttathatod az MI-vel.',
+    en: 'Saved. In the editor, “Fix flagged items” has the AI correct it.',
+    de: 'Gespeichert. Im Editor lässt „Gemeldete Aufgaben korrigieren“ die KI sie korrigieren.',
+  },
+  previewFlagsHeading: { hu: 'Előnézetben jelzett feladatok ({n})', en: 'Items flagged in the preview ({n})', de: 'In der Vorschau gemeldete Aufgaben ({n})' },
+  previewFix: { hu: 'Jelzett feladatok javítása ({n})', en: 'Fix flagged items ({n})', de: 'Gemeldete Aufgaben korrigieren ({n})' },
+  previewFixing: { hu: 'Az MI javít…', en: 'The AI is fixing…', de: 'Die KI korrigiert…' },
+  previewFixHint: {
+    hu: 'Csak a jelzett feladatok változnak; a többi marad. Visszavonni lent, a jelzett feladatok listájában lehet.',
+    en: 'Only the flagged items change; the rest stays. You can undo below, in the flagged exercises list.',
+    de: 'Nur die gemeldeten Aufgaben ändern sich; der Rest bleibt. Rückgängig machen kannst du unten in der Liste.',
+  },
+  previewFixDone: { hu: '{n} feladat javítva.', en: '{n} item(s) fixed.', de: '{n} Aufgabe(n) korrigiert.' },
+  previewFixPartly: {
+    hu: '{n} feladat javítva; {m} feladatot nem sikerült, azok jelölve maradtak.',
+    en: '{n} item(s) fixed; {m} could not be fixed and stay flagged.',
+    de: '{n} Aufgabe(n) korrigiert; {m} konnten nicht korrigiert werden und bleiben gemeldet.',
+  },
+  previewFixError: { hu: 'A javítás most nem sikerült. Próbáld újra.', en: "Couldn't fix them right now. Try again.", de: 'Korrigieren hat gerade nicht geklappt. Versuche es erneut.' },
+  flagLayoutNote: { hu: 'Mi nehézkes? (nem kötelező)', en: "What's awkward? (optional)", de: 'Was ist umständlich? (optional)' },
 
   // Revamp: word panels, gaps, quotes, the bot-led speaking task
   wordsFlipHint: {

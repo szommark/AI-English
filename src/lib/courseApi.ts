@@ -262,3 +262,19 @@ export async function updateGenRule(id: string, patch: { status?: GenRuleStatus;
 export async function deleteGenRule(id: string): Promise<CourseGenRule[]> {
   return (await request<{ rules: CourseGenRule[] }>(withId('course-rules', id), { method: 'DELETE' })).rules
 }
+
+// --- The author's preview flags --------------------------------------------------------------
+
+/** Saves the author's flag on an item while previewing (no AI yet). */
+export async function addPreviewFlag(moduleId: string, stepId: string, reason: FlagReason, note: string): Promise<Course> {
+  return (await request<{ course: Course }>(withId('course-preview-flag', moduleId), json('POST', { stepId, reason, note }))).course
+}
+
+export async function removePreviewFlag(moduleId: string, stepId: string): Promise<Course> {
+  return (await request<{ course: Course }>(`${withId('course-preview-flag', moduleId)}&stepId=${encodeURIComponent(stepId)}`, { method: 'DELETE' })).course
+}
+
+/** The AI corrects only the flagged items of the module. */
+export async function fixFlaggedItems(moduleId: string): Promise<{ course: Course; fixed: number; left: number; remaining: number }> {
+  return request(withId('course-module-fix', moduleId), { method: 'POST' })
+}

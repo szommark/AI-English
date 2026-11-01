@@ -6,6 +6,7 @@ import ModulePreview from '../components/Courses/ModulePreview'
 import CourseVisibilityPanel from '../components/Courses/CourseVisibilityPanel'
 import ModuleEditor from '../components/Courses/ModuleEditor'
 import ModuleImagePanel from '../components/Courses/ModuleImagePanel'
+import PreviewFlagsPanel from '../components/Courses/PreviewFlagsPanel'
 import CourseAssignPanel from '../components/Courses/CourseAssignPanel'
 import CourseFixesPanel from '../components/Courses/CourseFixesPanel'
 import UnitForm, { EMPTY_UNIT, toUnitInput, unitFormReady, type UnitFormValue } from '../components/Courses/UnitForm'
@@ -21,6 +22,7 @@ import {
   fetchCourse,
   generateModuleContent,
   makeModuleImage,
+  addPreviewFlag,
   courseImageUrl,
   generateUnitOutline,
   recordModuleAudio,
@@ -368,6 +370,7 @@ export default function CourseEditorPage() {
             onRecord={(m) => void run(() => recordModuleAudio(m.id), 'recordError')}
             onPreview={setPreview}
             onCourse={apply}
+            onRemaining={setRemaining}
             onSaveModule={async (m, content) => apply(await saveModule(m.id, { content }))}
             onUnit={(patch) => void run(() => updateUnit(unit.id, patch), patch.status ? 'publishError' : 'saveError')}
             onDelete={() => window.confirm(c('deleteUnitConfirm')) && void run(() => deleteUnit(unit.id))}
@@ -382,7 +385,13 @@ export default function CourseEditorPage() {
 
       <CourseAssignPanel courseId={course.id} published={course.status === 'published'} />
 
-      {preview && <ModulePreview module={preview} onClose={() => setPreview(null)} />}
+      {preview && (
+        <ModulePreview
+          module={preview}
+          onClose={() => setPreview(null)}
+          onFlag={async (stepId, reason, note) => apply(await addPreviewFlag(preview.id, stepId, reason, note))}
+        />
+      )}
     </div>
   )
 }
@@ -402,6 +411,7 @@ function UnitPanel(props: {
   onRecord: (m: CourseModule) => void
   onPreview: (m: CourseModule) => void
   onCourse: (c: Course) => void
+  onRemaining: (n: number) => void
   onSaveModule: (m: CourseModule, content: NonNullable<CourseModule['content']>) => Promise<void>
   onUnit: (patch: Partial<Pick<CourseUnit, 'title' | 'canDos' | 'status'>> & { move?: 'up' | 'down' }) => void
   onDelete: () => void
@@ -582,6 +592,7 @@ function UnitPanel(props: {
                   </button>
                 </span>
               </div>
+              {m.content && <PreviewFlagsPanel module={m} onCourse={props.onCourse} onRemaining={props.onRemaining} disabled={working || busy} />}
               {editing === m.id && m.content && <ModuleImagePanel module={m} onCourse={props.onCourse} disabled={working || busy} />}
               {editing === m.id && m.content && (
                 <ModuleEditor
