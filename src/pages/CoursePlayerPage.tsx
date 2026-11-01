@@ -51,10 +51,8 @@ function Player({ enrollmentId, moduleId }: { enrollmentId: string; moduleId: st
       initialStep={attempt.stepIndex}
       initialAnswers={attempt.answers}
       audioUrl={attempt.audioUrl}
-      onEvaluate={async (stepId, text) => {
-        const { text: _text, ...feedback } = await markOpenStep(attempt.id, stepId, text)
-        return feedback
-      }}
+      // The stored text comes back too: a step marked earlier keeps the text that was marked.
+      onEvaluate={(stepId, text) => markOpenStep(attempt.id, stepId, text)}
       onRoleplayTurn={(stepId, history) => roleplayTurn(attempt.id, stepId, history)}
       onFlag={(stepId, reason, note, answer) => flagStep(attempt.id, stepId, reason, note, answer)}
       onProgress={(stepIndex, answers) => void saveModuleProgress(attempt.id, stepIndex, answers)}

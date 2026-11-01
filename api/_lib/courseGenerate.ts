@@ -191,7 +191,7 @@ const STEP_SCHEMA = [
   '- { "type": "write", "prompt": the writing task (who to, why, what to include), "minWords", "maxWords", "model": a model answer within the word range, "targets": 3–5 of the unit\'s words to use }',
   '- { "type": "speak", "botName": who asks (a role, e.g. "Receptionist"), "botLine": the ONE question that person asks the learner, spoken by the Tutor Bot, "prompt": one line telling the learner what to include in their answer, "seconds": how long to talk, "model": a model answer, "targets": 3–5 of the unit\'s words to use }: a one-exchange speaking task with the Tutor Bot.',
   '- { "type": "roleplay", "situation", "botName", "botRole", "opening", "goals": [...], "turns", "targets": [...] }: a live spoken conversation with the Tutor Bot.',
-  'Plain text only, except **bold** (and in info bodies the formatting described for that step). Never use single *asterisks*, _underscores_ or headings.',
+  'Plain text only, except **bold** (and in info bodies the formatting described for that step); never bold a word inside a bold phrase. Never use single *asterisks*, _underscores_ or headings.',
   'Every question has exactly one clearly right answer. Vary which option is right.',
   `DIALOGUE ITEMS: when an item is a short exchange, each line is a different person and the second line answers the first; label lines with roles ("Seller:", "You:"), not "A:"/"B:".`,
   `GAP RULES: every gap sentence gives enough context (a second clause, or a short lead-in sentence or line of dialogue) that only ONE answer fits; never a bare sentence where several of the words would make sense. In a gap with "options", the wrong options are the same word class as the answer but clearly wrong in this context: never synonyms or near-synonyms of the answer (e.g. not "twinkle" next to "flash"), never words that would also make a correct, natural sentence. A typed gap lists every correct answer in "accepted".`,
@@ -292,7 +292,7 @@ function recipe(input: ModuleGenInput): string[] {
       const roleplay = (n: number, hard: boolean) =>
         `roleplay: a REAL-LIFE situation on the unit topic where the learner must speak (phoning to book or complain, asking for help, buying something, a job interview, making plans with a colleague…). "situation": 2–3 sentences to the learner ("You …") saying where they are, who they talk to and what they want; "botName": the other person's role as a short name ("Receptionist", "Shop assistant", "Tom (your colleague)"); "botRole": how that person behaves (friendly, busy, one small problem to solve${hard ? ', one unexpected question' : ''}); "opening": that person's first line; "goals": ${hard ? '3–4' : '2–3'} short things the learner must do ("Ask about the price", "Give your phone number"); "turns": ${n}; "targets": 3–5 of the unit's words to use.`
       const phrases = (n: string) =>
-        `info with "audio": true: "Useful phrases" — ${n} phrases for the situation, ONE per line: the phrase in **bold**, then " – " and a short example of it in use (the app puts a speaker button on every line, so no other lines).`
+        `info with "audio": true: "Useful phrases" — ${n} phrases for the situation, ONE per line: the WHOLE phrase in **bold** (no bold word inside it), then " – " and a short example of it in use (the app puts a speaker button on every line, so no other lines).`
       if (input.variant === 'free')
         return [
           'This is the free Speaking module (after a guided one): a live role-play with the Tutor Bot, done alone.',

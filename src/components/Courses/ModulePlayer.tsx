@@ -54,7 +54,8 @@ interface Props {
   /** Listening: the module's recording. */
   audioUrl?: string | null
   /** Writing/speaking: asks the AI to mark the answer (rejects with an error code). */
-  onEvaluate?: (stepId: string, text: string) => Promise<OpenFeedback>
+  /** With `text` when the server kept an earlier mark of a different text. */
+  onEvaluate?: (stepId: string, text: string) => Promise<OpenFeedback & { text?: string }>
   /** Role-play: the Tutor Bot's next line. */
   onRoleplayTurn?: (stepId: string, history: RoleplayLine[]) => Promise<{ reply: string; done: boolean }>
   /** Flags an exercise for its content: a student's flag is checked by the AI at once (the fixed exercise comes back when it was wrong); the author's preview flag is saved. */
@@ -429,7 +430,8 @@ export default function ModulePlayer({
           <StepView
             step={step}
             answer={answer}
-            onAnswer={(a) => setAnswers((prev) => ({ ...prev, [step.id]: a }))}
+            // Once marked, an answer stays: late speech-recognition results must not reopen it.
+            onAnswer={(a) => setAnswers((prev) => (isOpen && isOpenAnswer(prev[step.id]) ? prev : { ...prev, [step.id]: a }))}
             checked={checked}
             passage={content.passage}
             seed={seed}

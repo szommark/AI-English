@@ -1,14 +1,15 @@
 import { Fragment, type ReactNode } from 'react'
 import { Check, X } from 'lucide-react'
+import { fixNestedBold } from '../../lib/courses'
 
 /**
  * One line of course text: **bold** (and a stray *single-asterisk* pair, which the AI sometimes
- * writes) shown bold, ==highlight== shown as a marked form.
+ * writes) shown bold, ==highlight== shown as a marked form. Bold inside bold stays one bold phrase.
  */
 export function InlineText({ text }: { text: string }) {
   return (
     <>
-      {text.split(/(\*\*[^*]+\*\*|==[^=]+==|\*[^*\s][^*]*\*)/).map((part, k) => {
+      {fixNestedBold(text).split(/(\*\*[^*]+\*\*|==[^=]+==|\*[^*\s][^*]*\*)/).map((part, k) => {
         if (part.startsWith('**') && part.endsWith('**') && part.length > 4)
           return (
             <strong key={k} className="font-semibold text-foreground">

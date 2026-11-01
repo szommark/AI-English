@@ -519,6 +519,14 @@ function OpenStep({ step, answer, onAnswer, speak }: Props & { step: Extract<Cou
   const speaking = step.type === 'speak'
   const showModelNow = !!step.model && (marked || (speaking && step.modelFirst))
 
+  // Asking for feedback mid-recording: the microphone stops with the mark.
+  const stopDictation = dictation.stop
+  useEffect(() => {
+    if (marked) stopDictation()
+    // Only when the answer gets marked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!marked])
+
   return (
     <div className="space-y-4">
       <p className="text-lg font-medium leading-snug text-foreground">
