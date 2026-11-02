@@ -1865,9 +1865,12 @@ function summaryOf(course: MyCourse): MyCourseSummary {
   return summary
 }
 
-async function handleMyCourses(req: VercelRequest, res: VercelResponse, userId: string) {
-  if (req.method !== 'GET') throw new HttpError(405, { error: 'Method not allowed' })
-  const { data, error } = await supabaseAdmin.from('course_enrollments').select(ENROLLMENT_COLUMNS).eq('student_id', userId).order('started_at', { ascending: false })
+/**
+ * The learner's courses, newest first, as on /my-courses. With `assignedBy`, only the courses that
+ * teacher assigned (the teacher's student page shows only their own assignments).
+ */
+export async function loadCourseSummaries(studentId: string, opts: { assignedBy?: string } = {}): Promise<MyCourseSummary[]> {
+  const { data, error } = await supabaseAdmin.from('course_enrollments').select(ENROLLMENT_COLUMNS).eq('student_id', studentId).order('started_at', { ascending: false })
   if (error) throw error
   const enrollments = (data ?? []) as EnrollmentRow[]
   const attempts = await attemptsFor(enrollments.map((e) => e.id))
@@ -1878,6 +1881,7 @@ async function handleMyCourses(req: VercelRequest, res: VercelResponse, userId: 
     if (!course || !canAccessCourse(course, e)) continue
     const tree = await loadTree(course)
     const from = assignerOf(e, tree)
+    if (opts.assignedBy && from !== opts.assignedBy) continue
     if (from && !emails.has(from)) emails.set(from, await teacherEmail(e, tree))
     courses.push(
       summaryOf(
@@ -1890,7 +1894,12 @@ async function handleMyCourses(req: VercelRequest, res: VercelResponse, userId: 
       ),
     )
   }
-  res.status(200).json({ courses })
+  return courses
+}
+
+async function handleMyCourses(req: VercelRequest, res: VercelResponse, userId: string) {
+  if (req.method !== 'GET') throw new HttpError(405, { error: 'Method not allowed' })
+  res.status(200).json({ courses: await loadCourseSummaries(userId) })
 }
 
 async function handleMyCourse(req: VercelRequest, res: VercelResponse, userId: string) {

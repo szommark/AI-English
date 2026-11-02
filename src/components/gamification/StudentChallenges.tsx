@@ -1,13 +1,11 @@
 import { Check } from 'lucide-react'
-import { MY_PROGRESS_COPY as C } from '../../data/myProgressCopy'
+import { PROGRESS_LOCALE, useMyProgressCopy, type MyProgressCopy } from '../../data/myProgressCopy'
+import { useLanguage } from '../../lib/i18n'
 import { budapestDate, daysBetween } from '../../lib/gamification/dates'
 import type { StudentChallenge } from '../../lib/gamification/types'
 
-const DATE = new Intl.DateTimeFormat('hu-HU', { month: 'long', day: 'numeric' })
-const formatDate = (d: string) => DATE.format(new Date(`${d}T12:00:00`))
-
-/** What the challenge asks for, in Hungarian. */
-export function challengeTargetHu(c: StudentChallenge): string {
+/** What the challenge asks for, in the copy's language. */
+export function challengeTarget(c: StudentChallenge, C: MyProgressCopy): string {
   const { target } = c
   const collective = c.kind === 'collective'
   switch (target.type) {
@@ -30,7 +28,11 @@ export function challengeTargetHu(c: StudentChallenge): string {
  * total and the learner's own part, never other students' progress.
  */
 export default function StudentChallenges({ challenges }: { challenges: StudentChallenge[] }) {
+  const C = useMyProgressCopy()
+  const { lang } = useLanguage()
   if (challenges.length === 0) return null
+  const date = new Intl.DateTimeFormat(PROGRESS_LOCALE[lang], { month: 'long', day: 'numeric' })
+  const formatDate = (d: string) => date.format(new Date(`${d}T12:00:00`))
   const today = budapestDate()
 
   return (
@@ -66,7 +68,7 @@ export default function StudentChallenges({ challenges }: { challenges: StudentC
                 </p>
               </div>
               {c.description && <p className="text-sm text-foreground">{c.description}</p>}
-              <p className="text-sm text-foreground">{challengeTargetHu(c)}</p>
+              <p className="text-sm text-foreground">{challengeTarget(c, C)}</p>
               {c.status !== 'upcoming' && (
                 <>
                   <span aria-hidden="true" className="block h-2.5 overflow-hidden rounded-full bg-secondary">

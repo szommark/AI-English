@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { MY_PROGRESS_COPY as C } from '../../data/myProgressCopy'
+import { useMyProgressCopy } from '../../data/myProgressCopy'
 import {
   changeLeaderboardNickname,
   fetchClassRanking,
@@ -18,6 +18,7 @@ const rowClass = (isMe: boolean) =>
   `flex items-center justify-between gap-3 rounded-md px-3 py-1.5 text-sm ${isMe ? 'bg-[var(--teal-accent-soft)] font-semibold text-foreground' : 'text-foreground'}`
 
 export function ClassRankingSection() {
+  const C = useMyProgressCopy()
   const [view, setView] = useState<ClassRankingView | null>(null)
 
   useEffect(() => {
@@ -58,6 +59,7 @@ export function ClassRankingSection() {
 }
 
 export function LeaderboardSection() {
+  const C = useMyProgressCopy()
   const [view, setView] = useState<LeaderboardView | null>(null)
 
   useEffect(() => {
@@ -87,6 +89,7 @@ export function LeaderboardSection() {
 }
 
 function JoinForm({ onJoined }: { onJoined: (v: LeaderboardView) => void }) {
+  const C = useMyProgressCopy()
   const [nickname, setNickname] = useState('')
   const [age16, setAge16] = useState(false)
   const [consent, setConsent] = useState(false)
@@ -150,6 +153,7 @@ function JoinForm({ onJoined }: { onJoined: (v: LeaderboardView) => void }) {
 }
 
 function Standings({ view, onChange }: { view: LeaderboardView; onChange: (v: LeaderboardView) => void }) {
+  const C = useMyProgressCopy()
   const [editing, setEditing] = useState(false)
   const [nickname, setNickname] = useState(view.nickname ?? '')
   const [busy, setBusy] = useState(false)

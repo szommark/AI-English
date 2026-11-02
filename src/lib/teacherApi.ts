@@ -1,6 +1,14 @@
 import { supabase } from './supabase'
 import type { FeedbackResult } from './types'
-import type { AreaOverview, CefrHistoryPoint, VocabularyCounts } from './progressTypes'
+import type {
+  AreaOverview,
+  CefrHistoryPoint,
+  CourseProgressItem,
+  MistakeSessionMix,
+  PronunciationProgressItem,
+  VocabActivity,
+  VocabularyCounts,
+} from './progressTypes'
 
 async function authHeader(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession()
@@ -56,8 +64,16 @@ export interface StudentDetail {
   sessions: StudentSession[]
   /** Same shape as the learner's own page; see src/lib/progressTypes.ts. */
   mistakeAreas: AreaOverview[]
+  mistakeMix: MistakeSessionMix
   vocabulary: VocabularyCounts
+  cefrCurrent: string | null
   cefrHistory: CefrHistoryPoint[]
+  /** Tutor Bot conversations and Conversational English scenarios. */
+  sessionCounts: { last30Days: number; total: number }
+  pronunciation: PronunciationProgressItem[]
+  vocabActivity: VocabActivity
+  /** Only the courses this teacher assigned to the student. */
+  courses: CourseProgressItem[]
 }
 
 export class StudentDetailAccessError extends Error {}

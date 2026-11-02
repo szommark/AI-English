@@ -4,13 +4,21 @@ import { GRAMMAR_LEVELS, getGrammarItem, type CefrLevel } from '../../src/data/g
 import { getSoundItem } from '../../src/data/pronunciationCurriculum.js'
 import { getPhonemeByCurriculumId } from '../../src/data/phonemes.js'
 import { findUnitByProgressId, lessonUnitRoute } from '../../src/data/pronunciationLessons/index.js'
+import { loadWordlists } from './vocabWordlists.js'
+import { loadCourseSummaries } from './courses.js'
 import type {
   AreaOverview,
   CefrHistoryPoint,
+  CourseProgressItem,
+  FastPracticeRunItem,
   MistakeExample,
+  MistakeSessionMix,
+  MistakeSource,
   NextStep,
+  ProgressListRef,
   PronunciationProgressItem,
   SubtypeOverview,
+  VocabActivity,
   VocabularyCounts,
 } from '../../src/lib/progressTypes.js'
 
@@ -88,6 +96,7 @@ export function aggregateMistakes(sessionIds: string[], events: MistakeEventRow[
       if (!t.lastSeenAt || e.created_at > t.lastSeenAt) t.lastSeenAt = e.created_at
       if (!t.latestExample && e.example_original) {
         t.latestExample = {
+          source: e.source as MistakeSource,
           original: e.example_original,
           corrected: e.example_corrected,
           note: e.note,
@@ -165,12 +174,18 @@ export function pickNextStep(areas: AreaOverview[], cefrLevel: string | null): N
   }
 }
 
+/** The recent window's sessions by kind: Tutor Bot (mode 'tutor') or a Conversational English scenario. */
+export function sessionMix(recentModes: string[]): MistakeSessionMix {
+  const tutor = recentModes.filter((m) => m === 'tutor').length
+  return { tutor, scenario: recentModes.length - tutor }
+}
+
 /** Reads the learner's recent sessions and mistake events and aggregates them. */
-export async function loadMistakeOverview(userId: string): Promise<AreaOverview[]> {
+export async function loadMistakeOverview(userId: string): Promise<{ areas: AreaOverview[]; mix: MistakeSessionMix }> {
   const [{ data: sessions }, { data: events }] = await Promise.all([
     supabaseAdmin
       .from('sessions')
-      .select('id')
+      .select('id, mode')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(TREND_WINDOW_SESSIONS * 2),
@@ -181,10 +196,14 @@ export async function loadMistakeOverview(userId: string): Promise<AreaOverview[
       .order('created_at', { ascending: false })
       .limit(MAX_EVENTS_READ),
   ])
-  return aggregateMistakes(
-    (sessions ?? []).map((s) => s.id as string),
-    (events ?? []) as MistakeEventRow[],
-  )
+  const rows = (sessions ?? []) as { id: string; mode: string }[]
+  return {
+    areas: aggregateMistakes(
+      rows.map((s) => s.id),
+      (events ?? []) as MistakeEventRow[],
+    ),
+    mix: sessionMix(rows.slice(0, TREND_WINDOW_SESSIONS).map((s) => s.mode)),
+  }
 }
 
 export async function loadVocabularyCounts(userId: string): Promise<VocabularyCounts> {
@@ -244,4 +263,108 @@ export async function loadPronunciationProgress(userId: string): Promise<Pronunc
       },
     ]
   })
+}
+
+/** How many Fast practice runs and tests the progress pages list. */
+const RECENT_VOCAB_ACTIVITY = 10
+
+/**
+ * Fast practice runs (which list, whole or reduced, accuracy), finished tests (list and %)
+ * and the learner's own lists. List names and sizes come from loadWordlists, so they read
+ * exactly as on the learner's My wordlists tab.
+ */
+export async function loadVocabActivity(userId: string): Promise<VocabActivity> {
+  const [wordlists, runsRes, testsRes] = await Promise.all([
+    loadWordlists(userId),
+    supabaseAdmin
+      .from('vocab_drill_runs')
+      .select('id, source, list_id, student_list_id, word_count, started_at, finished_at')
+      .eq('user_id', userId)
+      .order('started_at', { ascending: false })
+      .limit(RECENT_VOCAB_ACTIVITY),
+    supabaseAdmin
+      .from('vocab_tests')
+      .select('source, list_id, student_list_id, word_count, correct_count, finished_at')
+      .eq('user_id', userId)
+      .not('finished_at', 'is', null)
+      .order('finished_at', { ascending: false })
+      .limit(RECENT_VOCAB_ACTIVITY),
+  ])
+  if (runsRes.error) throw runsRes.error
+  if (testsRes.error) throw testsRes.error
+
+  const lists = new Map(wordlists.lists.map((l) => [`${l.kind}:${l.id ?? ''}`, l]))
+  const listRef = (source: string, listId: string | null, studentListId: string | null): ProgressListRef | null => {
+    if (source !== 'teacher' && source !== 'custom' && source !== 'conversations') return null
+    const id = source === 'teacher' ? listId : source === 'custom' ? studentListId : null
+    const list = id || source === 'conversations' ? lists.get(`${source}:${id ?? ''}`) : undefined
+    return { kind: source, id, title: list?.title ?? null, wordCount: list?.wordCount ?? null }
+  }
+
+  type RunRow = { id: string; source: string; list_id: string | null; student_list_id: string | null; word_count: number; started_at: string; finished_at: string | null }
+  const runs = (runsRes.data ?? []) as RunRow[]
+  const answers = new Map<string, { total: number; correct: number }>()
+  if (runs.length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from('vocab_drill_answers')
+      .select('run_id, correct')
+      .in('run_id', runs.map((r) => r.id))
+    if (error) throw error
+    for (const a of (data ?? []) as { run_id: string; correct: boolean }[]) {
+      const t = answers.get(a.run_id) ?? { total: 0, correct: 0 }
+      t.total += 1
+      if (a.correct) t.correct += 1
+      answers.set(a.run_id, t)
+    }
+  }
+
+  const fastPractice: FastPracticeRunItem[] = runs.map((r) => {
+    const list = listRef(r.source, r.list_id, r.student_list_id)
+    const a = answers.get(r.id)
+    return {
+      list,
+      wordCount: r.word_count,
+      reduced: list?.wordCount != null && r.word_count < list.wordCount,
+      startedAt: r.started_at,
+      finished: r.finished_at !== null,
+      accuracy: a && a.total > 0 ? Math.round((a.correct / a.total) * 100) : null,
+    }
+  })
+
+  type TestRow = { source: string; list_id: string | null; student_list_id: string | null; word_count: number; correct_count: number; finished_at: string }
+  const tests = ((testsRes.data ?? []) as TestRow[]).map((t) => ({
+    list: listRef(t.source, t.list_id, t.student_list_id),
+    wordCount: t.word_count,
+    correct: t.correct_count,
+    percent: Math.round((t.correct_count / t.word_count) * 100),
+    finishedAt: t.finished_at,
+  }))
+
+  const ownLists = wordlists.lists
+    .filter((l) => l.kind === 'custom' && l.id)
+    .map((l) => ({
+      id: l.id as string,
+      title: l.title,
+      wordCount: l.wordCount,
+      createdAt: l.createdAt,
+      practiceCount: l.practiceCount,
+      lastTest: l.tests?.last ?? null,
+      bestTest: l.tests?.best ?? null,
+    }))
+
+  return { fastPractice, tests, ownLists }
+}
+
+/** Courses in progress and finished; `assignedBy` limits them to that teacher's assignments. */
+export async function loadCourseProgress(studentId: string, assignedBy?: string): Promise<CourseProgressItem[]> {
+  const courses = await loadCourseSummaries(studentId, { assignedBy })
+  return courses.map((c) => ({
+    enrollmentId: c.enrollmentId,
+    title: c.title,
+    level: c.level,
+    source: c.source,
+    modulesDone: c.modulesDone,
+    modulesTotal: c.modulesTotal,
+    completedAt: c.completedAt,
+  }))
 }

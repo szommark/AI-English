@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { getMistakeArea, getMistakeSubtype } from '../../data/mistakeTaxonomy'
-import { MY_PROGRESS_COPY as C } from '../../data/myProgressCopy'
+import { MISTAKE_TAXONOMY, getMistakeArea, getMistakeSubtype, mistakeLabel } from '../../data/mistakeTaxonomy'
+import { useMyProgressCopy } from '../../data/myProgressCopy'
+import { useLanguage } from '../../lib/i18n'
 import type { AreaOverview, MistakeExample, SubtypeOverview } from '../../lib/progressTypes'
+
+const AREA_ORDER = MISTAKE_TAXONOMY.map((a) => a.id)
 
 interface Frequency {
   count: number
@@ -13,7 +16,7 @@ interface Frequency {
   totalCount: number
 }
 
-/** Areas with any data, most frequent in the recent window first, then by Hungarian label ("Other" last on a tie). */
+/** Areas with any data, most frequent in the recent window first, then by taxonomy order ("Other" last on a tie). */
 export function visibleAreas(areas: AreaOverview[]): AreaOverview[] {
   return areas
     .filter((a) => a.totalCount > 0)
@@ -21,11 +24,12 @@ export function visibleAreas(areas: AreaOverview[]): AreaOverview[] {
       (a, b) =>
         b.sessionsWithArea - a.sessionsWithArea ||
         Number(a.area === 'other') - Number(b.area === 'other') ||
-        (getMistakeArea(a.area)?.labelHu ?? a.area).localeCompare(getMistakeArea(b.area)?.labelHu ?? b.area, 'hu'),
+        AREA_ORDER.indexOf(a.area) - AREA_ORDER.indexOf(b.area),
     )
 }
 
 function Trend({ count, previous }: { count: number; previous: number | null }) {
+  const C = useMyProgressCopy()
   if (previous === null) return null
   // Wording carries the meaning; the colour only reinforces it.
   if (count < previous) return <span className="text-emerald-700">↓ {C.trendFewer}</span>
@@ -34,6 +38,7 @@ function Trend({ count, previous }: { count: number; previous: number | null }) 
 }
 
 function FrequencyText({ f, showTotals }: { f: Frequency; showTotals: boolean }) {
+  const C = useMyProgressCopy()
   const legacyOnly = f.windowSize === 0 || (!f.hasSessionData && f.hasHistory)
   return (
     <span className="flex flex-col items-end gap-0.5 text-right text-sm">
@@ -53,9 +58,20 @@ function FrequencyText({ f, showTotals }: { f: Frequency; showTotals: boolean })
 }
 
 function Example({ example }: { example: MistakeExample }) {
+  const C = useMyProgressCopy()
   return (
     <div className="mt-2 rounded-lg bg-secondary px-3 py-2 text-sm space-y-1">
-      <p className="text-xs text-muted-foreground">{C.exampleLabel}</p>
+      <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        {C.exampleLabel}
+        {/* Scenario examples stand out: most mistakes come from Tutor Bot conversations. */}
+        <span
+          className={`rounded-full px-2 py-0.5 ${
+            example.source === 'scenario' ? 'bg-amber-100 font-medium text-amber-800' : 'bg-card text-muted-foreground'
+          }`}
+        >
+          {C.exampleSource[example.source] ?? example.source}
+        </span>
+      </p>
       <p className="text-foreground">
         <span aria-hidden="true" className="text-red-600">✗ </span>
         {example.original}
@@ -71,21 +87,17 @@ function Example({ example }: { example: MistakeExample }) {
   )
 }
 
-function Label({ hu, en, strong }: { hu: string; en: string; strong?: boolean }) {
-  return (
-    <span className="min-w-0">
-      <span className={`block text-base text-foreground ${strong ? 'font-medium' : ''}`}>{hu}</span>
-      <span className="block text-sm text-muted-foreground">{en}</span>
-    </span>
-  )
+function Label({ text, strong }: { text: string; strong?: boolean }) {
+  return <span className={`min-w-0 text-base text-foreground ${strong ? 'font-medium' : ''}`}>{text}</span>
 }
 
 function SubtypeRow({ s, windowSize, showTotals }: { s: SubtypeOverview; windowSize: number; showTotals: boolean }) {
+  const { lang } = useLanguage()
   const subtype = getMistakeSubtype(s.subtype)
   return (
     <li className="py-3">
       <div className="flex items-start justify-between gap-3">
-        <Label hu={subtype?.labelHu ?? s.subtype} en={subtype?.labelEn ?? ''} />
+        <Label text={subtype ? mistakeLabel(subtype, lang) : s.subtype} />
         <FrequencyText
           f={{
             count: s.sessionsWithSubtype,
@@ -110,6 +122,8 @@ function SubtypeRow({ s, windowSize, showTotals }: { s: SubtypeOverview; windowS
  * their own empty state.
  */
 export default function MistakeAreaList({ areas, showTotals = false }: { areas: AreaOverview[]; showTotals?: boolean }) {
+  const C = useMyProgressCopy()
+  const { lang } = useLanguage()
   const [open, setOpen] = useState<Set<string>>(new Set())
   const toggle = (id: string) =>
     setOpen((prev) => {
@@ -141,7 +155,7 @@ export default function MistakeAreaList({ areas, showTotals = false }: { areas: 
               )}
               <span className="sr-only">{isOpen ? C.hideDetails : C.showDetails}</span>
               <span className="flex flex-1 items-start justify-between gap-3 min-w-0">
-                <Label hu={area?.labelHu ?? a.area} en={area?.labelEn ?? ''} strong />
+                <Label text={area ? mistakeLabel(area, lang) : a.area} strong />
                 <FrequencyText
                   f={{
                     count: a.sessionsWithArea,

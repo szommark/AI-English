@@ -1,154 +1,605 @@
-// Every Hungarian string on "Az én fejlődésem" (/my-progress) and in the shared mistake-area
-// list the teacher's student page reuses — kept in one place for review. English meaning in
-// the comment next to each. Mistake area/subtype labels live in mistakeTaxonomy.ts.
+// Every string on "Az én fejlődésem" (/my-progress), in the shared progress sections the
+// teacher's student page reuses (mistake areas, pronunciation, vocabulary, courses) and in
+// the gamification panel — in Hungarian, English and German, kept in one place for review.
+// Components read the UI language's copy with useMyProgressCopy(). Mistake area/subtype
+// labels live in mistakeTaxonomy.ts.
 
-export const MY_PROGRESS_COPY = {
-  pageTitle: 'Az én fejlődésem', // My progress
-  pageSubtitle: 'Hol tartasz most, és mi legyen a következő lépés.', // Where you are now, and what your next step should be.
-  loadError: 'Nem sikerült betölteni az adataidat. Próbáld újra egy kicsit később.', // Couldn't load your data. Try again a bit later.
+import { useLanguage, type Lang } from '../lib/i18n'
+
+const hu = {
+  pageTitle: 'Az én fejlődésem',
+  pageSubtitle: 'Hol tartasz most, és mi legyen a következő lépés.',
+  loadError: 'Nem sikerült betölteni az adataidat. Próbáld újra egy kicsit később.',
 
   // Progress header
-  cefrHeading: 'Becsült szinted', // Your estimated level
-  cefrNotYet: 'Még nincs becslés', // No estimate yet
-  cefrNotYetHint: 'Néhány beszélgetés után itt jelenik meg.', // It appears here after a few conversations.
-  cefrHistoryLabel: 'Korábbi becslések:', // Earlier estimates:
-  sessionsLast30Label: 'gyakorlás az elmúlt 30 napban', // practice sessions in the last 30 days (shown under the big number)
-  sessionsTotal: (n: number) => `összesen ${n}`, // N in total
+  cefrHeading: 'Becsült szinted',
+  cefrHeadingTeacher: 'Becsült szint',
+  cefrNotYet: 'Még nincs becslés',
+  cefrNotYetHint: 'Néhány beszélgetés után itt jelenik meg.',
+  cefrHistoryLabel: 'Korábbi becslések:',
+  // Sessions = Tutor Bot conversations and Conversational English scenarios.
+  sessionsLast30Label: 'beszélgetés az elmúlt 30 napban',
+  sessionsTotal: (n: number) => `összesen ${n}`,
 
   // Next step card
-  nextStepHeading: 'Javasolt következő lépés', // Suggested next step
-  nextStepReason: (n: number, m: number) => `Az utolsó ${m} gyakorlásodból ${n} alkalommal előjött.`, // Came up in N of your last M sessions.
-  nextStepLessonLabel: 'Nyelvtani lecke:', // Grammar lesson:
-  nextStepLessonButton: 'Lecke megnyitása', // Open the lesson
+  nextStepHeading: 'Javasolt következő lépés',
+  nextStepReason: (n: number, m: number) => `Az utolsó ${m} beszélgetésedből ${n} alkalommal előjött.`,
+  nextStepLessonLabel: 'Nyelvtani lecke:',
+  nextStepLessonButton: 'Lecke megnyitása',
   nextStepTutorText:
-    'Beszélgess egyet az Oktató bottal! Minden beszélgetés után pontosabban látjuk, min érdemes dolgoznod.', // Have a chat with the Tutor Bot ("Oktató bot" in the app's Hungarian UI)! After every conversation we see more clearly what's worth working on.
-  nextStepTutorButton: 'Beszélgetés indítása', // Start a conversation
+    'Beszélgess egyet az Oktató bottal! Minden beszélgetés után pontosabban látjuk, min érdemes dolgoznod.',
+  nextStepTutorButton: 'Beszélgetés indítása',
 
   // Mistake areas
-  mistakesHeading: 'Hibatípusok', // Mistake types
-  mistakesIntro: (m: number) => `Az utolsó ${m} gyakorlásod alapján: hány alkalommal jött elő.`, // Based on your last M sessions: in how many it came up.
-  mistakesEmpty: 'Még nincs rögzített hibád. Ez a rész az első beszélgetéseid után töltődik fel.', // No mistakes recorded yet. This fills up after your first conversations.
-  frequency: (n: number, m: number) => `${n} / ${m} alkalomból`, // in N of M sessions
-  legacyOnly: 'korábbi adatok', // earlier data (from before per-session tracking)
-  trendFewer: 'kevesebb, mint előtte', // fewer than before (good)
-  trendMore: 'több, mint előtte', // more than before
-  trendSame: 'ugyanannyi, mint előtte', // same as before
-  allTime: (n: number) => `összesen ${n}`, // N in total (teacher view only)
-  showDetails: 'Részletek megjelenítése', // Show details (screen-reader label)
-  hideDetails: 'Részletek elrejtése', // Hide details (screen-reader label)
-  exampleLabel: 'Legutóbbi példa:', // Latest example:
+  mistakesHeading: 'Hibatípusok',
+  mistakesIntro: (m: number) => `Az utolsó ${m} beszélgetésed alapján: hány alkalommal jött elő.`,
+  mistakesIntroTeacher: (m: number) =>
+    `Gyakoriság: a diák utolsó ${m} beszélgetéséből hányban jött elő, és a trend az azt megelőzőkhöz képest. Az „összesen” az összes eddigi javítás, a beszélgetésenkénti követés előttiekkel együtt.`,
+  mistakesEmpty: 'Még nincs rögzített hibád. Ez a rész az első beszélgetéseid után töltődik fel.',
+  mistakesEmptyTeacher: 'Még nincs rögzített hiba.',
+  mistakesBasedOn: 'Forrás:',
+  mistakesSrcTutor: (n: number) => `${n} Oktató bot-beszélgetés`,
+  mistakesSrcScenario: (n: number) => `${n} élethelyzet (Társalgási angol)`,
+  mistakesSrcNote:
+    'Csak a beszélgetések számítanak bele (Oktató bot, Társalgási angol); a nyelvtani, szókincs- és kiejtésgyakorlatok nem.',
+  exampleSource: { scenario: 'Társalgási angol', tutor: 'Oktató bot', legacy: 'korábbi adat' },
+  frequency: (n: number, m: number) => `${n} / ${m} alkalomból`,
+  legacyOnly: 'korábbi adatok',
+  trendFewer: 'kevesebb, mint előtte',
+  trendMore: 'több, mint előtte',
+  trendSame: 'ugyanannyi, mint előtte',
+  allTime: (n: number) => `összesen ${n}`,
+  showDetails: 'Részletek megjelenítése',
+  hideDetails: 'Részletek elrejtése',
+  exampleLabel: 'Legutóbbi példa:',
 
   // Pronunciation
-  pronHeading: 'Kiejtés', // Pronunciation
-  pronIntro: 'A gyakorolt hangok legutóbbi eredményei.', // Latest results for the sounds you've practised.
-  pronPerception: 'Hallás', // Perception (hearing the sound)
-  pronProduction: 'Kiejtés', // Production (saying it)
-  pronAttempts: (n: number) => `${n} gyakorlás`, // N practice rounds
-  pronOpen: 'Gyakorlás', // Practise (link to the sound's page)
-  pronNoScore: 'még nincs', // not yet (no score)
-  pronEmpty: 'Még nem gyakoroltál kiejtést.', // You haven't practised pronunciation yet.
-  pronEmptyLink: 'Kiejtés megnyitása', // Open Pronunciation
+  pronHeading: 'Kiejtés',
+  pronIntro: 'A gyakorolt hangok legutóbbi eredményei.',
+  pronPerception: 'Hallás',
+  pronProduction: 'Kiejtés',
+  pronAttempts: (n: number) => `${n} gyakorlás`,
+  pronOpen: 'Gyakorlás',
+  pronNoScore: 'még nincs',
+  pronEmpty: 'Még nem gyakoroltál kiejtést.',
+  pronEmptyTeacher: 'Még nem gyakorolt kiejtést.',
+  pronEmptyLink: 'Kiejtés megnyitása',
 
   // Vocabulary
-  vocabHeading: 'Szókincs', // Vocabulary
-  vocabNew: 'Új', // New
-  vocabPracticing: 'Tanulás alatt', // Practising
-  vocabMastered: 'Elsajátítva', // Mastered
-  vocabLink: 'Szókincsfejlesztő megnyitása', // Open the Vocabulary Builder
+  vocabHeading: 'Szókincs',
+  vocabSrsHeading: 'Ismétlés',
+  vocabNew: 'Új',
+  vocabPracticing: 'Tanulás alatt',
+  vocabMastered: 'Elsajátítva',
+  vocabLink: 'Szókincsfejlesztő megnyitása',
+  vocabFastHeading: 'Gyors gyakorlás',
+  vocabFastEmpty: 'Még nincs gyors gyakorlás.',
+  vocabTestsHeading: 'Tesztek',
+  vocabTestsEmpty: 'Még nincs befejezett teszt.',
+  vocabOwnHeading: 'Saját szólisták',
+  vocabOwnEmpty: 'Még nincs saját szólista.',
+  vocabWords: (n: number) => `${n} szó`,
+  vocabWordsOf: (n: number, of: number) => `${n} / ${of} szó`,
+  vocabReduced: 'szűkített lista',
+  vocabFullList: 'teljes lista',
+  vocabUnfinished: 'félbehagyva',
+  vocabAccuracy: (p: number) => `${p}% helyes`,
+  vocabOwnPractice: (n: number) => `${n} gyors gyakorlás`,
+  vocabOwnTests: (last: number, best: number) => `teszt: legutóbb ${last}%, legjobb ${best}%`,
+  listDeleted: 'törölt lista',
+  listConversations: 'Beszélgetésekből',
+  listMixed: 'vegyes szavak',
+  listKind: { custom: 'saját', teacher: 'tanári', conversations: 'beszélgetésből' } as Record<string, string>,
 
-  // Gamification panel: level, XP by area, week history, badge wall
-  gamHeading: 'Pontok, szintek és jelvények', // Points, levels and badges
-  gamLevel: (n: number) => `Szint ${n}`, // Level N (same wording as the header chip)
-  gamTotalXp: (n: number) => `${n} XP összesen`, // N XP in total
-  gamToNext: (into: number, next: number) => `${into} / ${next} XP a következő szintig`, // X / Y XP to the next level
-  gamBySectionHeading: 'XP területenként', // XP by area
-  gamBySectionEmpty: 'Még nincs XP. Az első befejezett gyakorlat után itt jelenik meg.', // No XP yet. It appears here after your first finished activity.
-  gamWeeksHeading: 'Heti célod az elmúlt hetekben', // Your weekly goal in recent weeks
-  gamWeeksEmpty: 'Az első gyakorlásod hetétől itt látod, hogyan alakul a heti célod.', // From the week of your first practice, you'll see your weekly goal here.
+  // Courses
+  coursesHeading: 'Mini kurzusok',
+  coursesEmpty: 'Még nem kezdtél el kurzust.',
+  coursesEmptyTeacher: 'Ennek a diáknak még nem adtál ki kurzust.',
+  coursesTeacherNote: 'Csak az általad kiosztott kurzusok.',
+  courseModules: (n: number, m: number) => `${n}/${m} modul`,
+  courseDone: 'Befejezve',
+  courseInProgress: 'Folyamatban',
+  courseSelf: 'saját választás',
+  courseAssigned: 'tanártól',
+  coursesLink: 'Kurzusaim',
+
+  // Gamification: summary (first on the page) and the panel below
+  gamHeading: 'Pontok, sorozatok és jelvények',
+  gamLevel: (n: number) => `Szint ${n}`,
+  gamTotalXp: (n: number) => `${n} XP összesen`,
+  gamDaysThisWeek: 'nap ezen a héten (cél)',
+  gamWeekStreak: (best: number) => `teljesített hét egymás után (legjobb: ${best})`,
+  gamDayStreak: 'napos sorozat',
+  gamBadgesEarned: (n: number) => `Megszerzett jelvények (${n})`,
+  gamNoBadges: 'Még nincs jelvény.',
+  gamToNext: (into: number, next: number) => `${into} / ${next} XP a következő szintig`,
+  gamBySectionHeading: 'XP területenként',
+  gamBySectionEmpty: 'Még nincs XP. Az első befejezett gyakorlat után itt jelenik meg.',
+  gamSectionTeacher: 'Tanári jutalom',
+  gamSectionChallenge: 'Kihívások',
+  gamSectionCourses: 'Mini kurzusok',
+  gamMoreHeading: 'Heti cél, kihívások és jelvények',
+  gamWeeksHeading: 'Heti célod az elmúlt hetekben',
+  gamWeeksEmpty: 'Az első gyakorlásod hetétől itt látod, hogyan alakul a heti célod.',
   gamWeekLabel: (date: string, active: number, goal: number, state: 'met' | 'missed' | 'open') =>
-    `${date} kezdetű hét: ${active} / ${goal} nap, ${state === 'met' ? 'teljesítve' : state === 'open' ? 'folyamatban' : 'nem teljesült'}`, // Week starting DATE: A / G days, met / in progress / not met (screen-reader label)
-  gamWeekMetLegend: 'teljesített hét', // week with the goal met (legend)
-  gamWeekOpenLegend: 'ez a hét', // this week (legend)
-  gamBadgesHeading: 'Jelvények', // Badges
-  gamBadgesCount: (earned: number, total: number) => `${earned} / ${total} megszerezve`, // E / T earned
-  gamBadgesHint: 'Válassz ki egy jelvényt a részletekhez.', // Pick a badge for details.
-  gamBadgeHiddenName: 'Rejtett jelvény', // Hidden badge
-  gamBadgeHiddenText: 'Akkor derül ki, mi ez, amikor megszerzed.', // You'll find out what it is when you earn it.
-  gamBadgeEarnedOn: (date: string) => `Megszerezve: ${date}`, // Earned: DATE
-  gamBadgeHowTo: 'Így szerezheted meg:', // How to earn it:
-  gamListen: 'Meghallgatás', // Listen (play-button label)
-  gamBonusesHeading: 'Tanári jutalmak', // Teacher bonuses (bonus XP from the learner's teacher, with the reason)
-  gamBonusAmount: (n: number) => `+${n} XP`, // +N XP
+    `${date} kezdetű hét: ${active} / ${goal} nap, ${state === 'met' ? 'teljesítve' : state === 'open' ? 'folyamatban' : 'nem teljesült'}`,
+  gamWeekMetLegend: 'teljesített hét',
+  gamWeekOpenLegend: 'ez a hét',
+  gamBadgesHeading: 'Összes jelvény',
+  gamBadgesCount: (earned: number, total: number) => `${earned} / ${total} megszerezve`,
+  gamBadgesHint: 'Válassz ki egy jelvényt a részletekhez.',
+  gamBadgeHiddenName: 'Rejtett jelvény',
+  gamBadgeHiddenText: 'Akkor derül ki, mi ez, amikor megszerzed.',
+  gamBadgeEarnedOn: (date: string) => `Megszerezve: ${date}`,
+  gamBadgeHowTo: 'Így szerezheted meg:',
+  gamListen: 'Meghallgatás',
+  gamBonusesHeading: 'Tanári jutalmak',
+  gamBonusAmount: (n: number) => `+${n} XP`,
 
   // Class challenges (set by the learner's teacher)
-  chHeading: 'Kihívások', // Challenges
-  chCollective: 'Közös kihívás', // Shared (whole-class) challenge
-  chIndividual: 'Egyéni kihívás', // Personal challenge
+  chHeading: 'Kihívások',
+  chCollective: 'Közös kihívás',
+  chIndividual: 'Egyéni kihívás',
   chActivity: {
-    any: 'gyakorlat', // activities (any)
-    'conversational-english': 'élethelyzet (Társalgási angol)', // scenario (Conversational English)
-    'tutor-bot': 'beszélgetés az Oktató bottal', // Tutor Bot conversation
-    'grammar-coach': 'nyelvtani lecke', // grammar lesson
-    'pronunciation-session': 'kiejtésgyakorlat', // pronunciation drill
-    'exam-prep': 'beadott vizsgarész (Érettségi és nyelvvizsga)', // mock exam section handed in (Exam Prep)
-    'vocabulary.fast_practice': 'gyors gyakorlás a Szótanulóban', // Fast practice round (Vocabulary)
-    'vocabulary.game': 'szójáték', // word game
-    'vocabulary.own_list': 'saját szólista', // own word list created
+    any: 'gyakorlat',
+    'conversational-english': 'élethelyzet (Társalgási angol)',
+    'tutor-bot': 'beszélgetés az Oktató bottal',
+    'grammar-coach': 'nyelvtani lecke',
+    'pronunciation-session': 'kiejtésgyakorlat',
+    'exam-prep': 'beadott vizsgarész (Érettségi és nyelvvizsga)',
+    'vocabulary.fast_practice': 'gyors gyakorlás a Szótanulóban',
+    'vocabulary.game': 'szójáték',
+    'vocabulary.own_list': 'saját szólista',
   } as Record<string, string>,
-  chTargetDays: (n: number, collective: boolean) => (collective ? `${n} gyakorlásos nap együtt` : `${n} nap gyakorlás`), // N practice days together / N practice days
-  chTargetActivities: (n: number, what: string) => `${n} × ${what}`, // N × <activity>
-  chTargetXp: (n: number) => `${n} XP gyűjtése`, // Earn N XP
-  chTargetList: (list: string) => `A(z) „${list}” szólista megtanulása`, // Learn the "<list>" word list
-  chTargetListCollective: (n: number, list: string) => `${n} diák tanulja meg a(z) „${list}” szólistát`, // N students learn the "<list>" word list
-  chDeletedList: 'törölt szólista', // deleted word list
-  chMine: (value: number, target: number) => `${value} / ${target}`, // your progress
-  chClass: (total: number, target: number, mine: number) => `Az osztály: ${total} / ${target} · a te részed: ${mine}`, // Class: T / N · your part: M
-  chDaysLeft: (n: number) => (n <= 1 ? 'Ma az utolsó nap' : `Még ${n} nap`), // Last day today / N days left
-  chStarts: (date: string) => `Indul: ${date}`, // Starts: DATE
-  chDone: 'Teljesítve', // Completed
-  chMissed: 'Lejárt', // Ended (not completed)
-  chCancelled: 'A tanárod lezárta', // Your teacher ended it
-  chReward: (n: number) => `Jutalom: +${n} XP`, // Reward: +N XP
+  chTargetDays: (n: number, collective: boolean) => (collective ? `${n} gyakorlásos nap együtt` : `${n} nap gyakorlás`),
+  chTargetActivities: (n: number, what: string) => `${n} × ${what}`,
+  chTargetXp: (n: number) => `${n} XP gyűjtése`,
+  chTargetList: (list: string) => `A(z) „${list}” szólista megtanulása`,
+  chTargetListCollective: (n: number, list: string) => `${n} diák tanulja meg a(z) „${list}” szólistát`,
+  chDeletedList: 'törölt szólista',
+  chMine: (value: number, target: number) => `${value} / ${target}`,
+  chClass: (total: number, target: number, mine: number) => `Az osztály: ${total} / ${target} · a te részed: ${mine}`,
+  chDaysLeft: (n: number) => (n <= 1 ? 'Ma az utolsó nap' : `Még ${n} nap`),
+  chStarts: (date: string) => `Indul: ${date}`,
+  chDone: 'Teljesítve',
+  chMissed: 'Lejárt',
+  chCancelled: 'A tanárod lezárta',
+  chReward: (n: number) => `Jutalom: +${n} XP`,
 
   // Class comparison (the teacher turned it on for their class)
-  crHeading: 'Az osztályod heti rangsora', // Your class's weekly ranking
-  crIntro: 'Az ezen a héten (hétfőtől vasárnapig) saját gyakorlással szerzett XP alapján. A tanárod kapcsolta be.', // Based on XP earned from your own practice this week (Monday to Sunday). Your teacher turned it on.
-  crTeacher: (label: string) => `Tanár: ${label}`, // Teacher: <email> (shown when the learner has more than one class)
-  crMe: 'Te', // You
-  crClassmate: (n: number) => `Osztálytárs ${n}`, // Classmate N (classmates without a leaderboard nickname)
+  crHeading: 'Az osztályod heti rangsora',
+  crIntro: 'Az ezen a héten (hétfőtől vasárnapig) saját gyakorlással szerzett XP alapján. A tanárod kapcsolta be.',
+  crTeacher: (label: string) => `Tanár: ${label}`,
+  crMe: 'Te',
+  crClassmate: (n: number) => `Osztálytárs ${n}`,
 
   // Public leaderboard — DRAFT WORDING for the legal review (design §8.3, GDPR Art. 8 and 12)
-  lbHeading: 'Nyilvános ranglista', // Public leaderboard
-  lbLeague: { alap: 'Alapszint liga (A1–A2)', kozep: 'Középszint liga (B1–B2)', felso: 'Felsőszint liga (C1–C2)' } as Record<string, string>, // Basic / Intermediate / Advanced league
+  lbHeading: 'Nyilvános ranglista',
+  lbLeague: { alap: 'Alapszint liga (A1–A2)', kozep: 'Középszint liga (B1–B2)', felso: 'Felsőszint liga (C1–C2)' } as Record<string, string>,
   lbIntro:
-    'Ha szeretnéd, becenévvel felkerülhetsz a heti ranglistára. A saját szintedhez hasonló tanulókkal versenyzel, a heti, saját gyakorlással szerzett XP alapján. Mások csak a becenevedet, a szintedet és a heti XP-det látják, a neved és az e-mail-címed soha.', // If you like, you can join the weekly leaderboard under a nickname. You compete with learners at a level like yours, on XP from your own practice this week. Others only see your nickname, level and weekly XP — never your name or email address.
-  lbNickname: 'Becenév', // Nickname
-  lbNicknameHint: '3–20 karakter. Ne a valódi neved legyen.', // 3–20 characters. Not your real name.
-  lbAge: 'Elmúltam 16 éves.', // I am 16 or older.
+    'Ha szeretnéd, becenévvel felkerülhetsz a heti ranglistára. A saját szintedhez hasonló tanulókkal versenyzel, a heti, saját gyakorlással szerzett XP alapján. Mások csak a becenevedet, a szintedet és a heti XP-det látják, a neved és az e-mail-címed soha.',
+  lbNickname: 'Becenév',
+  lbNicknameHint: '3–20 karakter. Ne a valódi neved legyen.',
+  lbAge: 'Elmúltam 16 éves.',
   lbConsent:
-    'Hozzájárulok, hogy a becenevem, a szintem és a heti XP-m megjelenjen a nyilvános ranglistán. Ezt bármikor visszavonhatom a „Kilépés a ranglistáról” gombbal; ekkor azonnal lekerülök róla, és a becenevemet töröljük.', // I agree that my nickname, level and weekly XP appear on the public leaderboard. I can withdraw this at any time with "Leave the leaderboard"; I'm then removed at once and my nickname is deleted.
-  lbUnder16: 'Ha még nem vagy 16 éves, a nyilvános ranglistához nem csatlakozhatsz. Az osztályod rangsorát (ha a tanárod bekapcsolta) ettől függetlenül látod.', // If you are under 16, you can't join the public leaderboard. You still see your class ranking if your teacher turned it on.
-  lbJoin: 'Csatlakozom', // Join
-  lbNeedBoth: 'A csatlakozáshoz mindkét négyzetet be kell jelölnöd.', // Tick both boxes to join.
-  lbBlocked: 'A tanárod az osztályodnak kikapcsolta a nyilvános ranglistát.', // Your teacher has turned the public leaderboard off for your class.
-  lbEmpty: 'Ezen a héten még senki sem szerzett XP-t ebben a ligában.', // Nobody in this league has earned XP this week yet.
-  lbYou: 'te', // you (after the learner's own nickname)
-  lbLevel: (n: number) => `${n}. szint`, // level N
-  lbChangeNickname: 'Becenév módosítása', // Change nickname
-  lbSave: 'Mentés', // Save
-  lbCancel: 'Mégse', // Cancel
-  lbLeave: 'Kilépés a ranglistáról', // Leave the leaderboard
-  lbLeaveConfirm: 'Biztosan kilépsz? Azonnal lekerülsz a ranglistáról, és a becenevedet töröljük.', // Leave? You're removed at once and your nickname is deleted.
-  lbError: 'Nem sikerült menteni. Próbáld újra.', // Couldn't save. Try again.
-  gamLoadError: 'A pontjaidat most nem sikerült betölteni.', // Couldn't load your points right now.
+    'Hozzájárulok, hogy a becenevem, a szintem és a heti XP-m megjelenjen a nyilvános ranglistán. Ezt bármikor visszavonhatom a „Kilépés a ranglistáról” gombbal; ekkor azonnal lekerülök róla, és a becenevemet töröljük.',
+  lbUnder16: 'Ha még nem vagy 16 éves, a nyilvános ranglistához nem csatlakozhatsz. Az osztályod rangsorát (ha a tanárod bekapcsolta) ettől függetlenül látod.',
+  lbJoin: 'Csatlakozom',
+  lbNeedBoth: 'A csatlakozáshoz mindkét négyzetet be kell jelölnöd.',
+  lbBlocked: 'A tanárod az osztályodnak kikapcsolta a nyilvános ranglistát.',
+  lbEmpty: 'Ezen a héten még senki sem szerzett XP-t ebben a ligában.',
+  lbYou: 'te',
+  lbLevel: (n: number) => `${n}. szint`,
+  lbChangeNickname: 'Becenév módosítása',
+  lbSave: 'Mentés',
+  lbCancel: 'Mégse',
+  lbLeave: 'Kilépés a ranglistáról',
+  lbLeaveConfirm: 'Biztosan kilépsz? Azonnal lekerülsz a ranglistáról, és a becenevedet töröljük.',
+  lbError: 'Nem sikerült menteni. Próbáld újra.',
+  gamLoadError: 'A pontjaidat most nem sikerült betölteni.',
 
   // Transparency line (only with an active teacher connection)
-  teacherCanSee: 'A tanárod is látja az ezen az oldalon lévő adatokat.', // Your teacher can also see the data on this page.
+  teacherCanSee: 'A tanárod is látja az ezen az oldalon lévő adatokat.',
 
   // Brand-new learner (no sessions, no data)
-  emptyHeading: 'Itt fogod látni, hogyan fejlődsz', // This is where you'll see how you're progressing
+  emptyHeading: 'Itt fogod látni, hogyan fejlődsz',
   emptyText:
-    'Beszélgess az Oktató bottal, vagy gyakorolj egy élethelyzetet a Társalgási angol részben. Utána itt látod majd, miben fejlődsz, és min érdemes dolgoznod.', // Chat with the Tutor Bot or practise a real-life situation in Conversational English. Afterwards you'll see here what you're improving at and what's worth working on.
-  emptyTutorButton: 'Beszélgetés az Oktató bottal', // Chat with the Tutor Bot
-  emptyScenarioButton: 'Társalgási angol', // Conversational English (the scenario section's Hungarian name)
-} as const
+    'Beszélgess az Oktató bottal, vagy gyakorolj egy élethelyzetet a Társalgási angol részben. Utána itt látod majd, miben fejlődsz, és min érdemes dolgoznod.',
+  emptyTutorButton: 'Beszélgetés az Oktató bottal',
+  emptyScenarioButton: 'Társalgási angol',
+}
+
+export type MyProgressCopy = typeof hu
+
+const en: MyProgressCopy = {
+  pageTitle: 'My progress',
+  pageSubtitle: 'Where you are now, and what your next step should be.',
+  loadError: "Couldn't load your data. Please try again a bit later.",
+
+  cefrHeading: 'Your estimated level',
+  cefrHeadingTeacher: 'Estimated level',
+  cefrNotYet: 'No estimate yet',
+  cefrNotYetHint: 'It appears here after a few conversations.',
+  cefrHistoryLabel: 'Earlier estimates:',
+  sessionsLast30Label: 'conversations in the last 30 days',
+  sessionsTotal: (n) => `${n} in total`,
+
+  nextStepHeading: 'Suggested next step',
+  nextStepReason: (n, m) => `Came up in ${n} of your last ${m} conversations.`,
+  nextStepLessonLabel: 'Grammar lesson:',
+  nextStepLessonButton: 'Open the lesson',
+  nextStepTutorText: 'Have a chat with the Tutor Bot! After every conversation we see more clearly what is worth working on.',
+  nextStepTutorButton: 'Start a conversation',
+
+  mistakesHeading: 'Mistake types',
+  mistakesIntro: (m) => `Based on your last ${m} conversations: in how many it came up.`,
+  mistakesIntroTeacher: (m) =>
+    `Frequency: in how many of the student's last ${m} conversations it came up, with the trend against the ones before. "In total" is the all-time count, including corrections from before per-conversation tracking.`,
+  mistakesEmpty: 'No mistakes recorded yet. This fills up after your first conversations.',
+  mistakesEmptyTeacher: 'No mistakes recorded yet.',
+  mistakesBasedOn: 'Based on:',
+  mistakesSrcTutor: (n) => `${n} Tutor Bot ${n === 1 ? 'conversation' : 'conversations'}`,
+  mistakesSrcScenario: (n) => `${n} Conversational English ${n === 1 ? 'scenario' : 'scenarios'}`,
+  mistakesSrcNote:
+    'Only conversations count (Tutor Bot, Conversational English); grammar, vocabulary and pronunciation practice do not.',
+  exampleSource: { scenario: 'Conversational English', tutor: 'Tutor Bot', legacy: 'earlier data' },
+  frequency: (n, m) => `in ${n} of ${m}`,
+  legacyOnly: 'earlier data',
+  trendFewer: 'fewer than before',
+  trendMore: 'more than before',
+  trendSame: 'same as before',
+  allTime: (n) => `${n} in total`,
+  showDetails: 'Show details',
+  hideDetails: 'Hide details',
+  exampleLabel: 'Latest example:',
+
+  pronHeading: 'Pronunciation',
+  pronIntro: 'Latest results for the sounds practised.',
+  pronPerception: 'Hearing',
+  pronProduction: 'Saying',
+  pronAttempts: (n) => `${n} ${n === 1 ? 'round' : 'rounds'}`,
+  pronOpen: 'Practise',
+  pronNoScore: 'not yet',
+  pronEmpty: "You haven't practised pronunciation yet.",
+  pronEmptyTeacher: 'No pronunciation practice yet.',
+  pronEmptyLink: 'Open Pronunciation',
+
+  vocabHeading: 'Vocabulary',
+  vocabSrsHeading: 'Spaced repetition',
+  vocabNew: 'New',
+  vocabPracticing: 'Practising',
+  vocabMastered: 'Mastered',
+  vocabLink: 'Open the Vocabulary Builder',
+  vocabFastHeading: 'Fast practice',
+  vocabFastEmpty: 'No Fast practice yet.',
+  vocabTestsHeading: 'Tests',
+  vocabTestsEmpty: 'No finished tests yet.',
+  vocabOwnHeading: 'Own word lists',
+  vocabOwnEmpty: 'No own word lists yet.',
+  vocabWords: (n) => `${n} ${n === 1 ? 'word' : 'words'}`,
+  vocabWordsOf: (n, of) => `${n} of ${of} words`,
+  vocabReduced: 'reduced list',
+  vocabFullList: 'whole list',
+  vocabUnfinished: 'not finished',
+  vocabAccuracy: (p) => `${p}% correct`,
+  vocabOwnPractice: (n) => `${n} Fast practice ${n === 1 ? 'round' : 'rounds'}`,
+  vocabOwnTests: (last, best) => `test: last ${last}%, best ${best}%`,
+  listDeleted: 'deleted list',
+  listConversations: 'From conversations',
+  listMixed: 'mixed words',
+  listKind: { custom: 'own', teacher: 'teacher', conversations: 'conversations' },
+
+  coursesHeading: 'Mini courses',
+  coursesEmpty: "You haven't started a course yet.",
+  coursesEmptyTeacher: "You haven't assigned this student a course yet.",
+  coursesTeacherNote: 'Only the courses you assigned.',
+  courseModules: (n, m) => `${n}/${m} modules`,
+  courseDone: 'Finished',
+  courseInProgress: 'In progress',
+  courseSelf: 'self-enrolled',
+  courseAssigned: 'from a teacher',
+  coursesLink: 'My courses',
+
+  gamHeading: 'Points, streaks and badges',
+  gamLevel: (n) => `Level ${n}`,
+  gamTotalXp: (n) => `${n} XP in total`,
+  gamDaysThisWeek: 'days this week (goal)',
+  gamWeekStreak: (best) => `goal weeks in a row (best ${best})`,
+  gamDayStreak: 'day streak',
+  gamBadgesEarned: (n) => `Badges earned (${n})`,
+  gamNoBadges: 'No badges yet.',
+  gamToNext: (into, next) => `${into} / ${next} XP to the next level`,
+  gamBySectionHeading: 'XP by area',
+  gamBySectionEmpty: 'No XP yet. It appears here after your first finished activity.',
+  gamSectionTeacher: 'Teacher bonus',
+  gamSectionChallenge: 'Challenge rewards',
+  gamSectionCourses: 'Mini courses',
+  gamMoreHeading: 'Weekly goal, challenges and badges',
+  gamWeeksHeading: 'Your weekly goal in recent weeks',
+  gamWeeksEmpty: "From the week of your first practice, you'll see your weekly goal here.",
+  gamWeekLabel: (date, active, goal, state) =>
+    `Week starting ${date}: ${active} / ${goal} days, ${state === 'met' ? 'met' : state === 'open' ? 'in progress' : 'not met'}`,
+  gamWeekMetLegend: 'goal met',
+  gamWeekOpenLegend: 'this week',
+  gamBadgesHeading: 'All badges',
+  gamBadgesCount: (earned, total) => `${earned} / ${total} earned`,
+  gamBadgesHint: 'Pick a badge for details.',
+  gamBadgeHiddenName: 'Hidden badge',
+  gamBadgeHiddenText: "You'll find out what it is when you earn it.",
+  gamBadgeEarnedOn: (date) => `Earned: ${date}`,
+  gamBadgeHowTo: 'How to earn it:',
+  gamListen: 'Listen',
+  gamBonusesHeading: 'Teacher bonuses',
+  gamBonusAmount: (n) => `+${n} XP`,
+
+  chHeading: 'Challenges',
+  chCollective: 'Class challenge',
+  chIndividual: 'Personal challenge',
+  chActivity: {
+    any: 'activities',
+    'conversational-english': 'scenarios (Conversational English)',
+    'tutor-bot': 'Tutor Bot conversations',
+    'grammar-coach': 'grammar lessons',
+    'pronunciation-session': 'pronunciation drills',
+    'exam-prep': 'exam sections handed in (Exam Prep)',
+    'vocabulary.fast_practice': 'Fast practice rounds (Vocabulary)',
+    'vocabulary.game': 'word games',
+    'vocabulary.own_list': 'own word lists',
+  },
+  chTargetDays: (n, collective) => (collective ? `${n} practice days together` : `${n} practice days`),
+  chTargetActivities: (n, what) => `${n} × ${what}`,
+  chTargetXp: (n) => `Earn ${n} XP`,
+  chTargetList: (list) => `Learn the "${list}" word list`,
+  chTargetListCollective: (n, list) => `${n} students learn the "${list}" word list`,
+  chDeletedList: 'deleted word list',
+  chMine: (value, target) => `${value} / ${target}`,
+  chClass: (total, target, mine) => `Class: ${total} / ${target} · your part: ${mine}`,
+  chDaysLeft: (n) => (n <= 1 ? 'Last day today' : `${n} days left`),
+  chStarts: (date) => `Starts: ${date}`,
+  chDone: 'Completed',
+  chMissed: 'Ended',
+  chCancelled: 'Your teacher ended it',
+  chReward: (n) => `Reward: +${n} XP`,
+
+  crHeading: "Your class's weekly ranking",
+  crIntro: 'Based on XP earned from your own practice this week (Monday to Sunday). Your teacher turned it on.',
+  crTeacher: (label) => `Teacher: ${label}`,
+  crMe: 'You',
+  crClassmate: (n) => `Classmate ${n}`,
+
+  lbHeading: 'Public leaderboard',
+  lbLeague: { alap: 'Basic league (A1–A2)', kozep: 'Intermediate league (B1–B2)', felso: 'Advanced league (C1–C2)' },
+  lbIntro:
+    'If you like, you can join the weekly leaderboard under a nickname. You compete with learners at a level like yours, on XP from your own practice this week. Others only see your nickname, level and weekly XP — never your name or email address.',
+  lbNickname: 'Nickname',
+  lbNicknameHint: '3–20 characters. Not your real name.',
+  lbAge: 'I am 16 or older.',
+  lbConsent:
+    'I agree that my nickname, level and weekly XP appear on the public leaderboard. I can withdraw this at any time with "Leave the leaderboard"; I am then removed at once and my nickname is deleted.',
+  lbUnder16: "If you are under 16, you can't join the public leaderboard. You still see your class ranking if your teacher turned it on.",
+  lbJoin: 'Join',
+  lbNeedBoth: 'Tick both boxes to join.',
+  lbBlocked: 'Your teacher has turned the public leaderboard off for your class.',
+  lbEmpty: 'Nobody in this league has earned XP this week yet.',
+  lbYou: 'you',
+  lbLevel: (n) => `level ${n}`,
+  lbChangeNickname: 'Change nickname',
+  lbSave: 'Save',
+  lbCancel: 'Cancel',
+  lbLeave: 'Leave the leaderboard',
+  lbLeaveConfirm: 'Leave? You are removed at once and your nickname is deleted.',
+  lbError: "Couldn't save. Please try again.",
+  gamLoadError: "Couldn't load your points right now.",
+
+  teacherCanSee: 'Your teacher can also see the data on this page.',
+
+  emptyHeading: "This is where you'll see how you're progressing",
+  emptyText:
+    "Chat with the Tutor Bot or practise a real-life situation in Conversational English. Afterwards you'll see here what you're improving at and what's worth working on.",
+  emptyTutorButton: 'Chat with the Tutor Bot',
+  emptyScenarioButton: 'Conversational English',
+}
+
+const de: MyProgressCopy = {
+  pageTitle: 'Mein Fortschritt',
+  pageSubtitle: 'Wo du gerade stehst und was dein nächster Schritt sein sollte.',
+  loadError: 'Deine Daten konnten nicht geladen werden. Versuch es bitte etwas später noch einmal.',
+
+  cefrHeading: 'Dein geschätztes Niveau',
+  cefrHeadingTeacher: 'Geschätztes Niveau',
+  cefrNotYet: 'Noch keine Schätzung',
+  cefrNotYetHint: 'Sie erscheint hier nach ein paar Gesprächen.',
+  cefrHistoryLabel: 'Frühere Schätzungen:',
+  sessionsLast30Label: 'Gespräche in den letzten 30 Tagen',
+  sessionsTotal: (n) => `insgesamt ${n}`,
+
+  nextStepHeading: 'Empfohlener nächster Schritt',
+  nextStepReason: (n, m) => `Kam in ${n} deiner letzten ${m} Gespräche vor.`,
+  nextStepLessonLabel: 'Grammatiklektion:',
+  nextStepLessonButton: 'Lektion öffnen',
+  nextStepTutorText: 'Unterhalte dich mit dem Tutor-Bot! Nach jedem Gespräch sehen wir genauer, woran du arbeiten solltest.',
+  nextStepTutorButton: 'Gespräch beginnen',
+
+  mistakesHeading: 'Fehlertypen',
+  mistakesIntro: (m) => `Aus deinen letzten ${m} Gesprächen: in wie vielen der Fehler vorkam.`,
+  mistakesIntroTeacher: (m) =>
+    `Häufigkeit: in wie vielen der letzten ${m} Gespräche des Lernenden der Fehler vorkam, mit dem Trend gegenüber den Gesprächen davor. „Insgesamt“ ist die Gesamtzahl, einschließlich Korrekturen aus der Zeit vor der Erfassung pro Gespräch.`,
+  mistakesEmpty: 'Noch keine Fehler erfasst. Dieser Bereich füllt sich nach deinen ersten Gesprächen.',
+  mistakesEmptyTeacher: 'Noch keine Fehler erfasst.',
+  mistakesBasedOn: 'Grundlage:',
+  mistakesSrcTutor: (n) => `${n} ${n === 1 ? 'Gespräch' : 'Gespräche'} mit dem Tutor-Bot`,
+  mistakesSrcScenario: (n) => `${n} ${n === 1 ? 'Situation' : 'Situationen'} (Konversationsenglisch)`,
+  mistakesSrcNote:
+    'Nur Gespräche zählen (Tutor-Bot, Konversationsenglisch); Grammatik-, Wortschatz- und Ausspracheübungen nicht.',
+  exampleSource: { scenario: 'Konversationsenglisch', tutor: 'Tutor-Bot', legacy: 'frühere Daten' },
+  frequency: (n, m) => `in ${n} von ${m}`,
+  legacyOnly: 'frühere Daten',
+  trendFewer: 'weniger als davor',
+  trendMore: 'mehr als davor',
+  trendSame: 'gleich wie davor',
+  allTime: (n) => `insgesamt ${n}`,
+  showDetails: 'Details anzeigen',
+  hideDetails: 'Details ausblenden',
+  exampleLabel: 'Letztes Beispiel:',
+
+  pronHeading: 'Aussprache',
+  pronIntro: 'Die letzten Ergebnisse der geübten Laute.',
+  pronPerception: 'Hören',
+  pronProduction: 'Sprechen',
+  pronAttempts: (n) => `${n} ${n === 1 ? 'Übung' : 'Übungen'}`,
+  pronOpen: 'Üben',
+  pronNoScore: 'noch nicht',
+  pronEmpty: 'Du hast noch keine Aussprache geübt.',
+  pronEmptyTeacher: 'Noch keine Ausspracheübungen.',
+  pronEmptyLink: 'Aussprache öffnen',
+
+  vocabHeading: 'Wortschatz',
+  vocabSrsHeading: 'Wiederholung',
+  vocabNew: 'Neu',
+  vocabPracticing: 'In Arbeit',
+  vocabMastered: 'Gelernt',
+  vocabLink: 'Vokabeltrainer öffnen',
+  vocabFastHeading: 'Schnellübung',
+  vocabFastEmpty: 'Noch keine Schnellübung.',
+  vocabTestsHeading: 'Tests',
+  vocabTestsEmpty: 'Noch kein abgeschlossener Test.',
+  vocabOwnHeading: 'Eigene Wortlisten',
+  vocabOwnEmpty: 'Noch keine eigene Wortliste.',
+  vocabWords: (n) => `${n} ${n === 1 ? 'Wort' : 'Wörter'}`,
+  vocabWordsOf: (n, of) => `${n} von ${of} Wörtern`,
+  vocabReduced: 'gekürzte Liste',
+  vocabFullList: 'ganze Liste',
+  vocabUnfinished: 'abgebrochen',
+  vocabAccuracy: (p) => `${p} % richtig`,
+  vocabOwnPractice: (n) => `${n} ${n === 1 ? 'Schnellübung' : 'Schnellübungen'}`,
+  vocabOwnTests: (last, best) => `Test: zuletzt ${last} %, bestes ${best} %`,
+  listDeleted: 'gelöschte Liste',
+  listConversations: 'Aus Gesprächen',
+  listMixed: 'gemischte Wörter',
+  listKind: { custom: 'eigene', teacher: 'Lehrkraft', conversations: 'aus Gesprächen' },
+
+  coursesHeading: 'Mini-Kurse',
+  coursesEmpty: 'Du hast noch keinen Kurs begonnen.',
+  coursesEmptyTeacher: 'Du hast diesem Lernenden noch keinen Kurs zugewiesen.',
+  coursesTeacherNote: 'Nur die von dir zugewiesenen Kurse.',
+  courseModules: (n, m) => `${n}/${m} Module`,
+  courseDone: 'Abgeschlossen',
+  courseInProgress: 'Läuft',
+  courseSelf: 'selbst gewählt',
+  courseAssigned: 'von der Lehrkraft',
+  coursesLink: 'Meine Kurse',
+
+  gamHeading: 'Punkte, Serien und Abzeichen',
+  gamLevel: (n) => `Stufe ${n}`,
+  gamTotalXp: (n) => `${n} XP insgesamt`,
+  gamDaysThisWeek: 'Tage diese Woche (Ziel)',
+  gamWeekStreak: (best) => `erreichte Wochen in Folge (Bestwert ${best})`,
+  gamDayStreak: 'Tage in Folge',
+  gamBadgesEarned: (n) => `Erhaltene Abzeichen (${n})`,
+  gamNoBadges: 'Noch keine Abzeichen.',
+  gamToNext: (into, next) => `${into} / ${next} XP bis zur nächsten Stufe`,
+  gamBySectionHeading: 'XP nach Bereich',
+  gamBySectionEmpty: 'Noch keine XP. Sie erscheinen hier nach deiner ersten abgeschlossenen Übung.',
+  gamSectionTeacher: 'Bonus der Lehrkraft',
+  gamSectionChallenge: 'Challenges',
+  gamSectionCourses: 'Mini-Kurse',
+  gamMoreHeading: 'Wochenziel, Challenges und Abzeichen',
+  gamWeeksHeading: 'Dein Wochenziel in den letzten Wochen',
+  gamWeeksEmpty: 'Ab der Woche deiner ersten Übung siehst du hier, wie es mit deinem Wochenziel läuft.',
+  gamWeekLabel: (date, active, goal, state) =>
+    `Woche ab ${date}: ${active} / ${goal} Tage, ${state === 'met' ? 'erreicht' : state === 'open' ? 'läuft' : 'nicht erreicht'}`,
+  gamWeekMetLegend: 'Ziel erreicht',
+  gamWeekOpenLegend: 'diese Woche',
+  gamBadgesHeading: 'Alle Abzeichen',
+  gamBadgesCount: (earned, total) => `${earned} / ${total} erhalten`,
+  gamBadgesHint: 'Wähle ein Abzeichen für Details.',
+  gamBadgeHiddenName: 'Verborgenes Abzeichen',
+  gamBadgeHiddenText: 'Was es ist, erfährst du, wenn du es bekommst.',
+  gamBadgeEarnedOn: (date) => `Erhalten: ${date}`,
+  gamBadgeHowTo: 'So bekommst du es:',
+  gamListen: 'Anhören',
+  gamBonusesHeading: 'Boni der Lehrkraft',
+  gamBonusAmount: (n) => `+${n} XP`,
+
+  chHeading: 'Challenges',
+  chCollective: 'Klassen-Challenge',
+  chIndividual: 'Persönliche Challenge',
+  chActivity: {
+    any: 'Übungen',
+    'conversational-english': 'Situationen (Konversationsenglisch)',
+    'tutor-bot': 'Gespräche mit dem Tutor-Bot',
+    'grammar-coach': 'Grammatiklektionen',
+    'pronunciation-session': 'Ausspracheübungen',
+    'exam-prep': 'abgegebene Prüfungsteile (Prüfungsvorbereitung)',
+    'vocabulary.fast_practice': 'Schnellübungen (Wortschatz)',
+    'vocabulary.game': 'Wortspiele',
+    'vocabulary.own_list': 'eigene Wortlisten',
+  },
+  chTargetDays: (n, collective) => (collective ? `${n} Übungstage gemeinsam` : `${n} Übungstage`),
+  chTargetActivities: (n, what) => `${n} × ${what}`,
+  chTargetXp: (n) => `${n} XP sammeln`,
+  chTargetList: (list) => `Die Wortliste „${list}“ lernen`,
+  chTargetListCollective: (n, list) => `${n} Lernende lernen die Wortliste „${list}“`,
+  chDeletedList: 'gelöschte Wortliste',
+  chMine: (value, target) => `${value} / ${target}`,
+  chClass: (total, target, mine) => `Klasse: ${total} / ${target} · dein Anteil: ${mine}`,
+  chDaysLeft: (n) => (n <= 1 ? 'Heute ist der letzte Tag' : `Noch ${n} Tage`),
+  chStarts: (date) => `Beginnt: ${date}`,
+  chDone: 'Geschafft',
+  chMissed: 'Beendet',
+  chCancelled: 'Deine Lehrkraft hat sie beendet',
+  chReward: (n) => `Belohnung: +${n} XP`,
+
+  crHeading: 'Wochenrangliste deiner Klasse',
+  crIntro: 'Nach den XP aus deinen eigenen Übungen in dieser Woche (Montag bis Sonntag). Deine Lehrkraft hat sie eingeschaltet.',
+  crTeacher: (label) => `Lehrkraft: ${label}`,
+  crMe: 'Du',
+  crClassmate: (n) => `Mitschüler/in ${n}`,
+
+  lbHeading: 'Öffentliche Rangliste',
+  lbLeague: { alap: 'Grundstufen-Liga (A1–A2)', kozep: 'Mittelstufen-Liga (B1–B2)', felso: 'Oberstufen-Liga (C1–C2)' },
+  lbIntro:
+    'Wenn du möchtest, kannst du mit einem Spitznamen an der Wochenrangliste teilnehmen. Du trittst gegen Lernende auf ähnlichem Niveau an, nach den XP aus deinen eigenen Übungen dieser Woche. Andere sehen nur deinen Spitznamen, dein Niveau und deine Wochen-XP — nie deinen Namen oder deine E-Mail-Adresse.',
+  lbNickname: 'Spitzname',
+  lbNicknameHint: '3–20 Zeichen. Nicht dein echter Name.',
+  lbAge: 'Ich bin mindestens 16 Jahre alt.',
+  lbConsent:
+    'Ich bin einverstanden, dass mein Spitzname, mein Niveau und meine Wochen-XP in der öffentlichen Rangliste erscheinen. Ich kann das jederzeit mit „Rangliste verlassen“ widerrufen; dann werde ich sofort entfernt und mein Spitzname wird gelöscht.',
+  lbUnder16: 'Wenn du jünger als 16 bist, kannst du der öffentlichen Rangliste nicht beitreten. Die Rangliste deiner Klasse siehst du trotzdem, wenn deine Lehrkraft sie eingeschaltet hat.',
+  lbJoin: 'Beitreten',
+  lbNeedBoth: 'Kreuze zum Beitreten beide Kästchen an.',
+  lbBlocked: 'Deine Lehrkraft hat die öffentliche Rangliste für deine Klasse ausgeschaltet.',
+  lbEmpty: 'In dieser Liga hat diese Woche noch niemand XP gesammelt.',
+  lbYou: 'du',
+  lbLevel: (n) => `Stufe ${n}`,
+  lbChangeNickname: 'Spitznamen ändern',
+  lbSave: 'Speichern',
+  lbCancel: 'Abbrechen',
+  lbLeave: 'Rangliste verlassen',
+  lbLeaveConfirm: 'Wirklich verlassen? Du wirst sofort entfernt und dein Spitzname wird gelöscht.',
+  lbError: 'Speichern fehlgeschlagen. Versuch es noch einmal.',
+  gamLoadError: 'Deine Punkte konnten gerade nicht geladen werden.',
+
+  teacherCanSee: 'Deine Lehrkraft sieht die Daten auf dieser Seite ebenfalls.',
+
+  emptyHeading: 'Hier siehst du, wie du vorankommst',
+  emptyText:
+    'Unterhalte dich mit dem Tutor-Bot oder übe eine Alltagssituation im Bereich Konversationsenglisch. Danach siehst du hier, worin du besser wirst und woran du arbeiten solltest.',
+  emptyTutorButton: 'Mit dem Tutor-Bot sprechen',
+  emptyScenarioButton: 'Konversationsenglisch',
+}
+
+export const MY_PROGRESS_COPY: Record<Lang, MyProgressCopy> = { hu, en, de }
+
+/** Locale for dates on the progress pages. */
+export const PROGRESS_LOCALE: Record<Lang, string> = { hu: 'hu-HU', en: 'en-GB', de: 'de-DE' }
+
+/** The progress copy in the UI language (the header language selector). */
+export function useMyProgressCopy(): MyProgressCopy {
+  return MY_PROGRESS_COPY[useLanguage().lang]
+}
+
+/** A Hungarian/English record title in the UI language; German falls back to English. */
+export function pickTitle(lang: Lang, item: { title: string; titleHu: string }): string {
+  return lang === 'hu' ? item.titleHu : item.title
+}
