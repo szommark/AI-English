@@ -6,6 +6,7 @@ import { getPhonemeByCurriculumId } from '../../src/data/phonemes.js'
 import { findUnitByProgressId, lessonUnitRoute } from '../../src/data/pronunciationLessons/index.js'
 import { loadWordlists } from './vocabWordlists.js'
 import { loadCourseSummaries } from './courses.js'
+import { loadPractice } from './practiceLog.js'
 import type {
   AreaOverview,
   CefrHistoryPoint,
@@ -19,6 +20,7 @@ import type {
   PronunciationProgressItem,
   SubtypeOverview,
   VocabActivity,
+  VocabGameItem,
   VocabularyCounts,
 } from '../../src/lib/progressTypes.js'
 
@@ -269,12 +271,12 @@ export async function loadPronunciationProgress(userId: string): Promise<Pronunc
 const RECENT_VOCAB_ACTIVITY = 10
 
 /**
- * Fast practice runs (which list, whole or reduced, accuracy), finished tests (list and %)
- * and the learner's own lists. List names and sizes come from loadWordlists, so they read
+ * Fast practice runs (which list, whole or reduced, accuracy), finished tests (list and %),
+ * word games (which list) and the learner's own lists. List names and sizes come from loadWordlists, so they read
  * exactly as on the learner's My wordlists tab.
  */
 export async function loadVocabActivity(userId: string): Promise<VocabActivity> {
-  const [wordlists, runsRes, testsRes] = await Promise.all([
+  const [wordlists, runsRes, testsRes, games] = await Promise.all([
     loadWordlists(userId),
     supabaseAdmin
       .from('vocab_drill_runs')
@@ -289,6 +291,7 @@ export async function loadVocabActivity(userId: string): Promise<VocabActivity> 
       .not('finished_at', 'is', null)
       .order('finished_at', { ascending: false })
       .limit(RECENT_VOCAB_ACTIVITY),
+    loadPractice(userId, 'vocab_game'),
   ])
   if (runsRes.error) throw runsRes.error
   if (testsRes.error) throw testsRes.error
@@ -352,7 +355,15 @@ export async function loadVocabActivity(userId: string): Promise<VocabActivity> 
       bestTest: l.tests?.best ?? null,
     }))
 
-  return { fastPractice, tests, ownLists }
+  const gameItems: VocabGameItem[] = games.rows.map((g) => ({
+    game: g.variant === 'grid' || g.variant === 'crossword' ? g.variant : null,
+    list: g.list_source ? listRef(g.list_source, g.list_id, g.student_list_id) : null,
+    wordCount: g.word_count,
+    startedAt: g.started_at,
+    finished: g.finished_at !== null,
+  }))
+
+  return { fastPractice, tests, games: gameItems, gameCounts: games.counts, ownLists }
 }
 
 /** Courses in progress and finished; `assignedBy` limits them to that teacher's assignments. */

@@ -59,6 +59,7 @@ import { validateNickname } from './_lib/socialRules.js'
 import { GOAL_ACTIONS, handleGoalAction } from './_lib/learnerGoals.js'
 import { COMP_STUDENT_ACTIONS, handleCompStudentAction } from './_lib/compTests.js'
 import { COURSE_STUDENT_ACTIONS, handleCourseStudentAction } from './_lib/courses.js'
+import { PRACTICE_ACTIONS, handlePracticeAction } from './_lib/practiceLog.js'
 import type {
   ClassGamification,
   ClassStudentGamification,
@@ -854,6 +855,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   if (typeof action === 'string' && COURSE_STUDENT_ACTIONS.has(action)) {
     await handleCourseStudentAction(action, req, res, user.id)
+    return
+  }
+  if (typeof action === 'string' && PRACTICE_ACTIONS.has(action)) {
+    await handlePracticeAction(action, req, res, user.id)
     return
   }
 

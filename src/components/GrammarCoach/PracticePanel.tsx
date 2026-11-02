@@ -33,6 +33,7 @@ export default function PracticePanel({
   exercises,
   isExercisesLoading,
   onPrepareExercises,
+  onWrittenStart,
   onWrittenComplete,
   flagSource,
 }: {
@@ -44,6 +45,7 @@ export default function PracticePanel({
   exercises: GrammarExerciseSet | null
   isExercisesLoading: boolean
   onPrepareExercises: () => void
+  onWrittenStart: () => void
   onWrittenComplete: (score: number) => void
   /** Names the exercise set in item flags (see WrittenPractice). */
   flagSource: string
@@ -87,7 +89,7 @@ export default function PracticePanel({
 
         <div role="tabpanel" hidden={mode !== 'written'}>
           {exercises ? (
-            <WrittenPractice set={exercises} onComplete={onWrittenComplete} flagSource={flagSource} />
+            <WrittenPractice set={exercises} onStart={onWrittenStart} onComplete={onWrittenComplete} flagSource={flagSource} />
           ) : (
             <div className="space-y-3 text-center">
               <p className="text-sm text-slate-500">{isExercisesLoading ? t('preparingExercises') : t('writtenIntro')}</p>

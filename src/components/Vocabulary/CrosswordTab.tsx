@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLanguage } from '../../lib/i18n'
 import type { WordlistDetail, WordlistRef, WordlistSummary, WordlistsResponse } from '../../lib/vocab'
 import { fetchWordlist } from '../../lib/vocabPracticeApi'
+import { logPracticeFinish, logPracticeStart } from '../../lib/practiceLog'
 import {
   CROSSWORD_MIN_WORDS,
   CROSSWORD_SIZES,
@@ -22,7 +23,8 @@ const biggestSize = (l: WordlistSummary): CrosswordSize =>
 
 /**
  * Crossword game setup: pick a list, how many words and which clues; the words are drawn at
- * random from the list and one of them is the solution. Nothing is saved.
+ * random from the list and one of them is the solution. Each game dealt, and solved, goes to the
+ * practice log with its list (progress pages); the puzzle itself is not saved.
  */
 export default function CrosswordTab({ data }: { data: WordlistsResponse }) {
   const { t } = useLanguage()
@@ -37,6 +39,7 @@ export default function CrosswordTab({ data }: { data: WordlistsResponse }) {
   const [puzzle, setPuzzle] = useState<CrosswordPuzzle | null>(null)
   /** Remounts the game for a new puzzle with the same settings. */
   const [gameNo, setGameNo] = useState(0)
+  const logRef = useRef<Promise<string | null> | null>(null)
 
   const list = playable.find((l) => keyOf(l) === listKey) ?? null
 
@@ -52,6 +55,13 @@ export default function CrosswordTab({ data }: { data: WordlistsResponse }) {
       if (next) {
         setPuzzle(next)
         setGameNo((n) => n + 1)
+        logRef.current = logPracticeStart({
+          kind: 'vocab_game',
+          variant: 'crossword',
+          itemRef: null,
+          wordCount: next.entries.length,
+          list: { kind: list.kind, id: list.id },
+        })
       } else {
         setError(t('cwNotEnough', { have: eligible.length, need: CROSSWORD_MIN_WORDS }))
       }
@@ -84,6 +94,10 @@ export default function CrosswordTab({ data }: { data: WordlistsResponse }) {
           clueLanguage={clueLanguage}
           onPlayAgain={() => void start()}
           onQuit={() => setPuzzle(null)}
+          onSolved={() => {
+            logPracticeFinish(logRef.current)
+            logRef.current = null
+          }}
         />
       ) : playable.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t('vgNoLists', { n: CROSSWORD_MIN_WORDS })}</p>

@@ -6,6 +6,7 @@ import FeedbackCard from '../components/FeedbackCard'
 import StudentWordListsBox from '../components/VocabLists/StudentWordListsBox'
 import {
   CoursesPanel,
+  GrammarPanel,
   MistakesPanel,
   ProgressHeader,
   PronunciationPanel,
@@ -89,6 +90,8 @@ export default function StudentProgressPage() {
             <VocabularyPanel counts={detail.vocabulary} activity={detail.vocabActivity} teacher />
 
             {studentId && <StudentWordListsBox studentId={studentId} />}
+
+            <GrammarPanel grammar={detail.grammar} teacher />
 
             {studentId && <StudentTenseExplorerCard studentId={studentId} />}
 

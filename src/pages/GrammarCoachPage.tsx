@@ -12,6 +12,7 @@ import {
   requestGrammarLesson,
 } from '../lib/grammarCoachApi'
 import { awardClientXp } from '../lib/gamificationApi'
+import { logPracticeFinish, logPracticeStart } from '../lib/practiceLog'
 import { useSegmentPlayer } from '../hooks/useSegmentPlayer'
 import type { BoardFont, BoardTheme } from '../components/GrammarCoach/boardTheme'
 import GrammarRail from '../components/GrammarCoach/GrammarRail'
@@ -123,6 +124,8 @@ export default function GrammarCoachPage() {
   // a different grammar item (fast clicks, slow network, etc.).
   const selectionTokenRef = useRef(0)
   const pendingAutoPlayRef = useRef(false)
+  /** The practice-log start of the written practice in progress (progress pages). */
+  const writtenLogRef = useRef<Promise<string | null> | null>(null)
   const boardRef = useRef<HTMLDivElement>(null)
 
   // On a phone the rail sits above the board, so bring a deep-linked lesson into view.
@@ -211,9 +214,16 @@ export default function GrammarCoachPage() {
     }
   }, [selected, exercises, isExercisesLoading, lang, explain])
 
+  function handleWrittenStart() {
+    if (!selected) return
+    writtenLogRef.current = logPracticeStart({ kind: 'grammar_written', variant: null, itemRef: selected.item.id, wordCount: null, list: null })
+  }
+
   function handleWrittenComplete(score: number) {
     if (!selected) return
     awardClientXp({ activityType: 'grammar-coach.exercise', itemRef: `${selected.item.id}/written`, performanceScore: score })
+    logPracticeFinish(writtenLogRef.current, score)
+    writtenLogRef.current = null
   }
 
   useEffect(() => {
@@ -388,6 +398,7 @@ export default function GrammarCoachPage() {
                 exercises={exercises}
                 isExercisesLoading={isExercisesLoading}
                 onPrepareExercises={handlePrepareExercises}
+                onWrittenStart={handleWrittenStart}
                 onWrittenComplete={handleWrittenComplete}
                 flagSource={`Grammar Coach · ${selected.item.id} (${selected.level}, lang ${lang}, explain ${explain})`}
               />

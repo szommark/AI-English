@@ -4,6 +4,7 @@ import type {
   AreaOverview,
   CefrHistoryPoint,
   CourseProgressItem,
+  GrammarActivity,
   MistakeSessionMix,
   PronunciationProgressItem,
   VocabActivity,
@@ -72,6 +73,7 @@ export interface StudentDetail {
   sessionCounts: { last30Days: number; total: number }
   pronunciation: PronunciationProgressItem[]
   vocabActivity: VocabActivity
+  grammar: GrammarActivity
   /** Only the courses this teacher assigned to the student. */
   courses: CourseProgressItem[]
 }

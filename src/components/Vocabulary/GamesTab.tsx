@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLanguage } from '../../lib/i18n'
 import type { WordlistDetail, WordlistRef, WordlistSummary, WordlistsResponse } from '../../lib/vocab'
 import { fetchWordlist } from '../../lib/vocabPracticeApi'
+import { logPracticeFinish, logPracticeStart } from '../../lib/practiceLog'
 import {
   GRID_MIN_WORDS,
   GRID_SIZES,
@@ -58,7 +59,8 @@ export default function GamesTab({ data }: { data: WordlistsResponse }) {
 
 /**
  * The word grid game. Pick a list, a size and whether a row of decoys is mixed in; the
- * words are drawn at random from the list. Nothing is saved.
+ * words are drawn at random from the list. Each game dealt, and solved, goes to the practice
+ * log with its list (progress pages); the puzzle itself is not saved.
  */
 function WordGridGame({ data }: { data: WordlistsResponse }) {
   const { t } = useLanguage()
@@ -74,6 +76,7 @@ function WordGridGame({ data }: { data: WordlistsResponse }) {
   const [puzzle, setPuzzle] = useState<GridPuzzle | null>(null)
   /** Remounts the game for a new puzzle with the same settings. */
   const [gameNo, setGameNo] = useState(0)
+  const logRef = useRef<Promise<string | null> | null>(null)
 
   const list = playable.find((l) => keyOf(l) === listKey) ?? null
   /** Turning decoys on needs size more words than the list has (turning them off is always fine). */
@@ -90,6 +93,13 @@ function WordGridGame({ data }: { data: WordlistsResponse }) {
       if (next) {
         setPuzzle(next)
         setGameNo((n) => n + 1)
+        logRef.current = logPracticeStart({
+          kind: 'vocab_game',
+          variant: 'grid',
+          itemRef: null,
+          wordCount: next.solution.length,
+          list: { kind: list.kind, id: list.id },
+        })
       } else {
         setError(t('vgNotEnough', { have: gridEligibleWords(words.words).length, size, need: gridWordCount(size, decoys) }))
       }
@@ -116,6 +126,10 @@ function WordGridGame({ data }: { data: WordlistsResponse }) {
           puzzle={puzzle}
           onPlayAgain={() => void start()}
           onQuit={() => setPuzzle(null)}
+          onSolved={() => {
+            logPracticeFinish(logRef.current)
+            logRef.current = null
+          }}
         />
       ) : playable.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t('vgNoLists', { n: GRID_MIN_WORDS })}</p>

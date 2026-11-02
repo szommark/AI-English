@@ -91,6 +91,23 @@ const hu = {
   listMixed: 'vegyes szavak',
   listKind: { custom: 'saját', teacher: 'tanári', conversations: 'beszélgetésből' } as Record<string, string>,
 
+  vocabGamesHeading: 'Szójátékok',
+  vocabGamesEmpty: 'Még nincs szójáték.',
+  gameName: { grid: 'Szórács', crossword: 'Keresztrejtvény', unknown: 'Szójáték' } as Record<string, string>,
+  listUnknown: 'a lista nincs rögzítve',
+  practiceCounts: (started: number, finished: number) => `${started} elkezdve · ${finished} befejezve`,
+
+  // Grammar
+  grammarHeading: 'Nyelvtan',
+  grammarWrittenHeading: 'Írásbeli gyakorlás',
+  grammarWrittenEmpty: 'Még nincs írásbeli gyakorlás.',
+  grammarTimeGameHeading: 'Múlt · Jelen · Jövő játék',
+  grammarTimeGameEmpty: 'Még nincs játék.',
+  timeGameRound: (level: string) => `Kör · ${level}`,
+  timeGameStory: 'Történet',
+  practiceStartsNote: 'A félbehagyott kezdések is számítanak, de XP-t nem érnek.',
+  grammarLink: 'Nyelvtani segítő megnyitása',
+
   // Courses
   coursesHeading: 'Mini kurzusok',
   coursesEmpty: 'Még nem kezdtél el kurzust.',
@@ -289,6 +306,22 @@ const en: MyProgressCopy = {
   listMixed: 'mixed words',
   listKind: { custom: 'own', teacher: 'teacher', conversations: 'conversations' },
 
+  vocabGamesHeading: 'Word games',
+  vocabGamesEmpty: 'No word games yet.',
+  gameName: { grid: 'Word grid', crossword: 'Crossword', unknown: 'Word game' },
+  listUnknown: 'list not recorded',
+  practiceCounts: (started, finished) => `${started} started · ${finished} finished`,
+
+  grammarHeading: 'Grammar',
+  grammarWrittenHeading: 'Written practice',
+  grammarWrittenEmpty: 'No written practice yet.',
+  grammarTimeGameHeading: 'Past · Present · Future game',
+  grammarTimeGameEmpty: 'No games yet.',
+  timeGameRound: (level) => `Round · ${level}`,
+  timeGameStory: 'Story',
+  practiceStartsNote: 'Unfinished starts are counted too, but earn no XP.',
+  grammarLink: 'Open Grammar Coach',
+
   coursesHeading: 'Mini courses',
   coursesEmpty: "You haven't started a course yet.",
   coursesEmptyTeacher: "You haven't assigned this student a course yet.",
@@ -477,6 +510,22 @@ const de: MyProgressCopy = {
   listConversations: 'Aus Gesprächen',
   listMixed: 'gemischte Wörter',
   listKind: { custom: 'eigene', teacher: 'Lehrkraft', conversations: 'aus Gesprächen' },
+
+  vocabGamesHeading: 'Wortspiele',
+  vocabGamesEmpty: 'Noch keine Wortspiele.',
+  gameName: { grid: 'Wortgitter', crossword: 'Kreuzworträtsel', unknown: 'Wortspiel' },
+  listUnknown: 'Liste nicht erfasst',
+  practiceCounts: (started, finished) => `${started} begonnen · ${finished} abgeschlossen`,
+
+  grammarHeading: 'Grammatik',
+  grammarWrittenHeading: 'Schriftliche Übung',
+  grammarWrittenEmpty: 'Noch keine schriftliche Übung.',
+  grammarTimeGameHeading: 'Spiel Vergangenheit · Gegenwart · Zukunft',
+  grammarTimeGameEmpty: 'Noch keine Spiele.',
+  timeGameRound: (level) => `Runde · ${level}`,
+  timeGameStory: 'Geschichte',
+  practiceStartsNote: 'Abgebrochene Starts zählen mit, bringen aber keine XP.',
+  grammarLink: 'Grammatik-Coach öffnen',
 
   coursesHeading: 'Mini-Kurse',
   coursesEmpty: 'Du hast noch keinen Kurs begonnen.',

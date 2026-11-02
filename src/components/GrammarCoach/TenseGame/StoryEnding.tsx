@@ -35,6 +35,7 @@ export default function StoryEnding({
   cancelSpeech,
   onPlayAgain,
   onOtherStory,
+  onEnded,
 }: {
   story: TenseStory
   results: QuestionResult[]
@@ -43,6 +44,8 @@ export default function StoryEnding({
   cancelSpeech: () => void
   onPlayAgain: () => void
   onOtherStory: () => void
+  /** The story reached its ending; the score of its questions (0–1). */
+  onEnded?: (score: number) => void
 }) {
   const { lang, t } = useLanguage()
   const recognition = useSpeechRecognition()
@@ -124,11 +127,13 @@ export default function StoryEnding({
       setStage('ended')
       const ending = story.outcomes[endingId]
       if (mode === 'oral') speak?.(`${ending.title} ${ending.text}`)
+      const score = roundScore(results.map((r) => r.outcome))
       awardClientXp({
         activityType: 'grammar-coach.exercise',
         itemRef: `tense-story/${story.id}`,
-        performanceScore: roundScore(results.map((r) => r.outcome)),
+        performanceScore: score,
       })
+      onEnded?.(score)
       void requestWriteUp(endingId)
     } catch (err) {
       if (!aliveRef.current) return
