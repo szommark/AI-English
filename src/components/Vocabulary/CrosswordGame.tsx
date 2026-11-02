@@ -37,11 +37,14 @@ export default function CrosswordGame({
   clueLanguage,
   onPlayAgain,
   onQuit,
+  onSolved,
 }: {
   puzzle: CrosswordPuzzle
   clueLanguage: ClueLanguage
   onPlayAgain: () => void
   onQuit: () => void
+  /** The crossword was solved without showing the answers (for the practice log). */
+  onSolved?: () => void
 }) {
   const { t } = useLanguage()
   const cells = useMemo(() => crosswordCells(puzzle), [puzzle])
@@ -71,7 +74,10 @@ export default function CrosswordGame({
   // A solved crossword is one finished game: Vocabulary XP, 1 per word, like the word grid.
   // Showing the answers earns nothing.
   useEffect(() => {
-    if (phase === 'solved') awardClientXp({ activityType: 'vocabulary.game', units: puzzle.entries.length })
+    if (phase === 'solved') {
+      awardClientXp({ activityType: 'vocabulary.game', units: puzzle.entries.length })
+      onSolved?.()
+    }
     // Only the moment the puzzle is solved should award.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])

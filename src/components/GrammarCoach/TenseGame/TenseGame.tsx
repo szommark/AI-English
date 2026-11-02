@@ -3,13 +3,14 @@
 // short role-play told through six questions, answered in character from a fact card, ending in a
 // decision, an outcome and a write-up (docs/tense-story-mode-design.md). Either can be played in
 // chat (read and type) or orally (listen and speak).
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { BookOpen, MessageSquare, Mic, Zap } from 'lucide-react'
 import { useLanguage } from '../../../lib/i18n'
 import { useSpeechRecognition } from '../../../hooks/useSpeechRecognition'
 import { useSpeechSynthesis } from '../../../hooks/useSpeechSynthesis'
 import { getAccentPreference, type AccentPreference } from '../../../lib/voiceSelection'
 import { awardClientXp } from '../../../lib/gamificationApi'
+import { logPracticeFinish, logPracticeStart } from '../../../lib/practiceLog'
 import { buildRound, roundScore } from '../../../lib/tenseGame'
 import { TENSE_GAME_LEVELS, type TenseGameLevel, type TenseGameMode, type TenseGameQuestion } from '../../../data/tenseGameQuestions'
 import { TENSE_STORIES, getTenseStory, type TenseStory, type TenseStoryId } from '../../../data/tenseStories'
@@ -113,6 +114,13 @@ export default function TenseGame() {
   const [roundKey, setRoundKey] = useState(0)
   const [results, setResults] = useState<QuestionResult[]>([])
   const [lastRoundIds, setLastRoundIds] = useState<string[]>([])
+  /** The practice-log start of the round or story being played (progress pages). */
+  const logRef = useRef<Promise<string | null> | null>(null)
+
+  function logFinish(score: number) {
+    logPracticeFinish(logRef.current, score)
+    logRef.current = null
+  }
 
   const update = (patch: Partial<Prefs>) => setPrefs((p) => ({ ...p, ...patch }))
 
@@ -120,6 +128,13 @@ export default function TenseGame() {
     savePrefs(prefs)
     setResults([])
     setRoundKey((k) => k + 1)
+    logRef.current = logPracticeStart({
+      kind: 'tense_game',
+      variant: story ? 'story' : 'round',
+      itemRef: story ? story.id : prefs.level,
+      wordCount: null,
+      list: null,
+    })
     if (story) {
       setPhase('briefing')
       return
@@ -138,11 +153,13 @@ export default function TenseGame() {
     setPhase('done')
     if (!story) {
       setLastRoundIds(round.map((q) => q.id))
+      const score = roundScore(finalResults.map((r) => r.outcome))
       awardClientXp({
         activityType: 'grammar-coach.exercise',
         itemRef: `tense-game/${prefs.level}`,
-        performanceScore: roundScore(finalResults.map((r) => r.outcome)),
+        performanceScore: score,
       })
+      logFinish(score)
     }
   }
 
@@ -374,6 +391,7 @@ export default function TenseGame() {
         cancelSpeech={synth.cancel}
         onPlayAgain={start}
         onOtherStory={() => setPhase('setup')}
+        onEnded={logFinish}
       />
     )
   }

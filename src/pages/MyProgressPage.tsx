@@ -6,6 +6,7 @@ import {
   BUTTON_PRIMARY,
   BUTTON_SECONDARY,
   CoursesPanel,
+  GrammarPanel,
   MistakesPanel,
   ProgressCard,
   ProgressHeader,
@@ -94,13 +95,14 @@ export default function MyProgressPage() {
   }
 
   const vocabTotal = data.vocabulary.new + data.vocabulary.practicing + data.vocabulary.mastered
-  const { fastPractice, tests, ownLists } = data.vocabActivity
+  const { fastPractice, tests, ownLists, gameCounts } = data.vocabActivity
   const brandNew =
     data.sessions.total === 0 &&
     visibleAreas(data.areas).length === 0 &&
     data.pronunciation.length === 0 &&
     vocabTotal === 0 &&
-    fastPractice.length + tests.length + ownLists.length === 0 &&
+    fastPractice.length + tests.length + ownLists.length + gameCounts.started === 0 &&
+    data.grammar.written.counts.started + data.grammar.timeGame.counts.started === 0 &&
     data.courses.length === 0
 
   if (brandNew) {
@@ -139,6 +141,7 @@ export default function MyProgressPage() {
       <MistakesPanel areas={data.areas} mix={data.mistakeMix} />
       <PronunciationPanel items={data.pronunciation} />
       <VocabularyPanel counts={data.vocabulary} activity={data.vocabActivity} />
+      <GrammarPanel grammar={data.grammar} />
       <CoursesPanel courses={data.courses} />
       <GamificationPanel data={gamification.data} />
       {data.hasTeacher && <TeacherLine />}

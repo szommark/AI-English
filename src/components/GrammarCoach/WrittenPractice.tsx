@@ -29,14 +29,17 @@ function SectionBlock({ number, title, instruction, children }: { number: number
 
 /**
  * The three written exercise types for one grammar point. Each item is checked on its own;
- * once all are checked, onComplete gets the share answered correctly (0–1).
+ * the first check (of each round) calls onStart, and once all are checked, onComplete gets
+ * the share answered correctly (0–1).
  */
 export default function WrittenPractice({
   set,
+  onStart,
   onComplete,
   flagSource,
 }: {
   set: GrammarExerciseSet
+  onStart?: () => void
   onComplete: (score: number) => void
   /** Names the set in item flags, e.g. "Grammar Coach · b1-passive-simple (B1, hu)". */
   flagSource: string
@@ -50,6 +53,13 @@ export default function WrittenPractice({
   const checkedCount = all.filter((r) => r !== null).length
   const correctCount = all.filter((r) => r === true).length
   const isDone = checkedCount === all.length
+  const started = checkedCount > 0
+
+  useEffect(() => {
+    if (started) onStart?.()
+    // Only the first check of a round (or after "Start over") counts as a start.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [started])
 
   useEffect(() => {
     if (isDone) onComplete(correctCount / all.length)

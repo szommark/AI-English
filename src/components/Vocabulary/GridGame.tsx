@@ -68,10 +68,13 @@ export default function GridGame({
   puzzle,
   onPlayAgain,
   onQuit,
+  onSolved,
 }: {
   puzzle: GridPuzzle
   onPlayAgain: () => void
   onQuit: () => void
+  /** The puzzle was solved (for the practice log). */
+  onSolved?: () => void
 }) {
   const { t } = useLanguage()
   const [state, setState] = useState<GridState>(() => initialGridState(puzzle))
@@ -99,6 +102,7 @@ export default function GridGame({
   useEffect(() => {
     if (state.phase === 'solved') {
       awardClientXp({ activityType: 'vocabulary.game', units: puzzle.solution.length })
+      onSolved?.()
     }
     // Only the moment the puzzle is solved should award.
     // eslint-disable-next-line react-hooks/exhaustive-deps

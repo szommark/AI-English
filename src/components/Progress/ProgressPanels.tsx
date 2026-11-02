@@ -3,11 +3,15 @@ import { Link } from 'react-router-dom'
 import CefrHistoryLine from './CefrHistoryLine'
 import MistakeAreaList, { visibleAreas } from './MistakeAreaList'
 import { PROGRESS_LOCALE, pickTitle, useMyProgressCopy, type MyProgressCopy } from '../../data/myProgressCopy'
+import { getGrammarItem } from '../../data/grammarCurriculum'
+import { getTenseStory } from '../../data/tenseStories'
 import { useLanguage } from '../../lib/i18n'
 import type {
   AreaOverview,
   CefrHistoryPoint,
   CourseProgressItem,
+  GrammarActivity,
+  GrammarPracticeItem,
   MistakeSessionMix,
   ProgressListRef,
   PronunciationProgressItem,
@@ -289,6 +293,32 @@ export function VocabularyPanel({
       </div>
 
       <div className="space-y-1 pt-2">
+        <SubHeading>{C.vocabGamesHeading}</SubHeading>
+        {activity.gameCounts.started === 0 ? (
+          <p className="text-sm text-muted-foreground">{C.vocabGamesEmpty}</p>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">{C.practiceCounts(activity.gameCounts.started, activity.gameCounts.finished)}</p>
+            <ul className="divide-y divide-border">
+              {activity.games.map((g, i) => (
+                <li key={i} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-sm">
+                  <span className="flex min-w-0 flex-wrap items-center gap-2">
+                    <span className="font-medium text-foreground">{C.gameName[g.game ?? 'unknown']}</span>
+                    {g.list ? <ListName list={g.list} /> : <span className="text-muted-foreground">{C.listUnknown}</span>}
+                    {!g.finished && <Tag>{C.vocabUnfinished}</Tag>}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {g.wordCount !== null && `${C.vocabWords(g.wordCount)} · `}
+                    {date(g.startedAt)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+
+      <div className="space-y-1 pt-2">
         <SubHeading>{C.vocabOwnHeading}</SubHeading>
         {activity.ownLists.length === 0 ? (
           <p className="text-sm text-muted-foreground">{C.vocabOwnEmpty}</p>
@@ -310,6 +340,85 @@ export function VocabularyPanel({
       {!teacher && (
         <Link to="/vocabulary" className={BUTTON_SECONDARY}>
           {C.vocabLink} →
+        </Link>
+      )}
+    </ProgressCard>
+  )
+}
+
+// --- Grammar ---------------------------------------------------------------------------------
+
+function GrammarList({
+  heading,
+  empty,
+  block,
+  name,
+}: {
+  heading: string
+  empty: string
+  block: GrammarActivity['written']
+  name: (item: GrammarPracticeItem) => string
+}) {
+  const C = useMyProgressCopy()
+  const date = useDate()
+  return (
+    <div className="space-y-1">
+      <SubHeading>{heading}</SubHeading>
+      {block.counts.started === 0 ? (
+        <p className="text-sm text-muted-foreground">{empty}</p>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">{C.practiceCounts(block.counts.started, block.counts.finished)}</p>
+          <ul className="divide-y divide-border">
+            {block.items.map((item, i) => (
+              <li key={i} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-sm">
+                <span className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="break-words font-medium text-foreground">{name(item)}</span>
+                  {!item.finished && <Tag>{C.vocabUnfinished}</Tag>}
+                </span>
+                <span className="text-muted-foreground">
+                  {item.score !== null && (
+                    <>
+                      <span className="font-semibold text-foreground">{Math.round(item.score)}%</span> ·{' '}
+                    </>
+                  )}
+                  {date(item.startedAt)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  )
+}
+
+/** Grammar Coach written practice and the Past · Present · Future game, starts included. */
+export function GrammarPanel({ grammar, teacher = false }: { grammar: GrammarActivity; teacher?: boolean }) {
+  const C = useMyProgressCopy()
+  const { lang } = useLanguage()
+  const lessonName = (item: GrammarPracticeItem) => {
+    const lesson = item.itemRef ? getGrammarItem(item.itemRef) : undefined
+    return lesson ? `${pickTitle(lang, lesson.item)} (${lesson.level})` : (item.itemRef ?? '')
+  }
+  const gameName = (item: GrammarPracticeItem) => {
+    if (item.variant === 'story') {
+      const story = item.itemRef ? getTenseStory(item.itemRef) : undefined
+      return story ? `${C.timeGameStory} · ${story.title}` : C.timeGameStory
+    }
+    return C.timeGameRound(item.itemRef ?? '')
+  }
+  const any = grammar.written.counts.started + grammar.timeGame.counts.started > 0
+  return (
+    <ProgressCard title={C.grammarHeading}>
+      <GrammarList heading={C.grammarWrittenHeading} empty={C.grammarWrittenEmpty} block={grammar.written} name={lessonName} />
+      <div className="pt-2">
+        <GrammarList heading={C.grammarTimeGameHeading} empty={C.grammarTimeGameEmpty} block={grammar.timeGame} name={gameName} />
+      </div>
+      {any && <p className="text-xs text-muted-foreground">{C.practiceStartsNote}</p>}
+      {!teacher && (
+        <Link to="/grammar-coach" className={BUTTON_SECONDARY}>
+          {C.grammarLink} →
         </Link>
       )}
     </ProgressCard>

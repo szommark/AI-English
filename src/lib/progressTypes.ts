@@ -132,14 +132,62 @@ export interface OwnWordlistItem {
   bestTest: number | null
 }
 
-/** Vocabulary beyond spaced repetition: Fast practice runs, tests and the learner's own lists. */
+export type PracticeKind = 'vocab_game' | 'grammar_written' | 'tense_game'
+
+/** POST /api/gamification?action=practice-start (api/_lib/practiceLog.ts). */
+export interface PracticeStartInput {
+  kind: PracticeKind
+  variant: 'grid' | 'crossword' | 'round' | 'story' | null
+  itemRef: string | null
+  wordCount: number | null
+  /** Word games only: the list played. */
+  list: { kind: 'teacher' | 'custom' | 'conversations'; id: string | null } | null
+}
+
+/** Started and finished counts for one kind of practice (starts earn no XP but are shown). */
+export interface PracticeCounts {
+  started: number
+  finished: number
+}
+
+export interface VocabGameItem {
+  /** Null for games from before the game was recorded. */
+  game: 'grid' | 'crossword' | null
+  /** Null for games from before the list was recorded. */
+  list: ProgressListRef | null
+  wordCount: number | null
+  startedAt: string
+  finished: boolean
+}
+
+/** Vocabulary beyond spaced repetition: Fast practice runs, tests, word games and the learner's own lists. */
 export interface VocabActivity {
   /** Most recent first. */
   fastPractice: FastPracticeRunItem[]
   /** Finished tests, most recent first. */
   tests: VocabTestItem[]
+  /** Word games, most recent first. */
+  games: VocabGameItem[]
+  gameCounts: PracticeCounts
   /** Newest first. */
   ownLists: OwnWordlistItem[]
+}
+
+export interface GrammarPracticeItem {
+  /** Written practice: the Grammar Coach lesson id. Time game: the level (round) or story id. */
+  itemRef: string | null
+  /** Time game only. */
+  variant: 'round' | 'story' | null
+  /** 0–100; null until finished. */
+  score: number | null
+  startedAt: string
+  finished: boolean
+}
+
+/** Grammar Coach written practice and the Past · Present · Future time game. */
+export interface GrammarActivity {
+  written: { items: GrammarPracticeItem[]; counts: PracticeCounts }
+  timeGame: { items: GrammarPracticeItem[]; counts: PracticeCounts }
 }
 
 export interface CourseProgressItem {
@@ -162,6 +210,7 @@ export interface MyProgress {
   vocabulary: VocabularyCounts
   mistakeMix: MistakeSessionMix
   vocabActivity: VocabActivity
+  grammar: GrammarActivity
   courses: CourseProgressItem[]
   /** The learner has at least one active teacher connection. */
   hasTeacher: boolean

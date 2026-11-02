@@ -10,7 +10,8 @@ import {
   loadVocabularyCounts,
   pickNextStep,
 } from './_lib/learnerProgress.js'
-import type { MyProgress, VocabActivity } from '../src/lib/progressTypes.js'
+import { loadGrammarActivity } from './_lib/practiceLog.js'
+import type { GrammarActivity, MyProgress, VocabActivity } from '../src/lib/progressTypes.js'
 import { FeedbackError, listMyFeedback, markMyFeedbackSeen, myFeedbackUpdates, submitFeedback } from './_lib/feedback.js'
 import { recordClientErrors } from './_lib/clientErrors.js'
 
@@ -350,6 +351,7 @@ async function handleStudentDetail(req: VercelRequest, res: VercelResponse, user
     { data: profile },
     { count: totalSessions },
     { count: recentSessions },
+    grammar,
   ] = await Promise.all([
     supabaseAdmin
       .from('sessions')
@@ -367,6 +369,7 @@ async function handleStudentDetail(req: VercelRequest, res: VercelResponse, user
     supabaseAdmin.from('learner_profiles').select('cefr_level').eq('user_id', studentId).maybeSingle(),
     supabaseAdmin.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', studentId),
     supabaseAdmin.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', studentId).gte('created_at', since),
+    loadGrammarActivity(studentId).catch(softFail(EMPTY_GRAMMAR)),
   ])
 
   res.status(200).json({
@@ -385,11 +388,16 @@ async function handleStudentDetail(req: VercelRequest, res: VercelResponse, user
     sessionCounts: { last30Days: recentSessions ?? 0, total: totalSessions ?? 0 },
     pronunciation,
     vocabActivity,
+    grammar,
     courses,
   })
 }
 
-const EMPTY_VOCAB_ACTIVITY: VocabActivity = { fastPractice: [], tests: [], ownLists: [] }
+const EMPTY_VOCAB_ACTIVITY: VocabActivity = { fastPractice: [], tests: [], games: [], gameCounts: { started: 0, finished: 0 }, ownLists: [] }
+const EMPTY_GRAMMAR: GrammarActivity = {
+  written: { items: [], counts: { started: 0, finished: 0 } },
+  timeGame: { items: [], counts: { started: 0, finished: 0 } },
+}
 
 /** A section that failed to load shows as empty instead of failing the whole page. */
 function softFail<T>(fallback: T) {
@@ -418,6 +426,7 @@ async function handleMyProgress(req: VercelRequest, res: VercelResponse, userId:
     { count: teacherLinks },
     vocabActivity,
     courses,
+    grammar,
   ] = await Promise.all([
     supabaseAdmin.from('learner_profiles').select('cefr_level').eq('user_id', userId).maybeSingle(),
     loadCefrHistory(userId),
@@ -437,6 +446,7 @@ async function handleMyProgress(req: VercelRequest, res: VercelResponse, userId:
       .eq('status', 'active'),
     loadVocabActivity(userId).catch(softFail(EMPTY_VOCAB_ACTIVITY)),
     loadCourseProgress(userId).catch(softFail([])),
+    loadGrammarActivity(userId).catch(softFail(EMPTY_GRAMMAR)),
   ])
 
   const areas = mistakes.areas
@@ -450,6 +460,7 @@ async function handleMyProgress(req: VercelRequest, res: VercelResponse, userId:
     vocabulary,
     mistakeMix: mistakes.mix,
     vocabActivity,
+    grammar,
     courses,
     hasTeacher: (teacherLinks ?? 0) > 0,
   }
