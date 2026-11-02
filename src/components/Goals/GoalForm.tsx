@@ -8,13 +8,15 @@ import {
   GOAL_TITLE_MAX,
   GOAL_TYPES,
   GOAL_WHY_MAX,
+  fitsScale,
   type GoalInput,
   type GoalRating,
+  type GoalSkill,
   type GoalType,
   type LearnerGoal,
 } from '../../lib/goals'
 import { cardClass, hintClass, inputClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../TeacherTools/ui'
-import RatingInput, { toRating, withSkill } from './RatingInput'
+import RatingInput, { toRating } from './RatingInput'
 import { GOAL_TYPE_LABEL, goalErrorKey } from './labels'
 
 interface StepDraft {
@@ -84,30 +86,22 @@ function LineList({
 }
 
 /**
- * The GROW goal form: Goal · Reality (self-assessment) · Options · Will. Used by students (new
- * goal, confirming a teacher's goal, editing) and teachers (sending or editing a student's goal).
+ * The GROW goal form: Goal · Reality (self-assessment) · Options · Will. The teacher fills it in
+ * together with the student, for a new goal or to edit one.
  */
 export default function GoalForm({
   initial,
-  audience,
   withReality,
-  requireGoal,
   submitLabel,
   onSubmit,
-  extraAction,
   onCancel,
   heading,
 }: {
   initial?: LearnerGoal | null
-  audience: 'student' | 'teacher'
-  /** Hidden when a student edits an active goal: they re-rate on the goal card instead. */
+  /** Hidden when editing an active goal: it is re-rated on the goal card instead. */
   withReality: boolean
-  /** An active goal needs a type and a title; a teacher's pending one may stay blank. */
-  requireGoal: boolean
   submitLabel: string
   onSubmit: (input: GoalInput) => Promise<void>
-  /** A second button, e.g. "Send blank form". */
-  extraAction?: { label: string; hint?: string; onClick: () => Promise<void> }
   onCancel: () => void
   heading?: string
 }) {
@@ -115,11 +109,13 @@ export default function GoalForm({
   const startRating: GoalRating | null = initial?.draftRating ?? initial?.ratings.at(-1) ?? null
 
   const [goalType, setGoalType] = useState<GoalType | ''>(initial?.goalType ?? '')
+  const [skill, setSkill] = useState<GoalSkill | null>(initial?.skill ?? null)
   const [title, setTitle] = useState(initial?.title ?? '')
   const [deadline, setDeadline] = useState(initial?.deadline ?? '')
   const [why, setWhy] = useState(initial?.why ?? '')
-  const [overall, setOverall] = useState<number | null>(startRating?.overall ?? null)
-  const [skills, setSkills] = useState<GoalRating['skills']>(startRating?.skills ?? {})
+  const [value, setValue] = useState<number | null>(() =>
+    startRating && initial && fitsScale(startRating, initial) ? startRating.overall : null,
+  )
   const [options, setOptions] = useState<string[]>(initial?.options ?? [])
   const [steps, setSteps] = useState<StepDraft[]>(initial?.steps ?? [])
   const [days, setDays] = useState<number | null>(initial?.daysPerWeek ?? null)
@@ -139,21 +135,34 @@ export default function GoalForm({
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (requireGoal && (!goalType || !title.trim())) {
+    if (!goalType || !title.trim()) {
       setError(t('glErrGoalRequired'))
       return
     }
     const input: GoalInput = {
-      goalType: goalType || null,
+      goalType,
+      skill: goalType === 'skill' ? skill : null,
       title,
       deadline: deadline || null,
       why,
       options,
       steps,
       daysPerWeek: days,
-      rating: withReality ? toRating(overall, skills) : null,
+      rating: withReality ? toRating(value) : null,
     }
     void run(() => onSubmit(input))
+  }
+
+  /** A different scale (goal ↔ skill, or another skill) starts unrated. */
+  function changeType(next: GoalType | '') {
+    if ((next === 'skill') !== (goalType === 'skill')) setValue(null)
+    if (next !== 'skill') setSkill(null)
+    setGoalType(next)
+  }
+
+  function changeSkill(next: GoalSkill | null) {
+    setSkill(next)
+    setValue(null)
   }
 
   // An empty list shows one blank row, so editing row 0 of an empty list adds it.
@@ -169,7 +178,7 @@ export default function GoalForm({
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-1">
             <span className={labelClass}>{t('glType')}</span>
-            <select value={goalType} onChange={(e) => setGoalType(e.target.value as GoalType | '')} className={inputClass}>
+            <select value={goalType} onChange={(e) => changeType(e.target.value as GoalType | '')} className={inputClass}>
               <option value="">{t('glTypeChoose')}</option>
               {GOAL_TYPES.map((type) => (
                 <option key={type} value={type}>
@@ -200,13 +209,8 @@ export default function GoalForm({
       </Section>
 
       {withReality && (
-        <Section title={t('glStepReality')} hint={t(audience === 'teacher' ? 'glRealityTeacherNote' : 'glStepRealityHint')}>
-          <RatingInput
-            overall={overall}
-            skills={skills}
-            onOverall={setOverall}
-            onSkill={(skill, n) => setSkills((s) => withSkill(s, skill, n))}
-          />
+        <Section title={t('glStepReality')} hint={t('glRealityTeacherNote')}>
+          <RatingInput goalType={goalType || null} skill={skill} onSkill={changeSkill} value={value} onValue={setValue} />
         </Section>
       )}
 
@@ -252,11 +256,6 @@ export default function GoalForm({
         <button type="submit" disabled={busy} className={primaryButtonClass}>
           {submitLabel}
         </button>
-        {extraAction && (
-          <button type="button" disabled={busy} onClick={() => void run(extraAction.onClick)} className={secondaryButtonClass} title={extraAction.hint}>
-            {extraAction.label}
-          </button>
-        )}
         <button type="button" disabled={busy} onClick={onCancel} className="text-sm text-muted-foreground hover:text-foreground">
           {t('glCancel')}
         </button>

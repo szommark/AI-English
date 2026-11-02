@@ -5,10 +5,11 @@ import { useLanguage } from '../../lib/i18n'
 import type { LearnerGoal } from '../../lib/goals'
 import { fetchGoals } from '../../lib/goalsApi'
 import { planSummary } from '../../lib/goalPlans'
+import { realityLine } from './labels'
 
 /**
- * Home-page strip: a goal the teacher sent (always, until confirmed) and the active goals the
- * learner chose to show here, each with its next step. Renders nothing when there are none.
+ * Home-page strip: the active goals the learner chose to show here, each with its next step.
+ * Renders nothing when there are none.
  */
 export default function HomeGoalsCard() {
   const { t, lang } = useLanguage()
@@ -25,25 +26,11 @@ export default function HomeGoalsCard() {
     }
   }, [])
 
-  const pending = goals.filter((g) => g.status === 'pending')
   const shown = goals.filter((g) => g.status === 'active' && g.showOnHome)
-  if (pending.length === 0 && shown.length === 0) return null
+  if (shown.length === 0) return null
 
   return (
     <section className="mx-auto max-w-5xl space-y-3">
-      {pending.length > 0 && (
-        <Link
-          to="/my-goals"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 hover:border-amber-400"
-        >
-          <span>
-            <span className="block font-semibold text-foreground">{t('glPendingTitle')}</span>
-            <span className="block text-sm text-muted-foreground">{t('glPendingBody')}</span>
-          </span>
-          <span className="text-sm font-medium text-amber-800">{t('glPendingButton')} →</span>
-        </Link>
-      )}
-
       {shown.length > 0 && (
         <div className="rounded-2xl border border-[var(--teal-accent-border)] bg-[var(--teal-accent-soft)] px-5 py-4">
           <div className="flex items-center justify-between gap-3">
@@ -66,7 +53,7 @@ export default function HomeGoalsCard() {
                   <p className="font-medium text-foreground">{g.title}</p>
                   {start && now && (
                     <p className="text-xs text-muted-foreground">
-                      {start === now ? t('glStartOnly', { start: start.overall }) : t('glStartNow', { start: start.overall, now: now.overall })}
+                      {realityLine(t, g, start.overall, now.overall)}
                     </p>
                   )}
                   {g.steps.length > 0 && (

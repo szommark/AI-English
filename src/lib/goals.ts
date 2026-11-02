@@ -2,6 +2,7 @@ import { WEEKLY_GOAL_MAX_DAYS, WEEKLY_GOAL_MIN_DAYS } from './gamification/const
 import type { GoalMilestone } from './goalPlans.js'
 
 // Learner goals, set with the GROW model: Goal · Reality (self-assessment) · Options · Will.
+// The teacher sets them together with the student; the student sees them read-only.
 // Shared by the browser and api/_lib/learnerGoals.ts, so keep it free of browser imports.
 // Design: docs/language-coach-tools-research.md §2–3.
 
@@ -23,7 +24,11 @@ export const GOAL_LIST_MAX = 8
 export const GOAL_DAYS_MIN = WEEKLY_GOAL_MIN_DAYS
 export const GOAL_DAYS_MAX = WEEKLY_GOAL_MAX_DAYS
 
-/** Reality: "Where am I now on this goal?" 0–10, plus any skills rated 1–10. */
+/**
+ * Reality: "Where am I now?" on the goal's one scale (goalScale): 0–10 on the goal, or 1–10 for
+ * a skill goal's chosen skill. `skills` is only filled on ratings from before that (several
+ * skills rated at once); new ratings leave it empty.
+ */
 export interface GoalRating {
   overall: number
   skills: Partial<Record<GoalSkill, number>>
@@ -45,6 +50,8 @@ export interface LearnerGoal {
   /** Who started it: the student, or a teacher (then it needed the student's confirmation). */
   startedBy: 'student' | 'teacher'
   goalType: GoalType | null
+  /** An "Improving a skill" goal's skill; null until chosen, and on every other type. */
+  skill: GoalSkill | null
   title: string | null
   deadline: string | null
   why: string | null
@@ -66,6 +73,8 @@ export interface LearnerGoal {
 /** The GROW form's content, as sent to ?action=goal-save. */
 export interface GoalInput {
   goalType: GoalType | null
+  /** Kept only on a skill goal. */
+  skill: GoalSkill | null
   title: string
   deadline: string | null
   why: string
@@ -77,6 +86,17 @@ export interface GoalInput {
 }
 
 export const isOpenGoal = (g: Pick<LearnerGoal, 'status'>) => g.status === 'pending' || g.status === 'active'
+
+/**
+ * The goal's one "Where am I now?" scale: 0–10 on the goal itself, or 1–10 for a skill goal's
+ * chosen skill. Null for a skill goal whose skill isn't chosen yet (nothing to rate).
+ */
+export function goalScale(g: { goalType: GoalType | null; skill: GoalSkill | null }): { min: number; skill: GoalSkill | null } | null {
+  if (g.goalType !== 'skill') return { min: 0, skill: null }
+  return g.skill ? { min: 1, skill: g.skill } : null
+}
+
+export const isGoalSkill = (v: unknown): v is GoalSkill => (GOAL_SKILLS as readonly unknown[]).includes(v)
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -136,6 +156,13 @@ export function parseGoalInput(raw: unknown, requireGoal: boolean): { input: Goa
   if (why === null) return { error: 'why' }
   if (requireGoal && (!goalType || !title)) return { error: 'goalRequired' }
 
+  let skill: GoalSkill | null = null
+  if (b.skill != null && b.skill !== '') {
+    if (!isGoalSkill(b.skill)) return { error: 'skill' }
+    // Only a skill goal has one; switching to another type drops it.
+    if (goalType === 'skill') skill = b.skill
+  }
+
   let deadline: string | null = null
   if (b.deadline != null && b.deadline !== '') {
     if (typeof b.deadline !== 'string' || !ISO_DATE.test(b.deadline) || Number.isNaN(Date.parse(b.deadline))) {
@@ -171,10 +198,16 @@ export function parseGoalInput(raw: unknown, requireGoal: boolean): { input: Goa
   let rating: GoalRating | null = null
   if (b.rating != null) {
     rating = parseGoalRating(b.rating)
-    if (!rating) return { error: 'rating' }
+    if (!rating || !fitsScale(rating, { goalType, skill })) return { error: 'rating' }
   }
 
-  return { input: { goalType, title, deadline, why, options, steps, daysPerWeek, rating } }
+  return { input: { goalType, skill, title, deadline, why, options, steps, daysPerWeek, rating } }
+}
+
+/** A new rating is one value on the goal's scale, with no separate skill scores. */
+export function fitsScale(rating: GoalRating, g: { goalType: GoalType | null; skill: GoalSkill | null }): boolean {
+  const scale = goalScale(g)
+  return !!scale && rating.overall >= scale.min && Object.keys(rating.skills).length === 0
 }
 
 /** Whole weeks from today to the deadline (negative once it has passed). */

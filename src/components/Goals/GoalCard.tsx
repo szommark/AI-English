@@ -1,29 +1,29 @@
 import { useState } from 'react'
 import { useLanguage } from '../../lib/i18n'
-import { GOAL_SKILLS, weeksLeft, type GoalRating, type LearnerGoal } from '../../lib/goals'
+import { GOAL_SKILLS, goalScale, weeksLeft, type GoalRating, type GoalSkill, type LearnerGoal } from '../../lib/goals'
 import { deleteGoal, rateGoal, setGoalOnHome, setGoalStatus, setGoalStep } from '../../lib/goalsApi'
 import { cardClass, primaryButtonClass, secondaryButtonClass } from '../TeacherTools/ui'
-import RatingInput, { toRating, withSkill } from './RatingInput'
+import RatingInput, { toRating } from './RatingInput'
 import GoalPlanView from './GoalPlanView'
-import { GOAL_SKILL_LABEL, GOAL_STATUS_CLASS, GOAL_STATUS_LABEL, GOAL_TYPE_LABEL, goalErrorKey } from './labels'
+import { GOAL_SKILL_LABEL, GOAL_STATUS_CLASS, GOAL_STATUS_LABEL, GOAL_TYPE_LABEL, goalErrorKey, realityLine } from './labels'
 
-/** Start vs now on the goal (0–10), with the skills that were rated. */
-function RealityView({ start, now }: { start: GoalRating; now: GoalRating }) {
+/** Start vs now on the goal's one scale (the goal 0–10, or its skill 1–10). */
+function RealityView({ goal, start, now }: { goal: LearnerGoal; start: GoalRating; now: GoalRating }) {
   const { t } = useLanguage()
   const changed = now !== start
-  const skills = GOAL_SKILLS.filter((s) => start.skills[s] != null || now.skills[s] != null)
+  const line = realityLine(t, goal, start.overall, changed ? now.overall : start.overall)
+  // Ratings from before one-scale goals may hold several skill scores.
+  const oldSkills = GOAL_SKILLS.filter((s) => start.skills[s] != null || now.skills[s] != null)
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-foreground">
-        {changed ? t('glStartNow', { start: start.overall, now: now.overall }) : t('glStartOnly', { start: start.overall })}
-      </p>
+      <p className="text-sm font-medium text-foreground">{line}</p>
       <div className="relative h-2.5 overflow-hidden rounded-full bg-secondary" aria-hidden="true">
         <span className="absolute inset-y-0 left-0 rounded-full bg-[var(--teal-accent)]" style={{ width: `${now.overall * 10}%` }} />
         {changed && <span className="absolute inset-y-0 w-0.5 bg-[var(--teal-accent-strong)]" style={{ left: `${start.overall * 10}%` }} />}
       </div>
-      {skills.length > 0 && (
+      {oldSkills.length > 0 && (
         <ul className="flex flex-wrap gap-1.5 text-xs">
-          {skills.map((s) => {
+          {oldSkills.map((s) => {
             const a = start.skills[s]
             const b = now.skills[s]
             return (
@@ -39,9 +39,10 @@ function RealityView({ start, now }: { start: GoalRating; now: GoalRating }) {
 }
 
 /**
- * One goal: Goal, Reality (start vs now), Options and Will steps. The student ticks steps,
- * re-rates, closes or reopens it and chooses whether the home page shows it; a teacher sees the
- * same and can edit it or withdraw an unconfirmed one.
+ * One goal: Goal, Reality (start vs now), Options, Will steps and milestones. The teacher sets
+ * and changes everything together with the student: edits, re-rates, ticks steps, plans
+ * milestones, closes or reopens it. The student reads it and only chooses whether their home
+ * page shows it.
  */
 export default function GoalCard({
   goal,
@@ -55,7 +56,8 @@ export default function GoalCard({
   audience: 'student' | 'teacher'
   /** Every change replies with the student's goal list. */
   onGoals: (goals: LearnerGoal[]) => void
-  onEdit: () => void
+  /** Teacher: opens the goal form. */
+  onEdit?: () => void
   /** Teacher: opens the milestone editor. */
   onPlan?: () => void
   /** False when the student already has the most open goals. */
@@ -64,9 +66,10 @@ export default function GoalCard({
   const { t, lang } = useLanguage()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [rating, setRating] = useState<{ overall: number | null; skills: GoalRating['skills'] } | null>(null)
+  /** The teacher's re-rating in progress: the value, and the skill if it is chosen now. */
+  const [rating, setRating] = useState<{ value: number | null; skill: GoalSkill | null } | null>(null)
 
-  const student = audience === 'student'
+  const teacher = audience === 'teacher'
   const active = goal.status === 'active'
   const pending = goal.status === 'pending'
   const closed = !active && !pending
@@ -86,17 +89,21 @@ export default function GoalCard({
     }
   }
 
-  const hasActions = !student || pending || active || (closed && canReopen)
   const weeks = goal.deadline ? weeksLeft(goal.deadline) : null
   const doneSteps = goal.steps.filter((s) => s.done).length
+  const hasActions = teacher || active
+
+  function saveRating() {
+    const r = rating && toRating(rating.value)
+    if (r) void run(() => rateGoal(goal.id, r, goal.skill ? null : rating?.skill))
+  }
 
   return (
     <article className={`${cardClass} ${closed ? 'opacity-80' : ''}`}>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className={`rounded-full px-2.5 py-1 font-medium ${GOAL_STATUS_CLASS[goal.status]}`}>{t(GOAL_STATUS_LABEL[goal.status])}</span>
         {goal.goalType && <span className="text-muted-foreground">{t(GOAL_TYPE_LABEL[goal.goalType])}</span>}
-        {goal.startedBy === 'teacher' && student && <span className="text-muted-foreground">· {t('glStartedByTeacher')}</span>}
-        {goal.startedBy === 'student' && !student && <span className="text-muted-foreground">· {t('glStartedByStudent')}</span>}
+        {goal.skill && <span className="text-muted-foreground">· {t(GOAL_SKILL_LABEL[goal.skill])}</span>}
       </div>
 
       <div>
@@ -113,21 +120,16 @@ export default function GoalCard({
       {rating ? (
         <div className="space-y-3 rounded-xl bg-secondary/60 p-4">
           <RatingInput
-            overall={rating.overall}
-            skills={rating.skills}
-            onOverall={(n) => setRating((r) => r && { ...r, overall: n })}
-            onSkill={(skill, n) => setRating((r) => r && { ...r, skills: withSkill(r.skills, skill, n) })}
+            goalType={goal.goalType}
+            skill={goal.skill ?? rating.skill}
+            // A skill goal's skill is chosen once; after that it is changed in the goal form.
+            onSkill={goal.skill ? undefined : (skill) => setRating({ value: null, skill })}
+            chooseAtOnce
+            value={rating.value}
+            onValue={(value) => setRating((r) => r && { ...r, value })}
           />
           <div className="flex gap-3">
-            <button
-              type="button"
-              disabled={busy || rating.overall === null}
-              onClick={() => {
-                const r = toRating(rating.overall, rating.skills)
-                if (r) void run(() => rateGoal(goal.id, r))
-              }}
-              className={primaryButtonClass}
-            >
+            <button type="button" disabled={busy || rating.value === null} onClick={saveRating} className={primaryButtonClass}>
               {t('glRatingSave')}
             </button>
             <button type="button" onClick={() => setRating(null)} className="text-sm text-muted-foreground hover:text-foreground">
@@ -138,7 +140,7 @@ export default function GoalCard({
       ) : start && now ? (
         <div className="space-y-1">
           <p className="text-sm font-medium text-foreground">{t('glStepReality')}</p>
-          <RealityView start={start} now={now} />
+          <RealityView goal={goal} start={start} now={now} />
         </div>
       ) : (
         !pending && <p className="text-sm text-muted-foreground">{t('glNotRated')}</p>
@@ -170,7 +172,7 @@ export default function GoalCard({
                   <input
                     type="checkbox"
                     checked={s.done}
-                    disabled={busy || !active}
+                    disabled={busy || !teacher || !active}
                     onChange={(e) => void run(() => setGoalStep(goal.id, s.id, e.target.checked))}
                     className="mt-0.5 h-4 w-4 accent-[var(--teal-accent-strong)]"
                   />
@@ -188,43 +190,8 @@ export default function GoalCard({
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {hasActions && (
-      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-        {student && pending && (
-          <>
-            <button type="button" onClick={onEdit} className={primaryButtonClass}>
-              {t('glPendingButton')}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => window.confirm(t('glDropConfirm')) && void run(() => setGoalStatus(goal.id, 'dropped'))}
-              className={secondaryButtonClass}
-            >
-              {t('glDrop')}
-            </button>
-          </>
-        )}
-        {student && active && (
-          <>
-            {!rating && (
-              <button type="button" disabled={busy} onClick={() => setRating({ overall: now?.overall ?? null, skills: now?.skills ?? {} })} className={secondaryButtonClass}>
-                {t('glRerate')}
-              </button>
-            )}
-            <button type="button" disabled={busy} onClick={onEdit} className={secondaryButtonClass}>
-              {t('glEdit')}
-            </button>
-            <button type="button" disabled={busy} onClick={() => void run(() => setGoalStatus(goal.id, 'achieved'))} className={secondaryButtonClass}>
-              {t('glMarkAchieved')}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => window.confirm(t('glDropConfirm')) && void run(() => setGoalStatus(goal.id, 'dropped'))}
-              className={secondaryButtonClass}
-            >
-              {t('glDrop')}
-            </button>
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+          {!teacher && (
             <label className="ml-auto flex items-center gap-2 text-sm text-foreground">
               <input
                 type="checkbox"
@@ -235,36 +202,57 @@ export default function GoalCard({
               />
               {t('glShowOnHome')}
             </label>
-          </>
-        )}
-        {student && closed && canReopen && (
-          <button type="button" disabled={busy} onClick={() => void run(() => setGoalStatus(goal.id, 'active'))} className={secondaryButtonClass}>
-            {t('glReopen')}
-          </button>
-        )}
-        {!student && (
-          <>
-            <button type="button" disabled={busy} onClick={onEdit} className={secondaryButtonClass}>
-              {t('glEdit')}
-            </button>
-            {onPlan && !closed && (
-              <button type="button" disabled={busy} onClick={onPlan} className={secondaryButtonClass}>
-                {t('gpEditPlan')}
-              </button>
-            )}
-            {pending && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => window.confirm(t('glWithdrawConfirm')) && void run(() => deleteGoal(goal.id))}
-                className={secondaryButtonClass}
-              >
-                {t('glWithdraw')}
-              </button>
-            )}
-          </>
-        )}
-      </div>
+          )}
+          {teacher && (
+            <>
+              {active && !rating && (
+                <button type="button" disabled={busy} onClick={() => setRating({ value: null, skill: null })} className={secondaryButtonClass}>
+                  {t(goalScale(goal) === null ? 'glChooseSkill' : now ? 'glRerate' : 'glRate')}
+                </button>
+              )}
+              {onEdit && (
+                <button type="button" disabled={busy} onClick={onEdit} className={secondaryButtonClass}>
+                  {t('glEdit')}
+                </button>
+              )}
+              {onPlan && !closed && (
+                <button type="button" disabled={busy} onClick={onPlan} className={secondaryButtonClass}>
+                  {t('gpEditPlan')}
+                </button>
+              )}
+              {active && (
+                <>
+                  <button type="button" disabled={busy} onClick={() => void run(() => setGoalStatus(goal.id, 'achieved'))} className={secondaryButtonClass}>
+                    {t('glMarkAchieved')}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => window.confirm(t('glDropConfirm')) && void run(() => setGoalStatus(goal.id, 'dropped'))}
+                    className={secondaryButtonClass}
+                  >
+                    {t('glDrop')}
+                  </button>
+                </>
+              )}
+              {pending && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => window.confirm(t('glWithdrawConfirm')) && void run(() => deleteGoal(goal.id))}
+                  className={secondaryButtonClass}
+                >
+                  {t('glWithdraw')}
+                </button>
+              )}
+              {closed && canReopen && (
+                <button type="button" disabled={busy} onClick={() => void run(() => setGoalStatus(goal.id, 'active'))} className={secondaryButtonClass}>
+                  {t('glReopen')}
+                </button>
+              )}
+            </>
+          )}
+        </div>
       )}
     </article>
   )

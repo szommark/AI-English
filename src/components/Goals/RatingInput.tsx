@@ -1,82 +1,100 @@
+import { useState } from 'react'
 import { useLanguage } from '../../lib/i18n'
-import { GOAL_SKILLS, type GoalRating, type GoalSkill } from '../../lib/goals'
+import { GOAL_SKILLS, type GoalRating, type GoalSkill, type GoalType } from '../../lib/goals'
+import { secondaryButtonClass } from '../TeacherTools/ui'
 import { GOAL_SKILL_LABEL } from './labels'
-import { inputClass } from '../TeacherTools/ui'
 
-/** The GROW Reality self-assessment: 0–10 on the goal, plus any skills 1–10. */
+/**
+ * The GROW Reality self-assessment on the goal's one scale: 0–10 on the goal, or — for an
+ * "Improving a skill" goal — first a "Choose skill" button, then 1–10 for that skill.
+ */
 export default function RatingInput({
-  overall,
-  skills,
-  onOverall,
+  goalType,
+  skill,
   onSkill,
+  chooseAtOnce = false,
+  value,
+  onValue,
 }: {
-  overall: number | null
-  skills: GoalRating['skills']
-  onOverall: (n: number) => void
-  onSkill: (skill: GoalSkill, n: number | null) => void
+  goalType: GoalType | null
+  skill: GoalSkill | null
+  /** Choosing (or, with null, changing) a skill goal's skill; omit when it can't change. */
+  onSkill?: (skill: GoalSkill | null) => void
+  /** Show the skills straight away (the "Choose skill" button was already pressed). */
+  chooseAtOnce?: boolean
+  value: number | null
+  onValue: (n: number) => void
 }) {
   const { t } = useLanguage()
+  const [choosing, setChoosing] = useState(chooseAtOnce)
+  const skillGoal = goalType === 'skill'
 
-  return (
-    <div className="space-y-4">
+  if (skillGoal && !skill) {
+    if (!onSkill) return null
+    return choosing ? (
       <div className="space-y-2">
-        <p className="text-sm font-medium text-foreground">{t('glOverall')}</p>
-        <div role="radiogroup" aria-label={t('glOverall')} className="flex flex-wrap gap-1.5">
-          {Array.from({ length: 11 }, (_, n) => (
+        <p className="text-sm font-medium text-foreground">{t('glChooseSkillPrompt')}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {GOAL_SKILLS.map((s) => (
             <button
-              key={n}
+              key={s}
               type="button"
-              role="radio"
-              aria-checked={overall === n}
-              onClick={() => onOverall(n)}
-              className={`h-9 w-9 rounded-lg border text-sm font-semibold transition-colors ${
-                overall === n
-                  ? 'border-[var(--teal-accent-strong)] bg-[var(--teal-accent)] text-primary'
-                  : overall !== null && n < overall
-                    ? 'border-[var(--teal-accent-border)] bg-[var(--teal-accent-soft)] text-foreground'
-                    : 'border-border bg-card text-muted-foreground hover:bg-secondary'
-              }`}
+              onClick={() => {
+                onSkill(s)
+                setChoosing(false)
+              }}
+              className="rounded-full border border-border bg-card px-3 py-1 text-sm text-foreground hover:border-[var(--teal-accent-border)] hover:bg-[var(--teal-accent-soft)]"
             >
-              {n}
+              {t(GOAL_SKILL_LABEL[s])}
             </button>
           ))}
         </div>
       </div>
+    ) : (
+      <button type="button" onClick={() => setChoosing(true)} className={secondaryButtonClass}>
+        {t('glChooseSkill')}
+      </button>
+    )
+  }
 
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-foreground">{t('glSkills')}</p>
-        <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-          {GOAL_SKILLS.map((skill) => (
-            <label key={skill} className="flex items-center justify-between gap-3 text-sm text-foreground">
-              <span>{t(GOAL_SKILL_LABEL[skill])}</span>
-              <select
-                value={skills[skill] ?? ''}
-                onChange={(e) => onSkill(skill, e.target.value ? Number(e.target.value) : null)}
-                className={`${inputClass} max-w-[5rem] shrink-0 py-1.5`}
-              >
-                <option value="">–</option>
-                {Array.from({ length: 10 }, (_, i) => (
-                  <option key={i + 1} value={i + 1}>
-                    {i + 1}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
-        </div>
+  const min = skillGoal ? 1 : 0
+  const label = skill ? t('glSkillScale', { skill: t(GOAL_SKILL_LABEL[skill]) }) : t('glOverall')
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        {skill && onSkill && (
+          <button type="button" onClick={() => onSkill(null)} className="text-xs font-medium text-[var(--teal-accent-strong)] hover:underline">
+            {t('glChangeSkill')}
+          </button>
+        )}
+      </div>
+      <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
+        {Array.from({ length: 11 - min }, (_, i) => i + min).map((n) => (
+          <button
+            key={n}
+            type="button"
+            role="radio"
+            aria-checked={value === n}
+            onClick={() => onValue(n)}
+            className={`h-9 w-9 rounded-lg border text-sm font-semibold transition-colors ${
+              value === n
+                ? 'border-[var(--teal-accent-strong)] bg-[var(--teal-accent)] text-primary'
+                : value !== null && n < value
+                  ? 'border-[var(--teal-accent-border)] bg-[var(--teal-accent-soft)] text-foreground'
+                  : 'border-border bg-card text-muted-foreground hover:bg-secondary'
+            }`}
+          >
+            {n}
+          </button>
+        ))}
       </div>
     </div>
   )
 }
 
-/** Rating state for RatingInput: null until an overall score is picked. */
-export function toRating(overall: number | null, skills: GoalRating['skills']): GoalRating | null {
-  return overall === null ? null : { overall, skills }
-}
-
-export function withSkill(skills: GoalRating['skills'], skill: GoalSkill, n: number | null): GoalRating['skills'] {
-  const next = { ...skills }
-  if (n === null) delete next[skill]
-  else next[skill] = n
-  return next
+/** The rating to save: one value on the goal's scale, or null until one is picked. */
+export function toRating(value: number | null): GoalRating | null {
+  return value === null ? null : { overall: value, skills: {} }
 }
