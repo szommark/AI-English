@@ -1,6 +1,6 @@
 import { BookOpen, ClipboardCheck, GraduationCap, MessagesSquare, type LucideIcon } from 'lucide-react'
-import type { MessageKey } from '../../lib/i18n'
-import type { GoalSkill, GoalStatus, GoalType } from '../../lib/goals'
+import type { MessageKey, useLanguage } from '../../lib/i18n'
+import type { GoalSkill, GoalStatus, GoalType, LearnerGoal } from '../../lib/goals'
 import type { ScenarioMode, TaskKind } from '../../lib/goalPlans'
 import { GoalRequestError } from '../../lib/goalsApi'
 
@@ -55,6 +55,13 @@ export const SCENARIO_MODE_LABEL: Record<ScenarioMode, MessageKey> = {
   test: 'gpModeTest',
   practice: 'gpModePractice',
   any: 'gpModeAny',
+}
+
+/** "Start 4 → now 6 / 10" on the goal's one scale, named after the skill on a skill goal. */
+export function realityLine(t: ReturnType<typeof useLanguage>['t'], goal: Pick<LearnerGoal, 'skill'>, start: number, now: number): string {
+  const values = { start, now }
+  if (goal.skill) return t(start === now ? 'glSkillStartOnly' : 'glSkillStartNow', { ...values, skill: t(GOAL_SKILL_LABEL[goal.skill]) })
+  return t(start === now ? 'glStartOnly' : 'glStartNow', values)
 }
 
 /** The message for a failed goal request. */

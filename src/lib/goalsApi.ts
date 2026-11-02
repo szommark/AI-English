@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { GoalInput, GoalRating, LearnerGoal } from './goals'
+import type { GoalInput, GoalRating, GoalSkill, LearnerGoal } from './goals'
 import type { GoalPlanInput } from './goalPlans'
 
 // Client for the learner goals (?action=goals… on /api/gamification, api/_lib/learnerGoals.ts).
@@ -50,8 +50,9 @@ export function saveGoal(input: GoalInput, opts: { id?: string; studentId?: stri
   return post('goal-save', { ...input, ...opts })
 }
 
-export function rateGoal(id: string, rating: GoalRating): Promise<LearnerGoal[]> {
-  return post('goal-rate', { id, ...rating })
+/** Teacher: a new "Where am I now?" value; `skill` chooses a skill goal's skill the first time. */
+export function rateGoal(id: string, rating: GoalRating, skill?: GoalSkill | null): Promise<LearnerGoal[]> {
+  return post('goal-rate', { id, ...rating, skill: skill ?? null })
 }
 
 export function setGoalStep(id: string, stepId: string, done: boolean): Promise<LearnerGoal[]> {

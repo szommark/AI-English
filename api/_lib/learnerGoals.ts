@@ -4,6 +4,8 @@ import { supabaseAdmin } from './supabaseAdmin.js'
 import { getUserRole, hasTeacherAccess } from './roles.js'
 import {
   MAX_OPEN_GOALS,
+  fitsScale,
+  isGoalSkill,
   isOpenGoal,
   parseGoalInput,
   parseGoalRating,
@@ -19,21 +21,22 @@ import { PlanError, assignTasks, loadPlans, savePlan } from './goalPlans.js'
 
 // Learner goals (GROW), served from api/gamification.ts as ?action=goals… — see the table
 // comment in supabase/migrations/20261027120000_learner_goals.sql.
+// The teacher sets and changes a goal together with the student; the student only reads it and
+// chooses whether it shows on their home page.
 //   goals        GET   the student's own goals, or a connected student's (?studentId=, teacher)
 //   goals-class  GET   every connected student's goals (teacher)
-//   goal-save    POST  create or edit. Student: own goal, active at once; confirming a pending
-//                      one makes it active. Teacher (body.studentId): sends a pending goal,
-//                      filled in or blank, or edits a connected student's goal.
-//   goal-rate    POST  the student re-rates Reality (adds to the history)
-//   goal-step    POST  ticks a Will step done / not done
-//   goal-status  POST  achieved / dropped / active again
+//   goal-save    POST  teacher: creates a goal for body.studentId (active at once) or edits one;
+//                      saving a pending goal (from before this change) makes it active
+//   goal-rate    POST  teacher: re-rates Reality on the goal's one scale (adds to the history)
+//   goal-step    POST  teacher: ticks a Will step done / not done
+//   goal-status  POST  teacher: achieved / dropped / active again
 //   goal-home    POST  the student shows or hides it on the home page
 //   goal-delete  POST  a teacher withdraws a pending goal
 //   goal-plan-save POST  a teacher saves the goal's milestones and tasks (api/_lib/goalPlans.ts)
 // Every mutation replies with the student's whole goal list; each goal carries its milestones.
 
 const GOAL_COLUMNS =
-  'id, student_id, created_by, status, goal_type, title, deadline, why, options, steps, days_per_week, draft_rating, show_on_home, created_at, confirmed_at, closed_at'
+  'id, student_id, created_by, status, goal_type, skill, title, deadline, why, options, steps, days_per_week, draft_rating, show_on_home, created_at, confirmed_at, closed_at'
 
 interface GoalRow {
   id: string
@@ -41,6 +44,7 @@ interface GoalRow {
   created_by: string | null
   status: GoalStatus
   goal_type: LearnerGoal['goalType']
+  skill: LearnerGoal['skill']
   title: string | null
   deadline: string | null
   why: string | null
@@ -62,6 +66,7 @@ function toGoal(row: GoalRow, ratings: GoalRatingPoint[], milestones: GoalMilest
     status: row.status,
     startedBy: row.created_by && row.created_by !== row.student_id ? 'teacher' : 'student',
     goalType: row.goal_type,
+    skill: row.skill,
     title: row.title,
     deadline: row.deadline,
     why: row.why,
@@ -201,6 +206,7 @@ function toSteps(input: GoalInput['steps']): GoalStep[] {
 function fieldsFrom(input: GoalInput) {
   return {
     goal_type: input.goalType,
+    skill: input.skill,
     title: input.title || null,
     deadline: input.deadline,
     why: input.why || null,
@@ -290,12 +296,15 @@ async function handleSave(req: VercelRequest, res: VercelResponse, userId: strin
   const body = (req.body ?? {}) as Record<string, unknown>
   const now = new Date().toISOString()
 
-  // --- A new goal ---
+  // --- A new goal: the teacher's, active at once ---
   if (body.id == null) {
     const who = await resolveStudent(res, userId, body.studentId)
     if (!who) return
-    // A teacher may send a blank form; a student's own goal is active at once, so it needs one.
-    const parsed = parseGoalInput(body, !who.asTeacher)
+    if (!who.asTeacher) {
+      res.status(403).json({ error: 'Forbidden' })
+      return
+    }
+    const parsed = parseGoalInput(body, true)
     if ('error' in parsed) {
       res.status(400).json({ error: parsed.error })
       return
@@ -307,50 +316,33 @@ async function handleSave(req: VercelRequest, res: VercelResponse, userId: strin
     const { input } = parsed
     const { data, error } = await supabaseAdmin
       .from('learner_goals')
-      .insert({
-        student_id: who.studentId,
-        created_by: userId,
-        ...fieldsFrom(input),
-        ...(who.asTeacher
-          ? { status: 'pending', draft_rating: input.rating }
-          : { status: 'active', confirmed_at: now }),
-      })
+      .insert({ student_id: who.studentId, created_by: userId, ...fieldsFrom(input), status: 'active', confirmed_at: now })
       .select('id')
       .single()
     if (error) throw error
-    if (!who.asTeacher) {
-      if (input.rating) await addRating((data as { id: string }).id, input.rating)
-      await applyWeeklyGoal(who.studentId, input.daysPerWeek)
-    }
-    await replyWithGoals(res, who.studentId, !who.asTeacher)
+    if (input.rating) await addRating((data as { id: string }).id, input.rating)
+    await applyWeeklyGoal(who.studentId, input.daysPerWeek)
+    await replyWithGoals(res, who.studentId, true)
     return
   }
 
-  // --- An existing goal ---
+  // --- An existing goal: only the teacher edits ---
   const found = await loadGoalForUser(res, userId, body.id)
   if (!found) return
-  const { row, asTeacher } = found
+  if (!found.asTeacher) {
+    res.status(403).json({ error: 'Forbidden' })
+    return
+  }
+  const { row } = found
+  // A goal sent for confirmation before goals became teacher-only starts now.
   const pending = row.status === 'pending'
-  // A teacher may keep a pending goal blank; anything the student saves, or an active goal, needs one.
-  const parsed = parseGoalInput(body, !(asTeacher && pending))
+  const parsed = parseGoalInput(body, true)
   if ('error' in parsed) {
     res.status(400).json({ error: parsed.error })
     return
   }
   const { input } = parsed
 
-  if (asTeacher) {
-    // The teacher edits; on a pending goal the Reality pre-fill too. Ratings stay the student's.
-    const { error } = await supabaseAdmin
-      .from('learner_goals')
-      .update({ ...fieldsFrom(input), ...(pending ? { draft_rating: input.rating } : {}), updated_at: now })
-      .eq('id', row.id)
-    if (error) throw error
-    await replyWithGoals(res, row.student_id, !pending)
-    return
-  }
-
-  // The student: saving a pending goal confirms it (with their own rating, or the teacher's pre-fill).
   const { error } = await supabaseAdmin
     .from('learner_goals')
     .update({
@@ -361,13 +353,22 @@ async function handleSave(req: VercelRequest, res: VercelResponse, userId: strin
     .eq('id', row.id)
   if (error) throw error
   if (pending) {
-    const rating = input.rating ?? row.draft_rating
+    // The form's rating, or the old pre-fill if it still fits the goal's scale.
+    const draft = row.draft_rating && fitsScale(row.draft_rating, input) ? row.draft_rating : null
+    const rating = input.rating ?? draft
     if (rating) await addRating(row.id, rating)
-    // The teacher's milestone plan: its courses, tests and lists are assigned now.
-    await assignTasks(row.id, row.student_id, row.created_by)
+    // The milestone plan: its courses, tests and lists are assigned now.
+    await assignTasks(row.id, row.student_id, userId)
   }
   if (pending || input.daysPerWeek !== row.days_per_week) await applyWeeklyGoal(row.student_id, input.daysPerWeek)
   await replyWithGoals(res, row.student_id, true)
+}
+
+/** Only the teacher changes a goal; replies 403 for the student. */
+function teacherOnly(res: VercelResponse, found: { asTeacher: boolean }): boolean {
+  if (found.asTeacher) return true
+  res.status(403).json({ error: 'Forbidden' })
+  return false
 }
 
 async function handleRate(req: VercelRequest, res: VercelResponse, userId: string) {
@@ -377,19 +378,32 @@ async function handleRate(req: VercelRequest, res: VercelResponse, userId: strin
   }
   const body = (req.body ?? {}) as Record<string, unknown>
   const found = await loadGoalForUser(res, userId, body.id)
-  if (!found) return
-  // The self-assessment is the student's own.
-  if (found.asTeacher || found.row.status !== 'active') {
+  if (!found || !teacherOnly(res, found)) return
+  const { row } = found
+  if (row.status !== 'active') {
     res.status(409).json({ error: 'notRateable' })
     return
   }
+  // A skill goal's skill can be chosen here the first time it is rated.
+  let skill = row.skill
+  if (row.goal_type === 'skill' && !skill && body.skill != null) {
+    if (!isGoalSkill(body.skill)) {
+      res.status(400).json({ error: 'skill' })
+      return
+    }
+    skill = body.skill
+  }
   const rating = parseGoalRating(body)
-  if (!rating) {
+  if (!rating || !fitsScale(rating, { goalType: row.goal_type, skill })) {
     res.status(400).json({ error: 'rating' })
     return
   }
-  await addRating(found.row.id, rating)
-  await replyWithGoals(res, found.row.student_id, false)
+  if (skill !== row.skill) {
+    const { error } = await supabaseAdmin.from('learner_goals').update({ skill, updated_at: new Date().toISOString() }).eq('id', row.id)
+    if (error) throw error
+  }
+  await addRating(row.id, rating)
+  await replyWithGoals(res, row.student_id, false)
 }
 
 async function handleStep(req: VercelRequest, res: VercelResponse, userId: string) {
@@ -399,7 +413,7 @@ async function handleStep(req: VercelRequest, res: VercelResponse, userId: strin
   }
   const body = (req.body ?? {}) as Record<string, unknown>
   const found = await loadGoalForUser(res, userId, body.id)
-  if (!found) return
+  if (!found || !teacherOnly(res, found)) return
   const steps = found.row.steps ?? []
   if (typeof body.stepId !== 'string' || typeof body.done !== 'boolean' || !steps.some((s) => s.id === body.stepId)) {
     res.status(400).json({ error: 'invalid' })
@@ -423,7 +437,7 @@ async function handleStatus(req: VercelRequest, res: VercelResponse, userId: str
   }
   const body = (req.body ?? {}) as Record<string, unknown>
   const found = await loadGoalForUser(res, userId, body.id)
-  if (!found) return
+  if (!found || !teacherOnly(res, found)) return
   const { row } = found
   const status = body.status
   if (status !== 'achieved' && status !== 'dropped' && status !== 'active') {

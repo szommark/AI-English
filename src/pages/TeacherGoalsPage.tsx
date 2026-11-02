@@ -7,16 +7,14 @@ import GoalForm from '../components/Goals/GoalForm'
 import GoalPlanEditor from '../components/Goals/GoalPlanEditor'
 import { inputClass, labelClass, primaryButtonClass } from '../components/TeacherTools/ui'
 import { useLanguage } from '../lib/i18n'
-import { MAX_OPEN_GOALS, isOpenGoal, type GoalInput, type LearnerGoal } from '../lib/goals'
+import { MAX_OPEN_GOALS, isOpenGoal, type LearnerGoal } from '../lib/goals'
 import { fetchClassGoals, saveGoal } from '../lib/goalsApi'
 import { fetchTeacherRoster, type RosterEntry } from '../lib/teacherApi'
 
-const BLANK: GoalInput = { goalType: null, title: '', deadline: null, why: '', options: [], steps: [], daysPerWeek: null, rating: null }
-
 /**
  * Teacher Toolkit › Goal setting (/teacher/tools/goals?student=…): a connected student's GROW
- * goals. The teacher sends a new goal, filled in (alone or with the student) or blank; the
- * student completes and confirms it on their My goals page.
+ * goals. Only the teacher sets them, together with the student; a saved goal is active at once
+ * and the student sees it read-only on their My goals page.
  */
 export default function TeacherGoalsPage() {
   const { t } = useLanguage()
@@ -94,17 +92,10 @@ export default function TeacherGoalsPage() {
           {editing === 'new' && (
             <GoalForm
               key={`new-${student.studentId}`}
-              audience="teacher"
               withReality
-              requireGoal={false}
               heading={t('glNewFor', { name })}
-              submitLabel={t('glSendToStudent')}
+              submitLabel={t('glSave')}
               onSubmit={async (input) => done(await saveGoal(input, { studentId: student.studentId }))}
-              extraAction={{
-                label: t('glSendBlank'),
-                hint: t('glSendBlankHint'),
-                onClick: async () => done(await saveGoal(BLANK, { studentId: student.studentId })),
-              }}
               onCancel={() => setEditing(null)}
             />
           )}
@@ -112,10 +103,8 @@ export default function TeacherGoalsPage() {
             <GoalForm
               key={editing.id}
               initial={editing}
-              audience="teacher"
-              // The Reality pre-fill only until the student confirms; after that the ratings are theirs.
+              // An active goal is re-rated on its card; a pending one (from before) starts on save.
               withReality={editing.status === 'pending'}
-              requireGoal={editing.status !== 'pending'}
               heading={t('glEditFor', { name })}
               submitLabel={t('glSave')}
               onSubmit={async (input) => done(await saveGoal(input, { id: editing.id }))}
@@ -145,7 +134,15 @@ export default function TeacherGoalsPage() {
           {!editing &&
             !planning &&
             goals.map((g) => (
-              <GoalCard key={g.id} goal={g} audience="teacher" onGoals={setGoals} onEdit={() => setEditing(g)} onPlan={() => setPlanning(g)} />
+              <GoalCard
+                key={g.id}
+                goal={g}
+                audience="teacher"
+                onGoals={setGoals}
+                onEdit={() => setEditing(g)}
+                onPlan={() => setPlanning(g)}
+                canReopen={canAdd}
+              />
             ))}
         </>
       )}
