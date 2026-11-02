@@ -4,6 +4,9 @@ import type {
   LyricsActivityInput,
   LyricsActivitySummary,
   LyricsGapSuggestion,
+  LyricsLibraryActivity,
+  LyricsLibraryItem,
+  LyricsVisibility,
 } from './lyricsGapFill'
 
 // Client for api/teacher-tools.ts (Teacher Toolkit, teacher role only).
@@ -51,6 +54,28 @@ export async function saveLyricsActivity(input: LyricsActivityInput, id?: string
 
 export async function deleteLyricsActivity(id: string): Promise<void> {
   await request(`/api/teacher-tools?action=lyrics&id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+export async function setLyricsVisibility(id: string, visibility: LyricsVisibility, authorName: string): Promise<LyricsActivity> {
+  const body = await request<{ activity: LyricsActivity }>(`/api/teacher-tools?action=lyrics-visibility&id=${encodeURIComponent(id)}`, {
+    method: 'POST',
+    body: JSON.stringify({ visibility, authorName }),
+  })
+  return body.activity
+}
+
+/** The teachers' library of public activities; admin says whether the caller can hide them. */
+export async function fetchLyricsLibrary(): Promise<{ activities: LyricsLibraryItem[]; admin: boolean }> {
+  return request('/api/teacher-tools?action=lyrics-library')
+}
+
+export async function fetchLyricsLibraryActivity(id: string): Promise<LyricsLibraryActivity> {
+  return request(`/api/teacher-tools?action=lyrics-library&id=${encodeURIComponent(id)}`)
+}
+
+/** Admins only: take a public activity out of the library, or put it back. */
+export async function setLyricsHidden(id: string, hidden: boolean): Promise<{ activities: LyricsLibraryItem[]; admin: boolean }> {
+  return request(`/api/teacher-tools?action=lyrics-library&id=${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify({ hidden }) })
 }
 
 export async function suggestLyricsGaps(input: {

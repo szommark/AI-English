@@ -154,6 +154,7 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
   const lyrics: Crumb = { label: t('ttLyricsTitle'), to: '/teacher/tools/lyrics' }
   if (at('/teacher/tools/lyrics')) return finish([teacher, toolkit, lyrics])
   if (at('/teacher/tools/lyrics/new')) return finish([teacher, toolkit, lyrics, { label: t('lyNew') }])
+  if (at('/teacher/tools/lyrics/library/:activityId')) return finish([teacher, toolkit, lyrics, { label: t('lyLibraryCrumb'), to: '/teacher/tools/lyrics?tab=library' }])
   if (at('/teacher/tools/lyrics/:activityId')) return finish([teacher, toolkit, lyrics, { label: t('lyCrumbEdit') }])
   const vocab: Crumb = { label: t('wordLists'), to: '/teacher/tools/vocab' }
   if (at('/teacher/tools/vocab')) return finish([teacher, toolkit, vocab])

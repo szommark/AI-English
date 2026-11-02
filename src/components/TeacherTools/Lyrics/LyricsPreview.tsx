@@ -3,7 +3,8 @@ import { useLanguage } from '../../../lib/i18n'
 
 /**
  * The editor's live preview: every word is a button that adds a gap, every gap one that
- * removes it (a whole phrase gap at once).
+ * removes it (a whole phrase gap at once). Without onToggleWord it is read-only (a library
+ * activity of another teacher).
  */
 export default function LyricsPreview({
   doc,
@@ -14,7 +15,7 @@ export default function LyricsPreview({
   doc: LyricsDoc
   byWord: Map<number, GapGroup>
   numberGaps: boolean
-  onToggleWord: (word: number) => void
+  onToggleWord?: (word: number) => void
 }) {
   const { t } = useLanguage()
 
@@ -34,12 +35,23 @@ export default function LyricsPreview({
         return (
           <div key={i}>
             {lineSegments(line, byWord).map((s, k) => {
+              if (s.kind === 'gap' && !onToggleWord) {
+                return (
+                  <span
+                    key={k}
+                    className="mx-0.5 rounded-md border border-[var(--teal-accent-border)] bg-[var(--teal-accent-soft)] px-1.5 py-0.5 font-medium text-[var(--teal-accent-strong)]"
+                  >
+                    {numberGaps && <sup className="mr-0.5 text-[10px] font-bold">{s.group.number}</sup>}
+                    {s.group.answer}
+                  </span>
+                )
+              }
               if (s.kind === 'gap') {
                 return (
                   <button
                     key={k}
                     type="button"
-                    onClick={() => onToggleWord(s.group.words[0])}
+                    onClick={() => onToggleWord?.(s.group.words[0])}
                     className="mx-0.5 rounded-md border border-[var(--teal-accent-border)] bg-[var(--teal-accent-soft)] px-1.5 py-0.5 font-medium text-[var(--teal-accent-strong)] hover:line-through"
                   >
                     {numberGaps && <sup className="mr-0.5 text-[10px] font-bold">{s.group.number}</sup>}
@@ -47,7 +59,7 @@ export default function LyricsPreview({
                   </button>
                 )
               }
-              if (s.word === null) return <span key={k} className="whitespace-pre-wrap">{s.text}</span>
+              if (s.word === null || !onToggleWord) return <span key={k} className="whitespace-pre-wrap">{s.text}</span>
               const word = s.word
               return (
                 <button
