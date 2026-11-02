@@ -4,8 +4,13 @@ import { fetchStudentDetail, StudentDetailAccessError, type StudentDetail } from
 import { getScenario } from '../data/scenarios'
 import FeedbackCard from '../components/FeedbackCard'
 import StudentWordListsBox from '../components/VocabLists/StudentWordListsBox'
-import MistakeAreaList, { visibleAreas } from '../components/Progress/MistakeAreaList'
-import CefrHistoryLine from '../components/Progress/CefrHistoryLine'
+import {
+  CoursesPanel,
+  MistakesPanel,
+  ProgressHeader,
+  PronunciationPanel,
+  VocabularyPanel,
+} from '../components/Progress/ProgressPanels'
 import StudentGamificationCard from '../components/gamification/StudentGamificationCard'
 import StudentTenseExplorerCard from '../components/TenseExplorerSettings/StudentTenseExplorerCard'
 import StudentGoalsCard from '../components/Goals/StudentGoalsCard'
@@ -58,7 +63,7 @@ export default function StudentProgressPage() {
   }
 
   return (
-    <div className="max-w-2xl space-y-8">
+    <div className="max-w-3xl space-y-6">
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -68,54 +73,26 @@ export default function StudentProgressPage() {
 
             {studentId && <StudentGoalsCard studentId={studentId} />}
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2 sm:col-span-2">
-                <h2 className="text-sm font-medium text-slate-700">Mistake areas</h2>
-                {visibleAreas(detail.mistakeAreas).length === 0 ? (
-                  <p className="text-sm text-slate-400">No mistakes recorded yet.</p>
-                ) : (
-                  <>
-                    <p className="text-xs text-slate-400">
-                      Frequency: in how many of the student's last {detail.mistakeAreas[0]?.windowSize ?? 0} sessions it came
-                      up, with the trend against the sessions before. "összesen" is the all-time total, including corrections
-                      from before per-session tracking.
-                    </p>
-                    <MistakeAreaList areas={detail.mistakeAreas} showTotals />
-                  </>
-                )}
-              </div>
+            {/* Same sections and format as the student's own "Az én fejlődésem" page. */}
+            <ProgressHeader
+              cefrCurrent={detail.cefrCurrent}
+              history={detail.cefrHistory}
+              last30Days={detail.sessionCounts.last30Days}
+              total={detail.sessionCounts.total}
+              teacher
+            />
 
-              <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
-                <h2 className="text-sm font-medium text-slate-700">Vocabulary</h2>
-                <div className="flex justify-between text-sm text-slate-600">
-                  <span>New</span>
-                  <span className="text-slate-400">{detail.vocabulary.new}</span>
-                </div>
-                <div className="flex justify-between text-sm text-slate-600">
-                  <span>Practicing</span>
-                  <span className="text-slate-400">{detail.vocabulary.practicing}</span>
-                </div>
-                <div className="flex justify-between text-sm text-slate-600">
-                  <span>Mastered</span>
-                  <span className="text-slate-400">{detail.vocabulary.mastered}</span>
-                </div>
-              </div>
-            </div>
+            <MistakesPanel areas={detail.mistakeAreas} mix={detail.mistakeMix} teacher />
+
+            <PronunciationPanel items={detail.pronunciation} teacher />
+
+            <VocabularyPanel counts={detail.vocabulary} activity={detail.vocabActivity} teacher />
 
             {studentId && <StudentWordListsBox studentId={studentId} />}
 
             {studentId && <StudentTenseExplorerCard studentId={studentId} />}
 
-            <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
-              <h2 className="text-sm font-medium text-slate-700">CEFR history</h2>
-              {detail.cefrHistory.length === 0 ? (
-                <p className="text-sm text-slate-400">No CEFR estimates recorded yet.</p>
-              ) : (
-                <p className="text-sm text-slate-600">
-                  <CefrHistoryLine history={detail.cefrHistory} />
-                </p>
-              )}
-            </div>
+            <CoursesPanel courses={detail.courses} teacher />
 
             <div className="space-y-4">
               <h2 className="text-sm font-medium text-slate-700">Sessions</h2>

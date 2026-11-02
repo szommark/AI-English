@@ -3,12 +3,14 @@ import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { getUserRole, hasTeacherAccess } from './_lib/roles.js'
 import {
   loadCefrHistory,
+  loadCourseProgress,
   loadMistakeOverview,
   loadPronunciationProgress,
+  loadVocabActivity,
   loadVocabularyCounts,
   pickNextStep,
 } from './_lib/learnerProgress.js'
-import type { MyProgress } from '../src/lib/progressTypes.js'
+import type { MyProgress, VocabActivity } from '../src/lib/progressTypes.js'
 import { FeedbackError, listMyFeedback, markMyFeedbackSeen, myFeedbackUpdates, submitFeedback } from './_lib/feedback.js'
 import { recordClientErrors } from './_lib/clientErrors.js'
 
@@ -301,6 +303,8 @@ async function handleRoster(req: VercelRequest, res: VercelResponse, userId: str
   res.status(200).json({ students })
 }
 
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
+
 async function handleStudentDetail(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' })
@@ -334,7 +338,19 @@ async function handleStudentDetail(req: VercelRequest, res: VercelResponse, user
     return
   }
 
-  const [{ data: sessions }, mistakeAreas, vocabulary, cefrHistory] = await Promise.all([
+  const since = new Date(Date.now() - THIRTY_DAYS_MS).toISOString()
+  const [
+    { data: sessions },
+    mistakes,
+    vocabulary,
+    cefrHistory,
+    pronunciation,
+    vocabActivity,
+    courses,
+    { data: profile },
+    { count: totalSessions },
+    { count: recentSessions },
+  ] = await Promise.all([
     supabaseAdmin
       .from('sessions')
       .select('id, scenario_id, mode, feedback, created_at')
@@ -344,6 +360,13 @@ async function handleStudentDetail(req: VercelRequest, res: VercelResponse, user
     loadMistakeOverview(studentId),
     loadVocabularyCounts(studentId),
     loadCefrHistory(studentId),
+    loadPronunciationProgress(studentId),
+    loadVocabActivity(studentId).catch(softFail(EMPTY_VOCAB_ACTIVITY)),
+    // Only the courses this teacher assigned — not self-enrolled ones or another teacher's.
+    loadCourseProgress(studentId, userId).catch(softFail([])),
+    supabaseAdmin.from('learner_profiles').select('cefr_level').eq('user_id', studentId).maybeSingle(),
+    supabaseAdmin.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', studentId),
+    supabaseAdmin.from('sessions').select('id', { count: 'exact', head: true }).eq('user_id', studentId).gte('created_at', since),
   ])
 
   res.status(200).json({
@@ -354,13 +377,27 @@ async function handleStudentDetail(req: VercelRequest, res: VercelResponse, user
       feedback: s.feedback,
       createdAt: s.created_at,
     })),
-    mistakeAreas,
+    mistakeAreas: mistakes.areas,
+    mistakeMix: mistakes.mix,
     vocabulary,
+    cefrCurrent: profile?.cefr_level ?? null,
     cefrHistory,
+    sessionCounts: { last30Days: recentSessions ?? 0, total: totalSessions ?? 0 },
+    pronunciation,
+    vocabActivity,
+    courses,
   })
 }
 
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
+const EMPTY_VOCAB_ACTIVITY: VocabActivity = { fastPractice: [], tests: [], ownLists: [] }
+
+/** A section that failed to load shows as empty instead of failing the whole page. */
+function softFail<T>(fallback: T) {
+  return (err: unknown): T => {
+    console.error('Progress section failed to load', err)
+    return fallback
+  }
+}
 
 /** The signed-in learner's own "Az én fejlődésem" page: only ever their own data. */
 async function handleMyProgress(req: VercelRequest, res: VercelResponse, userId: string) {
@@ -375,10 +412,12 @@ async function handleMyProgress(req: VercelRequest, res: VercelResponse, userId:
     cefrHistory,
     { count: totalSessions },
     { count: recentSessions },
-    areas,
+    mistakes,
     pronunciation,
     vocabulary,
     { count: teacherLinks },
+    vocabActivity,
+    courses,
   ] = await Promise.all([
     supabaseAdmin.from('learner_profiles').select('cefr_level').eq('user_id', userId).maybeSingle(),
     loadCefrHistory(userId),
@@ -396,8 +435,11 @@ async function handleMyProgress(req: VercelRequest, res: VercelResponse, userId:
       .select('id', { count: 'exact', head: true })
       .eq('student_id', userId)
       .eq('status', 'active'),
+    loadVocabActivity(userId).catch(softFail(EMPTY_VOCAB_ACTIVITY)),
+    loadCourseProgress(userId).catch(softFail([])),
   ])
 
+  const areas = mistakes.areas
   const currentCefr = profile?.cefr_level ?? null
   const body: MyProgress = {
     cefr: { current: currentCefr, history: cefrHistory },
@@ -406,6 +448,9 @@ async function handleMyProgress(req: VercelRequest, res: VercelResponse, userId:
     nextStep: pickNextStep(areas, currentCefr),
     pronunciation,
     vocabulary,
+    mistakeMix: mistakes.mix,
+    vocabActivity,
+    courses,
     hasTeacher: (teacherLinks ?? 0) > 0,
   }
   res.status(200).json(body)

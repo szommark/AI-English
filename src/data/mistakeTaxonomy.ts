@@ -1,5 +1,5 @@
 // Mistake taxonomy for Hungarian learners: area → subtype, two levels. Single source of
-// truth for the ids, the Hungarian/English labels shown on "Az én fejlődésem" and the
+// truth for the ids, the Hungarian/English/German labels shown on "Az én fejlődésem" and the
 // teacher's student page, the descriptions + examples the feedback model classifies
 // against, and the Grammar Coach lessons each subtype links to.
 //
@@ -15,6 +15,7 @@ export interface MistakeSubtype {
   id: string
   labelHu: string
   labelEn: string
+  labelDe: string
   /** One line for the classification prompt (English, never shown in the UI). */
   description: string
   /** Learner → correct, for the classification prompt. */
@@ -27,6 +28,7 @@ export interface MistakeArea {
   id: string
   labelHu: string
   labelEn: string
+  labelDe: string
   subtypes: MistakeSubtype[]
 }
 
@@ -36,11 +38,13 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
     id: 'verbs_tenses',
     labelHu: 'Igék és igeidők',
     labelEn: 'Verbs & tenses',
+    labelDe: 'Verben und Zeitformen',
     subtypes: [
       {
         id: 'missing_be',
         labelHu: 'A létige hiánya',
         labelEn: 'Missing be',
+        labelDe: 'Fehlendes „be“',
         description: 'am/is/are (or was/were) left out, as Hungarian drops the copula',
         example: '"He teacher." → "He is a teacher."',
         lessonIds: ['a1-be-verb'],
@@ -49,6 +53,7 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
         id: 'past_forms',
         labelHu: 'Múlt idejű alakok',
         labelEn: 'Past forms',
+        labelDe: 'Vergangenheitsformen',
         description: 'wrong past-tense form: regularised irregulars, past after did/didn\'t, wrong was/were',
         example: '"I goed" / "didn\'t went" → "went" / "didn\'t go"',
         lessonIds: ['a1-past-simple-be', 'a2-past-simple-regular', 'a2-past-simple-irregular'],
@@ -57,6 +62,7 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
         id: 'perfect_vs_past',
         labelHu: 'Present perfect vs. egyszerű múlt',
         labelEn: 'Present perfect vs past',
+        labelDe: 'Present Perfect vs. Past Simple',
         description: 'present perfect and past simple confused, incl. present tense with since/for',
         example: '"I live here since 2010." → "I\'ve lived here since 2010."',
         lessonIds: ['a2-present-perfect', 'a2-present-perfect-vs-past-simple'],
@@ -65,6 +71,7 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
         id: 'simple_vs_continuous',
         labelHu: 'Egyszerű vs. folyamatos jelen',
         labelEn: 'Simple vs continuous',
+        labelDe: 'Simple vs. Continuous',
         description: 'present simple and present continuous confused',
         example: '"I am working here every day." → "I work here every day."',
         lessonIds: ['a2-present-simple-vs-continuous', 'a1-present-continuous'],
@@ -73,6 +80,7 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
         id: 'future_forms',
         labelHu: 'Jövő idő',
         labelEn: 'Future forms',
+        labelDe: 'Zukunftsformen',
         description: 'present simple used for a plan or prediction, or will / going to / present continuous mixed up',
         example: '"Tomorrow I visit my son." (a plan) → "I\'m visiting / going to visit my son."',
         lessonIds: ['a2-be-going-to', 'a2-will-future'],
@@ -81,6 +89,7 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
         id: 'third_person_s',
         labelHu: 'E/3 -s végződés',
         labelEn: 'Third-person -s',
+        labelDe: '-s in der 3. Person',
         description: 'missing (or extra) -s on a present simple verb after he/she/it',
         example: '"She work in a bank." → "She works in a bank."',
         lessonIds: ['a1-present-simple'],
@@ -91,11 +100,13 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
     id: 'questions_negatives',
     labelHu: 'Kérdés és tagadás',
     labelEn: 'Questions & negatives',
+    labelDe: 'Fragen und Verneinung',
     subtypes: [
       {
         id: 'do_support',
         labelHu: 'Do/does/did használata',
         labelEn: 'Do-support',
+        labelDe: 'Umschreibung mit „do“',
         description: 'do/does/did missing or wrong in a question or negative',
         example: '"Where you work?" / "I not like it." → "Where do you work?" / "I don\'t like it."',
         lessonIds: ['a1-present-simple', 'a1-question-word-order'],
@@ -104,6 +115,7 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
         id: 'question_word_order',
         labelHu: 'Kérdő szórend',
         labelEn: 'Question word order',
+        labelDe: 'Wortstellung in Fragen',
         description: 'subject and auxiliary in the wrong order in a question',
         example: '"Where is working your wife?" → "Where does your wife work?"',
         lessonIds: ['a1-question-word-order'],
@@ -114,11 +126,13 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
     id: 'nouns_articles',
     labelHu: 'Főnevek és névelők',
     labelEn: 'Nouns & articles',
+    labelDe: 'Nomen und Artikel',
     subtypes: [
       {
         id: 'articles',
         labelHu: 'Névelők',
         labelEn: 'Articles',
+        labelDe: 'Artikel',
         description: 'a/an/the missing, extra or the wrong one',
         example: '"I am teacher." / "The life is beautiful." → "I am a teacher." / "Life is beautiful."',
         lessonIds: ['a2-articles'],
@@ -127,6 +141,7 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
         id: 'plural_countable',
         labelHu: 'Többes szám, megszámlálhatóság',
         labelEn: 'Plurals & countability',
+        labelDe: 'Plural und Zählbarkeit',
         description: 'missing plural after a number or quantity, or an uncountable noun made plural',
         example: '"three apple" / "informations" → "three apples" / "information"',
         lessonIds: ['a1-plural-nouns', 'a2-countable-uncountable'],
@@ -137,11 +152,13 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
     id: 'pronouns',
     labelHu: 'Névmások',
     labelEn: 'Pronouns',
+    labelDe: 'Pronomen',
     subtypes: [
       {
         id: 'he_she',
         labelHu: 'He/she keverése',
         labelEn: 'He/she mix-up',
+        labelDe: 'He/she verwechselt',
         description: 'he/she or him/her used for the wrong gender (Hungarian "ő" has no gender)',
         example: '"My wife, he is a nurse." → "My wife, she is a nurse."',
         lessonIds: ['a1-subject-pronouns', 'a1-object-pronouns'],
@@ -150,6 +167,7 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
         id: 'his_her',
         labelHu: 'His/her keverése',
         labelEn: 'His/her mix-up',
+        labelDe: 'His/her verwechselt',
         description: 'his/her used for the wrong gender',
         example: '"My husband and her brother" (meaning his) → "My husband and his brother"',
         lessonIds: ['a1-possessive-adjectives'],
@@ -158,6 +176,7 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
         id: 'missing_subject',
         labelHu: 'Hiányzó alany (it/there)',
         labelEn: 'Missing subject',
+        labelDe: 'Fehlendes Subjekt (it/there)',
         description: 'subject left out, especially dummy it / there',
         example: '"Is raining." / "Is a problem." → "It\'s raining." / "There is a problem."',
         lessonIds: ['a1-subject-pronouns', 'a1-there-is-are'],
@@ -168,11 +187,13 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
     id: 'prepositions',
     labelHu: 'Elöljárószók',
     labelEn: 'Prepositions',
+    labelDe: 'Präpositionen',
     subtypes: [
       {
         id: 'prep_time_place',
         labelHu: 'Idő és hely (in/on/at)',
         labelEn: 'Time & place',
+        labelDe: 'Zeit und Ort (in/on/at)',
         description: 'wrong preposition of time or place (in/on/at and similar)',
         example: '"on the morning" / "in the bus stop" → "in the morning" / "at the bus stop"',
         lessonIds: ['a1-prepositions-time-place'],
@@ -181,6 +202,7 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
         id: 'dependent_prep',
         labelHu: 'Vonzatos elöljárószók',
         labelEn: 'Dependent prepositions',
+        labelDe: 'Feste Präpositionen',
         description: 'wrong preposition after a verb, adjective or noun',
         example: '"interested for" / "depends from" → "interested in" / "depends on"',
         lessonIds: [],
@@ -191,11 +213,13 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
     id: 'word_order',
     labelHu: 'Szórend',
     labelEn: 'Word order',
+    labelDe: 'Wortstellung',
     subtypes: [
       {
         id: 'sentence_order',
         labelHu: 'Mondat szórendje',
         labelEn: 'Sentence order',
+        labelDe: 'Satzstellung',
         description: 'subject-verb-object order broken in a statement',
         example: '"English I speak well." → "I speak English well."',
         lessonIds: [],
@@ -204,6 +228,7 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
         id: 'adverb_position',
         labelHu: 'Határozószó helye',
         labelEn: 'Adverb position',
+        labelDe: 'Stellung des Adverbs',
         description: 'adverb in the wrong place, such as between the verb and its object',
         example: '"I go always by bus." / "I like very much football." → "I always go by bus." / "I like football very much."',
         lessonIds: ['a2-adverbs-of-frequency'],
@@ -214,11 +239,13 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
     id: 'vocabulary',
     labelHu: 'Szókincs',
     labelEn: 'Vocabulary',
+    labelDe: 'Wortschatz',
     subtypes: [
       {
         id: 'wrong_word',
         labelHu: 'Rossz szó, hamis barát',
         labelEn: 'Wrong word, false friend',
+        labelDe: 'Falsches Wort, falscher Freund',
         description: 'wrong word for the meaning, including Hungarian false friends',
         example: '"He is very sympathetic." (= szimpatikus) → "He is very likeable."',
         lessonIds: [],
@@ -227,6 +254,7 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
         id: 'collocation',
         labelHu: 'Szókapcsolat',
         labelEn: 'Collocation',
+        labelDe: 'Kollokation',
         description: 'words that don\'t go together in English',
         example: '"make a photo" / "do a mistake" → "take a photo" / "make a mistake"',
         lessonIds: [],
@@ -237,11 +265,13 @@ export const MISTAKE_TAXONOMY: MistakeArea[] = [
     id: 'other',
     labelHu: 'Egyéb',
     labelEn: 'Other',
+    labelDe: 'Sonstiges',
     subtypes: [
       {
         id: 'other',
         labelHu: 'Egyéb',
         labelEn: 'Other',
+        labelDe: 'Sonstiges',
         description: 'anything that fits nowhere else',
         example: '',
         lessonIds: [],
@@ -279,6 +309,11 @@ export function getMistakeSubtype(id: string): MistakeSubtype | undefined {
 
 export function getMistakeArea(id: string): MistakeArea | undefined {
   return MISTAKE_TAXONOMY.find((a) => a.id === id)
+}
+
+/** An area's or subtype's label in one UI language ('hu' | 'en' | 'de'). */
+export function mistakeLabel(item: Pick<MistakeArea, 'labelHu' | 'labelEn' | 'labelDe'>, lang: string): string {
+  return lang === 'hu' ? item.labelHu : lang === 'de' ? item.labelDe : item.labelEn
 }
 
 /**

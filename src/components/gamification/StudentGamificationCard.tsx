@@ -1,21 +1,14 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { getFeature } from '../../data/features'
 import { fetchStudentGamification, giveTeacherBonus } from '../../lib/gamificationApi'
 import { TEACHER_BONUS_REASON_MAX, TEACHER_BONUS_REASON_MIN, TEACHER_BONUS_WEEKLY_CAP } from '../../lib/gamification/constants'
 import type { StudentGamification } from '../../lib/gamification/types'
-import BadgeMedal from './BadgeMedal'
-
-function sectionName(section: string): string {
-  if (section === 'teacher') return 'Teacher bonus'
-  if (section === 'challenge') return 'Challenge rewards'
-  if (section === 'courses') return 'Mini courses'
-  return getFeature(section)?.title ?? section
-}
+import GamificationSummary from './GamificationSummary'
 
 /**
  * Teacher's view of one connected student's gamification (design §7.1) and the bonus XP
- * form (§7.2). English, like the teacher pages. Loads on its own so a failure here never
- * hides the rest of the student page.
+ * form (§7.2). The summary is the same block the student sees first on "Az én fejlődésem"
+ * (in the UI language); the bonus form is English, like the teacher pages. Loads on its own
+ * so a failure here never hides the rest of the student page.
  */
 export default function StudentGamificationCard({ studentId }: { studentId: string }) {
   const [data, setData] = useState<StudentGamification | null>(null)
@@ -40,59 +33,10 @@ export default function StudentGamificationCard({ studentId }: { studentId: stri
   }
   if (!data) return null
 
-  const { me } = data
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-5">
-      <h2 className="text-sm font-medium text-slate-700">Points, streaks and badges</h2>
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat value={`Level ${me.level}`} label={`${me.totalXp} XP in total`} />
-        <Stat value={`${me.week.activeDays} / ${me.week.goalDays}`} label="days this week (goal)" />
-        <Stat value={`${me.weekStreak}`} label={`goal weeks in a row (best ${me.bestWeekStreak})`} />
-        <Stat value={`${me.dailyStreak}`} label="day streak" />
-      </div>
-
-      {data.xpBySection.length > 0 && (
-        <div className="space-y-1">
-          <h3 className="text-xs font-medium uppercase tracking-wide text-slate-400">XP by area</h3>
-          <ul className="text-sm text-slate-600">
-            {data.xpBySection.map((s) => (
-              <li key={s.section} className="flex justify-between">
-                <span>{sectionName(s.section)}</span>
-                <span className="text-slate-400">{s.xp} XP</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <div className="space-y-2">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-slate-400">Badges earned ({data.badges.length})</h3>
-        {data.badges.length === 0 ? (
-          <p className="text-sm text-slate-400">No badges yet.</p>
-        ) : (
-          <ul className="flex flex-wrap gap-2">
-            {data.badges.map((b) => (
-              <li key={b.key} className="flex items-center gap-2 rounded-full border border-slate-200 py-1 pl-1 pr-3" title={b.criteriaEn ?? undefined}>
-                <BadgeMedal icon={b.icon} earned size="sm" />
-                <span className="text-sm text-slate-700">{b.nameEn}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
+    <GamificationSummary me={data.me} xpBySection={data.xpBySection} badges={data.badges}>
       <BonusForm studentId={studentId} data={data} onGiven={setData} />
-    </div>
-  )
-}
-
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="rounded-lg bg-slate-50 px-3 py-2">
-      <p className="text-lg font-semibold text-slate-800">{value}</p>
-      <p className="text-xs text-slate-500">{label}</p>
-    </div>
+    </GamificationSummary>
   )
 }
 

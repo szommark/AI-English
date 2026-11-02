@@ -1,7 +1,11 @@
 // Response shapes shared by api/connect.ts (my-progress, student-detail) and the pages that
 // render them. Types only, so api/ can import this file without pulling in browser code.
 
+/** Where a mistake event came from: a Conversational English scenario, a Tutor Bot conversation, or pre-session data. */
+export type MistakeSource = 'scenario' | 'tutor' | 'legacy'
+
 export interface MistakeExample {
+  source: MistakeSource
   original: string | null
   corrected: string | null
   note: string | null
@@ -40,6 +44,17 @@ export interface AreaOverview {
   subtypes: SubtypeOverview[]
 }
 
+/**
+ * What the mistake frequency is based on: the sessions of the recent window by kind. Only
+ * conversations feed mistake areas — grammar, vocabulary and pronunciation practice don't.
+ */
+export interface MistakeSessionMix {
+  /** Tutor Bot conversations. */
+  tutor: number
+  /** Conversational English scenarios (rehearsal or test mode). */
+  scenario: number
+}
+
 export type NextStep =
   | {
       kind: 'lesson'
@@ -76,6 +91,67 @@ export interface PronunciationProgressItem {
   route: string | null
 }
 
+/** A word list as the progress pages name it; `title` is null for a list that was deleted. */
+export interface ProgressListRef {
+  kind: 'custom' | 'teacher' | 'conversations'
+  id: string | null
+  title: string | null
+  /** The list's size now; null when the list is gone. */
+  wordCount: number | null
+}
+
+export interface FastPracticeRunItem {
+  /** Null for old runs over mixed words (before runs were tied to a list). */
+  list: ProgressListRef | null
+  wordCount: number
+  /** Fewer words than the whole list were picked. */
+  reduced: boolean
+  startedAt: string
+  finished: boolean
+  /** Share of right answers, 0–100; null with no answers. */
+  accuracy: number | null
+}
+
+export interface VocabTestItem {
+  list: ProgressListRef | null
+  wordCount: number
+  correct: number
+  /** 0–100. */
+  percent: number
+  finishedAt: string
+}
+
+export interface OwnWordlistItem {
+  id: string
+  title: string
+  wordCount: number
+  createdAt: string
+  practiceCount: number
+  /** Last and best test score (0–100); null before the first test. */
+  lastTest: number | null
+  bestTest: number | null
+}
+
+/** Vocabulary beyond spaced repetition: Fast practice runs, tests and the learner's own lists. */
+export interface VocabActivity {
+  /** Most recent first. */
+  fastPractice: FastPracticeRunItem[]
+  /** Finished tests, most recent first. */
+  tests: VocabTestItem[]
+  /** Newest first. */
+  ownLists: OwnWordlistItem[]
+}
+
+export interface CourseProgressItem {
+  enrollmentId: string
+  title: string
+  level: string
+  source: 'assigned' | 'self'
+  modulesDone: number
+  modulesTotal: number
+  completedAt: string | null
+}
+
 export interface MyProgress {
   cefr: { current: string | null; history: CefrHistoryPoint[] }
   sessions: { last30Days: number; total: number }
@@ -84,6 +160,9 @@ export interface MyProgress {
   nextStep: NextStep
   pronunciation: PronunciationProgressItem[]
   vocabulary: VocabularyCounts
+  mistakeMix: MistakeSessionMix
+  vocabActivity: VocabActivity
+  courses: CourseProgressItem[]
   /** The learner has at least one active teacher connection. */
   hasTeacher: boolean
 }
