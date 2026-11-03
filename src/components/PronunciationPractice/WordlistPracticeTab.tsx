@@ -5,7 +5,7 @@ import { WORDLIST_PRACTICE_CHECK_ID } from '../../lib/pronunciationConfig'
 import { fetchWordlist, fetchWordlists } from '../../lib/vocabPracticeApi'
 import type { WordlistDetail, WordlistSummary } from '../../lib/vocab'
 import { useListTitle } from '../Vocabulary/wordlistLabels'
-import ShadowingRunner, { type ShadowItem } from './ShadowingRunner'
+import ShadowingRunner, { awardShadowingXp, type ShadowItem } from './ShadowingRunner'
 
 type Source = 'words' | 'examples'
 
@@ -100,7 +100,12 @@ export default function WordlistPracticeTab() {
         (items.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t('pronNothingToPractise')}</p>
         ) : (
-          <ShadowingRunner key={`${selectedKey}/${source}`} items={items} checkId={WORDLIST_PRACTICE_CHECK_ID} />
+          <ShadowingRunner
+            key={`${selectedKey}/${source}`}
+            items={items}
+            checkId={WORDLIST_PRACTICE_CHECK_ID}
+            onFinished={(results) => awardShadowingXp(`wordlist:${selectedKey}/${source}`, results)}
+          />
         ))}
     </div>
   )

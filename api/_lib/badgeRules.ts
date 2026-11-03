@@ -54,6 +54,13 @@ export type BadgeMetric =
   | 'exam_papers_de'
   | 'exam_best_paper_percent'
   | 'exam_personal_bests'
+  | 'tense_reviews_done'
+  | 'active_sections'
+  | 'courses_completed'
+  | 'goals_set'
+  | 'goal_milestones_done'
+  | 'goals_achieved'
+  | 'reports_fixed'
 
 /** Everything the rules need to know about one learner. */
 export interface BadgeFacts {

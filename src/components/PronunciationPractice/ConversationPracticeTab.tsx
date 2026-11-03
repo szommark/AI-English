@@ -3,7 +3,7 @@ import { categories } from '../../data/categories'
 import { getScenario, scenarios } from '../../data/scenarios'
 import { localizeCategory, localizeScenario, useLanguage } from '../../lib/i18n'
 import type { Scenario } from '../../lib/types'
-import ShadowingRunner, { type ShadowItem } from './ShadowingRunner'
+import ShadowingRunner, { awardShadowingXp, type ShadowItem } from './ShadowingRunner'
 
 const LEARNER_SPEAKER = 'You'
 
@@ -69,6 +69,7 @@ export default function ConversationPracticeTab() {
           checkId={scenario.id}
           partnerGender={scenario.voiceGender}
           modelGender={scenario.voiceGender === 'female' ? 'male' : 'female'}
+          onFinished={(results) => awardShadowingXp(`conversation:${scenario.id}`, results)}
         />
       )}
     </div>

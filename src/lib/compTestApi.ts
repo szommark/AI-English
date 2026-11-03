@@ -1,5 +1,7 @@
 import { supabase } from './supabase'
 import { TeacherToolsError } from './teacherToolsApi'
+import { publishXpResult } from './gamification/xpEvents'
+import type { AwardResult } from './gamification/types'
 import type { ExamAnswers } from './examScoring'
 import type {
   CompAssignment,
@@ -126,9 +128,10 @@ export async function fetchMyTest(assignmentId: string): Promise<MyCompTest> {
 }
 
 export async function submitMyTest(assignmentId: string, answers: ExamAnswers): Promise<MyCompTest> {
-  const body = await request<{ test: MyCompTest }>(`${STUDENT}my-test-submit&id=${encodeURIComponent(assignmentId)}`, {
+  const body = await request<{ test: MyCompTest; xp?: AwardResult | null }>(`${STUDENT}my-test-submit&id=${encodeURIComponent(assignmentId)}`, {
     method: 'POST',
     body: JSON.stringify({ answers }),
   })
+  publishXpResult(body.xp)
   return body.test
 }

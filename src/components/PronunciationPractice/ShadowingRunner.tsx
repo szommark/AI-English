@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Mic, Pause, Play, RotateCcw, Volume2 } from 'lucide-react'
 import { logDeepCheck, requestDeepCheckToken, type DeepCheckLimitError } from '../../lib/api'
+import { awardClientXp } from '../../lib/gamificationApi'
 import { playBeep, primeBeep } from '../../lib/beep'
 import { useLanguage } from '../../lib/i18n'
 import { runDeepCheck } from '../../lib/pronunciation'
@@ -35,6 +36,16 @@ const MODEL_RATE = 0.9
 const PAUSE_BETWEEN_MS = 1200
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+/** XP for a finished Word list / Conversation run, the bonus by Azure's average score. Fire-and-forget. */
+export function awardShadowingXp(itemRef: string, results: PronunciationCheckResult[]) {
+  if (results.length === 0) return
+  awardClientXp({
+    activityType: 'pronunciation-session.shadowing_set',
+    itemRef,
+    performanceScore: results.reduce((sum, r) => sum + r.scores.pronunciation, 0) / results.length / 100,
+  })
+}
 
 /** The card's type size for an item: How to make it's anchor-word size for a word, smaller as the text grows. */
 function cardTextSize(text: string) {

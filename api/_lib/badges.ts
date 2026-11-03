@@ -8,6 +8,7 @@ import {
   type Badge,
   type BadgeDefinitionRow,
   type BadgeFacts,
+  type BadgeMetric,
   type Persona,
 } from './badgeRules.js'
 import { SOUND_MASTERY_THRESHOLD } from '../../src/lib/gamification/constants.js'
@@ -117,7 +118,8 @@ async function loadFacts(userId: string, enabledPersonas: Persona[]): Promise<Ba
   for (const result of [eventRows, learner, pronunciation, tutorSessions, cefr, latestEvents, extraMetrics, papers]) {
     if (result.error) throw result.error
   }
-  const extra = ((extraMetrics.data ?? []) as { words_practised: number; srs_review_days: number }[])[0]
+  // One row, a column per metric (gamification_badge_metrics).
+  const extra = ((extraMetrics.data ?? []) as Partial<Record<BadgeMetric, number>>[])[0] ?? {}
   const paperMetrics = examPaperMetrics(
     ((papers.data ?? []) as { item_ref: string | null; language: string; performance_score: number | string | null }[])
       .filter((r) => r.item_ref)
@@ -155,8 +157,15 @@ async function loadFacts(userId: string, enabledPersonas: Persona[]): Promise<Ba
       teacher_lists_completed: listsCompleted,
       sounds_mastered: soundsMastered,
       challenges_completed: challengesCompleted,
-      words_practised: extra?.words_practised ?? 0,
-      srs_review_days: extra?.srs_review_days ?? 0,
+      words_practised: extra.words_practised ?? 0,
+      srs_review_days: extra.srs_review_days ?? 0,
+      tense_reviews_done: extra.tense_reviews_done ?? 0,
+      active_sections: extra.active_sections ?? 0,
+      courses_completed: extra.courses_completed ?? 0,
+      goals_set: extra.goals_set ?? 0,
+      goal_milestones_done: extra.goal_milestones_done ?? 0,
+      goals_achieved: extra.goals_achieved ?? 0,
+      reports_fixed: extra.reports_fixed ?? 0,
       ...paperMetrics,
     },
     personaSessions,

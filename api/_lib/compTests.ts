@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createHash } from 'node:crypto'
 import { supabaseAdmin } from './supabaseAdmin.js'
 import { synthesizeSsml } from './azure.js'
+import { awardXp } from './gamification.js'
 import { HttpError } from './examTasks.js'
 import { emailsFor } from './vocabListProgress.js'
 import { isActiveStudent } from './tenseExplorerSettings.js'
@@ -594,7 +595,14 @@ async function handleMyTestSubmit(req: VercelRequest, res: VercelResponse, userI
     .maybeSingle()
   if (error) throw error
   if (!data) throw new HttpError(409, { error: 'already_submitted' })
-  res.status(200).json({ test: await toMyTest(data as AssignmentRow, test) })
+  // Submitting happens once per assignment, so this is awarded once. awardXp never throws.
+  const xp = await awardXp({
+    userId,
+    activityType: 'tests.comp_test',
+    itemRef: row.id,
+    performanceScore: result.max > 0 ? result.score / result.max : null,
+  })
+  res.status(200).json({ test: await toMyTest(data as AssignmentRow, test), xp })
 }
 
 const STUDENT_HANDLERS: Record<string, (req: VercelRequest, res: VercelResponse, userId: string) => Promise<void>> = {

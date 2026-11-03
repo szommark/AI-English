@@ -10,7 +10,7 @@ import { buildTutorSystemPrompt, buildTutorFeedbackPrompt } from './_lib/prompts
 import { getLearnerProfile, recordFeedbackToPersonalization } from './_lib/personalization.js'
 import { addTutorWords } from './_lib/vocabTutorWords.js'
 import { awardXp } from './_lib/gamification.js'
-import { TUTOR_MIN_TURNS_FOR_XP } from '../src/lib/gamification/constants.js'
+import { SPEAKING_MIN_TURNS_FOR_XP, TUTOR_MIN_TURNS_FOR_XP } from '../src/lib/gamification/constants.js'
 import type { AwardResult } from '../src/lib/gamification/types.js'
 import type { ChatMessage, FeedbackResult } from '../src/lib/types.js'
 import type { AddedTutorWord } from '../src/lib/vocab.js'
@@ -280,7 +280,10 @@ async function handleExamTurn(req: VercelRequest, res: VercelResponse, userId: s
   res.status(200).json(response)
 }
 
-/** Speaking exam: the AI's estimated scores and feedback for the whole exam (or the practised tasks). Nothing is stored. */
+/**
+ * Speaking exam: the AI's estimated scores and feedback for the whole exam (or the practised
+ * tasks), plus exam-prep.speaking_task XP. Only the XP event is stored.
+ */
 async function handleExamAssess(req: VercelRequest, res: VercelResponse, userId: string) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
@@ -308,7 +311,22 @@ async function handleExamAssess(req: VercelRequest, res: VercelResponse, userId:
     const { systemPrompt, messages } = buildAssessmentPrompt({ exam, transcripts, uiLang })
     const result = await callModel(modelId, systemPrompt, messages)
     await logModelUsage({ userId, scenarioId: 'exam-speaking', callType: 'feedback', modelId, usage: result.usage })
-    res.status(200).json(parseAssessment(result.content, exam, transcripts))
+    const assessment = parseAssessment(result.content, exam, transcripts)
+    // One award per assessment: 10 XP per task the learner really took part in, the bonus
+    // by the estimated score. A later sitting of the same paper earns no bonus. Never throws.
+    const tasksDone = exam.tasks.filter((t) => learnerTurns(transcripts[t.id]) >= SPEAKING_MIN_TURNS_FOR_XP).length
+    const xp =
+      tasksDone > 0
+        ? await awardXp({
+            userId,
+            activityType: 'exam-prep.speaking_task',
+            itemRef: exam.paperId,
+            language: 'en',
+            units: tasksDone,
+            performanceScore: assessment.max > 0 ? assessment.total / assessment.max : null,
+          })
+        : null
+    res.status(200).json({ ...assessment, xp })
   } catch (err) {
     console.error('Speaking exam assessment failed', err)
     res.status(502).json({ error: 'Assessment failed' })
