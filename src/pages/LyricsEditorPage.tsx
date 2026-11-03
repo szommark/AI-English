@@ -331,19 +331,6 @@ export default function LyricsEditorPage() {
           />
 
           <WorksheetPanel sheet={draft.sheet} onChange={(sheet) => update({ sheet })} />
-        </div>
-
-        <div className="space-y-6">
-          <section className={`${cardClass} lg:sticky lg:top-20`}>
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="font-semibold text-foreground">{t('lyPreview')}</h2>
-              <span className="text-sm text-muted-foreground">{t('lyGapCount', { n: groups.length })}</span>
-            </div>
-            <p className={hintClass}>{t('lyPreviewHint')}</p>
-            <div className="max-h-[70vh] overflow-y-auto pr-1">
-              <LyricsPreview doc={doc} byWord={byWord} numberGaps={draft.sheet.numberGaps} onToggleWord={toggleWord} />
-            </div>
-          </section>
 
           {draft.sheet.answerMode === 'choice' && (
             <ChoiceEditor
@@ -364,6 +351,20 @@ export default function LyricsEditorPage() {
               {t('lyDelete')}
             </button>
           )}
+        </div>
+
+        {/* Only the preview here: it is sticky, so anything below it would scroll underneath it. */}
+        <div>
+          <section className={`${cardClass} lg:sticky lg:top-20`}>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="font-semibold text-foreground">{t('lyPreview')}</h2>
+              <span className="text-sm text-muted-foreground">{t('lyGapCount', { n: groups.length })}</span>
+            </div>
+            <p className={hintClass}>{t('lyPreviewHint')}</p>
+            <div className="max-h-[70vh] overflow-y-auto pr-1">
+              <LyricsPreview doc={doc} byWord={byWord} numberGaps={draft.sheet.numberGaps} onToggleWord={toggleWord} />
+            </div>
+          </section>
         </div>
       </div>
 
