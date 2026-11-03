@@ -27,6 +27,15 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
+/** Where email links (password reset) send people back to. Supabase only accepts addresses on its
+ *  Redirect URLs list and otherwise falls back to the Site URL, so anywhere but a local dev server
+ *  (www.avln.hu, Vercel previews) uses the canonical domain. */
+const SITE_URL = 'https://avln.hu'
+function authRedirectOrigin(): string {
+  const { hostname, origin } = window.location
+  return hostname === 'localhost' || hostname === '127.0.0.1' ? origin : SITE_URL
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
@@ -82,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /** Emails a link that signs the user in on /reset-password, where they choose a new password. */
   async function requestPasswordReset(email: string) {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${authRedirectOrigin()}/reset-password`,
     })
     return { error: error?.message ?? null }
   }
