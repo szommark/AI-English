@@ -7,6 +7,7 @@ import WorksheetPanel from '../components/TeacherTools/Lyrics/WorksheetPanel'
 import LyricsPreview from '../components/TeacherTools/Lyrics/LyricsPreview'
 import ChoiceEditor from '../components/TeacherTools/Lyrics/ChoiceEditor'
 import ClassMode from '../components/TeacherTools/Lyrics/ClassMode'
+import LyricsVisibilityPanel, { type LyricsSharing } from '../components/TeacherTools/Lyrics/LyricsVisibilityPanel'
 import { cardClass, hintClass, inputClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../components/TeacherTools/ui'
 import { useLanguage, type MessageKey } from '../lib/i18n'
 import { printLyricsWorksheet } from '../lib/lyricsWorksheet'
@@ -42,6 +43,8 @@ interface Draft {
   auto: AutoPickOptions
   sheet: WorksheetOptions
 }
+
+const PRIVATE: LyricsSharing = { visibility: 'private', authorName: '', adminHidden: false }
 
 const EMPTY_DRAFT: Draft = {
   title: '',
@@ -85,6 +88,7 @@ export default function LyricsEditorPage() {
 
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'notFound' | 'error'>(activityId ? 'loading' : 'ready')
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
+  const [sharing, setSharing] = useState<LyricsSharing>(PRIVATE)
   const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(toInput(EMPTY_DRAFT)))
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null)
@@ -104,6 +108,7 @@ export default function LyricsEditorPage() {
         if (cancelled) return
         const d = draftFrom(a)
         setDraft(d)
+        setSharing({ visibility: a.visibility, authorName: a.authorName, adminHidden: a.adminHidden })
         setSavedSnapshot(JSON.stringify(toInput(d)))
         setLoadState('ready')
       })
@@ -350,6 +355,8 @@ export default function LyricsEditorPage() {
               onChange={(distractors) => update({ distractors })}
             />
           )}
+
+          <LyricsVisibilityPanel key={activityId ?? 'new'} activityId={activityId ?? null} sharing={sharing} onSharing={setSharing} />
 
           {activityId && (
             <button type="button" onClick={handleDelete} className="inline-flex items-center gap-1.5 text-sm text-red-600 hover:underline">

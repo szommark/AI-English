@@ -722,8 +722,18 @@ export interface LyricsActivityInput {
   content: LyricsActivityContent
 }
 
+/** Private (only the author) or public (every teacher's library, credited by authorName). */
+export type LyricsVisibility = 'private' | 'public'
+
+/** The longest "Shown as" name on a public activity. */
+export const LYRICS_AUTHOR_NAME_MAX = 80
+
 export interface LyricsActivity extends LyricsActivityInput {
   id: string
+  visibility: LyricsVisibility
+  authorName: string
+  /** An admin took it out of the library (it stays public for its author). */
+  adminHidden: boolean
   createdAt: string
   updatedAt: string
 }
@@ -733,7 +743,47 @@ export interface LyricsActivitySummary {
   title: string
   artist: string
   gapCount: number
+  visibility: LyricsVisibility
   updatedAt: string
+}
+
+/** One public activity in the teachers' library. */
+export interface LyricsLibraryItem {
+  id: string
+  title: string
+  artist: string
+  gapCount: number
+  answerMode: AnswerMode
+  authorName: string
+  /** The caller's own activity. */
+  mine: boolean
+  /** Hidden by an admin (only admins see hidden activities in the library). */
+  hidden: boolean
+  updatedAt: string
+}
+
+/** A public activity opened from the library (another teacher's: read-only). */
+export interface LyricsLibraryActivity {
+  activity: LyricsActivity
+  mine: boolean
+  /** Whether the caller is an admin (can hide / unhide it). */
+  admin: boolean
+}
+
+/** Library search: title, artist or author name contain the query. */
+export function matchesLyricsLibraryQuery(item: LyricsLibraryItem, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  return [item.title, item.artist, item.authorName].some((s) => s.toLowerCase().includes(q))
+}
+
+/** The "Shown as" name: trimmed, required, at most LYRICS_AUTHOR_NAME_MAX characters. */
+export function sanitizeLyricsAuthorName(raw: unknown): string {
+  if (typeof raw !== 'string') throw new Error('name is required')
+  const name = raw.trim().replace(/\s+/g, ' ')
+  if (!name) throw new Error('name is required')
+  if (name.length > LYRICS_AUTHOR_NAME_MAX) throw new Error(`name is longer than ${LYRICS_AUTHOR_NAME_MAX} characters`)
+  return name
 }
 
 export interface LyricsGapSuggestion {

@@ -8,10 +8,14 @@ import {
   LYRICS_MAX_LENGTH,
   LYRICS_SUGGESTIONS_PER_DAY,
   sanitizeLyricsActivity,
+  sanitizeLyricsAuthorName,
   tokenizeLyrics,
+  type AnswerMode,
   type LyricsActivity,
   type LyricsActivityContent,
   type LyricsActivitySummary,
+  type LyricsLibraryItem,
+  type LyricsVisibility,
 } from '../src/lib/lyricsGapFill.js'
 import { sanitizeTenseSettingInput } from '../src/lib/tenseExplorerPolicy.js'
 import { deleteTenseSetting, getTenseSetting, isActiveStudent, saveTenseSetting } from './_lib/tenseExplorerSettings.js'
@@ -66,6 +70,12 @@ import { EXAM_FIELDS, LISTENING_FORMATS, TASK_GENERATIONS_PER_DAY, TASK_LEVELS }
 //   POST   lyrics-suggest         { lyrics, goal, count, level? } → { gaps, remaining };
 //                                  at most LYRICS_SUGGESTIONS_PER_DAY per UTC day (429)
 // An activity that doesn't exist and one that belongs to another teacher both return 404.
+//   POST   lyrics-visibility&id=  { visibility: 'public'|'private', authorName } → { activity }
+//   GET    lyrics-library         { activities, admin }: every teacher's public activities
+//                                  (LyricsLibraryItem[]; admins also see hidden ones)
+//   GET    lyrics-library&id=     one of them, or the caller's own ({ activity, mine, admin });
+//                                  others copy it with POST lyrics (the copy is private)
+//   PUT    lyrics-library&id=     { hidden } admins only → { activities, admin }
 //
 // Tense Explorer settings (which tenses students see in Grammar Coach, docs/tense-explorer-design.md):
 //   GET    tense-explorer[&studentId=]   { classSetting, studentSetting? } (null = not set)
@@ -99,6 +109,9 @@ interface ActivityRow {
   artist: string
   video_url: string
   content: LyricsActivityContent
+  visibility: LyricsVisibility
+  author_name: string
+  admin_hidden: boolean
   created_at: string
   updated_at: string
 }
@@ -110,6 +123,9 @@ function toActivity(row: ActivityRow): LyricsActivity {
     artist: row.artist,
     videoUrl: row.video_url,
     content: row.content,
+    visibility: row.visibility,
+    authorName: row.author_name,
+    adminHidden: row.admin_hidden,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -129,13 +145,15 @@ function parseBody(req: VercelRequest) {
   }
 }
 
+const LYRICS_COLUMNS = 'id, teacher_id, title, artist, video_url, content, visibility, author_name, admin_hidden, created_at, updated_at'
+
 async function handleLyrics(req: VercelRequest, res: VercelResponse, teacherId: string) {
-  const columns = 'id, title, artist, video_url, content, created_at, updated_at'
+  const columns = LYRICS_COLUMNS
 
   if (req.method === 'GET' && req.query.id === undefined) {
     const { data, error } = await supabaseAdmin
       .from('teacher_lyrics_activities')
-      .select('id, title, artist, content, updated_at')
+      .select('id, title, artist, content, visibility, updated_at')
       .eq('teacher_id', teacherId)
       .order('updated_at', { ascending: false })
     if (error) throw error
@@ -144,6 +162,7 @@ async function handleLyrics(req: VercelRequest, res: VercelResponse, teacherId: 
       title: r.title as string,
       artist: r.artist as string,
       gapCount: Array.isArray((r.content as LyricsActivityContent | null)?.gaps) ? (r.content as LyricsActivityContent).gaps.length : 0,
+      visibility: r.visibility as LyricsVisibility,
       updatedAt: r.updated_at as string,
     }))
     res.status(200).json({ activities })
@@ -207,6 +226,101 @@ async function handleLyrics(req: VercelRequest, res: VercelResponse, teacherId: 
     if (error) throw error
     if (!data || data.length === 0) throw new HttpError(404, { error: 'Not found' })
     res.status(200).json({ ok: true })
+    return
+  }
+
+  throw new HttpError(405, { error: 'Method not allowed' })
+}
+
+/** Private (only the author) or public (every teacher's library, credited by authorName). */
+async function handleLyricsVisibility(req: VercelRequest, res: VercelResponse, teacherId: string) {
+  if (req.method !== 'POST') throw new HttpError(405, { error: 'Method not allowed' })
+  const body = (req.body ?? {}) as Record<string, unknown>
+  if (body.visibility !== 'public' && body.visibility !== 'private') throw new HttpError(400, { error: 'visibility must be public or private' })
+  const patch: Record<string, unknown> = { visibility: body.visibility }
+  if (body.visibility === 'public') {
+    try {
+      patch.author_name = sanitizeLyricsAuthorName(body.authorName)
+    } catch (err) {
+      throw new HttpError(400, { error: err instanceof Error ? err.message : 'Invalid name' })
+    }
+  }
+  // Not updated_at: that is the last edit of the activity itself.
+  const { data, error } = await supabaseAdmin
+    .from('teacher_lyrics_activities')
+    .update(patch)
+    .eq('id', idFrom(req))
+    .eq('teacher_id', teacherId)
+    .select(LYRICS_COLUMNS)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) throw new HttpError(404, { error: 'Not found' })
+  res.status(200).json({ activity: toActivity(data as ActivityRow) })
+}
+
+/** At most this many activities in one library listing (newest edit first). */
+const LYRICS_LIBRARY_MAX = 300
+const ANSWER_MODES: AnswerMode[] = ['write', 'wordBank', 'choice']
+
+async function listLyricsLibrary(teacherId: string, admin: boolean): Promise<LyricsLibraryItem[]> {
+  let query = supabaseAdmin
+    .from('teacher_lyrics_activities')
+    // Only the parts of content the list shows (the lyrics can be long).
+    .select('id, teacher_id, title, artist, author_name, admin_hidden, updated_at, gaps:content->gaps, answerMode:content->sheet->>answerMode')
+    .eq('visibility', 'public')
+  if (!admin) query = query.eq('admin_hidden', false)
+  const { data, error } = await query.order('updated_at', { ascending: false }).limit(LYRICS_LIBRARY_MAX)
+  if (error) throw error
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    title: r.title as string,
+    artist: r.artist as string,
+    gapCount: Array.isArray(r.gaps) ? r.gaps.length : 0,
+    answerMode: ANSWER_MODES.find((m) => m === r.answerMode) ?? 'write',
+    authorName: r.author_name as string,
+    mine: r.teacher_id === teacherId,
+    hidden: r.admin_hidden as boolean,
+    updatedAt: r.updated_at as string,
+  }))
+}
+
+/**
+ * The teachers' library of public activities. Another teacher's activity opens read-only (to
+ * print, project or copy); an admin also sees hidden ones and can hide or unhide any.
+ */
+async function handleLyricsLibrary(req: VercelRequest, res: VercelResponse, teacherId: string) {
+  const admin = (await getUserRole(teacherId)) === 'admin'
+
+  if (req.method === 'GET' && req.query.id === undefined) {
+    res.status(200).json({ activities: await listLyricsLibrary(teacherId, admin), admin })
+    return
+  }
+
+  if (req.method === 'GET') {
+    const { data, error } = await supabaseAdmin.from('teacher_lyrics_activities').select(LYRICS_COLUMNS).eq('id', idFrom(req)).maybeSingle()
+    if (error) throw error
+    const row = data as (ActivityRow & { teacher_id: string }) | null
+    const mine = row?.teacher_id === teacherId
+    const listed = row?.visibility === 'public' && (!row.admin_hidden || admin)
+    if (!row || !(mine || listed)) throw new HttpError(404, { error: 'Not found' })
+    res.status(200).json({ activity: toActivity(row), mine, admin })
+    return
+  }
+
+  if (req.method === 'PUT') {
+    if (!admin) throw new HttpError(403, { error: 'Forbidden' })
+    const hidden = (req.body ?? {}).hidden
+    if (typeof hidden !== 'boolean') throw new HttpError(400, { error: 'hidden is required' })
+    // Not updated_at: that is the author's last edit.
+    const { data, error } = await supabaseAdmin
+      .from('teacher_lyrics_activities')
+      .update({ admin_hidden: hidden })
+      .eq('id', idFrom(req))
+      .eq('visibility', 'public')
+      .select('id')
+    if (error) throw error
+    if (!data || data.length === 0) throw new HttpError(404, { error: 'Not found' })
+    res.status(200).json({ activities: await listLyricsLibrary(teacherId, admin), admin })
     return
   }
 
@@ -306,6 +420,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     switch (req.query.action) {
       case 'lyrics':
         await handleLyrics(req, res, user.id)
+        return
+      case 'lyrics-visibility':
+        await handleLyricsVisibility(req, res, user.id)
+        return
+      case 'lyrics-library':
+        await handleLyricsLibrary(req, res, user.id)
         return
       case 'lyrics-suggest':
         await handleLyricsSuggest(req, res, user.id)
