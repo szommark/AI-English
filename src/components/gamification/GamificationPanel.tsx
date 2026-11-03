@@ -1,16 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Volume2 } from 'lucide-react'
 import { PROGRESS_LOCALE, useMyProgressCopy } from '../../data/myProgressCopy'
 import { useLanguage } from '../../lib/i18n'
 import { fetchGamificationOverview, markNoticesSeen } from '../../lib/gamificationApi'
 import { publishMeNotices } from '../../lib/gamification/xpEvents'
 import StudentChallenges from './StudentChallenges'
 import { ClassRankingSection, LeaderboardSection } from './SocialSections'
-import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
-import { getAccentPreference } from '../../lib/voiceSelection'
 import type { BadgeWallItem, GamificationOverview, WeekHistoryItem } from '../../lib/gamification/types'
 import BadgeMedal from './BadgeMedal'
 import GamificationSummary, { badgeName } from './GamificationSummary'
+import WisdomCollection from './WisdomCollection'
 
 function useDateFormats() {
   const { lang } = useLanguage()
@@ -47,7 +45,7 @@ export function useGamificationOverview(): { data: GamificationOverview | null; 
   return { data, error }
 }
 
-/** The summary block (first on the page): the same format the teacher sees. */
+/** The unlocked proverbs, then the summary block (first on the page): the same format the teacher sees. */
 export function GamificationSummaryCard({ data, error }: { data: GamificationOverview | null; error: boolean }) {
   const C = useMyProgressCopy()
   if (error) {
@@ -58,7 +56,12 @@ export function GamificationSummaryCard({ data, error }: { data: GamificationOve
     )
   }
   if (!data) return null
-  return <GamificationSummary me={data.me} xpBySection={data.xpBySection} badges={data.badges.filter((b) => b.earned)} />
+  return (
+    <>
+      <WisdomCollection badges={data.badges} emptyText={C.gamWisdomEmpty} />
+      <GamificationSummary me={data.me} xpBySection={data.xpBySection} badges={data.badges.filter((b) => b.earned)} />
+    </>
+  )
 }
 
 /**
@@ -168,11 +171,14 @@ function WeekHistory({ weeks }: { weeks: WeekHistoryItem[] }) {
   )
 }
 
+/**
+ * Every badge with its text in view, no hover or selection: when it was earned, how to earn
+ * it, or — for a hidden one — that it's a surprise. Unlocked proverbs are at the top of the page.
+ */
 function BadgeWall({ badges }: { badges: BadgeWallItem[] }) {
   const C = useMyProgressCopy()
+  const dates = useDateFormats()
   const { lang } = useLanguage()
-  const [selectedKey, setSelectedKey] = useState<string | null>(null)
-  const selected = badges.find((b) => b.key === selectedKey) ?? null
   const earnedCount = badges.filter((b) => b.earned).length
 
   return (
@@ -181,86 +187,30 @@ function BadgeWall({ badges }: { badges: BadgeWallItem[] }) {
         <h3 className="text-base font-semibold text-foreground">{C.gamBadgesHeading}</h3>
         <p className="text-sm text-muted-foreground">{C.gamBadgesCount(earnedCount, badges.length)}</p>
       </div>
-      <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2">
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2">
         {badges.map((b) => {
-          const isSelected = b.key === selectedKey
+          const secret = b.nameHu === null
+          const note = secret
+            ? C.gamBadgeHiddenText
+            : b.earned
+              ? b.earnedAt && C.gamBadgeEarnedOn(dates.short.format(new Date(b.earnedAt)))
+              : lang === 'hu'
+                ? b.criteriaHu
+                : b.criteriaEn
           return (
-            <li key={b.key}>
-              <button
-                type="button"
-                aria-pressed={isSelected}
-                onClick={() => setSelectedKey(isSelected ? null : b.key)}
-                onMouseEnter={() => setSelectedKey(b.key)}
-                onFocus={() => setSelectedKey(b.key)}
-                className={`flex h-full w-full flex-col items-center gap-2 rounded-lg border px-2 py-3 text-center hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                  isSelected ? 'border-[var(--teal-accent)] bg-secondary' : 'border-transparent'
-                }`}
-              >
-                <BadgeMedal icon={b.icon} earned={b.earned} />
-                <span className={`text-xs leading-tight ${b.earned ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
-                  {badgeName(b, lang) ?? C.gamBadgeHiddenName}
-                </span>
-              </button>
+            <li
+              key={b.key}
+              className={`flex flex-col items-center gap-2 rounded-lg px-2 py-3 text-center ${b.earned ? 'bg-secondary' : ''}`}
+            >
+              <BadgeMedal icon={b.icon} earned={b.earned} />
+              <span className={`text-sm leading-tight ${b.earned ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
+                {badgeName(b, lang) ?? C.gamBadgeHiddenName}
+              </span>
+              {note && <span className="text-xs leading-snug text-muted-foreground">{note}</span>}
             </li>
           )
         })}
       </ul>
-      {selected ? <BadgeDetail badge={selected} /> : <p className="text-sm text-muted-foreground">{C.gamBadgesHint}</p>}
-    </div>
-  )
-}
-
-/** The wisdom card: the badge, how to earn it or when it was earned, and — once earned — its proverb. */
-function BadgeDetail({ badge }: { badge: BadgeWallItem }) {
-  const C = useMyProgressCopy()
-  const dates = useDateFormats()
-  const { lang } = useLanguage()
-  const synth = useSpeechSynthesis('female', getAccentPreference())
-  const secret = badge.nameHu === null
-
-  return (
-    <div aria-live="polite" className="flex items-start gap-4 rounded-lg bg-secondary p-4">
-      <BadgeMedal icon={badge.icon} earned={badge.earned} size="lg" />
-      <div className="min-w-0 space-y-1">
-        <p className="text-base font-semibold text-foreground">{badgeName(badge, lang) ?? C.gamBadgeHiddenName}</p>
-        {secret ? (
-          <p className="text-sm text-muted-foreground">{C.gamBadgeHiddenText}</p>
-        ) : badge.earned ? (
-          <>
-            {badge.earnedAt && (
-              <p className="text-sm text-muted-foreground">{C.gamBadgeEarnedOn(dates.long.format(new Date(badge.earnedAt)))}</p>
-            )}
-            {badge.wisdom && (
-              <div className="pt-2">
-                <div className="flex items-start gap-2">
-                  <p className="text-base italic text-foreground" lang={badge.wisdom.language}>
-                    {badge.wisdom.text}
-                  </p>
-                  {synth.supported && badge.wisdom.language === 'en' && (
-                    <button
-                      type="button"
-                      onClick={() => synth.speak(badge.wisdom!.text)}
-                      aria-label={C.gamListen}
-                      className="shrink-0 rounded-full p-1 text-primary hover:bg-card"
-                    >
-                      <Volume2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-                {lang === 'hu' && (
-                  <p className="text-base text-muted-foreground" lang="hu">
-                    {badge.wisdom.hungarian}
-                  </p>
-                )}
-              </div>
-            )}
-          </>
-        ) : (
-          <p className="text-sm text-foreground">
-            <span className="text-muted-foreground">{C.gamBadgeHowTo}</span> {lang === 'hu' ? badge.criteriaHu : badge.criteriaEn}
-          </p>
-        )}
-      </div>
     </div>
   )
 }

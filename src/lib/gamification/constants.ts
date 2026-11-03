@@ -42,6 +42,8 @@ export const GAME_MAX_WORDS_PER_AWARD = 25
 export const SRS_REVIEW_LOOKBACK_HOURS = 12
 /** A writing task counts as done (effort XP; writing isn't graded) at this many words. */
 export const EXAM_WRITING_MIN_WORDS_FOR_XP = 20
+/** A speaking exam task counts as done (10 XP, exam-prep.speaking_task) at this many learner turns. */
+export const SPEAKING_MIN_TURNS_FOR_XP = 3
 
 /** Calendar days and weeks for caps, active days and streaks. SQL copies: every gamification function. */
 export const GAMIFICATION_TIMEZONE = 'Europe/Budapest'

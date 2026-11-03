@@ -9,6 +9,7 @@ export function sectionName(section: string, lang: Lang, C: MyProgressCopy): str
   if (section === 'teacher') return C.gamSectionTeacher
   if (section === 'challenge') return C.gamSectionChallenge
   if (section === 'courses') return C.gamSectionCourses
+  if (section === 'tests') return C.gamSectionTests
   const feature = getFeature(section)
   return feature ? localizeFeature(lang, feature).title : section
 }
@@ -80,11 +81,7 @@ export default function GamificationSummary({
         ) : (
           <ul className="flex flex-wrap gap-2">
             {badges.map((b) => (
-              <li
-                key={b.key}
-                className="flex items-center gap-2 rounded-full border border-border py-1 pl-1 pr-3"
-                title={(lang === 'hu' ? b.criteriaHu : b.criteriaEn) ?? undefined}
-              >
+              <li key={b.key} className="flex items-center gap-2 rounded-full border border-border py-1 pl-1 pr-3">
                 <BadgeMedal icon={b.icon} earned size="sm" />
                 <span className="text-sm text-foreground">{badgeName(b, lang)}</span>
               </li>

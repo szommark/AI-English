@@ -3,10 +3,12 @@ import { fetchStudentGamification, giveTeacherBonus } from '../../lib/gamificati
 import { TEACHER_BONUS_REASON_MAX, TEACHER_BONUS_REASON_MIN, TEACHER_BONUS_WEEKLY_CAP } from '../../lib/gamification/constants'
 import type { StudentGamification } from '../../lib/gamification/types'
 import GamificationSummary from './GamificationSummary'
+import WisdomCollection from './WisdomCollection'
 
 /**
  * Teacher's view of one connected student's gamification (design §7.1) and the bonus XP
- * form (§7.2). The summary is the same block the student sees first on "Az én fejlődésem"
+ * form (§7.2). The unlocked proverbs (when there are any) and the summary are the same
+ * blocks the student sees first on "Az én fejlődésem"
  * (in the UI language); the bonus form is English, like the teacher pages. Loads on its own
  * so a failure here never hides the rest of the student page.
  */
@@ -34,9 +36,12 @@ export default function StudentGamificationCard({ studentId }: { studentId: stri
   if (!data) return null
 
   return (
-    <GamificationSummary me={data.me} xpBySection={data.xpBySection} badges={data.badges}>
-      <BonusForm studentId={studentId} data={data} onGiven={setData} />
-    </GamificationSummary>
+    <>
+      <WisdomCollection badges={data.badges} />
+      <GamificationSummary me={data.me} xpBySection={data.xpBySection} badges={data.badges}>
+        <BonusForm studentId={studentId} data={data} onGiven={setData} />
+      </GamificationSummary>
+    </>
   )
 }
 

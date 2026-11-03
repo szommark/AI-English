@@ -1,9 +1,16 @@
 # AI-English — Gamification System Design
 
-**Status:** v2.6 — all five phases built; per-word Vocabulary XP and per-task Exam Prep XP added
+**Status:** v2.7 — all five phases built; per-word Vocabulary XP and per-task Exam Prep XP added; revamp for the features built since (proverbs at the top of the progress page, 15 new badges)
 **Audience:** 40+ Hungarian learners of English (and, through Exam Prep, some German learners and érettségi candidates of any age, including minors — see §8.3)
 **Scope:** XP, levels, consistency (weekly goal + streaks), badges, teacher tools, social layer
 **Out of scope:** Implementation. That is handed to Claude Code in phase prompts after this doc is agreed.
+
+### Changes in v2.7
+
+- **Proverbs are shown, not hovered:** every unlocked proverb (one per earned badge, newest first, with its badge and date) is the first card on "Az én fejlődésem" and on the teacher's student page. The badge wall shows each badge's text in place — earned date, how to earn it, or "hidden" — with no hover, selection or detail pane; the summary chips lost their tooltip.
+- **XP for newer features:** a speaking exam assessment pays 10 XP per task with 3+ learner turns + up to 5 by the AI's estimate (exam cap group, retakes no bonus); a finished Word list / Conversation shadowing run pays 10 + up to 5 by Azure's average (60/day, browser-completed); a handed-in comprehension test pays 20 + up to 10 by its score (once per assignment, area "Tests").
+- **15 new badges** (§6.1), each with its own proverb: Grammar Coach (first lesson, 25 lessons, all 14 tense reviews); mini courses (first unit, first course finished); speaking exam (first assessed task); shadowing (1 and 10 sets); comprehension tests (1 and 5); GROW goals (first goal set, first milestone, goal reached); hidden Bug hunter (a report marked fixed) and All-rounder (XP in 6 different areas).
+- Lyrics gap-fill has no student side (print and class mode only), so it earns nothing.
 
 ### Changes in v2.6
 
