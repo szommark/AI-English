@@ -13,10 +13,11 @@ export default function BottomBar({
 }: {
   muted: boolean
   micDisabled: boolean
-  endDisabled: boolean
+  endDisabled?: boolean
   textDisabled: boolean
   onToggleMute: () => void
-  onEnd: () => void
+  /** Left out where the session ends by itself (Conversational English scenarios). */
+  onEnd?: () => void
   onSubmitText: (text: string) => void
   onTypingFocusChange: (focused: boolean) => void
 }) {
@@ -44,15 +45,17 @@ export default function BottomBar({
         {muted ? <MicOff size={18} /> : <Mic size={18} />}
       </button>
 
-      <button
-        type="button"
-        aria-label="End session"
-        onClick={onEnd}
-        disabled={endDisabled}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40"
-      >
-        <X size={16} />
-      </button>
+      {onEnd && (
+        <button
+          type="button"
+          aria-label="End session"
+          onClick={onEnd}
+          disabled={endDisabled}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-40"
+        >
+          <X size={16} />
+        </button>
+      )}
 
       <form onSubmit={handleSubmit} className="flex flex-1 items-center gap-2">
         <input
