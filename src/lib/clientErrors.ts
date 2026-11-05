@@ -1,5 +1,6 @@
 import { CLIENT_ERROR_LIMITS, type ClientErrorItem, type ClientErrorKind } from './feedback'
 import { describeBrowser } from './feedbackContext'
+import { isChunkLoadError, staleChunkReloadPending } from './staleChunkReload'
 
 // Automatic crash capture: uncaught errors, unhandled promise rejections and React render crashes
 // (CrashBoundary) are batched and posted silently to /api/connect?action=client-errors, where the
@@ -52,6 +53,8 @@ function describe(error: unknown): { message: string; stack: string } {
 export function reportClientError(kind: ClientErrorKind, error: unknown, extraStack?: string) {
   const { message, stack } = describe(error)
   if (!message.trim() || IGNORED_MESSAGES.some((re) => re.test(message)) || EXTENSION_FRAME.test(stack)) return
+  // A chunk from the previous deploy: the page is already reloading onto the current build.
+  if (staleChunkReloadPending() && isChunkLoadError(error)) return
   // A fetch failing while offline is the network, not a bug.
   if (!navigator.onLine && /fetch|network|load failed/i.test(message)) return
 
