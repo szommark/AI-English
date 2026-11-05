@@ -2,14 +2,9 @@ import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { useLanguage } from '../../lib/i18n'
 import { reportClientError } from '../../lib/clientErrors'
 import { describeValue, logFeedbackError } from '../../lib/feedbackContext'
+import { isChunkLoadError } from '../../lib/staleChunkReload'
 
-/** A lazy page chunk that no longer exists — usually a deploy happened while the tab was open. */
-export function isChunkLoadError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error)
-  return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(
-    message,
-  )
-}
+export { isChunkLoadError }
 
 interface Props {
   children: ReactNode

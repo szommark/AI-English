@@ -7,6 +7,25 @@
 const RELOAD_GUARD_MS = 30_000
 const STORAGE_KEY = 'avalon:chunk-reload-at'
 
+/** A lazy chunk that no longer exists — usually a deploy happened while the tab was open. */
+export function isChunkLoadError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(
+    message,
+  )
+}
+
+let reloading = false
+
+/**
+ * True once this page has started the recovery reload. The failed import still reaches its
+ * caller (CrashBoundary, unhandledrejection) right after; crash capture skips it then, because
+ * the reload fixes it. Only a failure the guard lets through (reload didn't help) is recorded.
+ */
+export function staleChunkReloadPending(): boolean {
+  return reloading
+}
+
 function reloadAllowed(): boolean {
   try {
     const last = Number(sessionStorage.getItem(STORAGE_KEY) ?? 0)
@@ -26,7 +45,10 @@ function install() {
   installed = true
   window.addEventListener('vite:preloadError', () => {
     // The error still reaches the caller; the reload replaces the page right after.
-    if (reloadAllowed()) window.location.reload()
+    if (reloadAllowed()) {
+      reloading = true
+      window.location.reload()
+    }
   })
 }
 
