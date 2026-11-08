@@ -1,4 +1,4 @@
-import { GAP, matchesAnswer, matchesGap, sentenceTiles } from './grammarExercises.js'
+import { finalPunctuation, GAP, matchesAnswer, matchesGap, normalizeAnswer, sentenceTiles } from './grammarExercises.js'
 import { getGrammarItem } from '../data/grammarCurriculum.js'
 
 // Mini courses (Teacher Toolkit, /teacher/tools/courses; students /my-courses). A course is 1–4
@@ -379,6 +379,78 @@ export function sanitizeWord(raw: unknown): CourseWord {
   return word
 }
 
+/** The instruction an order step gets when its own prompt would give the answer away. */
+export const ORDER_PROMPT = 'Put the words in order.'
+
+/** How many of the answer's tiles in a row, in solution order, give the answer away. */
+const LEAK_RUN = 3
+
+/** A word of a prompt or a tile, compared without case and surrounding punctuation. */
+const leakWord = (w: string) =>
+  w
+    .toLowerCase()
+    .replace(/[‘’`]/g, "'")
+    .replace(/^[^\p{L}\p{N}']+|[^\p{L}\p{N}']+$/gu, '')
+
+/**
+ * True when an order step's prompt gives its solution away: it has LEAK_RUN or more of the
+ * answer's tiles in solution order (separated by "/", "|", "," or spaces), or it lists the tiles
+ * themselves ("edges / the / sealant / …", in any order).
+ */
+export function orderPromptLeaks(prompt: string, answer: string): boolean {
+  const tiles = sentenceTiles(answer).map(leakWord).filter(Boolean)
+  const words = prompt.split(/[\s/|,]+/).map(leakWord).filter(Boolean)
+  const run = Math.min(LEAK_RUN, tiles.length)
+  if (run === 0) return false
+  for (let i = 0; i + run <= tiles.length; i++) {
+    for (let j = 0; j + run <= words.length; j++) {
+      let k = 0
+      while (k < run && words[j + k] === tiles[i + k]) k++
+      if (k === run) return true
+    }
+  }
+  // A list of tiles: items split by "/" or "|" that are the answer's words (the first item may
+  // start with an instruction, "Arrange: The", so only its last word counts).
+  const items = prompt.split(/[/|]/)
+  if (items.length < run) return false
+  const own = new Set(tiles)
+  const tileItems = items.filter((item, i) => {
+    const ws = item.split(/[\s,]+/).map(leakWord).filter(Boolean)
+    const check = i === 0 ? ws.slice(-1) : ws
+    return check.length > 0 && check.every((w) => own.has(w))
+  })
+  return tileItems.length >= run
+}
+
+/**
+ * True when the step shows its own solution: an order prompt with the words in order (see
+ * orderPromptLeaks), a gap whose sentence already has the answer outside the gap, or a choice
+ * whose prompt quotes the right option (of two or more words) and no other.
+ */
+export function stepLeaksAnswer(step: CourseStep): boolean {
+  const has = (text: string, phrase: string) => {
+    const p = normalizeAnswer(phrase)
+    return p.length >= 3 && ` ${normalizeAnswer(text).replace(/[^\p{L}\p{N}' ]+/gu, ' ')} `.replace(/\s+/g, ' ').includes(` ${p} `)
+  }
+  switch (step.type) {
+    case 'order':
+      return orderPromptLeaks(step.prompt, step.answer)
+    case 'gap':
+      return step.accepted.some((a) => has(step.sentence.replace(GAP, ' '), a))
+    case 'choice': {
+      const right = step.options[step.answer] ?? ''
+      return right.trim().split(/\s+/).length >= 2 && has(step.prompt, right) && !step.options.some((o, i) => i !== step.answer && has(step.prompt, o))
+    }
+    default:
+      return false
+  }
+}
+
+/** A flag note (in any of the app's languages) that says the solution can be seen. */
+export function isVisibleSolutionNote(note: string): boolean {
+  return /l[aá]tsz(ik|anak)|l[aá]that[oó]|megold[aá]s.{0,30}(ott|benne|ki van)|ki van [ií]rva|el[aá]rul|(solution|answer|key).{0,30}(visible|shown|given|there|obvious)|gives? (it|the answer|the solution) away|(lösung|antwort).{0,30}(sichtbar|zu sehen|steht|verraten)|verr[aä]t/i.test(note)
+}
+
 /** The tiles of an order sentence, for comparing two orders of the same words. */
 const tileKey = (sentence: string) =>
   sentenceTiles(sentence)
@@ -443,7 +515,9 @@ function sanitizeStep(raw: unknown): CourseStep {
             .filter((a) => a && tileKey(a) === key && sentenceTiles(a).join(' ').toLowerCase() !== own),
         ),
       ].slice(0, MAX_ACCEPTED)
-      return { id, type: 'order', prompt: str(s.prompt, STEP_TEXT_MAX, 'prompt'), answer, ...(alternatives.length ? { alternatives } : {}), ...(explain ? { explain } : {}) }
+      // The app shows the shuffled tiles: a prompt that lists them in order gives the answer away.
+      const prompt = str(s.prompt, STEP_TEXT_MAX, 'prompt')
+      return { id, type: 'order', prompt: orderPromptLeaks(prompt, answer) ? ORDER_PROMPT : prompt, answer, ...(alternatives.length ? { alternatives } : {}), ...(explain ? { explain } : {}) }
     }
     case 'listen':
       return { id, type: 'listen' }
@@ -700,20 +774,92 @@ export function sameStep(a: CourseStep, b: CourseStep): boolean {
   return canonical({ ...a, id: '' }) === canonical({ ...b, id: '' })
 }
 
-/** One line describing an exercise, for the teacher's list of AI fixes. */
-export function stepSummary(step: CourseStep): string {
+const oneLine = (s: string | undefined) => (s ?? '').replace(/\s+/g, ' ').trim()
+
+/**
+ * What the learner meets in an exercise, as one comparable string: what is shown, and what is
+ * accepted as the learner's answer would be matched (so a comma in an alternative, or the order
+ * of the accepted answers, is no change).
+ */
+export function learnerView(step: CourseStep): string {
+  switch (step.type) {
+    case 'order':
+      return canonical({
+        prompt: oneLine(step.prompt),
+        tiles: sentenceTiles(step.answer),
+        end: finalPunctuation(step.answer),
+        accepted: [...new Set([step.answer, ...(step.alternatives ?? [])].map((s) => sentenceTiles(s).join(' ').toLowerCase()))].sort(),
+        explain: oneLine(step.explain),
+      })
+    case 'gap':
+      return canonical({
+        sentence: oneLine(step.sentence),
+        accepted: [...new Set(step.accepted.map(normalizeAnswer))].sort(),
+        options: (step.options ?? []).map(oneLine),
+        explain: oneLine(step.explain),
+        maxWords: step.maxWords ?? 0,
+      })
+    case 'choice':
+      return canonical({ prompt: oneLine(step.prompt), options: step.options.map(oneLine), answer: step.answer, explain: oneLine(step.explain), quote: oneLine(step.quote) })
+    case 'match':
+      return canonical({ prompt: oneLine(step.prompt), pairs: step.pairs.map((p) => [oneLine(p.left), oneLine(p.right)]) })
+    default:
+      return canonical({ ...step, id: '' })
+  }
+}
+
+/** The fix changed something the learner sees or something about which answers count. */
+export function changesForLearner(before: CourseStep, after: CourseStep): boolean {
+  return before.type !== after.type || learnerView(before) !== learnerView(after)
+}
+
+/** One labelled part of an exercise, for the teacher's before/after view. */
+export interface StepPart {
+  label: 'prompt' | 'sentence' | 'options' | 'answer' | 'accepted' | 'alternatives' | 'pairs' | 'explain' | 'quote'
+  text: string
+}
+
+/** The learner-relevant parts of an exercise, in display order (empty ones left out). */
+export function stepParts(step: CourseStep): StepPart[] {
+  const parts: StepPart[] = []
+  const add = (label: StepPart['label'], text: string | undefined) => {
+    if (text && text.trim()) parts.push({ label, text: text.trim() })
+  }
   switch (step.type) {
     case 'choice':
-      return `${step.prompt} — ${step.options.map((o, i) => (i === step.answer ? `[${o}]` : o)).join(' / ')}`
+      add('prompt', step.prompt)
+      add('quote', step.quote)
+      add('options', step.options.map((o, i) => (i === step.answer ? `[${o}]` : o)).join(' / '))
+      add('explain', step.explain)
+      break
     case 'gap':
-      return `${step.sentence} — ${step.accepted.join(' | ')}${step.options ? ` (${step.options.join(', ')})` : ''}`
+      add('sentence', step.sentence)
+      add('accepted', step.accepted.join(' | '))
+      add('options', step.options?.join(', '))
+      add('explain', step.explain)
+      break
     case 'match':
-      return `${step.prompt} — ${step.pairs.map((p) => `${p.left} → ${p.right}`).join('; ')}`
+      add('prompt', step.prompt)
+      add('pairs', step.pairs.map((p) => `${p.left} → ${p.right}`).join('; '))
+      break
     case 'order':
-      return `${step.prompt} — ${step.answer}`
+      add('prompt', step.prompt)
+      add('answer', step.answer)
+      add('alternatives', step.alternatives?.join(' | '))
+      add('explain', step.explain)
+      break
     default:
-      return step.type
+      break
   }
+  return parts
+}
+
+/** One line describing an exercise, for the teacher's list of AI fixes and flag reports. */
+export function stepSummary(step: CourseStep): string {
+  const parts = stepParts(step)
+  if (parts.length === 0) return step.type
+  const [first, ...rest] = parts
+  return [first.text, ...rest.map((p) => (p.label === 'alternatives' ? `also: ${p.text}` : p.label === 'explain' ? `(${p.text})` : p.text))].join(' — ')
 }
 
 /** A stable shuffle (the same order on every reload), seeded by a string. */
@@ -941,6 +1087,8 @@ export interface CourseGenRule {
 export interface FlagResult {
   /** A teacher's preview flag: saved for "Fix flagged items", not checked yet. */
   saved?: boolean
+  /** The AI could not fix it in a way the learner would see: the teacher will look at it. */
+  unresolved?: boolean
   /** Whether the exercise was really wrong (and is now fixed). */
   wrong: boolean
   /** Short explanation in the course's explanation language. */
@@ -960,7 +1108,8 @@ export interface CourseItemFix {
   stepBefore: CourseStep
   stepAfter: CourseStep | null
   verdict: string
-  status: 'fixed' | 'kept' | 'undone'
+  /** unresolved: the AI's fix changed nothing the learner sees, so the teacher has to look at it. */
+  status: 'fixed' | 'kept' | 'undone' | 'unresolved'
   seen: boolean
   createdAt: string
 }

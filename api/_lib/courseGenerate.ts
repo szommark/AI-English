@@ -8,6 +8,7 @@ import { GAP } from '../../src/lib/grammarExercises.js'
 import {
   CourseValidationError,
   LISTENING_WORDS,
+  ORDER_PROMPT,
   READING_WORDS,
   ROLEPLAY_TURNS,
   SPEAKING_SECONDS,
@@ -187,7 +188,7 @@ const STEP_SCHEMA = [
   '- { "type": "choice", "prompt", "options": [2–4 strings], "answer": the index (0-based) of the right option, "explain": one short sentence why }',
   `- { "type": "gap", "sentence": one or two sentences with exactly one gap written as ${GAP}, "accepted": [the right answer, plus up to 2 equally correct variants], "options": [3–4 words or phrases to choose from, including the answer] (omit "options" for a typed answer), "explain": one short sentence }`,
   '- { "type": "match", "prompt", "pairs": [{ "left", "right" }, …] }: 4–6 pairs; every right item different.',
-  '- { "type": "order", "prompt", "answer": one correct sentence of 4–10 words, "alternatives": [every OTHER correct order of exactly the same words, e.g. with a time phrase or adverb moved; [] if there is none] } (the app shuffles the words into tiles and accepts the answer and every alternative).',
+  `- { "type": "order", "prompt": a short instruction only, e.g. "${ORDER_PROMPT}" or "Make a question." — never list, repeat or hint the words or their order (the app shows the shuffled tiles), "answer": one correct sentence of 4–10 words, "alternatives": [every OTHER correct order of exactly the same words, e.g. with a time phrase or adverb moved; [] if there is none] } (the app shuffles the words into tiles and accepts the answer and every alternative).`,
   '- { "type": "write", "prompt": the writing task (who to, why, what to include), "minWords", "maxWords", "model": a model answer within the word range, "targets": 3–5 of the unit\'s words to use }',
   '- { "type": "speak", "botName": who asks (a role, e.g. "Receptionist"), "botLine": the ONE question that person asks the learner, spoken by the Tutor Bot, "prompt": one line telling the learner what to include in their answer, "seconds": how long to talk, "model": a model answer, "targets": 3–5 of the unit\'s words to use }: a one-exchange speaking task with the Tutor Bot.',
   '- { "type": "roleplay", "situation", "botName", "botRole", "opening", "goals": [...], "turns", "targets": [...] }: a live spoken conversation with the Tutor Bot.',
@@ -196,7 +197,8 @@ const STEP_SCHEMA = [
   `DIALOGUE ITEMS: when an item is a short exchange, each line is a different person and the second line answers the first; label lines with roles ("Seller:", "You:"), not "A:"/"B:".`,
   `GAP RULES: every gap sentence gives enough context (a second clause, or a short lead-in sentence or line of dialogue) that only ONE answer fits; never a bare sentence where several of the words would make sense. In a gap with "options", the wrong options are the same word class as the answer but clearly wrong in this context: never synonyms or near-synonyms of the answer (e.g. not "twinkle" next to "flash"), never words that would also make a correct, natural sentence. A typed gap lists every correct answer in "accepted".`,
   'CHOICE RULES: exactly one option is defensible; the others are clearly wrong for a reason the learner can see, never just less common.',
-  'EXERCISE BLOCKS (where this module asks for them): each block is ONE exercise type with at least 3 items, and starts with its own info step titled "Exercise N: <what to do>" whose body is a one-line instruction in English, a blank line, then "Example:" and one worked example with the answer shown as ==answer==. Never mix types inside a block.',
+  'NO GIVEAWAYS: an exercise never shows its own answer — an order prompt never contains the sentence or its words, a gap sentence never has the answer elsewhere in it (also not in a dialogue line before the gap), and a choice prompt never quotes the right option.',
+  'EXERCISE BLOCKS (where this module asks for them): each block is ONE exercise type with at least 3 items, and starts with its own info step titled "Exercise N: <what to do>" whose body is a one-line instruction in English, a blank line, then "Example:" and one worked example with the answer shown as ==answer== (the example is never one of the block\'s items). Never mix types inside a block.',
 ]
 
 /** The picture each module gets: a description for the image generator. */
@@ -764,7 +766,15 @@ export interface FlagReviewInput {
   learnerAnswer: unknown
   /** The module's text, when the exercise is about it. */
   passage: ModulePassage | null
+  /** Second try: the first fix changed nothing the learner can see. */
+  strict?: boolean
 }
+
+/** Both fix prompts: a visible solution is fixed where the learner sees it. */
+const VISIBLE_SOLUTION_RULE = `When the problem is that the solution can be seen (e.g. an order step whose prompt lists or repeats the words, a gap sentence that already contains the answer, a choice prompt that quotes the right option), fix what the learner sees: rewrite an order prompt as a neutral instruction ("${ORDER_PROMPT}") — an order prompt never lists, repeats or hints the words or their order, because the app shows the shuffled tiles — and rebuild a gap or choice so nothing gives the answer away. Changing only punctuation, the "alternatives" or the order of the accepted answers never fixes a problem the learner can see.`
+
+/** Added on the second try, when the first fix changed nothing the learner can see. */
+const STRICT_RETRY = 'Your first attempt changed nothing the learner can see (only hidden fields such as "alternatives", or punctuation). This time change what the learner sees so the problem is really solved.'
 
 export interface FlagReview {
   wrong: boolean
@@ -794,6 +804,8 @@ export async function reviewFlag(input: FlagReviewInput, userId: string): Promis
     `You check an exercise from an English course (CEFR ${input.level}) that a learner flagged: ${FLAG_REASON_TEXT[input.reason]}.`,
     'Decide honestly. It is WRONG when: the key is incorrect; another answer is equally correct but not accepted (then add it to "accepted", or fix the options so only one is right); two options are right; the prompt is ambiguous or unclear; there is a typo or a grammar mistake in it; a short dialogue does not make sense (the second line is not a reply by a different person). It is NOT wrong just because the learner made a mistake.',
     'When it is wrong, return the corrected exercise in the SAME JSON shape and type. If it is built wrong (a dialogue that does not work, an answer that cannot follow from the sentence), rebuild it as a new working item on the same word or phrase; otherwise change as little as possible (for a gap keep exactly one ___; "answer" of a choice is the 0-based index of the right option). A gap answer that is correct and fits the sentence must be accepted. When several options fit, add context to the sentence or replace the extra option with one that clearly does not fit. A correct word order the learner built must be added to the order step\'s "alternatives".',
+    VISIBLE_SOLUTION_RULE,
+    ...(input.strict ? [STRICT_RETRY] : []),
     `Reply with ONE JSON object: { "wrong": true | false, "explanation": 1–2 short sentences to the learner in ${LANG_NAME[input.explainLang]}, "fixed": the corrected exercise, or null when it is not wrong }`,
   ].join('\n')
   const { id: _id, ...exercise } = input.step
@@ -851,6 +863,8 @@ export interface FlaggedItemsInput {
   /** The module's text, when its exercises are about it. */
   passage: ModulePassage | null
   items: { step: Step; reason: FlagReason; note: string }[]
+  /** Second try for items whose first fix changed nothing the learner can see (not counted as a generation). */
+  strict?: boolean
 }
 
 /**
@@ -864,6 +878,8 @@ export async function fixFlaggedItems(input: FlaggedItemsInput, userId: string):
     'Correct every item along the teacher\'s reason and note. First decide whether the item is BUILT wrong — e.g. a dialogue whose second line is not a reply by a different person, a gap whose answer cannot follow from the sentence, or options that do not work as the missing part. If so, REBUILD it: write a new, working item that practises the same word or phrase (patching the options is not enough). Otherwise change as little as possible and keep everything that is fine.',
     'In a short exchange each line is a different person and the second line answers the first; label lines with roles ("Seller:", "You:"), and put the gap in the reply. Keep the same exercise type and JSON shape (a gap keeps exactly one ___; "answer" of a choice is the 0-based index of the right option; an order step lists other correct word orders in "alternatives").',
     'When more than one answer fits: add context to the sentence (a second clause or a short lead-in line) or replace the extra option with one of the same word class that clearly does not fit — never synonyms as options. A correct answer the teacher mentions must be accepted.',
+    VISIBLE_SOLUTION_RULE,
+    ...(input.strict ? [STRICT_RETRY] : []),
     `Reply with ONE JSON object: { "items": [ { "n": the item number, "fixed": the corrected exercise, "explanation": one short sentence in ${LANG_NAME[input.explainLang]} on what you changed } ] } with one entry per item.`,
   ].join('\n')
   const user = JSON.stringify({
@@ -887,5 +903,5 @@ export async function fixFlaggedItems(input: FlaggedItemsInput, userId: string):
       }
     }
     return out
-  })
+  }, input.strict ? FIX_CALL_TYPE : COURSE_CALL_TYPE)
 }

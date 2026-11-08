@@ -59,7 +59,7 @@ export default function FlagButton(props: Props) {
   if (result)
     return (
       <p role="status" className={`rounded-lg p-2.5 text-sm ${result.wrong ? 'bg-[var(--teal-accent-soft)] text-foreground' : 'bg-secondary text-foreground'}`}>
-        {!result.saved && <span className="font-semibold">{result.wrong ? c('flagFixed') : c('flagKept')}</span>} {result.explanation}
+        {!result.saved && <span className="font-semibold">{result.wrong ? c('flagFixed') : result.unresolved ? c('flagUnresolved') : c('flagKept')}</span>} {result.explanation}
       </p>
     )
 

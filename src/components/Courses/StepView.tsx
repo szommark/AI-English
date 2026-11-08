@@ -6,7 +6,7 @@ import RoleplayStep from './RoleplayStep'
 import SpeakStep from './SpeakStep'
 import { useCourseCopy } from '../../data/courseCopy'
 import { GAP } from '../../lib/grammarExercises'
-import { OPEN_MAX, countWords, isOpenAnswer, orderTiles, seededShuffle, stepScore, type CourseStep, type CourseWord, type ModulePassage, type OpenAnswer, type RoleplayLine, type StepAnswer } from '../../lib/courses'
+import { OPEN_MAX, ORDER_PROMPT, countWords, orderPromptLeaks, isOpenAnswer, orderTiles, seededShuffle, stepScore, type CourseStep, type CourseWord, type ModulePassage, type OpenAnswer, type RoleplayLine, type StepAnswer } from '../../lib/courses'
 
 interface Props {
   step: CourseStep
@@ -381,7 +381,8 @@ function OrderStep({ step, answer, onAnswer, checked, seed }: Props & { step: Ex
 
   return (
     <div className="space-y-4">
-      <Prompt text={step.prompt} />
+      {/* A stored prompt that lists the words in order would give the answer away. */}
+      <Prompt text={orderPromptLeaks(step.prompt, step.answer) ? ORDER_PROMPT : step.prompt} />
       <p className="text-sm text-muted-foreground">{c('orderHint')}</p>
       <div
         className={`flex min-h-[3.5rem] flex-wrap gap-2 rounded-xl border-2 border-dashed p-3 ${
