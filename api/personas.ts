@@ -1,14 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getUserFromRequest, supabaseAdmin } from './_lib/supabaseAdmin.js'
 import { getUserRole, type UserRole } from './_lib/roles.js'
-import { DEFAULT_MODEL_BY_FEATURE, isModelId, type ModelFeature } from '../src/lib/models.js'
+import { DEFAULT_MODEL_BY_FEATURE, isModelId, MODEL_FEATURES } from '../src/lib/models.js'
+import { availableModelIds } from './_lib/modelSettings.js'
 
 // Personas and model settings are multiplexed onto this single route (rather than
 // living at /api/admin/personas, /api/admin/personas/:id, /api/admin/model-settings)
 // to stay under Vercel Hobby's 12-serverless-function-per-deployment cap — see git
 // history for the split-file version this replaced.
-
-const MODEL_FEATURES: ModelFeature[] = ['rehearsal', 'grammarCoach', 'tutorBot', 'vocabulary']
 
 interface CreatePersonaBody {
   displayName: string
@@ -56,7 +55,8 @@ async function handleModelSettings(req: VercelRequest, res: VercelResponse, role
     }
     const byFeature = new Map((data ?? []).map((row) => [row.feature, row.model_id]))
     const settings = Object.fromEntries(MODEL_FEATURES.map((f) => [f, byFeature.get(f) ?? DEFAULT_MODEL_BY_FEATURE[f]]))
-    res.status(200).json({ settings })
+    // available: models whose provider key is set; the picker greys out the rest.
+    res.status(200).json({ settings, available: availableModelIds() })
     return
   }
 
@@ -64,9 +64,14 @@ async function handleModelSettings(req: VercelRequest, res: VercelResponse, role
     const body = req.body as Record<string, unknown>
     const updates = MODEL_FEATURES.filter((f) => body[f] !== undefined)
 
+    const available = new Set<string>(availableModelIds())
     for (const feature of updates) {
       if (!isModelId(body[feature])) {
         res.status(400).json({ error: `Invalid model for feature ${feature}` })
+        return
+      }
+      if (!available.has(body[feature] as string)) {
+        res.status(400).json({ error: `No API key is set for the model chosen for ${feature}` })
         return
       }
     }

@@ -121,7 +121,7 @@ export async function buildUsageSnapshot(): Promise<AdminUsageSnapshot> {
   if (pacificRes.error) throw pacificRes.error
   const pacificStart = new Date(pacificRes.data as string)
 
-  const [azureRes, checksRes, dbRes, manualRes, groqLimitRes, dayRows, pacificRows, minuteRows, geminiModels] = await Promise.all([
+  const [azureRes, checksRes, dbRes, manualRes, groqLimitRes, dayRows, pacificRows, minuteRows, geminiModels, monthRows] = await Promise.all([
     supabaseAdmin.from('azure_usage_monthly').select('total_seconds').eq('utc_month', utcMonth).maybeSingle(),
     supabaseAdmin
       .from('pronunciation_checks')
@@ -136,6 +136,7 @@ export async function buildUsageSnapshot(): Promise<AdminUsageSnapshot> {
     llmUsageSince(pacificStart),
     llmUsageSince(minuteAgo),
     selectedGeminiModelIds(),
+    llmUsageSince(monthStart),
   ])
   if (dbRes.error) throw dbRes.error
   const db = dbRes.data as DbSnapshot
@@ -232,6 +233,28 @@ export async function buildUsageSnapshot(): Promise<AdminUsageSnapshot> {
         id: `gemini.input_tokens_minute.${modelId}`, vendor: 'gemini', label: `${modelId} — input tokens per minute`,
         used: sum(minuteRows, 'prompt_tokens', match), limit: limits.inputTpm, unit: 'tokens', period: 'minute',
         source: 'measured', asOf: nowIso,
+      },
+    )
+  }
+
+  // Mistral, DeepSeek, Anthropic: no fixed free quota to compare against (see usageLimits.ts),
+  // so the meters show this app's own use with no limit.
+  const paidNotes: Record<'mistral' | 'deepseek' | 'anthropic', string> = {
+    mistral: 'Pay as you go. Spend and limits show in the Mistral console.',
+    deepseek: 'Pay as you go. A one-time sign-up grant, if any, shows in the DeepSeek console.',
+    anthropic: 'Pay as you go. The one-time starter credit and spend show on the Claude Console Billing page.',
+  }
+  for (const vendor of ['mistral', 'deepseek', 'anthropic'] as const) {
+    const isVendor = (r: LlmUsageRow) => r.provider === vendor
+    meters.push(
+      {
+        id: `${vendor}.requests_day`, vendor, label: 'Requests today', used: sum(dayRows, 'calls', isVendor),
+        limit: null, unit: 'requests', period: 'day', resetsAt: utcReset, source: 'measured', asOf: nowIso,
+      },
+      {
+        id: `${vendor}.tokens_month`, vendor, label: 'Tokens this month', used: sum(monthRows, 'total_tokens', isVendor),
+        limit: null, unit: 'tokens', period: 'month', resetsAt: nextMonthStart.toISOString(), source: 'measured', asOf: nowIso,
+        note: paidNotes[vendor],
       },
     )
   }

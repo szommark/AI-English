@@ -50,8 +50,23 @@ const VENDOR_CARDS: VendorCardConfig[] = [
     footnote: "Google's terms require Paid Services for apps serving users in the EEA, Switzerland or the UK. Requests-per-day limits differ by model (about 500 for 3.1 Flash-Lite, about 20 for the 3.5–3.8 Flash models) and reset at midnight Pacific time.",
   },
   {
-    vendor: 'groq', title: 'Groq', subtitle: 'Rehearsal and Grammar Coach · limits apply per organisation', plan: 'Free',
+    vendor: 'groq', title: 'Groq', subtitle: 'Default model for most features · limits apply per organisation', plan: 'Free',
     linkLabel: 'Open Groq limits', linkHref: 'https://console.groq.com/settings/limits',
+  },
+  {
+    vendor: 'mistral', title: 'Mistral', subtitle: 'Mistral Small, when selected in Model settings', plan: 'Pay as you go',
+    linkLabel: 'Open Mistral console', linkHref: 'https://console.mistral.ai/',
+    footnote: 'No free API plan: free accounts cover the chat app only. API keys need pay-as-you-go credits or a paid plan.',
+  },
+  {
+    vendor: 'deepseek', title: 'DeepSeek', subtitle: 'DeepSeek V4.1 Flash, when selected in Model settings', plan: 'Pay as you go',
+    linkLabel: 'Open DeepSeek console', linkHref: 'https://platform.deepseek.com/usage',
+    footnote: 'Requests are processed and stored in China; check this against the privacy notice before using it for learner data.',
+  },
+  {
+    vendor: 'anthropic', title: 'Anthropic Claude', subtitle: 'Claude Haiku 5.5 and Sonnet 5.5, when selected in Model settings', plan: 'Pay as you go',
+    linkLabel: 'Open Claude Console billing', linkHref: 'https://platform.claude.com/settings/billing',
+    footnote: 'No ongoing free tier: new Console accounts get a one-time starter credit. Set a monthly spend limit in the Console.',
   },
   {
     vendor: 'vercel', title: 'Vercel', subtitle: 'Hosting and serverless functions', plan: 'Hobby',

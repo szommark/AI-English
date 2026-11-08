@@ -3,7 +3,7 @@
 // cross-boundary pattern as models.ts). Free tiers only: no prices or budgets.
 // Limits as of 2026-09-20 — re-check the vendor consoles if a number looks off.
 
-export type UsageVendor = 'azure' | 'groq' | 'gemini' | 'supabase' | 'vercel'
+export type UsageVendor = 'azure' | 'groq' | 'gemini' | 'mistral' | 'deepseek' | 'anthropic' | 'supabase' | 'vercel'
 export type MeterSource = 'measured' | 'vendor_api' | 'manual' | 'build_time'
 export type MeterStatus = 'ok' | 'watch' | 'critical'
 export type MeterUnit = 'seconds' | 'tokens' | 'requests' | 'bytes' | 'count' | 'hours'
@@ -42,6 +42,14 @@ export const GEMINI_FREE_LIMITS: Record<string, { rpd: number | null; rpm: numbe
   'gemini-3.1-flash-lite': { rpd: 500, rpm: null, inputTpm: null },
   'gemini-3.7-flash': { rpd: 20, rpm: null, inputTpm: null },
 }
+/**
+ * Mistral, DeepSeek and Anthropic (added 2026-11-08) have no fixed free quota to meter against:
+ * - Mistral: pay as you go. Its free plan covers the chat app only; since late 2026 new free
+ *   accounts cannot create API keys.
+ * - DeepSeek: pay as you go; some new accounts get a one-time token grant (check the console).
+ * - Anthropic: pay as you go; new Console accounts get a one-time starter credit (about $5).
+ * Their meters therefore show this app's own token use with no limit.
+ */
 /** Gemini's requests-per-day quota resets at midnight in this zone (not UTC). */
 export const GEMINI_QUOTA_TIME_ZONE = 'America/Los_Angeles'
 

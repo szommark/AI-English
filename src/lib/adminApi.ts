@@ -99,12 +99,13 @@ export async function updateAdminPersona(id: string, input: UpdatePersonaInput):
 
 export type ModelSettings = Record<ModelFeature, ModelId>
 
-export async function fetchModelSettings(): Promise<ModelSettings> {
+/** The chosen model per feature, plus the models whose API key is set on the server. */
+export async function fetchModelSettings(): Promise<{ settings: ModelSettings; available: ModelId[] }> {
   const headers = await authHeader()
   const res = await fetch('/api/personas?resource=models', { headers })
   if (!res.ok) throw new Error('Failed to load model settings')
   const body = await res.json()
-  return body.settings
+  return { settings: body.settings, available: Array.isArray(body.available) ? body.available : [] }
 }
 
 export async function updateModelSettings(settings: Partial<ModelSettings>): Promise<void> {
@@ -114,7 +115,10 @@ export async function updateModelSettings(settings: Partial<ModelSettings>): Pro
     headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(settings),
   })
-  if (!res.ok) throw new Error('Failed to save model settings')
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(body?.error ?? 'Failed to save model settings')
+  }
 }
 
 // Usage snapshot and manual meter values are served from /api/admin/overview?resource=…

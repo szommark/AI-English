@@ -1,6 +1,6 @@
-import { callModel } from './modelRouter.js'
+import { attemptChain, callModel } from './modelRouter.js'
 import { logModelUsage } from './usageLog.js'
-import { EXAM_TASK_CALL_TYPE } from './examTaskGenerate.js'
+import { EXAM_TASK_CALL_TYPE, examTaskModel } from './examTaskGenerate.js'
 import type { SkippedSource, SourceCandidate, SourceProvider, SourceSearchResult, TopicShares } from '../../src/lib/examSources.js'
 import { levelSpec, looksEnvironmental, type ExamField, type ListeningFormat, type TaskLevel } from '../../src/lib/examTasks.js'
 
@@ -291,21 +291,8 @@ async function analyse(sources: Raw[], ctx: { topic: string; field: ExamField; l
       text: s.text.split(/\s+/).slice(0, ANALYSE_WORDS).join(' '),
     })),
   })
-  const attempts = [
-    {
-      modelId: 'groq-gpt-oss-120b' as const,
-      json: true,
-      maxTokens: 6000,
-      reasoningEffort: 'low' as const,
-      temperature: 0.2,
-    },
-    {
-      modelId: 'gemini-3.1-flash-lite' as const,
-      json: true,
-      maxTokens: 6000,
-      temperature: 0.2,
-    },
-  ]
+  // The exam task maker's model (admin setting), then its backup.
+  const attempts = attemptChain(await examTaskModel(), { maxTokens: 6000, temperature: 0.2, reasoningEffort: 'low' })
   for (const { modelId, ...options } of attempts) {
     if (Date.now() > deadline) break
     try {

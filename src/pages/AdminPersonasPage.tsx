@@ -8,13 +8,16 @@ import {
   type AdminPersona,
   type ModelSettings,
 } from '../lib/adminApi'
-import { MODEL_REGISTRY, type ModelFeature, type ModelId } from '../lib/models'
+import { MODEL_FEATURES, MODEL_REGISTRY, type ModelFeature, type ModelId } from '../lib/models'
 
-const FEATURE_LABELS: Record<ModelFeature, string> = {
-  rehearsal: 'Rehearsal',
-  grammarCoach: 'Grammar Coach',
-  tutorBot: 'Tutor Bot',
-  vocabulary: 'Vocabulary (enrichment)',
+const FEATURE_LABELS: Record<ModelFeature, { title: string; covers: string }> = {
+  rehearsal: { title: 'Rehearsal', covers: 'Scenario conversations and their feedback, learner profile updates' },
+  grammarCoach: { title: 'Grammar Coach', covers: 'Grammar lessons, written practice, Past · Present · Future game' },
+  tutorBot: { title: 'Tutor Bot', covers: 'Tutor Bot chat and feedback, speaking exam, mini course role-play' },
+  vocabulary: { title: 'Vocabulary', covers: 'Word enrichment, topic word lists, lyrics gap-fill suggestions' },
+  courses: { title: 'Mini courses', covers: 'Unit and module writing, gap check, answer marking, flag checks and fixes' },
+  examTasks: { title: 'Exam task maker', covers: 'Listening task writing and revising, web source finder analysis' },
+  compTests: { title: 'Comprehension tests', covers: 'Reading and listening test writing' },
 }
 
 function PersonaRow({ persona, onSaved }: { persona: AdminPersona; onSaved: (updated: AdminPersona) => void }) {
@@ -166,10 +169,17 @@ function AddPersonaForm({ onCreated }: { onCreated: (persona: AdminPersona) => v
 
 function ModelSettingsSection() {
   const [settings, setSettings] = useState<ModelSettings | null>(null)
+  const [available, setAvailable] = useState<Set<ModelId>>(new Set())
   const [saving, setSaving] = useState<ModelFeature | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchModelSettings().then(setSettings)
+    fetchModelSettings()
+      .then((r) => {
+        setSettings(r.settings)
+        setAvailable(new Set(r.available))
+      })
+      .catch(() => setError('Failed to load model settings.'))
   }, [])
 
   async function handleChange(feature: ModelFeature, modelId: ModelId) {
@@ -177,39 +187,56 @@ function ModelSettingsSection() {
     const previous = settings
     setSettings({ ...settings, [feature]: modelId })
     setSaving(feature)
+    setError(null)
     try {
       await updateModelSettings({ [feature]: modelId })
-    } catch {
+    } catch (err) {
       setSettings(previous)
+      setError(err instanceof Error ? err.message : 'Failed to save model settings.')
     } finally {
       setSaving(null)
     }
   }
 
-  if (!settings) return <p className="text-sm text-slate-400">Loading model settings...</p>
+  if (!settings) return <p className="text-sm text-slate-400">{error ?? 'Loading model settings...'}</p>
 
   return (
     <section className="space-y-3">
       <h2 className="font-medium text-slate-700">Model settings</h2>
-      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
-        {(Object.keys(FEATURE_LABELS) as ModelFeature[]).map((feature) => (
-          <div key={feature} className="flex items-center justify-between">
-            <span className="text-sm text-slate-600">{FEATURE_LABELS[feature]}</span>
-            <select
-              value={settings[feature]}
-              disabled={saving === feature}
-              onChange={(e) => handleChange(feature, e.target.value as ModelId)}
-              className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700"
-            >
-              {MODEL_REGISTRY.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        ))}
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
+        {MODEL_FEATURES.map((feature) => {
+          const chosen = MODEL_REGISTRY.find((m) => m.id === settings[feature])
+          return (
+            <div key={feature} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-700">{FEATURE_LABELS[feature].title}</p>
+                <p className="text-xs text-slate-500">{FEATURE_LABELS[feature].covers}</p>
+              </div>
+              <div className="sm:w-72 sm:shrink-0">
+                <select
+                  value={settings[feature]}
+                  disabled={saving === feature}
+                  onChange={(e) => handleChange(feature, e.target.value as ModelId)}
+                  aria-label={`Model for ${FEATURE_LABELS[feature].title}`}
+                  className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700"
+                >
+                  {MODEL_REGISTRY.map((m) => (
+                    <option key={m.id} value={m.id} disabled={!available.has(m.id) && m.id !== settings[feature]}>
+                      {available.has(m.id) ? m.label : `${m.label} (no API key)`}
+                    </option>
+                  ))}
+                </select>
+                {chosen && <p className="mt-1 text-xs text-slate-500">{chosen.cost}</p>}
+              </div>
+            </div>
+          )
+        })}
       </div>
+      <p className="text-xs text-slate-500">
+        Course, exam task and comprehension test generation fall back to GPT-OSS 120B (or Gemini, when GPT-OSS is the chosen model) if the chosen model fails.
+        A model shows "no API key" until its key is added to the Vercel environment.
+      </p>
     </section>
   )
 }
