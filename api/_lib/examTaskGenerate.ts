@@ -1,6 +1,7 @@
 import { supabaseAdmin } from './supabaseAdmin.js'
-import { callModel } from './modelRouter.js'
-import type { ModelId } from '../../src/lib/models.js'
+import { attemptChain, callModel } from './modelRouter.js'
+import { DEFAULT_MODEL_BY_FEATURE, type ModelId } from '../../src/lib/models.js'
+import { getModelForFeature } from './modelSettings.js'
 import { logModelUsage } from './usageLog.js'
 import { utcDayStart } from './vocabPractice.js'
 import {
@@ -216,25 +217,22 @@ export async function generateListeningTask(input: GenerateInput, userId: string
 }
 
 /**
- * The exam task maker runs on GPT-OSS 120B (the teacher's choice when the tool was designed), not
- * the admin's Vocabulary model setting: a whole exam task needs the larger reasoning model, and
- * the Gemini lite model was the one returning 503 "high demand". Gemini is only the fallback.
+ * The admin's Exam task maker model (shared with the web source finder). Default GPT-OSS 120B,
+ * the teacher's choice when the tool was designed: a whole exam task needs a larger reasoning
+ * model, and the Gemini lite model was the one returning 503 "high demand".
  */
-const TASK_MODEL: ModelId = 'groq-gpt-oss-120b'
-const FALLBACK_MODEL: ModelId = 'gemini-3.1-flash-lite'
+export function examTaskModel(): Promise<ModelId> {
+  return getModelForFeature('examTasks').catch(() => DEFAULT_MODEL_BY_FEATURE.examTasks)
+}
 
 /**
- * One model call for a whole task. JSON mode first; when the provider rejects the reply (Groq's
- * json_validate_failed, usually reasoning that ran out of tokens) or it doesn't parse, once more
- * without JSON mode and with lighter reasoning; if Groq is down or rate-limited, the fallback
- * model. Every answered call is logged (and counted).
+ * One model call for a whole task. JSON mode first; for GPT-OSS, when the provider rejects the
+ * reply (Groq's json_validate_failed, usually reasoning that ran out of tokens) or it doesn't
+ * parse, once more without JSON mode and with lighter reasoning; then the backup model (see
+ * attemptChain). Every answered call is logged (and counted).
  */
 async function callForTask<T>(systemPrompt: string, user: string, temperature: number, userId: string, parse: (raw: string) => T): Promise<T> {
-  const attempts = [
-    { modelId: TASK_MODEL, json: true, maxTokens: 5500, reasoningEffort: 'medium' as const, temperature },
-    { modelId: TASK_MODEL, json: false, maxTokens: 5500, reasoningEffort: 'low' as const, temperature },
-    { modelId: FALLBACK_MODEL, json: true, maxTokens: 8000, temperature },
-  ]
+  const attempts = attemptChain(await examTaskModel(), { maxTokens: 5500, temperature, reasoningEffort: 'medium', retryWithoutJson: true, backupMaxTokens: 8000 })
   let lastError: unknown = null
   for (const { modelId, ...options } of attempts) {
     try {

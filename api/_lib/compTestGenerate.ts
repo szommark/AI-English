@@ -1,6 +1,7 @@
 import { supabaseAdmin } from './supabaseAdmin.js'
-import { callModel } from './modelRouter.js'
-import type { ModelId } from '../../src/lib/models.js'
+import { attemptChain, callModel } from './modelRouter.js'
+import { DEFAULT_MODEL_BY_FEATURE, type ModelId } from '../../src/lib/models.js'
+import { getModelForFeature } from './modelSettings.js'
 import { logModelUsage } from './usageLog.js'
 import { utcDayStart } from './vocabPractice.js'
 import {
@@ -199,24 +200,15 @@ export function parseGeneratedTest(raw: string, input: CompGenerateInput): Gener
 }
 
 /**
- * Comprehension tests run on GPT-OSS 120B like the exam task maker (a whole test with a long
- * text needs the larger model); Gemini is only the fallback.
- */
-const TEST_MODEL: ModelId = 'groq-gpt-oss-120b'
-const FALLBACK_MODEL: ModelId = 'gemini-3.1-flash-lite'
-
-/**
- * JSON mode first; when the provider rejects the reply or it doesn't parse or validate, once more
- * without JSON mode and with lighter reasoning; if Groq is down, the fallback model. Every
- * answered call is logged (and counted).
+ * The admin's Comprehension tests model (default GPT-OSS 120B: a whole test with a long text
+ * needs a larger model). JSON mode first; for GPT-OSS once more without JSON mode and with
+ * lighter reasoning; then the backup model (see attemptChain). Every answered call is logged
+ * (and counted).
  */
 export async function generateCompTest(input: CompGenerateInput, userId: string): Promise<GeneratedCompTest> {
   const { systemPrompt, user } = buildPrompt(input)
-  const attempts = [
-    { modelId: TEST_MODEL, json: true, maxTokens: 9000, reasoningEffort: 'medium' as const, temperature: 0.7 },
-    { modelId: TEST_MODEL, json: false, maxTokens: 9000, reasoningEffort: 'low' as const, temperature: 0.7 },
-    { modelId: FALLBACK_MODEL, json: true, maxTokens: 10000, temperature: 0.7 },
-  ]
+  const primary: ModelId = await getModelForFeature('compTests').catch(() => DEFAULT_MODEL_BY_FEATURE.compTests)
+  const attempts = attemptChain(primary, { maxTokens: 9000, temperature: 0.7, reasoningEffort: 'medium', retryWithoutJson: true, backupMaxTokens: 10000 })
   let lastError: unknown = null
   for (const { modelId, ...options } of attempts) {
     try {

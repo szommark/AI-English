@@ -1,6 +1,6 @@
 import { supabaseAdmin } from './supabaseAdmin.js'
-import { callModel } from './modelRouter.js'
-import type { ModelId } from '../../src/lib/models.js'
+import { attemptChain, callModel } from './modelRouter.js'
+import { DEFAULT_MODEL_BY_FEATURE, type ModelId } from '../../src/lib/models.js'
 import { logModelUsage } from './usageLog.js'
 import { utcDayStart } from './vocabPractice.js'
 import { getGrammarItem } from '../../src/data/grammarCurriculum.js'
@@ -484,16 +484,13 @@ export function parseModule(raw: string, input: ModuleGenInput): ModuleContent {
 
 // --- Model calls ----------------------------------------------------------------------------
 
-/** Like the comprehension tests: GPT-OSS 120B with JSON mode, Gemini as the fallback. */
-const COURSE_MODEL: ModelId = 'groq-gpt-oss-120b'
-const FALLBACK_MODEL: ModelId = 'gemini-3.1-flash-lite'
+/** The admin's Mini courses model (default GPT-OSS 120B, like the comprehension tests). */
+function courseModel(): Promise<ModelId> {
+  return getModelForFeature('courses').catch(() => DEFAULT_MODEL_BY_FEATURE.courses)
+}
 
 async function generate<T>(systemPrompt: string, user: string, userId: string, parse: (raw: string) => T, callType: typeof COURSE_CALL_TYPE | 'course_fix' = COURSE_CALL_TYPE): Promise<T> {
-  const attempts = [
-    { modelId: COURSE_MODEL, json: true, maxTokens: 8000, reasoningEffort: 'medium' as const, temperature: 0.7 },
-    { modelId: COURSE_MODEL, json: false, maxTokens: 8000, reasoningEffort: 'low' as const, temperature: 0.7 },
-    { modelId: FALLBACK_MODEL, json: true, maxTokens: 9000, temperature: 0.7 },
-  ]
+  const attempts = attemptChain(await courseModel(), { maxTokens: 8000, temperature: 0.7, reasoningEffort: 'medium', retryWithoutJson: true, backupMaxTokens: 9000 })
   let lastError: unknown = null
   for (const { modelId, ...options } of attempts) {
     try {
@@ -609,8 +606,9 @@ async function checkGaps(content: ModuleContent, input: ModuleGenInput, userId: 
   const prompt = buildGapCheckPrompt(content, input)
   if (!prompt) return content
   let timer: ReturnType<typeof setTimeout> | undefined
+  const modelId = await courseModel()
   try {
-    const call = callModel(COURSE_MODEL, prompt.systemPrompt, [{ role: 'user', content: prompt.user }], { json: true, maxTokens: 4000, reasoningEffort: 'low', temperature: 0.2 })
+    const call = callModel(modelId, prompt.systemPrompt, [{ role: 'user', content: prompt.user }], { json: true, maxTokens: 4000, reasoningEffort: 'low', temperature: 0.2 })
     const timeout = new Promise<null>((resolve) => {
       timer = setTimeout(() => resolve(null), GAP_CHECK_MS)
     })
@@ -620,7 +618,7 @@ async function checkGaps(content: ModuleContent, input: ModuleGenInput, userId: 
       call.catch(() => undefined)
       throw new Error('gap check timed out')
     }
-    await logModelUsage({ userId, scenarioId: 'teacher-tools', callType: CHECK_CALL_TYPE, modelId: COURSE_MODEL, usage: result.usage })
+    await logModelUsage({ userId, scenarioId: 'teacher-tools', callType: CHECK_CALL_TYPE, modelId, usage: result.usage })
     return applyGapCheck(content, prompt.at, result.content)
   } catch (err) {
     console.warn('Course gap check skipped', String(err).slice(0, 300))
@@ -682,10 +680,7 @@ export function buildFeedbackPrompt(input: FeedbackInput): { systemPrompt: strin
 
 export async function evaluateOpenAnswer(input: FeedbackInput, userId: string): Promise<OpenFeedback> {
   const { systemPrompt, user } = buildFeedbackPrompt(input)
-  const attempts = [
-    { modelId: COURSE_MODEL, json: true, maxTokens: 2500, reasoningEffort: 'low' as const, temperature: 0.3 },
-    { modelId: FALLBACK_MODEL, json: true, maxTokens: 2500, temperature: 0.3 },
-  ]
+  const attempts = attemptChain(await courseModel(), { maxTokens: 2500, temperature: 0.3, reasoningEffort: 'low' })
   let lastError: unknown = null
   for (const { modelId, ...options } of attempts) {
     try {
@@ -713,7 +708,7 @@ export interface RoleplayInput {
 
 /**
  * The partner's next line: in character, short, natural for the level. The Tutor Bot's model
- * (admin setting 'tutorBot'), the course model as the fallback. done: the conversation should end
+ * (admin setting 'tutorBot'), then its backup (see attemptChain). done: the conversation should end
  * (the learner's last turn was used, or it reached a natural end).
  */
 export async function roleplayReply(input: RoleplayInput, userId: string): Promise<{ reply: string; done: boolean }> {
@@ -730,12 +725,8 @@ export async function roleplayReply(input: RoleplayInput, userId: string): Promi
     'Reply with ONE JSON object: { "reply": your line, "done": true when your line ends the conversation }',
   ].join('\n')
   const messages = input.history.map((l) => ({ role: l.role === 'bot' ? ('assistant' as const) : ('user' as const), content: l.text }))
-  const modelId = await getModelForFeature('tutorBot').catch(() => COURSE_MODEL)
-  const attempts: { modelId: ModelId; json: boolean; maxTokens: number; reasoningEffort?: 'low'; temperature: number }[] = [
-    { modelId, json: true, maxTokens: 800, temperature: 0.8, ...(modelId === COURSE_MODEL ? { reasoningEffort: 'low' as const } : {}) },
-    // The other provider as the fallback (the Tutor Bot's default is the Gemini model).
-    modelId === FALLBACK_MODEL ? { modelId: COURSE_MODEL, json: true, maxTokens: 800, reasoningEffort: 'low' as const, temperature: 0.8 } : { modelId: FALLBACK_MODEL, json: true, maxTokens: 800, temperature: 0.8 },
-  ]
+  const modelId = await getModelForFeature('tutorBot').catch(() => DEFAULT_MODEL_BY_FEATURE.tutorBot)
+  const attempts = attemptChain(modelId, { maxTokens: 800, temperature: 0.8, reasoningEffort: 'low' })
   let lastError: unknown = null
   for (const { modelId: id, ...options } of attempts) {
     try {
@@ -848,8 +839,9 @@ export async function draftGenerationRule(input: RuleDraftInput, userId: string)
     return rest
   }
   const user = JSON.stringify({ examples: input.examples.slice(0, 6).map((e) => ({ before: strip(e.before), after: strip(e.after), ...(e.note ? { learnerNote: e.note } : {}) })) })
-  const result = await callModel(COURSE_MODEL, systemPrompt, [{ role: 'user', content: user }], { json: true, maxTokens: 1500, reasoningEffort: 'low', temperature: 0.3 })
-  await logModelUsage({ userId, scenarioId: 'courses', callType: CHECK_CALL_TYPE, modelId: COURSE_MODEL, usage: result.usage })
+  const modelId = await courseModel()
+  const result = await callModel(modelId, systemPrompt, [{ role: 'user', content: user }], { json: true, maxTokens: 1500, reasoningEffort: 'low', temperature: 0.3 })
+  await logModelUsage({ userId, scenarioId: 'courses', callType: CHECK_CALL_TYPE, modelId, usage: result.usage })
   const rule = parseJson(result.content).rule
   if (typeof rule !== 'string' || !rule.trim()) throw new Error('no rule')
   return rule.trim().slice(0, 400)
