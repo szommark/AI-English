@@ -42,6 +42,10 @@ import {
   isOpenAnswer,
   plainScript,
   sameStep,
+  changesForLearner,
+  isVisibleSolutionNote,
+  orderPromptLeaks,
+  stepLeaksAnswer,
   defaultModuleTitle,
   planVariants,
   sanitizeAnswers,
@@ -809,6 +813,40 @@ export async function handleCourseModuleImage(req: VercelRequest, res: VercelRes
   res.status(200).json({ course: await courseResponse(course.id) })
 }
 
+// --- Accepting an AI fix ----------------------------------------------------------------------
+
+/** A second, stricter AI try only while the request has this much of its time left to spare. */
+const RETRY_BUDGET_MS = 25_000
+
+/** Added to the verdict when the order step's prompt was replaced because it showed the words in order. */
+const NEUTRAL_PROMPT_NOTE: Record<ExplainLang, string> = {
+  hu: 'Az utasítás most semleges: korábban sorrendben mutatta a szavakat.',
+  en: 'The instruction is now neutral: it showed the words in order.',
+  de: 'Die Anweisung ist jetzt neutral: Sie zeigte die Wörter schon in der richtigen Reihenfolge.',
+}
+
+/**
+ * The AI's corrected exercise, when it is a valid step of the same type that changes what the
+ * learner sees or which answers count (not just a comma in an alternative); for a flag whose
+ * note says the solution can be seen, it must also no longer show it. Otherwise null.
+ * neutralPrompt: the sanitizer replaced an order prompt that gave the answer away.
+ */
+function acceptFix(before: CourseStep, raw: Record<string, unknown> | null | undefined, passage: ModulePassage | undefined, note: string): { step: CourseStep; neutralPrompt: boolean } | null {
+  if (!raw) return null
+  let candidate: CourseStep
+  try {
+    candidate = sanitizeModuleContent({ ...(passage ? { passage } : {}), steps: [{ ...raw, type: before.type }] }).steps[0]
+  } catch {
+    return null
+  }
+  if (candidate.type !== before.type || !changesForLearner(before, candidate)) return null
+  if (isVisibleSolutionNote(note) && stepLeaksAnswer(candidate)) return null
+  const neutralPrompt = candidate.type === 'order' && typeof raw.prompt === 'string' && typeof raw.answer === 'string' && orderPromptLeaks(raw.prompt, raw.answer)
+  return { step: { ...candidate, id: before.id }, neutralPrompt }
+}
+
+const withNeutralNote = (explanation: string, neutralPrompt: boolean, lang: ExplainLang) => (neutralPrompt ? `${explanation} ${NEUTRAL_PROMPT_NOTE[lang]}`.trim() : explanation)
+
 // --- The author's preview flags -------------------------------------------------------------
 
 /** The flags whose item is still in the module unchanged, with the item's current id. */
@@ -861,35 +899,45 @@ export async function handleCourseModuleFix(req: VercelRequest, res: VercelRespo
   const flags = flagsStillValid(module.preview_flags, module.content)
   if (flags.length === 0) throw new HttpError(409, { error: 'no_flags' })
   const used = await checkGenerationLimit(teacherId)
+  const started = Date.now()
+  const passage = module.content.passage ?? null
+  const ask = (items: PreviewFlag[], strict: boolean) =>
+    fixFlaggedItems({ level: course.level, explainLang: course.explain_lang, passage, items: items.map((f) => ({ step: f.step, reason: f.reason, note: f.note })), strict }, teacherId)
   let results
   try {
-    results = await fixFlaggedItems(
-      { level: course.level, explainLang: course.explain_lang, passage: module.content.passage ?? null, items: flags.map((f) => ({ step: f.step, reason: f.reason, note: f.note })) },
-      teacherId,
-    )
+    results = await ask(flags, false)
   } catch (err) {
     console.error('Fixing flagged items failed', err)
     throw new HttpError(502, { error: 'fix_failed' })
+  }
+  const accepted = flags.map((f, i) => {
+    const fix = acceptFix(f.step, results[i]?.fixed, passage ?? undefined, f.note)
+    return fix ? { ...fix, explanation: results[i]?.explanation ?? '' } : null
+  })
+  // Items whose fix changed nothing the learner sees get one stricter try (not a new generation).
+  const again = flags.filter((_, i) => !accepted[i])
+  if (again.length && Date.now() - started < RETRY_BUDGET_MS) {
+    try {
+      const retry = await ask(again, true)
+      again.forEach((f, k) => {
+        const fix = acceptFix(f.step, retry[k]?.fixed, passage ?? undefined, f.note)
+        if (fix) accepted[flags.indexOf(f)] = { ...fix, explanation: retry[k]?.explanation ?? '' }
+      })
+    } catch (err) {
+      console.warn('Stricter fix of flagged items failed', String(err).slice(0, 300))
+    }
   }
   let steps = module.content.steps
   const left: PreviewFlag[] = []
   const log: Record<string, unknown>[] = []
   flags.forEach((f, i) => {
-    const r = results[i]
-    let fixed: CourseStep | null = null
-    if (r?.fixed) {
-      try {
-        const candidate = sanitizeModuleContent({ ...(module.content?.passage ? { passage: module.content.passage } : {}), steps: [{ ...r.fixed, type: f.step.type }] }).steps[0]
-        if (candidate.type === f.step.type && !sameStep(candidate, f.step)) fixed = { ...candidate, id: f.stepId }
-      } catch {
-        fixed = null
-      }
-    }
-    if (!fixed) {
+    const a = accepted[i]
+    if (!a) {
       left.push(f)
       return
     }
-    steps = steps.map((s) => (s.id === f.stepId ? (fixed as CourseStep) : s))
+    const fixed = a.step
+    steps = steps.map((s) => (s.id === f.stepId ? fixed : s))
     log.push({
       course_id: course.id,
       module_id: module.id,
@@ -900,7 +948,7 @@ export async function handleCourseModuleFix(req: VercelRequest, res: VercelRespo
       note: f.note,
       step_before: f.step,
       step_after: fixed,
-      verdict: (r?.explanation ?? '').slice(0, 1000),
+      verdict: withNeutralNote(a.explanation, a.neutralPrompt, course.explain_lang).slice(0, 1000),
       status: 'fixed',
       teacher_seen_at: new Date().toISOString(),
     })
@@ -1016,7 +1064,7 @@ interface FixRow {
   step_before: CourseStep
   step_after: CourseStep | null
   verdict: string
-  status: 'fixed' | 'kept' | 'undone'
+  status: 'fixed' | 'kept' | 'undone' | 'unresolved'
   teacher_seen_at: string | null
   created_at: string
 }
@@ -2053,22 +2101,32 @@ async function handleMyCourseFlag(req: VercelRequest, res: VercelResponse, userI
   if ((count ?? 0) >= FLAGS_PER_DAY) throw new HttpError(429, { error: 'daily_limit', limit: FLAGS_PER_DAY })
 
   const learnerAnswer = sanitizeAnswers(snapshot, { [step.id]: b.answer })[step.id] ?? attempt.answers?.[step.id]
+  const started = Date.now()
+  const check = (strict: boolean) =>
+    reviewFlag({ level: tree.course.level, explainLang: tree.course.explain_lang, step, reason, note, learnerAnswer, passage: snapshot.passage ?? null, strict }, userId)
   let review
   try {
-    review = await reviewFlag({ level: tree.course.level, explainLang: tree.course.explain_lang, step, reason, note, learnerAnswer, passage: snapshot.passage ?? null }, userId)
+    review = await check(false)
   } catch (err) {
     console.error('Course flag check failed', err)
     throw new HttpError(502, { error: 'check_failed' })
   }
-  let fixed: CourseStep | null = null
-  if (review.wrong && review.fixed) {
+  let accepted = review.wrong ? acceptFix(step, review.fixed, snapshot.passage, note) : null
+  let explanation = review.explanation
+  // The AI says it is wrong but its fix changes nothing the learner sees: one stricter try.
+  if (review.wrong && !accepted && Date.now() - started < RETRY_BUDGET_MS) {
     try {
-      const candidate = sanitizeModuleContent({ ...(snapshot.passage ? { passage: snapshot.passage } : {}), steps: [{ ...review.fixed, type: step.type }] }).steps[0]
-      if (candidate.type === step.type && !sameStep(candidate, step)) fixed = { ...candidate, id: step.id }
-    } catch {
-      fixed = null
+      const again = await check(true)
+      accepted = again.wrong ? acceptFix(step, again.fixed, snapshot.passage, note) : null
+      if (accepted) explanation = again.explanation
+    } catch (err) {
+      console.warn('Stricter course flag check failed', String(err).slice(0, 300))
     }
   }
+  // Still nothing visible: not fixed, and not "right as it is" either — the teacher looks at it.
+  const unresolved = review.wrong && !accepted
+  if (accepted) explanation = withNeutralNote(explanation, accepted.neutralPrompt, tree.course.explain_lang)
+  let fixed: CourseStep | null = accepted?.step ?? null
   // A rewritten gap item gets the "only one answer fits" check too.
   if (fixed?.type === 'gap') fixed = (await recheckGaps([fixed], tree.course.level, userId))[0]
   if (fixed) {
@@ -2092,15 +2150,16 @@ async function handleMyCourseFlag(req: VercelRequest, res: VercelResponse, userI
     note,
     step_before: step,
     step_after: fixed,
-    verdict: review.explanation,
-    status: fixed ? 'fixed' : 'kept',
+    verdict: explanation,
+    status: fixed ? 'fixed' : unresolved ? 'unresolved' : 'kept',
   })
   if (logError) throw logError
   if (fixed) {
     const kind = [...tree.modules.values()].flat().find((m) => m.id === attempt.module_id)?.kind
     if (kind) await proposeRuleIfRepeated(kind, reason, userId)
   }
-  res.status(200).json({ result: { wrong: !!fixed, explanation: review.explanation, step: fixed } })
+  // An unresolved flag shows no AI explanation: it would describe a change the learner cannot see.
+  res.status(200).json({ result: { wrong: !!fixed, ...(unresolved ? { unresolved: true } : {}), explanation: unresolved ? '' : explanation, step: fixed } })
 }
 
 async function handleMyCourseProgress(req: VercelRequest, res: VercelResponse, userId: string) {

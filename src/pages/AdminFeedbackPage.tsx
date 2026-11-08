@@ -283,6 +283,9 @@ function ReportsTab() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('open')
   const [kindFilter, setKindFilter] = useState<FeedbackKind | 'all'>('all')
   const [query, setQuery] = useState('')
+  const [reporterFilter, setReporterFilter] = useState<string>('all')
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
+  const [sort, setSort] = useState<SortOrder>('newest')
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -316,15 +319,31 @@ function ReportsTab() {
     return { ...byStatus, open: OPEN.reduce((n, s) => n + byStatus[s], 0), all: reports.length }
   }, [reports])
 
+  // Reporters in the loaded reports (with their report count), for the reporter dropdown.
+  const reporters = useMemo(() => {
+    const byEmail = new Map<string, number>()
+    for (const r of reports) byEmail.set(r.email, (byEmail.get(r.email) ?? 0) + 1)
+    return [...byEmail].sort((a, b) => a[0].localeCompare(b[0]))
+  }, [reports])
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return reports.filter(
+    const list = reports.filter(
       (r) =>
         matchesStatus(r, statusFilter) &&
         (kindFilter === 'all' || r.kind === kindFilter) &&
+        (reporterFilter === 'all' || r.email === reporterFilter) &&
+        (roleFilter === 'all' || r.role === roleFilter) &&
         (!q || [r.description, r.expected ?? '', r.email, r.pagePath].some((s) => s.toLowerCase().includes(q))),
     )
-  }, [reports, statusFilter, kindFilter, query])
+    const newestFirst = (a: AdminFeedbackReport, b: AdminFeedbackReport) => b.createdAt.localeCompare(a.createdAt)
+    return list.sort(sort === 'oldest' ? (a, b) => newestFirst(b, a) : sort === 'reporter' ? (a, b) => a.email.localeCompare(b.email) || newestFirst(a, b) : newestFirst)
+  }, [reports, statusFilter, kindFilter, reporterFilter, roleFilter, sort, query])
+
+  // A reporter that is no longer in the list (should not happen) falls back to everyone.
+  useEffect(() => {
+    if (reporterFilter !== 'all' && !reporters.some(([email]) => email === reporterFilter)) setReporterFilter('all')
+  }, [reporters, reporterFilter])
 
   const filters: { value: StatusFilter; label: string }[] = [
     { value: 'open', label: 'Open' },
@@ -366,6 +385,41 @@ function ReportsTab() {
               </option>
             ))}
           </select>
+          <select
+            value={reporterFilter}
+            onChange={(e) => setReporterFilter(e.target.value)}
+            aria-label="Filter by reporter"
+            className="max-w-[16rem] rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+          >
+            <option value="all">All reporters</option>
+            {reporters.map(([email, n]) => (
+              <option key={email} value={email}>
+                {email} ({n})
+              </option>
+            ))}
+          </select>
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
+            aria-label="Filter by role"
+            className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+          >
+            {ROLE_FILTERS.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortOrder)}
+            aria-label="Sort reports"
+            className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="reporter">By reporter, then newest</option>
+          </select>
           <input
             type="search"
             value={query}
@@ -398,6 +452,16 @@ function ReportsTab() {
     </div>
   )
 }
+
+type RoleFilter = 'all' | 'student' | 'teacher' | 'admin'
+const ROLE_FILTERS: { value: RoleFilter; label: string }[] = [
+  { value: 'all', label: 'All roles' },
+  { value: 'student', label: 'Students' },
+  { value: 'teacher', label: 'Teachers' },
+  { value: 'admin', label: 'Admins' },
+]
+
+type SortOrder = 'newest' | 'oldest' | 'reporter'
 
 const TABS = [
   { id: 'reports', label: 'Reports' },

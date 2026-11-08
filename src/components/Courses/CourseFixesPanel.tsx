@@ -4,7 +4,7 @@ import { cardClass, hintClass, secondaryButtonClass } from '../TeacherTools/ui'
 import { useCourseCopy } from '../../data/courseCopy'
 import { useLanguage, type MessageKey } from '../../lib/i18n'
 import { fetchFixes, undoFix } from '../../lib/courseApi'
-import { stepSummary, type Course, type CourseItemFix, type FlagReason } from '../../lib/courses'
+import { stepParts, stepSummary, type Course, type CourseItemFix, type CourseStep, type FlagReason } from '../../lib/courses'
 
 const REASON_LABEL: Record<FlagReason, MessageKey> = {
   answer_rejected: 'flagReasonAnswerRejected',
@@ -15,6 +15,48 @@ const REASON_LABEL: Record<FlagReason, MessageKey> = {
   typo: 'flagReasonTypo',
   layout: 'flagReasonLayout',
   other: 'flagReasonOther',
+}
+
+/**
+ * Before and after, part by part (prompt, answer, other correct orders…): a changed part shows
+ * both versions and is marked; an unchanged one is shown once, muted.
+ */
+function FixDiff({ before, after, undone }: { before: CourseStep; after: CourseStep; undone: boolean }) {
+  const { c } = useCourseCopy()
+  const was = stepParts(before)
+  const now = stepParts(after)
+  const labels = [...new Set([...was, ...now].map((p) => p.label))]
+  return (
+    <dl className="space-y-1">
+      {labels.map((label) => {
+        const a = was.find((p) => p.label === label)?.text ?? ''
+        const b = now.find((p) => p.label === label)?.text ?? ''
+        const changed = a !== b
+        return (
+          <div key={label} className={changed ? 'rounded-md border-l-2 border-[var(--teal-accent-strong)] bg-[var(--teal-accent-soft)] px-2 py-1' : 'px-2'}>
+            <dt className="text-xs font-medium text-muted-foreground">
+              {c(`fixPart_${label}`)}
+              {changed && <span className="ml-1.5 rounded bg-[var(--teal-accent)] px-1.5 py-px text-[0.65rem] uppercase tracking-wide text-primary">{c('fixChanged')}</span>}
+            </dt>
+            {changed ? (
+              <dd className="space-y-0.5">
+                <p className={undone ? 'text-foreground' : 'text-red-700 line-through dark:text-red-300'}>
+                  <span className="sr-only">{c('fixBefore')}: </span>
+                  {a || '—'}
+                </p>
+                <p className={undone ? 'text-muted-foreground line-through' : 'font-medium text-emerald-800 dark:text-emerald-200'}>
+                  <span className="sr-only">{c('fixAfter')}: </span>
+                  {b || '—'}
+                </p>
+              </dd>
+            ) : (
+              <dd className="text-muted-foreground">{a}</dd>
+            )}
+          </div>
+        )
+      })}
+    </dl>
+  )
 }
 
 /**
@@ -68,10 +110,9 @@ export default function CourseFixesPanel({ courseId, onCourse }: { courseId: str
               {c('unitN', { n: f.unitPosition })} · {f.moduleTitle} · {t(REASON_LABEL[f.reason])} · {new Date(f.createdAt).toLocaleDateString(lang)}
             </p>
             {f.note && <p className="italic text-muted-foreground">“{f.note}”</p>}
-            <p className={f.status === 'fixed' ? 'text-red-700 line-through dark:text-red-300' : 'text-foreground'}>{stepSummary(f.stepBefore)}</p>
-            {f.stepAfter && <p className={f.status === 'undone' ? 'text-muted-foreground line-through' : 'font-medium text-emerald-800 dark:text-emerald-200'}>{stepSummary(f.stepAfter)}</p>}
+            {f.stepAfter ? <FixDiff before={f.stepBefore} after={f.stepAfter} undone={f.status === 'undone'} /> : <p className="text-foreground">{stepSummary(f.stepBefore)}</p>}
             <p className="text-muted-foreground">
-              <span className="font-medium text-foreground">{c(`fixStatus_${f.status}`)}:</span> {f.verdict}
+              <span className={f.status === 'unresolved' ? 'font-medium text-amber-700 dark:text-amber-300' : 'font-medium text-foreground'}>{c(`fixStatus_${f.status}`)}:</span> {f.verdict}
             </p>
             {f.status === 'fixed' && (
               <button type="button" className={secondaryButtonClass} disabled={busy === f.id} onClick={() => void undo(f)}>

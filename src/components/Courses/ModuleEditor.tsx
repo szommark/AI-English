@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
 import { hintClass, inputClass, labelClass, primaryButtonClass, secondaryButtonClass } from '../TeacherTools/ui'
 import { useCourseCopy } from '../../data/courseCopy'
 import { GAP } from '../../lib/grammarExercises'
-import { CourseValidationError, STEP_TYPES, normalizeSteps, sanitizeModuleContent, type CourseStep, type ModuleContent, type StepType } from '../../lib/courses'
+import { CourseValidationError, ORDER_PROMPT, STEP_TYPES, normalizeSteps, orderPromptLeaks, sanitizeModuleContent, type CourseStep, type ModuleContent, type StepType } from '../../lib/courses'
 
 const splitBar = (s: string) =>
   s
@@ -361,6 +361,9 @@ function StepFields({ step, onChange }: { step: CourseStep; onChange: (s: Course
       return (
         <div className="space-y-2">
           <input className={small} value={step.prompt} placeholder={c('fieldPrompt')} onChange={(e) => onChange({ ...step, prompt: e.target.value })} />
+          {step.prompt.trim() && step.answer.trim() && orderPromptLeaks(step.prompt, step.answer) && (
+            <p className="text-xs text-amber-700 dark:text-amber-300">{c('orderPromptLeak', { prompt: ORDER_PROMPT })}</p>
+          )}
           <input className={small} value={step.answer} placeholder={c('fieldOrderAnswer')} onChange={(e) => onChange({ ...step, answer: e.target.value })} />
           <input
             className={small}
