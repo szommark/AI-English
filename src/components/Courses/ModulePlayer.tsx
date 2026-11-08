@@ -247,12 +247,22 @@ export default function ModulePlayer({
     )
   }
 
-  // The module's picture, above the step it goes with, and on every info screen with room for it.
+  // The module's picture, with the step it goes with, and on every info screen with room for it.
+  // It must never push the text out of view: stacked above the text it is cropped to 2:1 (three
+  // quarters of its 3:2 height); on wide screens it sits beside the text at three quarters of the
+  // column width (27rem of 36rem), so the text starts at the top of the screen.
   const imageAt = content.image?.path ? imageStepIndex(steps) : -1
+  const showPicture = !!content.image?.path && !!step && (index === imageAt || roomyInfo(step))
+  // Role-play and speaking screens already have the Tutor Bot's photo in a side column.
+  const sidePicture = showPicture && step?.type !== 'roleplay' && step?.type !== 'speak'
   const picture = content.image?.path ? (
-    <img src={courseImageUrl(content.image.path)} alt={content.image.alt} className="mb-4 aspect-[3/2] w-full rounded-xl border border-border object-cover" loading="lazy" />
+    <img
+      src={courseImageUrl(content.image.path)}
+      alt={content.image.alt}
+      className={`mb-4 aspect-[2/1] w-full rounded-xl border border-border object-cover ${sidePicture ? 'lg:mb-0 lg:aspect-[3/2]' : ''}`}
+      loading="lazy"
+    />
   ) : null
-  const showPicture = !!picture && !!step && (index === imageAt || roomyInfo(step))
 
   async function mark() {
     if (!step || !onEvaluate || typeof answer !== 'string') return
@@ -386,7 +396,7 @@ export default function ModulePlayer({
   const explain = 'explain' in step ? step.explain : undefined
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-9rem)] max-w-xl flex-col">
+    <div className={`mx-auto flex min-h-[calc(100dvh-9rem)] max-w-xl flex-col ${sidePicture ? 'lg:max-w-5xl' : ''}`}>
       <div className="flex items-center gap-3 py-2">
         <button type="button" onClick={onExit} aria-label={c('exit')} className="rounded-lg p-2 text-muted-foreground hover:bg-secondary">
           <X className="h-5 w-5" />
@@ -425,22 +435,24 @@ export default function ModulePlayer({
           if (canGo) primary()
         }}
       >
-        <div className="flex-1 py-4">
-          {showPicture && picture}
-          <StepView
-            step={step}
-            answer={answer}
-            // Once marked, an answer stays: late speech-recognition results must not reopen it.
-            onAnswer={(a) => setAnswers((prev) => (isOpen && isOpenAnswer(prev[step.id]) ? prev : { ...prev, [step.id]: a }))}
-            checked={checked}
-            passage={content.passage}
-            seed={seed}
-            speak={(t) => speak(t)}
-            audioUrl={audioUrl}
-            onTurn={onRoleplayTurn ? (history) => onRoleplayTurn(step.id, history) : undefined}
-          />
-          {flagControl(step)}
-          <div className="mt-6">{layoutControl([step])}</div>
+        <div className={`flex-1 py-4 ${sidePicture ? 'lg:grid lg:grid-cols-[27rem_minmax(0,1fr)] lg:items-start lg:gap-6' : ''}`}>
+          {sidePicture ? <div className="lg:sticky lg:top-4">{picture}</div> : showPicture && picture}
+          <div className="min-w-0">
+            <StepView
+              step={step}
+              answer={answer}
+              // Once marked, an answer stays: late speech-recognition results must not reopen it.
+              onAnswer={(a) => setAnswers((prev) => (isOpen && isOpenAnswer(prev[step.id]) ? prev : { ...prev, [step.id]: a }))}
+              checked={checked}
+              passage={content.passage}
+              seed={seed}
+              speak={(t) => speak(t)}
+              audioUrl={audioUrl}
+              onTurn={onRoleplayTurn ? (history) => onRoleplayTurn(step.id, history) : undefined}
+            />
+            {flagControl(step)}
+            <div className="mt-6">{layoutControl([step])}</div>
+          </div>
         </div>
 
         <div className="sticky bottom-0 -mx-4 space-y-3 border-t border-border bg-background/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
