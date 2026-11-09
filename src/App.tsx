@@ -20,6 +20,7 @@ import { connectedSpeech } from './data/pronunciationLessons/connectedSpeech'
 import PhonemeDetailPage from './pages/PhonemeDetailPage'
 import VoiceSettingsPage from './pages/VoiceSettingsPage'
 import MissionPage from './pages/MissionPage'
+import ClubPage from './pages/ClubPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import ConnectTeacherPage from './pages/settings/ConnectTeacherPage'
 import TeacherDashboardPage from './pages/TeacherDashboardPage'
@@ -260,6 +261,8 @@ function AppRoutes() {
         }
       />
       <Route path="/mission" element={<MissionPage />} />
+      {/* Public: the club is advertised to signed-out visitors (home banner, posters). */}
+      <Route path="/club" element={<ClubPage />} />
       {/* Not protected: the reset email's link signs the user in here, and an expired link must still render. */}
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route

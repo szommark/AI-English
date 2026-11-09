@@ -25,7 +25,8 @@ export function qrLink(slug: string): string {
   return `${QR_SITE_URL}/?${PARAM}=${slug}`
 }
 
-function visitorId(): string {
+/** A random id for this browser, shared with the club sign-up counter (src/lib/club.ts). */
+export function visitorId(): string {
   try {
     const existing = window.localStorage.getItem(VISITOR_KEY)
     if (existing) return existing

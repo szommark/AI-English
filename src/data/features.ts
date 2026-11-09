@@ -13,6 +13,8 @@ export interface Feature {
   route: string
   /** Group tiles only: ids of the features shown as sub-tiles on the group's page. */
   children?: string[]
+  /** Opens for signed-out visitors too (no sign-in prompt), e.g. the club page. */
+  public?: boolean
 }
 
 export const features: Feature[] = [
@@ -159,8 +161,9 @@ export const features: Feature[] = [
     descriptionHu: 'Találkozz más tanulókkal személyesen, tanár vezette angol klubokon.',
     icon: 'Users',
     accent: 'fuchsia',
-    status: 'coming-soon',
-    route: '/coming-soon/onsite-clubs',
+    status: 'active',
+    route: '/club',
+    public: true,
   },
 ]
 
