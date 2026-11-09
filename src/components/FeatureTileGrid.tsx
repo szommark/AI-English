@@ -34,7 +34,7 @@ export default function FeatureTileGrid({ ids }: { ids: string[] }) {
 
   function handleTileClickFor(feature: Feature) {
     return (e: React.MouseEvent) => {
-      if (!user && !feature.children) {
+      if (!user && !feature.children && !feature.public) {
         e.preventDefault()
         promptSignIn(feature.route)
       }

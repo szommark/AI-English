@@ -1,5 +1,6 @@
 import { Briefcase, GraduationCap, Sparkles, type LucideIcon } from 'lucide-react'
 import { useAuthPrompt } from './AppLayout'
+import ClubBanner from './ClubBanner'
 import { CONTACT_EMAIL, landingCopy, type LandingPanelCopy } from '../data/landingCopy'
 import { useLanguage } from '../lib/i18n'
 
@@ -47,7 +48,8 @@ function SidePanel({ copy, icon: Icon, className }: { copy: LandingPanelCopy; ic
 /**
  * Signed-out home page: companies (left), language learners with the platform brief (middle,
  * widest) and language schools / teachers (right). Below xl the learners span the top with the
- * two side panels beneath them; on phones everything stacks, learners first.
+ * two side panels beneath them; on phones everything stacks, learners first. The club banner
+ * sits above all three.
  */
 export default function WelcomePanels() {
   const { lang, t } = useLanguage()
@@ -56,57 +58,61 @@ export default function WelcomePanels() {
   const learners = copy.learners
 
   return (
-    <div className="grid gap-5 py-2 md:grid-cols-2 xl:grid-cols-[1fr_1.9fr_1fr]">
-      <SidePanel copy={copy.business} icon={Briefcase} className="order-2 xl:order-1" />
+    <div className="space-y-5 py-2">
+      <ClubBanner />
 
-      <section className="order-1 flex flex-col rounded-2xl bg-[var(--brand-navy)] p-6 text-white shadow-md sm:p-8 md:col-span-2 xl:order-2 xl:col-span-1">
-        <Sparkles className="h-7 w-7 text-[var(--brand-gold)]" aria-hidden="true" />
-        <h2 className="mt-3 font-brand text-3xl font-semibold leading-tight sm:text-4xl">{learners.title}</h2>
-        <div className="mt-3 h-0.5 w-16 bg-[var(--brand-gold)]" aria-hidden="true" />
-        <p className="mt-4 font-brand text-2xl leading-snug text-white">{learners.hero}</p>
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-[1fr_1.9fr_1fr]">
+        <SidePanel copy={copy.business} icon={Briefcase} className="order-2 xl:order-1" />
 
-        <div className="mt-5 grid gap-5 text-[15px] leading-relaxed text-white/90 md:grid-cols-2 xl:grid-cols-1">
-          <div>
-            <p className="font-semibold text-[var(--brand-gold)]">{learners.forYouIntro}</p>
-            <BulletList items={learners.forYou} onNavy />
-          </div>
-          <div>
-            <p className="font-semibold text-[var(--brand-gold)]">{learners.youGetIntro}</p>
-            <BulletList items={learners.youGet} onNavy />
-          </div>
-        </div>
+        <section className="order-1 flex flex-col rounded-2xl bg-[var(--brand-navy)] p-6 text-white shadow-md sm:p-8 md:col-span-2 xl:order-2 xl:col-span-1">
+          <Sparkles className="h-7 w-7 text-[var(--brand-gold)]" aria-hidden="true" />
+          <h2 className="mt-3 font-brand text-3xl font-semibold leading-tight sm:text-4xl">{learners.title}</h2>
+          <div className="mt-3 h-0.5 w-16 bg-[var(--brand-gold)]" aria-hidden="true" />
+          <p className="mt-4 font-brand text-2xl leading-snug text-white">{learners.hero}</p>
 
-        <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
-          <button
-            type="button"
-            onClick={promptSignUp}
-            className="rounded-lg bg-[var(--brand-gold)] px-6 py-3 font-brand text-xl font-semibold text-[var(--brand-navy)] shadow-sm hover:opacity-90"
-          >
-            {learners.cta}
-          </button>
-          <span className="text-sm text-white/75">
-            {copy.haveAccount}{' '}
-            <button type="button" onClick={() => promptSignIn()} className="font-semibold text-white underline hover:text-[var(--brand-gold)]">
-              {t('signIn')}
-            </button>
-          </span>
-        </div>
-
-        <p className="mt-6 border-l-2 border-[var(--brand-gold)] pl-4 font-brand text-xl italic leading-snug text-white">
-          {learners.closing}
-        </p>
-
-        <div className="mt-8 space-y-5 border-t border-white/15 pt-6">
-          {copy.platform.map((s) => (
-            <div key={s.title}>
-              <h3 className="font-brand text-2xl font-semibold text-[var(--brand-gold)]">{s.title}</h3>
-              <p className="mt-2 text-[15px] leading-relaxed text-white/85">{s.text}</p>
+          <div className="mt-5 grid gap-5 text-[15px] leading-relaxed text-white/90 md:grid-cols-2 xl:grid-cols-1">
+            <div>
+              <p className="font-semibold text-[var(--brand-gold)]">{learners.forYouIntro}</p>
+              <BulletList items={learners.forYou} onNavy />
             </div>
-          ))}
-        </div>
-      </section>
+            <div>
+              <p className="font-semibold text-[var(--brand-gold)]">{learners.youGetIntro}</p>
+              <BulletList items={learners.youGet} onNavy />
+            </div>
+          </div>
 
-      <SidePanel copy={copy.teachers} icon={GraduationCap} className="order-3" />
+          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <button
+              type="button"
+              onClick={promptSignUp}
+              className="rounded-lg bg-[var(--brand-gold)] px-6 py-3 font-brand text-xl font-semibold text-[var(--brand-navy)] shadow-sm hover:opacity-90"
+            >
+              {learners.cta}
+            </button>
+            <span className="text-sm text-white/75">
+              {copy.haveAccount}{' '}
+              <button type="button" onClick={() => promptSignIn()} className="font-semibold text-white underline hover:text-[var(--brand-gold)]">
+                {t('signIn')}
+              </button>
+            </span>
+          </div>
+
+          <p className="mt-6 border-l-2 border-[var(--brand-gold)] pl-4 font-brand text-xl italic leading-snug text-white">
+            {learners.closing}
+          </p>
+
+          <div className="mt-8 space-y-5 border-t border-white/15 pt-6">
+            {copy.platform.map((s) => (
+              <div key={s.title}>
+                <h3 className="font-brand text-2xl font-semibold text-[var(--brand-gold)]">{s.title}</h3>
+                <p className="mt-2 text-[15px] leading-relaxed text-white/85">{s.text}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <SidePanel copy={copy.teachers} icon={GraduationCap} className="order-3" />
+      </div>
     </div>
   )
 }
