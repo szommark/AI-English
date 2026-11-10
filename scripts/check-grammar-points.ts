@@ -8,11 +8,11 @@ import {
 } from '../src/data/grammarCurriculum.ts'
 import { MISTAKE_TAXONOMY } from '../src/data/mistakeTaxonomy.ts'
 
-const EXPECTED: Record<string, number> = { A1: 16, A2: 27, B1: 29, B2: 34, C1: 21, C2: 10 }
+const EXPECTED: Record<string, number> = { A1: 16, A2: 27, B1: 30, B2: 36, C1: 21, C2: 10 }
 const errors: string[] = []
 const fail = (msg: string) => errors.push(msg)
 
-if (GRAMMAR_POINTS.length !== 137) fail(`expected 137 points, found ${GRAMMAR_POINTS.length}`)
+if (GRAMMAR_POINTS.length !== 140) fail(`expected 140 points, found ${GRAMMAR_POINTS.length}`)
 
 const ids = new Set<string>()
 for (const group of grammarCurriculum) {
@@ -52,6 +52,27 @@ GRAMMAR_POINTS.forEach((p, i) => {
   if (review.tenses.length < 2) fail(`${p.id}: a review needs at least two tenses`)
   for (const t of prevTenses) if (!review.tenses.includes(t)) fail(`${p.id}: drops "${t}" from the previous review`)
   prevTenses = review.tenses
+})
+
+// Reported speech lessons: commands need no backshift; statements and questions spread over
+// several forms; the overview comes after the last new tense, covers every tense met by then
+// and leaves commands out.
+GRAMMAR_POINTS.forEach((p, i) => {
+  const reported = p.reported
+  if (!reported) return
+  if (p.category !== 'reported_speech') fail(`${p.id}: reported focus on a ${p.category} lesson`)
+  if (reported.kinds.length === 0) fail(`${p.id}: reported focus names nothing to report`)
+  const onlyCommands = reported.kinds.every((k) => k === 'commands')
+  if (onlyCommands !== (reported.forms.length === 0)) fail(`${p.id}: forms must be empty exactly when only commands are reported`)
+  if (!onlyCommands && reported.forms.length < 6) fail(`${p.id}: needs at least six backshift forms`)
+  if (!reported.review) return
+  if (reported.kinds.includes('commands')) fail(`${p.id}: the overview covers statements and questions only`)
+  const reviews = GRAMMAR_POINTS.filter((q) => q.review)
+  const lastReview = reviews[reviews.length - 1]
+  // The first review that already lists every tense marks the point where all are known.
+  const allKnown = GRAMMAR_POINTS.findIndex((q) => q.review && q.review.tenses.length === lastReview.review!.tenses.length)
+  if (i < allKnown) fail(`${p.id}: must come after ${GRAMMAR_POINTS[allKnown].id}, once every tense is known`)
+  for (const t of lastReview.review!.tenses) if (!reported.forms.includes(t)) fail(`${p.id}: misses "${t}"`)
 })
 
 const used = new Set(GRAMMAR_POINTS.map((p) => p.category))

@@ -21,7 +21,7 @@ interface ContentKind<T> {
   table: 'grammar_lessons' | 'grammar_exercises'
   callType: LlmCallType
   build: typeof buildGrammarLessonPrompt
-  parse: (raw: string, lang: LessonLanguage, explain: ExplainLanguage) => T
+  parse: (raw: string, lang: LessonLanguage, explain: ExplainLanguage, item: GrammarItem) => T
 }
 
 type KindName = 'lesson' | 'exercises'
@@ -32,7 +32,7 @@ const KINDS: { lesson: ContentKind<GrammarLesson>; exercises: ContentKind<Gramma
     table: 'grammar_exercises',
     callType: 'grammar_exercises',
     build: buildGrammarExercisesPrompt,
-    parse: (raw) => parseGrammarExercisesJson(raw),
+    parse: (raw, _lang, _explain, item) => parseGrammarExercisesJson(raw, { reported: !!item.reported }),
   },
 }
 
@@ -76,7 +76,7 @@ async function generate(
     try {
       const { systemPrompt, messages } = kind.build(item, cefrLevel, lang, explain)
       const result = await callModel(modelId, systemPrompt, messages)
-      const content = kind.parse(result.content, lang, explain)
+      const content = kind.parse(result.content, lang, explain, item)
       await logModelUsage({ userId, scenarioId: item.id, callType: kind.callType, modelId, usage: result.usage })
       return content
     } catch (err) {

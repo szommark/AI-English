@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import type { GrammarFormExercise, GrammarOrderExercise, GrammarTransformExercise } from '../../lib/types'
 import { useLanguage } from '../../lib/i18n'
-import { finalPunctuation, gapParts, joinTiles, matchesAnswer, matchesGap, sentenceTiles, transformAnswers, transformCue } from '../../lib/grammarExercises'
+import { finalPunctuation, gapParts, joinTiles, matchesAnswer, matchesGap, questionMarkMismatch, sentenceTiles, transformAnswers, transformCue } from '../../lib/grammarExercises'
 import type { ContentFlagTarget } from '../../lib/feedback'
 import ContentFlagButton from '../ReportProblem/ContentFlagButton'
 
@@ -48,12 +48,15 @@ function ItemShell({
   number,
   result,
   correctAnswer,
+  note,
   flag,
   children,
 }: {
   number: number
   result: ItemResult
   correctAnswer: string
+  /** Shown under a wrong answer, e.g. why an almost-right sentence was not accepted. */
+  note?: string
   flag: () => ContentFlagTarget
   children: ReactNode
 }) {
@@ -69,10 +72,16 @@ function ItemShell({
             ✗ {t('answerWrong')} <span className="font-medium text-slate-700">{correctAnswer}</span>
           </p>
         )}
+        {result === false && note && <p className="text-sm text-slate-600">{note}</p>}
       </div>
       <ContentFlagButton target={flag} className="mt-1" />
     </li>
   )
+}
+
+/** Reported speech: the direct speech the item reports, shown above it. */
+function Quote({ text }: { text?: string }) {
+  return text ? <p className="pt-1 text-sm text-slate-700">{text}</p> : null
 }
 
 function CheckButton({ disabled, onClick }: { disabled: boolean; onClick: () => void }) {
@@ -110,6 +119,7 @@ export function OrderItem({ number, item, result, onCheck, flagPanel }: ItemProp
           flagPanel,
           number,
           [
+            ['Direct speech', item.quote],
             ['Correct sentence', item.answer],
             ['Other accepted orders', item.alternatives?.join(' | ')],
             ['Extra word', item.extra],
@@ -119,6 +129,7 @@ export function OrderItem({ number, item, result, onCheck, flagPanel }: ItemProp
         )
       }
     >
+      <Quote text={item.quote} />
       <div className="flex flex-wrap items-start gap-2">
         <div className="flex min-h-[2.5rem] flex-1 flex-wrap items-center gap-1.5 rounded-lg border-2 border-dashed border-slate-200 bg-white/70 px-2 py-1.5">
           {picked.length === 0 && <span className="px-1 text-sm text-slate-400">{t('orderPlaceholder')}</span>}
@@ -172,6 +183,7 @@ export function FormItem({ number, item, result, onCheck, flagPanel }: ItemProps
           flagPanel,
           number,
           [
+            ['Direct speech', item.quote],
             ['Shown as', `${before}___ (${cue})${after}`],
             ['Stored sentence', item.sentence],
             ['Stored cue', item.cue],
@@ -182,6 +194,7 @@ export function FormItem({ number, item, result, onCheck, flagPanel }: ItemProps
         )
       }
     >
+      <Quote text={item.quote} />
       <div className="flex flex-wrap items-center gap-2">
         <p className="min-w-0 flex-1 basis-full text-sm leading-8 text-slate-700 sm:basis-0">
           {before}
@@ -210,8 +223,11 @@ export function TransformItem({ number, item, result, onCheck, flagPanel }: Item
   const [value, setValue] = useState('')
   const checked = result !== null
   const cue = transformCue(item)
+  const accepted = transformAnswers(item)
+  // Right words, wrong end mark: "She asked if I was coming?" is not accepted, and says why.
+  const wrongMark = questionMarkMismatch(value, accepted) && matchesAnswer(value, accepted)
   const check = () => {
-    if (!checked && value.trim()) onCheck(matchesAnswer(value, transformAnswers(item)))
+    if (!checked && value.trim()) onCheck(matchesAnswer(value, accepted) && !questionMarkMismatch(value, accepted))
   }
 
   return (
@@ -219,6 +235,7 @@ export function TransformItem({ number, item, result, onCheck, flagPanel }: Item
       number={number}
       result={result}
       correctAnswer={item.answers[0]}
+      note={wrongMark ? t(/\?\s*$/.test(value) ? 'answerWrongEndMark' : 'answerWrongEndMarkQuestion') : undefined}
       flag={() =>
         flagTarget(
           flagPanel,

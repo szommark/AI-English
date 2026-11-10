@@ -8,6 +8,25 @@ export const EXERCISES_PER_TYPE = 5
 /** The gap marker in a form exercise's sentence. */
 export const GAP = '___'
 
+/** Most words a reported speech gap may hold: the verb form ("would have been working"), never a clause. */
+const REPORTED_GAP_MAX_WORDS = 4
+
+const SUBJECT_PRONOUNS = new Set(['i', 'you', 'he', 'she', 'it', 'we', 'they'])
+
+/**
+ * A reported speech gap answer that is a whole clause ("he was tired", "if I liked coffee")
+ * rather than the part that changes (the verb form, if / whether, a time word): the learner
+ * can't work it out from the item.
+ */
+export function isClauseGap(answer: string): boolean {
+  const words = normalizeAnswer(answer).split(' ').filter(Boolean)
+  return (
+    words.length > REPORTED_GAP_MAX_WORDS ||
+    words.some((w) => SUBJECT_PRONOUNS.has(w)) ||
+    (['if', 'whether'].includes(words[0]) && words.length > 1)
+  )
+}
+
 /**
  * Comparable form of an answer: case, curly apostrophes, commas, spacing and the final
  * punctuation mark don't count.
@@ -30,7 +49,9 @@ const NOT_CONTRACTIONS: Record<string, string> = { "won't": 'will not', "can't":
  */
 function answerWords(normalized: string): string[] {
   return normalized
-    .replace(/\s+'(?=[a-z])/g, "'") // "She 's cooking": a gap filled with "'s cooking"
+    // "She 's cooking": a gap filled with "'s cooking". Only contraction endings: an opening
+    // quotation mark ("said, 'I like…") must not glue itself to the word before.
+    .replace(/\s+'(?=(?:s|d|m|re|ve|ll)\b)/g, "'")
     .replace(/\b(won|can|shan)'t\b/g, (m) => NOT_CONTRACTIONS[m])
     .replace(/\bcannot\b/g, 'can not')
     .replace(/n't\b/g, ' not')
@@ -142,8 +163,22 @@ function sameRoot(a: string, b: string): boolean {
 }
 
 function contentWords(text: string): string[] {
-  return answerWords(normalizeAnswer(text).replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim())
+  const plain = normalizeAnswer(text)
+    .replace(/[^a-z0-9' ]/g, ' ')
+    // Quotation marks around direct speech aren't part of any word; apostrophes inside
+    // words (don't, I'm) and contraction endings ('s, 're) are.
+    .replace(/(^|\s)'(?!(?:s|d|m|re|ve|ll|t)\b)/g, '$1')
+    .replace(/'(?=\s|$)/g, '')
+  return answerWords(plain.replace(/\s+/g, ' ').trim())
 }
+
+/** The source quotes direct speech: "Tom said, 'I am tired.'" or "'I am tired,' Tom said." */
+function quotesDirectSpeech(source: string): boolean {
+  return /(^|[,:]\s*)['"‘“]\S/.test(source.trim())
+}
+
+/** Reported speech changes time words (tomorrow → the next day): the learner is taught these, so they are no hint. */
+const TIME_SHIFT_WORDS = new Set('next following previous day night earlier'.split(' '))
 
 /**
  * Words an answer needs that neither the source sentence nor the cue gives the learner, e.g.
@@ -159,7 +194,9 @@ export function missingWords(source: string, cue: string | undefined, answer: st
 
 function isMissing(source: string, cue: string | undefined): (word: string) => boolean {
   const given = contentWords(`${source} ${cue ?? ''}`).map(root)
-  return (w) => !FREE_WORDS.has(w) && !/^\d/.test(w) && !given.some((g) => sameRoot(g, root(w)))
+  const reporting = quotesDirectSpeech(source)
+  return (w) =>
+    !FREE_WORDS.has(w) && !(reporting && TIME_SHIFT_WORDS.has(w)) && !/^\d/.test(w) && !given.some((g) => sameRoot(g, root(w)))
 }
 
 /** [start, end) of each run of neighbouring words that pass the test. */
@@ -197,8 +234,29 @@ function keptWording(source: string, cue: string | undefined, answer: string): s
  * at the moment." counts for "I watch TV at the moment." → "I am watching TV now.".
  */
 export function transformAnswers(item: { source: string; cue?: string; answers: string[] }): string[] {
-  const kept = item.answers.map((a) => keptWording(item.source, item.cue, a)).filter((a): a is string => a !== null)
-  return [...item.answers, ...kept]
+  const listed = [...item.answers, ...item.answers.flatMap(thatVariants)]
+  const kept = listed.map((a) => keptWording(item.source, item.cue, a)).filter((a): a is string => a !== null)
+  return [...listed, ...kept]
+}
+
+const SAY_TELL = String.raw`\b(said|says|told (?:me|you|him|her|us|them))`
+
+/** "that" after say / tell + person is optional: "Mark said (that) he had been waiting." */
+function thatVariants(answer: string): string[] {
+  const without = answer.replace(new RegExp(`${SAY_TELL}\\s+that\\s+(?=(?:i|you|he|she|it|we|they)\\b)`, 'i'), '$1 ')
+  const withThat = answer.replace(new RegExp(`${SAY_TELL}\\s+(?=(?:i|you|he|she|it|we|they)\\b)`, 'i'), '$1 that ')
+  return [without, withThat].filter((v) => v !== answer)
+}
+
+/**
+ * The learner ended the sentence with "?" where the answer is a statement, or the other way
+ * round: "She asked if I was coming?" is the classic reported question mistake. No final
+ * mark at all is not counted.
+ */
+export function questionMarkMismatch(input: string, answers: string[]): boolean {
+  const mark = input.trim().match(/[.!?]$/)?.[0]
+  if (!mark || answers.length === 0) return false
+  return answers.every((a) => /\?$/.test(a.trim()) !== (mark === '?'))
 }
 
 /**

@@ -1,10 +1,10 @@
-# Grammar Coach curriculum (123 points)
+# Grammar Coach curriculum (140 points)
 
 Source of truth: [`src/data/grammarCurriculum.ts`](../src/data/grammarCurriculum.ts). Integrity is checked by `npm run check:grammar` ([`scripts/check-grammar-points.ts`](../scripts/check-grammar-points.ts)). This page records the decisions behind the list, not the list itself.
 
 ## Level scheme
 
-One CEFR level per point: A1 16, A2 21, B1 26, B2 31, C1 19, C2 10. Row order within a level is a suggested teaching order (`order`), not the source chart's order.
+One CEFR level per point: A1 16, A2 27, B1 30, B2 36, C1 21, C2 10 (counts include the numbered tense reviews). Row order within a level is a suggested teaching order (`order`), not the source chart's order.
 
 - The source chart's bands were split. A1–A2 items became A1 or A2. Of the A2–B1 items, past continuous, defining relative clauses, something/anything/nothing, will, have to/must, should and possessive pronouns sit at A2, and the rest at B1. The chart's own B1 and B2 bands are kept.
 - Roadmap C1–C2 content was first placed at C1. The points from `cleft-advanced` onward were then moved to C2 (ids renamed `c2-*`): advanced clefts, advanced question forms, reason and concession clauses, linking devices, emphasis/inversion, emphasising advice, heads and tails, subjunctive, verbless clauses.
@@ -27,6 +27,18 @@ Learner mistakes use a separate, Hungarian-L1-informed taxonomy (area → subtyp
 ## Deliberate level calls (the chart wins)
 
 Third conditional at B1 (mixed conditionals at B2); passive in all tenses at B1; modals of deduction at B1 (past modals at B2); defining relative clauses at A2.
+
+## Reported speech
+
+Split by what is reported, because each is its own mechanism and one mixed lesson left one or two items per pattern (report 05bef4e9, 2026-11-10):
+
+- `b1-reported-statements` (B1) — backshift, say/tell, pronoun and time words, across the B1 tenses and modals (no past perfect continuous yet).
+- `b1-reported-commands` (B1) — tell / ask + person + (not) to; no backshift.
+- `b2-reported-questions` (start of B2) — if/whether, statement word order, full stop; comes before `b2-complex-questions`, which reuses the word order.
+- `b2-reported-speech-review` (B2, right after tense review 12, the first point where every tense is known) — statements and questions in every tense; no commands.
+- `b2-reporting-verbs` and `c1-passive-reporting` unchanged.
+
+Each carries a `reported` focus (kinds + backshift forms) that `api/_lib/prompts.ts` turns into lesson and exercise rules; `npm run check:grammar` checks it. Reported speech exercise items always show the direct speech they report (`quote`), and a gap holds only the changing part (verb form, if/whether, time word) — enforced in `parseGrammarExercisesJson`.
 
 ## Exclusions
 
