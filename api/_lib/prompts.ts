@@ -1,5 +1,5 @@
 import type { ChatMessage, ExplainLanguage, LessonLanguage } from '../../src/lib/types.js'
-import type { GrammarItem } from '../../src/data/grammarCurriculum.js'
+import type { GrammarItem, ReportedKind } from '../../src/data/grammarCurriculum.js'
 import { MAX_TUTOR_ITEMS_PER_SESSION } from '../../src/lib/vocab.js'
 import { buildTaxonomyPromptBlock } from '../../src/data/mistakeTaxonomy.js'
 import { EXERCISES_PER_TYPE } from '../../src/lib/grammarExercises.js'
@@ -191,6 +191,49 @@ function reviewLine(item: GrammarItem, kind: 'lesson' | 'exercises'): string {
   return `\nThis is TENSE REVIEW ${review.number}, a review of all the tenses the learner has studied so far: ${review.tenses.join(', ')}. ${task}\n`
 }
 
+const REPORTED_KIND_RULES: Record<ReportedKind, string> = {
+  statements: `Statements: after a past reporting verb the tense moves one step back (backshift); say (that) vs tell + person (that), never "said me"; pronouns change to the reporter's point of view; time and place words change (now → then, today → that day, tomorrow → the next day / the following day, yesterday → the day before / the previous day, next week → the following week, ago → before, here → there). Backshift is optional when the reporting verb is in the present (She says she is tired) or the fact is still true; past simple → past perfect is often optional in speech. Could, would, should, might and the past perfect never change.`,
+  questions: `Questions: yes/no questions are reported with if or whether; wh-questions keep their question word; the reported question has statement word order (subject before verb) with no do / does / did and ends with a full stop, never a question mark; report with asked (me), wanted to know or wondered — never "asked to me". The tenses move back exactly as in reported statements, and pronouns and time words change the same way.`,
+  commands: `Commands and requests: tell + person + (not) to + infinitive for orders and instructions; ask + person + (not) to + infinitive for requests (Could you…? / Please…); negative commands become not to (Don't shout → told us not to shout). No tense changes. The listener is always named after tell / ask; never "said me to" or "said to me to". Use tell and ask; remind, warn and advise may appear as an extension. Never report with verbs of manner such as whisper or shout, which don't take this pattern.`,
+}
+
+const REPORTED_KIND_NAMES: Record<ReportedKind, string> = { statements: 'STATEMENTS', questions: 'QUESTIONS', commands: 'COMMANDS AND REQUESTS' }
+
+/**
+ * Extra instructions for a reported speech lesson: report only its own kinds, and spread the
+ * backshift across every form in its list — a table of one tense teaches very little.
+ */
+function reportedLine(item: GrammarItem, kind: 'lesson' | 'exercises'): string {
+  const focus = item.reported
+  if (!focus) return ''
+  const others = (['statements', 'questions', 'commands'] as const).filter((k) => !focus.kinds.includes(k))
+  const scope = `This ${focus.review ? 'is an overview lesson that revises' : 'lesson teaches'} reported ${focus.kinds.map((k) => REPORTED_KIND_NAMES[k]).join(' and ')} only${others.length ? ` — do not teach or practise reported ${others.join(' or ')} here` : ''}.`
+  const rules = focus.kinds.map((k) => `- ${REPORTED_KIND_RULES[k]}`).join('\n')
+  const forms = focus.forms.length ? focus.forms.join(', ') : ''
+
+  if (kind === 'lesson') {
+    const table = forms
+      ? ` Put the backshift on the board as "comparison-table" widgets with the headers Direct speech / Reported speech and one short example pair per row, covering EVERY one of these direct-speech forms: ${forms}. A table holds at most 5 rows, so spread the forms over ${focus.review ? 'several tables grouped by time (present, past, future, modals)' : 'two tables'}, with other widgets between them. The example sentences and the practice sentences must use different forms from this list.`
+      : ''
+    const review = focus.review
+      ? ' Teach nothing new: recap the whole backshift table, the question word order and the time and place words side by side, contrast typical mistakes in example pairs, and end with a short checklist for reporting any sentence.'
+      : ''
+    return `\nREPORTED SPEECH. ${scope}${table}${review}\n${rules}\n`
+  }
+
+  const spread = forms
+    ? ` Across the whole sheet use EVERY one of these direct-speech forms in at least one item and never the same form in two items in a row: ${forms}. Prefer things said about the moment of speaking (plans, feelings, current situations) so backshift is clearly needed; when the direct speech is in the past simple, list both the past perfect and the past simple answer.`
+    : ' Mix tell and ask, orders and requests, positive and negative (not to) commands, and different listeners (me, us, the children, the waiter).'
+  const mix = focus.kinds.length > 1 ? ` In every section, about half the items report ${focus.kinds.join(' and half report ')}.` : ''
+  return `\nREPORTED SPEECH. ${scope}${spread}${mix}
+${rules}
+Every item shows the exact direct speech it reports, in single quotation marks, with who said it and — whenever a pronoun in the answer depends on it — to whom: "Emily asked me, 'Are you coming to the party?'", "Tom said, 'I am tired.'". The learner can never work out a reported sentence without it.
+- "order": "quote" is the direct speech; "answer" is its reported version; "extra" is the word a learner who gets the rule wrong would use (the unshifted verb, "did" in a reported question, "said" where told is needed…).
+- "form": "quote" is the direct speech; "sentence" is the complete reported version with ONE gap holding only the changing verb form (cue: its base form, e.g. "be", or "not / eat"), or only if / whether (cue "if / whether"), or only the time word (cue the original word, e.g. "tomorrow"). Never gap a whole clause, the subject or the reporting verb; pronouns and time words outside the gap are already changed.
+- "transform": "source" is the direct speech with the reporting verb and listener the answer uses ("Mark said, '…'", "The coach told the players, '…'", "Anna asked me, '…'"), so "cue" is always "". Answers with and without "that" are accepted automatically, so list each wording once.
+`
+}
+
 /**
  * Pure prompt builder — no network call — so the same prompt can be sent to whichever
  * provider the learner picked for Grammar Coach (see api/_lib/modelRouter.ts). `lang` is
@@ -220,11 +263,11 @@ ${englishTagRule(explain)}`
   const learnerDescription = lang === 'hu' ? 'a Hungarian learner' : lang === 'de' ? 'a German-speaking learner' : 'a learner'
 
   const systemPrompt = `You are a patient, experienced English grammar teacher recording a narrated board lesson for ${learnerDescription} on the grammar point "${item.title}" (CEFR level ${cefrLevel}). Explain at this level; keep vocabulary and example sentences appropriate to it.
-${hintLine}${reviewLine(item, 'lesson')}
+${hintLine}${reviewLine(item, 'lesson')}${reportedLine(item, 'lesson')}
 Respond with ONLY valid JSON (no markdown, no code fences) matching EXACTLY this shape:
 {"segments":[{"widget":<widget>,"narration":"..."}],"practice":[{"en":"..."${translationField ? `,"${translationField}":"..."` : ''}}]}
 
-Produce 4 to 6 segments, ordered so the lesson builds up naturally (e.g. when we use it, how we form it, examples, a typical mistake, then a summary). Each segment's "widget" must be EXACTLY one of these shapes — no other fields, no other widget types:
+Produce ${item.reported?.review ? '6 to 8' : '4 to 6'} segments, ordered so the lesson builds up naturally (e.g. when we use it, how we form it, examples, a typical mistake, then a summary). Each segment's "widget" must be EXACTLY one of these shapes — no other fields, no other widget types:
 - {"type":"rule-box","title":"...","text":"..."}
 - {"type":"example-sentence","tokens":[{"text":"...","highlighted":true|false}, ...]} — tokens are the words/punctuation of ONE example sentence in order; set "highlighted":true only on the word(s) that demonstrate the grammar point.
 - {"type":"comparison-table","headers":["...","..."],"rows":[["...","..."], ...]} — 2 to 4 headers, 2 to 5 rows, each row has the same number of cells as headers.
@@ -257,11 +300,12 @@ export function buildGrammarExercisesPrompt(
   const instructionLanguage = LANGUAGE_NAMES[explain]
   const hintLine = item.hint && lang === 'hu' ? `\nHungarian-learner focus: ${item.hint}\n` : ''
   const learnerDescription = lang === 'hu' ? 'a Hungarian learner' : lang === 'de' ? 'a German-speaking learner' : 'a learner'
+  const quoteField = item.reported ? '"quote":"...",' : ''
 
   const systemPrompt = `You are an English grammar teacher writing a written exercise sheet for ${learnerDescription} on the grammar point "${item.title}" (CEFR level ${cefrLevel}). Every sentence must practise this exact grammar point, with vocabulary appropriate to the level.
-${hintLine}${reviewLine(item, 'exercises')}
+${hintLine}${reviewLine(item, 'exercises')}${reportedLine(item, 'exercises')}
 Respond with ONLY valid JSON (no markdown, no code fences) matching EXACTLY this shape:
-{"formInstruction":"...","transformInstruction":"...","order":[{"answer":"...","alternatives":["..."],"extra":"..."}],"form":[{"sentence":"...","cue":"...","answers":["..."]}],"transform":[{"source":"...","cue":"...","answers":["..."]}]}
+{"formInstruction":"...","transformInstruction":"...","order":[{${quoteField}"answer":"...","alternatives":["..."],"extra":"..."}],"form":[{${quoteField}"sentence":"...","cue":"...","answers":["..."]}],"transform":[{"source":"...","cue":"...","answers":["..."]}]}
 
 There are three exercise types, exactly ${EXERCISES_PER_TYPE} items each, ordered from easier to harder:
 
@@ -271,6 +315,7 @@ There are three exercise types, exactly ${EXERCISES_PER_TYPE} items each, ordere
 - "alternatives": other word orders of exactly the same words that are also correct (e.g. a moved time adverbial); [] if there are none.
 
 2. "form" — a sentence with ONE gap, written as ___ (three underscores), and a cue the learner turns into the right form.
+- A learner who knows this grammar point must be able to work out the answer from what the item shows alone. The gap holds the form being practised (usually one to four words), never a whole clause or content the item gives no clue to.
 - "sentence": putting any listed answer into the gap must give a correct sentence with no word outside the gap moved, added or removed. A question therefore gaps the auxiliary at the front ("___ you like coffee?", cue "do", answer "Do") or the whole auxiliary + subject + verb ("What ___ at the moment?", cue "you / do", answer "are you doing") — never "You ___ coffee?". Words the answer contains stay out of the rest of the sentence: "They ___ happy." with cue "not / be" and answer "were not", never "They ___ not happy."; "He ___ study more." with answer "has to", never "He ___ to study more."
 - "cue": the base form shown in brackets after the gap, e.g. the infinitive of the verb ("build") for tenses and the passive, the adjective ("big") for comparatives, the pronoun ("I") for object pronouns. If this grammar point has no base form to change (e.g. prepositions, articles, this/that/these/those), the cue lists the options instead ("in / on / at"). The app adds the brackets, so never write the cue into "sentence" as well.
 - "answers": every correct way to fill the gap, each exactly the words that go in it (never repeat a word from outside the gap, e.g. the subject). Contracted forms are accepted automatically, so write the full form ("was not built", "is cooking").

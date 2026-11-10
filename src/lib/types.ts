@@ -188,6 +188,8 @@ export interface GrammarLesson {
 
 /** Word order: the sentence's words are shuffled together with one extra word that doesn't belong. */
 export interface GrammarOrderExercise {
+  /** Reported speech: the direct speech the sentence reports, shown above the tiles. */
+  quote?: string
   /** The correct sentence, final punctuation included. */
   answer: string
   /** Other correct word orders of the same words, if any. */
@@ -197,6 +199,8 @@ export interface GrammarOrderExercise {
 
 /** Form: one "___" gap, filled with the right form of the cue shown in brackets. */
 export interface GrammarFormExercise {
+  /** Reported speech: the direct speech the sentence reports, shown above the gap. */
+  quote?: string
   sentence: string
   cue: string
   answers: string[]

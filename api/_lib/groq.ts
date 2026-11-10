@@ -24,7 +24,7 @@ import {
   type VocabKind,
   type VocabPos,
 } from '../../src/lib/vocab.js'
-import { bareCue, doublesAtGap, EXERCISES_PER_TYPE, GAP, sameWords, sentenceTiles } from '../../src/lib/grammarExercises.js'
+import { bareCue, doublesAtGap, EXERCISES_PER_TYPE, GAP, isClauseGap, sameWords, sentenceTiles } from '../../src/lib/grammarExercises.js'
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
@@ -381,8 +381,20 @@ function exerciseItems(value: unknown, section: string): Record<string, unknown>
  * nothing unexpected reaches the cache. Throws on any item that couldn't be played as an
  * exercise (api/grammar-lesson.ts retries once, like the lesson). Word-order alternatives
  * that don't use exactly the answer's words are dropped rather than failing the set.
+ *
+ * `reported` (a reported speech lesson): every order and form item must show the direct
+ * speech it reports ("quote"), a form gap holds only a few words (never a whole clause),
+ * transform items get no bracket hint, and a reported question ends with a full stop.
  */
-export function parseGrammarExercisesJson(raw: string): GrammarExerciseSet {
+export function parseGrammarExercisesJson(raw: string, options: { reported?: boolean } = {}): GrammarExerciseSet {
+  const reported = !!options.reported
+  const quoteOf = (item: Record<string, unknown>, section: string): { quote?: string } => {
+    if (!reported) return {}
+    if (!isNonEmptyString(item.quote)) throw new Error(`Grammar ${section} item does not show the direct speech it reports`)
+    return { quote: item.quote.trim() }
+  }
+  // A reported question is a statement: "She asked if I was coming." — never "…coming?".
+  const reportedEnd = (text: string) => (reported ? text.replace(/\?\s*$/, '.') : text)
   const cleaned = raw.trim().replace(/^```(json)?/i, '').replace(/```$/, '').trim()
   const parsed = JSON.parse(cleaned)
   if (typeof parsed !== 'object' || parsed === null) throw new Error('Grammar exercises JSON is not an object')
@@ -392,32 +404,38 @@ export function parseGrammarExercisesJson(raw: string): GrammarExerciseSet {
 
   const order = exerciseItems(parsed.order, 'order').map((item) => {
     if (!isNonEmptyString(item.answer) || !isNonEmptyString(item.extra)) throw new Error('Grammar order item is missing answer/extra')
-    const answer = item.answer.trim()
+    const answer = reportedEnd(item.answer.trim())
     const extra = item.extra.trim()
     const tiles = sentenceTiles(answer)
     if (tiles.length < 3 || /\s/.test(extra)) throw new Error('Grammar order item has too few words or a multi-word extra')
     // An extra that is also one of the sentence's words would make two tile choices right.
     if (tiles.some((t) => t.toLowerCase() === extra.toLowerCase())) throw new Error('Grammar order extra word is in the sentence')
     const alternatives = Array.isArray(item.alternatives)
-      ? item.alternatives.filter(isNonEmptyString).map((a) => a.trim()).filter((a) => sameWords(a, answer))
+      ? item.alternatives.filter(isNonEmptyString).map((a) => reportedEnd(a.trim())).filter((a) => sameWords(a, answer))
       : []
-    return { answer, extra, ...(alternatives.length ? { alternatives } : {}) }
+    return { ...quoteOf(item, 'order'), answer, extra, ...(alternatives.length ? { alternatives } : {}) }
   })
 
   const form = exerciseItems(parsed.form, 'form').map((item) => {
     if (!isNonEmptyString(item.sentence) || !isNonEmptyString(item.cue)) throw new Error('Grammar form item is missing sentence/cue')
-    const sentence = item.sentence.trim().replace(/_{2,}/g, GAP)
+    const sentence = reportedEnd(item.sentence.trim().replace(/_{2,}/g, GAP))
     if (sentence.split(GAP).length !== 2) throw new Error('Grammar form item needs exactly one gap')
     // An answer that repeats the word after the gap ("weren't" before "not") reads wrong once filled in.
     const answers = answerList(item.answers, 'form item').filter((a) => !doublesAtGap(sentence, a))
     if (answers.length === 0) throw new Error('Grammar form item answers repeat the word after the gap')
-    return { sentence, cue: bareCue(item.cue), answers }
+    // "He said that ___ ." with "he was tired" can't be worked out: gap the verb, not the clause.
+    if (reported && answers.some(isClauseGap)) {
+      throw new Error('Grammar reported speech gap holds a whole clause')
+    }
+    return { ...quoteOf(item, 'form'), sentence, cue: bareCue(item.cue), answers }
   })
 
   const transform = exerciseItems(parsed.transform, 'transform').map((item) => {
     if (!isNonEmptyString(item.source)) throw new Error('Grammar transform item is missing its source sentence')
-    const cue = isNonEmptyString(item.cue) ? bareCue(item.cue) || undefined : undefined
-    return { source: item.source.trim(), ...(cue ? { cue } : {}), answers: answerList(item.answers, 'transform item') }
+    // Reported speech sources carry their own reporting verb and listener; a hint only confuses.
+    const cue = !reported && isNonEmptyString(item.cue) ? bareCue(item.cue) || undefined : undefined
+    const answers = answerList(item.answers, 'transform item').map(reportedEnd)
+    return { source: item.source.trim(), ...(cue ? { cue } : {}), answers }
   })
 
   return {

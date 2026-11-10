@@ -43,7 +43,41 @@ export interface GrammarItem {
   hint?: string
   /** Set on numbered tense review sessions (see TENSE_REVIEW_RULE below). */
   review?: TenseReview
+  /** Set on reported speech lessons: what is reported and which direct-speech forms to backshift. */
+  reported?: ReportedSpeechFocus
 }
+
+export type ReportedKind = 'statements' | 'questions' | 'commands'
+
+export interface ReportedSpeechFocus {
+  /** What the lesson and its exercises report — nothing else. */
+  kinds: ReportedKind[]
+  /**
+   * Direct-speech verb forms the lesson's backshift table and the exercises spread across;
+   * only forms the learner has met by this point. [] for commands, which need no backshift.
+   */
+  forms: string[]
+  /** The overview lesson once every tense is known: revises the whole backshift table. */
+  review?: boolean
+}
+
+// Backshift forms by lesson. B1 statements stay with forms met in B1 (no past perfect
+// continuous yet); B2 questions add past continuous; the review covers every tense.
+const REPORTED_STATEMENTS_B1: ReportedSpeechFocus = {
+  kinds: ['statements'],
+  forms: ['present simple', 'present continuous', 'past simple', 'present perfect', 'will', 'be going to', 'can', 'must / have to', 'may'],
+}
+
+const REPORTED_QUESTIONS_B2: ReportedSpeechFocus = {
+  kinds: ['questions'],
+  forms: ['present simple', 'present continuous', 'past simple', 'past continuous', 'present perfect', 'will', 'be going to', 'can'],
+}
+
+const REPORTED_REVIEW_FORMS = [
+  'present simple', 'present continuous', 'past simple', 'past continuous', 'present perfect', 'present perfect continuous',
+  'past perfect', 'past perfect continuous', 'will', 'be going to', 'present continuous for the future', 'future continuous',
+  'future perfect', 'future perfect continuous', 'can', 'may', 'must / have to',
+]
 
 export interface TenseReview {
   /** 1-based, counted across the whole curriculum; shown as a badge in the rail. */
@@ -146,55 +180,58 @@ export const grammarCurriculum: CefrLevelGroup[] = [
       { id: "b1-passive-simple", order: 18, title: "Passive voice: present simple and past simple", titleHu: "Szenvedő szerkezet: egyszerű jelen és múlt", category: 'passive_voice', source: 'chart', hint: "Hungarian uses the passive far less than English, so learners tend to avoid it." },
       { id: "b1-passive-all-tenses", order: 19, title: "Passive in all tenses", titleHu: "Szenvedő szerkezet minden igeidőben", category: 'passive_voice', source: 'chart' },
       { id: "b1-third-conditional", order: 20, title: "Third conditional", titleHu: "Harmadik típusú feltételes mondat", category: 'conditionals', source: 'chart', hint: "Hungarian uses volna in both clauses (Ha lett volna időm, elmentem volna), so learners say 'If I would have had'." },
-      { id: "b1-reported-speech", order: 21, title: "Reported speech: statements, questions, commands", titleHu: "Függő beszéd: kijelentések, kérdések, felszólítások", category: 'reported_speech', source: 'chart', hint: "Hungarian does not shift tenses in reported speech (Azt mondta, hogy fáradt), so backshift is new." },
-      { id: "b1-relative-clauses", order: 22, title: "Relative clauses: whose, where, non-defining clauses", titleHu: "Vonatkozó mondatok: whose, where, nem meghatározó mellékmondatok", category: 'relative_clauses', source: 'chart' },
-      { id: "b1-question-tags", order: 23, title: "Question tags", titleHu: "Kérdőfarok (question tags)", category: 'question_formation', source: 'chart' },
-      { id: "b1-so-neither", order: 24, title: "So do I / Neither do I: agreeing and short responses", titleHu: "So do I / Neither do I: egyetértés, rövid válaszok", category: 'auxiliary_verbs', source: 'chart' },
-      { id: "b1-comparisons", order: 25, title: "Comparisons: as… as, less / least, much / a bit + comparative", titleHu: "Összehasonlítás: as… as, less / least, much / a bit + középfok", category: 'comparatives', source: 'chart' },
-      { id: "b1-articles", order: 26, title: "Articles: the, a/an and zero article", titleHu: "Névelők: the, a/an és a zéró névelő", category: 'articles', source: 'chart', hint: "Hungarian uses a/az with generic and abstract nouns (Az élet szép), so learners add 'the' where English uses none." },
-      { id: "b1-quantifiers", order: 27, title: "Quantifiers: (a) few, (a) little, too, enough", titleHu: "Mennyiségjelzők: (a) few, (a) little, too, enough", category: 'nouns_quantifiers', source: 'added' },
-      { id: "b1-phrasal-verbs", order: 28, title: "Phrasal verbs: meaning and word order", titleHu: "Frázisigék: jelentés és szórend", category: 'phrasal_verbs', source: 'chart', hint: "Hungarian preverbs (felkel = get up, kimegy = go out) are a useful analogy, though separation and meaning differ." },
-      { id: "b1-linking-basic", order: 29, title: "Linking words: because, so, although, however", titleHu: "Kötőszavak és kapcsolószavak: because, so, although, however", category: 'linking_cohesion', source: 'added' },
+      { id: "b1-reported-statements", order: 21, title: "Reported speech: statements and tense backshift", titleHu: "Függő beszéd: kijelentések és az igeidők egyeztetése", category: 'reported_speech', source: 'chart', hint: "Hungarian does not shift tenses in reported speech (Azt mondta, hogy fáradt), so backshift is new.", reported: REPORTED_STATEMENTS_B1 },
+      { id: "b1-reported-commands", order: 22, title: "Reported commands and requests: tell / ask someone (not) to", titleHu: "Függő felszólítások és kérések: tell / ask someone (not) to", category: 'reported_speech', source: 'chart', hint: "Hungarian reports orders with hogy + subjunctive (Azt mondta, hogy üljek le), so learners say 'He said me to sit down'.", reported: { kinds: ['commands'], forms: [] } },
+      { id: "b1-relative-clauses", order: 23, title: "Relative clauses: whose, where, non-defining clauses", titleHu: "Vonatkozó mondatok: whose, where, nem meghatározó mellékmondatok", category: 'relative_clauses', source: 'chart' },
+      { id: "b1-question-tags", order: 24, title: "Question tags", titleHu: "Kérdőfarok (question tags)", category: 'question_formation', source: 'chart' },
+      { id: "b1-so-neither", order: 25, title: "So do I / Neither do I: agreeing and short responses", titleHu: "So do I / Neither do I: egyetértés, rövid válaszok", category: 'auxiliary_verbs', source: 'chart' },
+      { id: "b1-comparisons", order: 26, title: "Comparisons: as… as, less / least, much / a bit + comparative", titleHu: "Összehasonlítás: as… as, less / least, much / a bit + középfok", category: 'comparatives', source: 'chart' },
+      { id: "b1-articles", order: 27, title: "Articles: the, a/an and zero article", titleHu: "Névelők: the, a/an és a zéró névelő", category: 'articles', source: 'chart', hint: "Hungarian uses a/az with generic and abstract nouns (Az élet szép), so learners add 'the' where English uses none." },
+      { id: "b1-quantifiers", order: 28, title: "Quantifiers: (a) few, (a) little, too, enough", titleHu: "Mennyiségjelzők: (a) few, (a) little, too, enough", category: 'nouns_quantifiers', source: 'added' },
+      { id: "b1-phrasal-verbs", order: 29, title: "Phrasal verbs: meaning and word order", titleHu: "Frázisigék: jelentés és szórend", category: 'phrasal_verbs', source: 'chart', hint: "Hungarian preverbs (felkel = get up, kimegy = go out) are a useful analogy, though separation and meaning differ." },
+      { id: "b1-linking-basic", order: 30, title: "Linking words: because, so, although, however", titleHu: "Kötőszavak és kapcsolószavak: because, so, although, however", category: 'linking_cohesion', source: 'added' },
     ],
   },
   {
     level: 'B2',
     label: "B2 — Upper-Intermediate",
     items: [
-      { id: "b2-narrative-tenses", order: 1, title: "Narrative tenses: past simple, continuous, perfect and perfect continuous", titleHu: "Elbeszélő igeidők (narrative tenses)", category: 'tense_aspect', source: 'chart+roadmap' },
-      { id: "b2-tense-review-10", order: 2, title: "Tense review 10: all tenses so far", titleHu: "10. igeidő-ismétlés: az eddigi összes igeidő", category: 'tense_aspect', source: 'added', review: { number: 10, tenses: ["present simple", "present continuous", "past simple", "be going to", "will", "past continuous", "present perfect", "present continuous for the future", "past perfect", "present perfect continuous", "past perfect continuous"] } },
-      { id: "b2-continuous-forms", order: 3, title: "Continuous forms: uses and contrasts across tenses", titleHu: "Folyamatos alakok: használat és összevetés", category: 'tense_aspect', source: 'roadmap' },
-      { id: "b2-tense-review-11", order: 4, title: "Tense review 11: all tenses so far", titleHu: "11. igeidő-ismétlés: az eddigi összes igeidő", category: 'tense_aspect', source: 'added', review: { number: 11, tenses: ["present simple", "present continuous", "past simple", "be going to", "will", "past continuous", "present perfect", "present continuous for the future", "past perfect", "present perfect continuous", "past perfect continuous"] } },
-      { id: "b2-future-perfect-continuous", order: 5, title: "Future perfect and future continuous", titleHu: "Future perfect és future continuous", category: 'tense_aspect', source: 'chart' },
-      { id: "b2-tense-review-12", order: 6, title: "Tense review 12: all tenses so far", titleHu: "12. igeidő-ismétlés: az eddigi összes igeidő", category: 'tense_aspect', source: 'added', review: { number: 12, tenses: ["present simple", "present continuous", "past simple", "be going to", "will", "past continuous", "present perfect", "present continuous for the future", "past perfect", "present perfect continuous", "past perfect continuous", "future continuous", "future perfect", "future perfect continuous"] } },
-      { id: "b2-other-future-forms", order: 7, title: "Other ways to talk about the future: be about to, be due to, be likely to", titleHu: "A jövő további kifejezési módjai: be about to, be due to, be likely to", category: 'tense_aspect', source: 'roadmap' },
-      { id: "b2-future-in-the-past", order: 8, title: "The future in the past: was going to, would, was about to", titleHu: "A múltbeli jövő: was going to, would, was about to", category: 'tense_aspect', source: 'roadmap' },
-      { id: "b2-past-modals", order: 9, title: "Past modals: should have, could have, must have, can't have", titleHu: "Múltbeli módbeli szerkezetek: should have, could have, must have, can't have", category: 'modals', source: 'chart+roadmap' },
-      { id: "b2-habits-will-would", order: 10, title: "Habits and typical behaviour: will and would", titleHu: "Szokások és jellemző viselkedés: will és would", category: 'modals', source: 'roadmap' },
-      { id: "b2-wish-regrets", order: 11, title: "Wish and if only: present, future and past; wish + would", titleHu: "Wish és if only: jelen, jövő és múlt; wish + would", category: 'conditionals', source: 'chart+roadmap', hint: "Hungarian uses the conditional after Bárcsak (Bárcsak lenne időm), so learners say 'I wish I would have time'." },
-      { id: "b2-mixed-conditionals", order: 12, title: "Mixed conditionals and alternatives to if: unless, as long as, provided that", titleHu: "Vegyes feltételes mondatok és az if alternatívái: unless, as long as, provided that", category: 'conditionals', source: 'roadmap' },
-      { id: "b2-passive-further", order: 13, title: "Further passive constructions: have / get something done, get-passive", titleHu: "További szenvedő szerkezetek: have / get something done, get-passive", category: 'passive_voice', source: 'roadmap' },
-      { id: "b2-reporting-verbs", order: 14, title: "Reporting verbs and their patterns: admit, deny, suggest, promise", titleHu: "Közlő igék és szerkezeteik: admit, deny, suggest, promise", category: 'reported_speech', source: 'roadmap' },
-      { id: "b2-relative-clauses", order: 15, title: "Relative clauses with prepositions: in which, to whom; defining vs non-defining", titleHu: "Vonatkozó mondatok elöljárószóval: in which, to whom", category: 'relative_clauses', source: 'chart+roadmap' },
-      { id: "b2-participle-clauses", order: 16, title: "Participle clauses: -ing and -ed", titleHu: "Igenévi szerkezetek (participle clauses): -ing és -ed", category: 'verb_patterns', source: 'roadmap' },
-      { id: "b2-complex-questions", order: 17, title: "Complex and indirect questions: Could you tell me where…?", titleHu: "Összetett és beágyazott kérdések: Could you tell me where…?", category: 'question_formation', source: 'chart+roadmap' },
-      { id: "b2-negative-questions", order: 18, title: "Negative questions: Don't you think…? Isn't it…?", titleHu: "Tagadó kérdések: Don't you think…? Isn't it…?", category: 'question_formation', source: 'roadmap' },
-      { id: "b2-auxiliary-verbs", order: 19, title: "Auxiliary verbs: emphasis, short answers and ellipsis", titleHu: "Segédigék: nyomatékosítás, rövid válaszok, ellipszis", category: 'auxiliary_verbs', source: 'chart+roadmap' },
-      { id: "b2-cleft-sentences", order: 20, title: "Cleft sentences: What I need is…, It was… that…", titleHu: "Kiemelő szerkezetek (cleft sentences): What I need is…, It was… that…", category: 'emphasis_structures', source: 'roadmap' },
-      { id: "b2-inversion-not-only", order: 21, title: "Not only… but also, no sooner… than, hardly… when", titleHu: "Inverzió: not only… but also, no sooner… than, hardly… when", category: 'emphasis_structures', source: 'roadmap' },
-      { id: "b2-even-hardly", order: 22, title: "Even, hardly, scarcely, barely", titleHu: "Even, hardly, scarcely, barely", category: 'adverbs_adjectives', source: 'roadmap' },
-      { id: "b2-double-comparatives", order: 23, title: "Double comparatives: the more… the more, more and more", titleHu: "Kettős középfok: the more… the more, more and more", category: 'comparatives', source: 'chart+roadmap' },
-      { id: "b2-complex-comparisons", order: 24, title: "Complex comparisons: twice as… as, nowhere near as… as, by far the…", titleHu: "Összetett összehasonlítások: twice as… as, nowhere near as… as, by far the…", category: 'comparatives', source: 'roadmap' },
-      { id: "b2-adjectives-as-nouns", order: 25, title: "Adjectives used as nouns: the rich, the elderly", titleHu: "Melléknevek főnévi használata: the rich, the elderly", category: 'adverbs_adjectives', source: 'chart' },
-      { id: "b2-adjective-order", order: 26, title: "Adjective order", titleHu: "Melléknevek sorrendje", category: 'adverbs_adjectives', source: 'chart' },
-      { id: "b2-adverbs-position", order: 27, title: "Adverbs and adverbial phrases: position and meaning", titleHu: "Határozószók és határozói kifejezések: helyük és jelentésük", category: 'adverbs_adjectives', source: 'chart+roadmap' },
-      { id: "b2-noun-phrases", order: 28, title: "Noun phrases: pre- and post-modification", titleHu: "Főnévi csoportok: elő- és utójelzők", category: 'nouns_quantifiers', source: 'roadmap' },
-      { id: "b2-verbs-of-senses", order: 29, title: "Verbs of the senses: see / hear + -ing or infinitive; look, sound, feel + adjective", titleHu: "Az érzékelés igéi: see / hear + -ing vagy infinitive; look, sound, feel + melléknév", category: 'verb_patterns', source: 'chart' },
-      { id: "b2-dependent-prepositions", order: 30, title: "Dependent prepositions after verbs, adjectives and nouns", titleHu: "Elöljárószós vonzatok igék, melléknevek és főnevek után", category: 'prepositions', source: 'roadmap', hint: "Hungarian case endings do not map onto English prepositions, so teach these as chunks." },
-      { id: "b2-word-patterns", order: 31, title: "Word patterns: expect to, surprised that / by / to", titleHu: "Igék és melléknevek szerkezetei: expect to, surprised that / by / to", category: 'verb_patterns', source: 'roadmap' },
-      { id: "b2-prepositional-phrases", order: 32, title: "Prepositional phrases and fixed expressions: by accident, in theory", titleHu: "Elöljárós kifejezések és állandósult szókapcsolatok: by accident, in theory", category: 'prepositions', source: 'roadmap' },
-      { id: "b2-linking-words", order: 33, title: "Linking words and phrases: contrast, reason, result, addition", titleHu: "Kötőszavak és kapcsolószavak: ellentét, ok, következmény, hozzáadás", category: 'linking_cohesion', source: 'roadmap' },
-      { id: "b2-word-formation", order: 34, title: "Word formation: prefixes, suffixes and compounds", titleHu: "Szóalkotás: előtagok, utótagok, összetett szavak", category: 'word_formation', source: 'roadmap' },
+      { id: "b2-reported-questions", order: 1, title: "Reported questions: asked if / whether, asked where…", titleHu: "Függő kérdések: asked if / whether, asked where…", category: 'reported_speech', source: 'chart', hint: "Hungarian marks yes/no questions with -e (Megkérdezte, jössz-e), so learners need if/whether; they keep question word order (asked where did I live).", reported: REPORTED_QUESTIONS_B2 },
+      { id: "b2-narrative-tenses", order: 2, title: "Narrative tenses: past simple, continuous, perfect and perfect continuous", titleHu: "Elbeszélő igeidők (narrative tenses)", category: 'tense_aspect', source: 'chart+roadmap' },
+      { id: "b2-tense-review-10", order: 3, title: "Tense review 10: all tenses so far", titleHu: "10. igeidő-ismétlés: az eddigi összes igeidő", category: 'tense_aspect', source: 'added', review: { number: 10, tenses: ["present simple", "present continuous", "past simple", "be going to", "will", "past continuous", "present perfect", "present continuous for the future", "past perfect", "present perfect continuous", "past perfect continuous"] } },
+      { id: "b2-continuous-forms", order: 4, title: "Continuous forms: uses and contrasts across tenses", titleHu: "Folyamatos alakok: használat és összevetés", category: 'tense_aspect', source: 'roadmap' },
+      { id: "b2-tense-review-11", order: 5, title: "Tense review 11: all tenses so far", titleHu: "11. igeidő-ismétlés: az eddigi összes igeidő", category: 'tense_aspect', source: 'added', review: { number: 11, tenses: ["present simple", "present continuous", "past simple", "be going to", "will", "past continuous", "present perfect", "present continuous for the future", "past perfect", "present perfect continuous", "past perfect continuous"] } },
+      { id: "b2-future-perfect-continuous", order: 6, title: "Future perfect and future continuous", titleHu: "Future perfect és future continuous", category: 'tense_aspect', source: 'chart' },
+      { id: "b2-tense-review-12", order: 7, title: "Tense review 12: all tenses so far", titleHu: "12. igeidő-ismétlés: az eddigi összes igeidő", category: 'tense_aspect', source: 'added', review: { number: 12, tenses: ["present simple", "present continuous", "past simple", "be going to", "will", "past continuous", "present perfect", "present continuous for the future", "past perfect", "present perfect continuous", "past perfect continuous", "future continuous", "future perfect", "future perfect continuous"] } },
+      { id: "b2-reported-speech-review", order: 8, title: "Reported speech review: statements and questions in all tenses", titleHu: "Függő beszéd – áttekintés: kijelentések és kérdések minden igeidőben", category: 'reported_speech', source: 'added', hint: "Hungarian never shifts tenses in reported speech, so the full backshift table is worth revising once every tense is known.", reported: { kinds: ['statements', 'questions'], forms: REPORTED_REVIEW_FORMS, review: true } },
+      { id: "b2-other-future-forms", order: 9, title: "Other ways to talk about the future: be about to, be due to, be likely to", titleHu: "A jövő további kifejezési módjai: be about to, be due to, be likely to", category: 'tense_aspect', source: 'roadmap' },
+      { id: "b2-future-in-the-past", order: 10, title: "The future in the past: was going to, would, was about to", titleHu: "A múltbeli jövő: was going to, would, was about to", category: 'tense_aspect', source: 'roadmap' },
+      { id: "b2-past-modals", order: 11, title: "Past modals: should have, could have, must have, can't have", titleHu: "Múltbeli módbeli szerkezetek: should have, could have, must have, can't have", category: 'modals', source: 'chart+roadmap' },
+      { id: "b2-habits-will-would", order: 12, title: "Habits and typical behaviour: will and would", titleHu: "Szokások és jellemző viselkedés: will és would", category: 'modals', source: 'roadmap' },
+      { id: "b2-wish-regrets", order: 13, title: "Wish and if only: present, future and past; wish + would", titleHu: "Wish és if only: jelen, jövő és múlt; wish + would", category: 'conditionals', source: 'chart+roadmap', hint: "Hungarian uses the conditional after Bárcsak (Bárcsak lenne időm), so learners say 'I wish I would have time'." },
+      { id: "b2-mixed-conditionals", order: 14, title: "Mixed conditionals and alternatives to if: unless, as long as, provided that", titleHu: "Vegyes feltételes mondatok és az if alternatívái: unless, as long as, provided that", category: 'conditionals', source: 'roadmap' },
+      { id: "b2-passive-further", order: 15, title: "Further passive constructions: have / get something done, get-passive", titleHu: "További szenvedő szerkezetek: have / get something done, get-passive", category: 'passive_voice', source: 'roadmap' },
+      { id: "b2-reporting-verbs", order: 16, title: "Reporting verbs and their patterns: admit, deny, suggest, promise", titleHu: "Közlő igék és szerkezeteik: admit, deny, suggest, promise", category: 'reported_speech', source: 'roadmap' },
+      { id: "b2-relative-clauses", order: 17, title: "Relative clauses with prepositions: in which, to whom; defining vs non-defining", titleHu: "Vonatkozó mondatok elöljárószóval: in which, to whom", category: 'relative_clauses', source: 'chart+roadmap' },
+      { id: "b2-participle-clauses", order: 18, title: "Participle clauses: -ing and -ed", titleHu: "Igenévi szerkezetek (participle clauses): -ing és -ed", category: 'verb_patterns', source: 'roadmap' },
+      { id: "b2-complex-questions", order: 19, title: "Complex and indirect questions: Could you tell me where…?", titleHu: "Összetett és beágyazott kérdések: Could you tell me where…?", category: 'question_formation', source: 'chart+roadmap' },
+      { id: "b2-negative-questions", order: 20, title: "Negative questions: Don't you think…? Isn't it…?", titleHu: "Tagadó kérdések: Don't you think…? Isn't it…?", category: 'question_formation', source: 'roadmap' },
+      { id: "b2-auxiliary-verbs", order: 21, title: "Auxiliary verbs: emphasis, short answers and ellipsis", titleHu: "Segédigék: nyomatékosítás, rövid válaszok, ellipszis", category: 'auxiliary_verbs', source: 'chart+roadmap' },
+      { id: "b2-cleft-sentences", order: 22, title: "Cleft sentences: What I need is…, It was… that…", titleHu: "Kiemelő szerkezetek (cleft sentences): What I need is…, It was… that…", category: 'emphasis_structures', source: 'roadmap' },
+      { id: "b2-inversion-not-only", order: 23, title: "Not only… but also, no sooner… than, hardly… when", titleHu: "Inverzió: not only… but also, no sooner… than, hardly… when", category: 'emphasis_structures', source: 'roadmap' },
+      { id: "b2-even-hardly", order: 24, title: "Even, hardly, scarcely, barely", titleHu: "Even, hardly, scarcely, barely", category: 'adverbs_adjectives', source: 'roadmap' },
+      { id: "b2-double-comparatives", order: 25, title: "Double comparatives: the more… the more, more and more", titleHu: "Kettős középfok: the more… the more, more and more", category: 'comparatives', source: 'chart+roadmap' },
+      { id: "b2-complex-comparisons", order: 26, title: "Complex comparisons: twice as… as, nowhere near as… as, by far the…", titleHu: "Összetett összehasonlítások: twice as… as, nowhere near as… as, by far the…", category: 'comparatives', source: 'roadmap' },
+      { id: "b2-adjectives-as-nouns", order: 27, title: "Adjectives used as nouns: the rich, the elderly", titleHu: "Melléknevek főnévi használata: the rich, the elderly", category: 'adverbs_adjectives', source: 'chart' },
+      { id: "b2-adjective-order", order: 28, title: "Adjective order", titleHu: "Melléknevek sorrendje", category: 'adverbs_adjectives', source: 'chart' },
+      { id: "b2-adverbs-position", order: 29, title: "Adverbs and adverbial phrases: position and meaning", titleHu: "Határozószók és határozói kifejezések: helyük és jelentésük", category: 'adverbs_adjectives', source: 'chart+roadmap' },
+      { id: "b2-noun-phrases", order: 30, title: "Noun phrases: pre- and post-modification", titleHu: "Főnévi csoportok: elő- és utójelzők", category: 'nouns_quantifiers', source: 'roadmap' },
+      { id: "b2-verbs-of-senses", order: 31, title: "Verbs of the senses: see / hear + -ing or infinitive; look, sound, feel + adjective", titleHu: "Az érzékelés igéi: see / hear + -ing vagy infinitive; look, sound, feel + melléknév", category: 'verb_patterns', source: 'chart' },
+      { id: "b2-dependent-prepositions", order: 32, title: "Dependent prepositions after verbs, adjectives and nouns", titleHu: "Elöljárószós vonzatok igék, melléknevek és főnevek után", category: 'prepositions', source: 'roadmap', hint: "Hungarian case endings do not map onto English prepositions, so teach these as chunks." },
+      { id: "b2-word-patterns", order: 33, title: "Word patterns: expect to, surprised that / by / to", titleHu: "Igék és melléknevek szerkezetei: expect to, surprised that / by / to", category: 'verb_patterns', source: 'roadmap' },
+      { id: "b2-prepositional-phrases", order: 34, title: "Prepositional phrases and fixed expressions: by accident, in theory", titleHu: "Elöljárós kifejezések és állandósult szókapcsolatok: by accident, in theory", category: 'prepositions', source: 'roadmap' },
+      { id: "b2-linking-words", order: 35, title: "Linking words and phrases: contrast, reason, result, addition", titleHu: "Kötőszavak és kapcsolószavak: ellentét, ok, következmény, hozzáadás", category: 'linking_cohesion', source: 'roadmap' },
+      { id: "b2-word-formation", order: 36, title: "Word formation: prefixes, suffixes and compounds", titleHu: "Szóalkotás: előtagok, utótagok, összetett szavak", category: 'word_formation', source: 'roadmap' },
     ],
   },
   {

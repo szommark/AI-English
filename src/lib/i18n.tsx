@@ -783,6 +783,16 @@ const messages = {
   checkAnswer: { hu: 'Ellenőrzés', en: 'Check', de: 'Prüfen' },
   answerCorrect: { hu: 'Helyes!', en: 'Correct!', de: 'Richtig!' },
   answerWrong: { hu: 'Nem egészen. Helyesen:', en: 'Not quite. Correct answer:', de: 'Nicht ganz. Richtig ist:' },
+  answerWrongEndMark: {
+    hu: 'Figyelj a mondat végi írásjelre: ez a mondat pontra végződik, nem kérdőjelre (a függő kérdés sem kérdés).',
+    en: 'Check the mark at the end: this sentence ends with a full stop, not a question mark (a reported question is not a question).',
+    de: 'Achte auf das Satzzeichen am Ende: Dieser Satz endet mit einem Punkt, nicht mit einem Fragezeichen (auch eine indirekte Frage ist keine Frage).',
+  },
+  answerWrongEndMarkQuestion: {
+    hu: 'Figyelj a mondat végi írásjelre: ez egy kérdés, kérdőjel kell a végére.',
+    en: 'Check the mark at the end: this is a question, so it needs a question mark.',
+    de: 'Achte auf das Satzzeichen am Ende: Das ist eine Frage, sie braucht ein Fragezeichen.',
+  },
   writtenProgress: { hu: '{checked}/{total} ellenőrizve · {correct} helyes', en: '{checked}/{total} checked · {correct} correct', de: '{checked}/{total} geprüft · {correct} richtig' },
   writtenDone: { hu: 'Kész! Eredményed: {correct}/{total}', en: 'Done! Your score: {correct}/{total}', de: 'Fertig! Dein Ergebnis: {correct}/{total}' },
   startOver: { hu: 'Újrakezdés', en: 'Start over', de: 'Neu beginnen' },
