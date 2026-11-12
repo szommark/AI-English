@@ -2092,6 +2092,21 @@ const messages = {
     de: 'Hörverstehensaufgaben mit KI oder per Upload erstellen und von Kollegen testen lassen.',
   },
   ttMoreSoon: { hu: 'Hamarosan további eszközök.', en: 'More tools are on the way.', de: 'Weitere Werkzeuge folgen.' },
+  ttComingSoon: { hu: 'Hamarosan', en: 'Coming soon', de: 'Demnächst' },
+
+  // Language Coach (the Coach tab of /teacher): coaching tools, Goal setting among them.
+  languageCoach: { hu: 'Nyelvi coach', en: 'Language Coach', de: 'Sprachcoach' },
+  lcSubtitle: {
+    hu: 'Coaching eszközök a diákjaiddal való közös munkához.',
+    en: 'Coaching tools for working with your students.',
+    de: 'Coaching-Werkzeuge für die Arbeit mit deinen Schülern.',
+  },
+  lcMindsetTitle: { hu: 'Szemléletváltás', en: 'Mindset change', de: 'Mindset-Wandel' },
+  lcMindsetDesc: {
+    hu: 'Segíts a diákjaidnak a nyelvtanulást gátló hiedelmeik átalakításában.',
+    en: 'Help your students reshape the beliefs that hold back their language learning.',
+    de: 'Hilf deinen Schülern, Überzeugungen umzuformen, die ihr Sprachenlernen bremsen.',
+  },
   ttGoalsTitle: { hu: 'Célkitűzés', en: 'Goal setting', de: 'Zielsetzung' },
   ttCompTitle: { hu: 'Szövegértési tesztek', en: 'Comprehension tests', de: 'Verständnistests' },
   ttCompDesc: {

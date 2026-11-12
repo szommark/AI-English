@@ -162,6 +162,9 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
   if (at('/teacher/tools/vocab')) return finish([teacher, toolkit, vocab])
   if (at('/teacher/tools/vocab/new')) return finish([teacher, toolkit, vocab, { label: t('vlCrumbNew') }])
   if (at('/teacher/tools/vocab/:listId')) return finish([teacher, toolkit, vocab, { label: t('vlCrumbList') }])
+  // Goal setting keeps its /teacher/tools/goals URL but sits under the Language Coach tab.
+  const coach: Crumb = { label: t('languageCoach'), to: '/teacher?tab=coach' }
+  if (at('/teacher/tools/goals')) return finish([teacher, coach, { label: t('ttGoalsTitle') }])
 
   if (at('/teacher')) return finish([teacher])
   if (at('/teacher/students/:studentId')) return finish([teacher, { label: t('crumbStudent') }])

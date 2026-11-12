@@ -4,6 +4,7 @@ import { useLanguage, type MessageKey } from '../lib/i18n'
 import { Link, useSearchParams } from 'react-router-dom'
 import { fetchInviteCode, regenerateInviteCode, fetchTeacherRoster, type RosterEntry } from '../lib/teacherApi'
 import TeacherToolsTab from '../components/TeacherTools/TeacherToolsTab'
+import LanguageCoachTab from '../components/TeacherTools/LanguageCoachTab'
 import ClassSummaryCard, { StudentGamificationLine } from '../components/gamification/ClassSummaryCard'
 import ChallengesSection from '../components/gamification/ChallengesSection'
 import ClassSettingsCard from '../components/gamification/ClassSettingsCard'
@@ -11,18 +12,20 @@ import ClassTenseExplorerCard from '../components/TenseExplorerSettings/ClassTen
 import { fetchClassGamification } from '../lib/gamificationApi'
 import type { ClassGamification } from '../lib/gamification/types'
 
-type DashboardTab = 'students' | 'tools'
+type DashboardTab = 'students' | 'tools' | 'coach'
 
 const TABS: { tab: DashboardTab; label: MessageKey }[] = [
   { tab: 'students', label: 'tdTabStudents' },
   { tab: 'tools', label: 'teacherToolkit' },
+  { tab: 'coach', label: 'languageCoach' },
 ]
 
-/** /teacher: the class (default tab) and the Teacher Toolkit (?tab=tools) as tabs. */
+/** /teacher: the class (default tab), the Teacher Toolkit (?tab=tools) and Language Coach (?tab=coach) as tabs. */
 export default function TeacherDashboardPage() {
   const { t } = useLanguage()
   const [searchParams, setSearchParams] = useSearchParams()
-  const tab: DashboardTab = searchParams.get('tab') === 'tools' ? 'tools' : 'students'
+  const requested = searchParams.get('tab')
+  const tab: DashboardTab = requested === 'tools' || requested === 'coach' ? requested : 'students'
   const [code, setCode] = useState<string | null>(null)
   const [regenerating, setRegenerating] = useState(false)
   const [students, setStudents] = useState<RosterEntry[]>([])
@@ -88,6 +91,7 @@ export default function TeacherDashboardPage() {
       </div>
 
       {tab === 'tools' && <TeacherToolsTab />}
+      {tab === 'coach' && <LanguageCoachTab />}
 
       {tab === 'students' && (
         <>
