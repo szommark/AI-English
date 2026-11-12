@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { MIN_PASSWORD, useAuth } from '../lib/AuthContext'
+import { useLanguage } from '../lib/i18n'
 
 type Mode = 'signin' | 'signup' | 'forgot'
 
@@ -15,6 +17,7 @@ const headings: Record<Mode, { title: string; subtitle: string }> = {
 
 export default function AuthPanel({ initialMode = 'signin' }: { initialMode?: Mode }) {
   const { signIn, signUp, requestPasswordReset } = useAuth()
+  const { t } = useLanguage()
   const [mode, setMode] = useState<Mode>(initialMode)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -155,6 +158,17 @@ export default function AuthPanel({ initialMode = 'signin' }: { initialMode?: Mo
           {isForgot ? 'Send reset link' : isSignup ? 'Create account' : 'Sign in'}
         </button>
       </form>
+
+      {isSignup && (
+        <p className="mt-3 text-center text-xs text-slate-500">
+          {t('signupPrivacyBefore')}
+          {/* New tab: the sign-up form (often in a modal) keeps what was typed. */}
+          <Link to="/privacy" target="_blank" rel="noopener" className="font-medium text-indigo-600 hover:underline">
+            {t('signupPrivacyLink')}
+          </Link>
+          {t('signupPrivacyAfter')}
+        </p>
+      )}
 
       <p className="mt-4 text-center text-sm text-slate-500">
         {isForgot ? 'Remembered it? ' : isSignup ? 'Already have an account? ' : "Don't have an account? "}

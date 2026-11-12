@@ -303,6 +303,29 @@ const messages = {
   // Mission statement (src/pages/MissionPage.tsx): header link, kicker and breadcrumb.
   mission: { hu: 'Küldetésünk', en: 'Our mission', de: 'Unsere Mission' },
 
+  // Legal footer (src/components/LegalFooter.tsx), /privacy and /impressum (texts in src/data/legal.ts).
+  legalHeading: { hu: 'Jogi információk', en: 'Legal', de: 'Rechtliches' },
+  legalRegistry: {
+    hu: 'Felnőttképzési nyilvántartási szám: B/2020/002545',
+    en: 'Adult education registry number: B/2020/002545',
+    de: 'Registernummer Erwachsenenbildung: B/2020/002545',
+  },
+  legalPrivacy: { hu: 'Adatvédelem', en: 'Privacy Policy', de: 'Datenschutz' },
+  legalImpressum: { hu: 'Impresszum', en: 'Impressum', de: 'Impressum' },
+  legalCopyright: {
+    hu: '© 2026 AVaLoN. Minden jog fenntartva.',
+    en: '© 2026 AVaLoN. All rights reserved.',
+    de: '© 2026 AVaLoN. Alle Rechte vorbehalten.',
+  },
+  // Sign-up consent line (src/components/AuthPanel.tsx): before + link + after.
+  signupPrivacyBefore: {
+    hu: 'A regisztrációval elfogadod az ',
+    en: 'By signing up you acknowledge the ',
+    de: 'Mit der Registrierung bestätigst du die ',
+  },
+  signupPrivacyLink: { hu: 'Adatvédelmi tájékoztatót', en: 'Privacy policy', de: 'Datenschutzerklärung' },
+  signupPrivacyAfter: { hu: '.', en: '.', de: '.' },
+
   landingKicker: { hu: 'Gyakorlás', en: 'Practice', de: 'Üben' },
   landingHeading: {
     hu: 'Válaszd ki, hogyan szeretnél ma gyakorolni',

@@ -22,6 +22,8 @@ import VoiceSettingsPage from './pages/VoiceSettingsPage'
 import MissionPage from './pages/MissionPage'
 import ClubPage from './pages/ClubPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import PrivacyPage from './pages/PrivacyPage'
+import ImpressumPage from './pages/ImpressumPage'
 import ConnectTeacherPage from './pages/settings/ConnectTeacherPage'
 import TeacherDashboardPage from './pages/TeacherDashboardPage'
 import StudentProgressPage from './pages/StudentProgressPage'
@@ -265,6 +267,9 @@ function AppRoutes() {
       <Route path="/club" element={<ClubPage />} />
       {/* Not protected: the reset email's link signs the user in here, and an expired link must still render. */}
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      {/* Public legal pages: linked from the footer and the sign-up form. */}
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/impressum" element={<ImpressumPage />} />
       <Route
         path="/my-progress"
         element={
