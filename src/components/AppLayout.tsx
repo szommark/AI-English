@@ -10,6 +10,7 @@ import AuthModal from './AuthModal'
 import BrandIntro, { shouldShowBrandIntro } from './BrandIntro'
 import Wordmark from './Wordmark'
 import LanguageSwitcher from './LanguageSwitcher'
+import LegalFooter from './LegalFooter'
 import ProgressMenu from './ProgressMenu'
 import LevelChip from './gamification/LevelChip'
 import XpNotifications from './gamification/XpNotifications'
@@ -144,7 +145,7 @@ export default function AppLayout() {
     <AuthPromptContext.Provider value={promptValue}>
       <ReportProblemContext.Provider value={reportValue}>
         {showIntro && <BrandIntro onDone={hideIntro} />}
-        <div className="min-h-screen bg-background">
+        <div className="flex min-h-screen flex-col bg-background">
           <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
             <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
               <Link to="/" className="flex items-center gap-2.5">
@@ -196,7 +197,7 @@ export default function AppLayout() {
           </header>
 
           {!isHome && (
-            <nav aria-label={t('breadcrumbLabel')} className="max-w-6xl mx-auto px-4 pt-5 space-y-2">
+            <nav aria-label={t('breadcrumbLabel')} className="w-full max-w-6xl mx-auto px-4 pt-5 space-y-2">
               <Link
                 to="/"
                 className="inline-flex items-center rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-primary shadow-sm hover:bg-secondary"
@@ -227,7 +228,7 @@ export default function AppLayout() {
             </nav>
           )}
 
-          <main className="max-w-6xl mx-auto px-4 py-8">
+          <main className="w-full flex-1 max-w-6xl mx-auto px-4 py-8">
             {/* Keyed by path: navigating away from a crashed page brings the app back. */}
             <CrashBoundary
               key={pathname}
@@ -238,6 +239,8 @@ export default function AppLayout() {
               <Outlet />
             </CrashBoundary>
           </main>
+
+          <LegalFooter />
         </div>
 
         {/* Floats on every page, apart from the header menu. */}

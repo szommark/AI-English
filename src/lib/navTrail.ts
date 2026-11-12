@@ -143,6 +143,8 @@ export function buildTrail(pathname: string, lang: Lang, t: T): Crumb[] {
   }
 
   if (at('/mission')) return finish([{ label: t('mission') }])
+  if (at('/privacy')) return finish([{ label: t('legalPrivacy') }])
+  if (at('/impressum')) return finish([{ label: t('legalImpressum') }])
   if (at('/my-progress')) return finish([{ label: t('myProgress') }])
   if (at('/my-reports')) return finish([{ label: t('myReports') }])
   if (at('/settings/voice')) return finish([{ label: t('voiceSettings') }])
