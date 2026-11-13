@@ -1948,6 +1948,8 @@ const messages = {
   exTrackBusiness: { hu: 'Gazdasági', en: 'Economics and management', de: 'Wirtschaft' },
   exChoosePart: { hu: 'Melyik részt gyakorlod?', en: 'Which part do you want to practise?', de: 'Welchen Teil möchtest du üben?' },
   exWritten: { hu: 'Írásbeli vizsga', en: 'Written exam', de: 'Schriftliche Prüfung' },
+  exWrittenPapers: { hu: 'Írásbeli vizsgák', en: 'Written exams', de: 'Schriftliche Prüfungen' },
+  exSpeakingPapers: { hu: 'Szóbeli vizsgák', en: 'Speaking exams', de: 'Mündliche Prüfungen' },
   exWrittenDesc: {
     hu: 'Olvasott szöveg értése, íráskészség és hallott szöveg értése',
     en: 'Reading, writing and listening',

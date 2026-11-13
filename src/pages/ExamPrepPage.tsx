@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ChevronDown, ChevronRight, FileText, GraduationCap, Languages, MessagesSquare } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, GraduationCap, Languages, MessagesSquare, type LucideIcon } from 'lucide-react'
 import PageHeading from '../components/PageHeading'
 import { getFeature } from '../data/features'
 import { EXAM_LANGUAGES, EXAM_TYPES, examCatalog, getExamPaperMeta, type ExamCell } from '../data/exams/catalog'
@@ -38,7 +38,8 @@ function PaperList({ ids }: { ids: string[] }) {
   )
 }
 
-function YearGroup({ year, ids }: { year: string; ids: string[] }) {
+/** A bordered group that starts collapsed: its title and count, and the content once opened. */
+function Collapsible({ title, count, icon: Icon, children }: { title: string; count: number; icon?: LucideIcon; children: ReactNode }) {
   const [open, setOpen] = useState(false)
   return (
     <div className="rounded-xl border border-border">
@@ -48,15 +49,22 @@ function YearGroup({ year, ids }: { year: string; ids: string[] }) {
         onClick={() => setOpen((v) => !v)}
         className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-2 text-left"
       >
-        <span className="font-medium text-foreground">
-          {year} <span className="text-sm font-normal text-muted-foreground">({ids.length})</span>
+        <span className="flex items-center gap-2 font-medium text-foreground">
+          {Icon && <Icon className="h-5 w-5 text-sky-600" />}
+          {title} <span className="text-sm font-normal text-muted-foreground">({count})</span>
         </span>
         <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      <div className={`px-2 pb-2 ${open ? '' : 'hidden'}`}>
-        <PaperList ids={ids} />
-      </div>
+      <div className={`space-y-2 px-2 pb-2 ${open ? '' : 'hidden'}`}>{children}</div>
     </div>
+  )
+}
+
+function YearGroup({ year, ids }: { year: string; ids: string[] }) {
+  return (
+    <Collapsible title={year} count={ids.length}>
+      <PaperList ids={ids} />
+    </Collapsible>
   )
 }
 
@@ -90,6 +98,27 @@ function PaperGroups({ ids }: { ids: string[] }) {
       {groupByYear(ids).map(({ year, ids }) =>
         year === null ? <PaperList key="other" ids={ids} /> : <YearGroup key={year} year={year} ids={ids} />,
       )}
+    </>
+  )
+}
+
+/**
+ * Written papers and speaking exams in two collapsed groups, when a cell has both kinds (the
+ * German érettségi oral sample sets next to the written papers); otherwise just the papers.
+ */
+function PartGroups({ ids }: { ids: string[] }) {
+  const { t } = useLanguage()
+  const speaking = ids.filter((id) => getExamPaperMeta(id)!.speakingOnly)
+  const written = ids.filter((id) => !getExamPaperMeta(id)!.speakingOnly)
+  if (!speaking.length || !written.length) return <PaperGroups ids={ids} />
+  return (
+    <>
+      <Collapsible title={t('exWrittenPapers')} count={written.length} icon={FileText}>
+        <PaperGroups ids={written} />
+      </Collapsible>
+      <Collapsible title={t('exSpeakingPapers')} count={speaking.length} icon={MessagesSquare}>
+        <PaperGroups ids={speaking} />
+      </Collapsible>
     </>
   )
 }
@@ -128,7 +157,7 @@ function CellCard({ cell }: { cell: ExamCell }) {
         {groupByTrack(cell.paperIds).map(({ track, ids }) => (
           <div key={track ?? 'all'} className="space-y-2">
             {track && <h5 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{examTrackLabel(t, track)}</h5>}
-            <PaperGroups ids={ids} />
+            <PartGroups ids={ids} />
           </div>
         ))}
       </div>
