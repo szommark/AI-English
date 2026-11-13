@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { RotateCcw } from 'lucide-react'
-import type { SpeakingTask } from '../../data/exams/speaking'
+import type { SpeakingLanguage, SpeakingTask } from '../../data/exams/speaking'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import { useTutorSpeechRecognition } from '../../hooks/useTutorSpeechRecognition'
 import { sendSpeakingTurn } from '../../lib/examSpeakingApi'
@@ -15,7 +15,13 @@ import TutorAvatar, { TUTOR_VOICE_GENDER } from '../TutorBot/TutorAvatar'
 
 type Status = 'idle' | 'thinking' | 'speaking' | 'listening' | 'muted' | 'done'
 
-const REPROMPT_LINE = 'Take your time — whenever you are ready.'
+const REPROMPT_LINE: Record<SpeakingLanguage, string> = {
+  en: 'Take your time — whenever you are ready.',
+  de: 'Lassen Sie sich ruhig Zeit – sprechen Sie, wenn Sie bereit sind.',
+}
+const SPEECH_LOCALE: Record<SpeakingLanguage, string> = { en: 'en-US', de: 'de-DE' }
+/** A topic talk is a monologue: a thinking pause shouldn't hand the turn to the examiner. */
+const MONOLOGUE_PAUSE_MS = 3200
 
 /**
  * One speaking task with the AI examiner, in the Tutor Bot's voice interface: the examiner
@@ -25,6 +31,7 @@ const REPROMPT_LINE = 'Take your time — whenever you are ready.'
  */
 export default function ExaminerSession({
   paperId,
+  language,
   task,
   messages,
   done,
@@ -34,6 +41,8 @@ export default function ExaminerSession({
   onDone,
 }: {
   paperId: string
+  /** The exam's language: what the examiner speaks and the mic listens for. */
+  language: SpeakingLanguage
   task: SpeakingTask
   messages: ChatMessage[]
   done: boolean
@@ -45,7 +54,7 @@ export default function ExaminerSession({
   onDone: () => void
 }) {
   const { t } = useLanguage()
-  const synthesis = useSpeechSynthesis(TUTOR_VOICE_GENDER)
+  const synthesis = useSpeechSynthesis(TUTOR_VOICE_GENDER, 'us', language === 'en' ? undefined : SPEECH_LOCALE[language])
   const [status, setStatus] = useState<Status>(done ? 'done' : 'idle')
   const [error, setError] = useState(false)
   const [typingFocused, setTypingFocused] = useState(false)
@@ -123,14 +132,19 @@ export default function ExaminerSession({
   function handleSilenceTimeout() {
     if (statusRef.current !== 'listening') return
     silenceStreakRef.current += 1
-    if (silenceStreakRef.current === 2) say(REPROMPT_LINE)
+    if (silenceStreakRef.current === 2) say(REPROMPT_LINE[language])
     else if (silenceStreakRef.current >= 3) {
       recognition.stop()
       setStatus('muted')
     } else recognition.start()
   }
 
-  const recognition = useTutorSpeechRecognition({ onUtterance: handleUtterance, onSilenceTimeout: handleSilenceTimeout })
+  const recognition = useTutorSpeechRecognition({
+    onUtterance: handleUtterance,
+    onSilenceTimeout: handleSilenceTimeout,
+    lang: SPEECH_LOCALE[language],
+    endSilenceMs: task.kind === 'presentation' ? MONOLOGUE_PAUSE_MS : undefined,
+  })
   const micAvailable = recognition.supported && !recognition.permissionDenied
 
   /** Start the task, or pick it up again after a reload. */

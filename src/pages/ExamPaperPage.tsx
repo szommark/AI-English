@@ -24,6 +24,8 @@ export default function ExamPaperPage({ part }: { part?: 'written' }) {
   const meta = paperId ? getExamPaperMeta(paperId) : undefined
   if (!meta) return <Navigate to="/exams" replace />
   const speaking = getSpeakingExam(meta.id)
+  // A speaking-only paper (the érettségi oral sample sets) has nothing but its speaking exam.
+  if (meta.speakingOnly) return <Navigate to={speaking ? `/exams/${meta.id}/speaking` : '/exams'} replace />
   if (speaking && part !== 'written') return <ExamPartsHub meta={meta} speaking={speaking} />
   return <PaperLoader key={meta.id} id={meta.id} />
 }

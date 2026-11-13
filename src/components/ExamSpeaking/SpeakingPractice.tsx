@@ -7,7 +7,7 @@ import SampleDialogue from './SampleDialogue'
 import SpeakingResults from './SpeakingResults'
 import SpeakingTaskSheet from './SpeakingTaskSheet'
 import { Elapsed, PrimaryButton, SecondaryButton, StepPill } from './SpeakingControls'
-import type { SpeakingExam } from '../../data/exams/speaking'
+import { choiceGroupTasks, type SpeakingExam } from '../../data/exams/speaking'
 import { getSpeakingRehearsal } from '../../data/exams/speakingRehearsal'
 import { assessSpeakingExam } from '../../lib/examSpeakingApi'
 import {
@@ -139,6 +139,7 @@ export default function SpeakingPracticeRunner({
           <StepPill key={x.id} current={x.id === task.id} onClick={() => x.id !== task.id && openTask(x.id)}>
             {practice.runs[practiceRunKey(x.id, 'test')]?.assessment && <Check className="h-4 w-4" aria-label={t('exSubmitted')} />}
             {x.label}
+            {x.choiceGroup && ` · ${t('exSpkTopicN', { n: choiceGroupTasks(exam, x.choiceGroup).indexOf(x) + 1 })}`}
           </StepPill>
         ))}
       </nav>
@@ -158,7 +159,7 @@ export default function SpeakingPracticeRunner({
             </button>
           ))}
         </div>
-        <p className="text-sm text-muted-foreground">{tab === 'rehearsal' ? t('exSpkRehearsalIntro') : t('exSpkTestIntro')}</p>
+        <p className="text-sm text-muted-foreground">{tab === 'rehearsal' ? t(rehearsal ? 'exSpkRehearsalIntro' : 'exSpkRehearsalIntroNoSample') : t('exSpkTestIntro')}</p>
       </div>
 
       {trying ? (
@@ -170,6 +171,7 @@ export default function SpeakingPracticeRunner({
               <ExaminerSession
                 key={roundKey}
                 paperId={paperId}
+                language={exam.language}
                 task={task}
                 mode={tab}
                 messages={run.messages}

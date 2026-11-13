@@ -48,6 +48,11 @@ export const examPapers: ExamPaperMeta[] = [
   { id: 'erettsegi-de-kozep-2022-majus', type: 'erettsegi', language: 'de', level: 'kozep', sittingLabelHu: '2022. május' },
   { id: 'erettsegi-de-kozep-2021-oktober', type: 'erettsegi', language: 'de', level: 'kozep', sittingLabelHu: '2021. október' },
   { id: 'erettsegi-de-kozep-2021-majus', type: 'erettsegi', language: 'de', level: 'kozep', sittingLabelHu: '2021. május' },
+  { id: 'erettsegi-de-kozep-szobeli-minta-a', type: 'erettsegi', language: 'de', level: 'kozep', sittingLabelHu: 'Szóbeli minta A', speakingOnly: true },
+  { id: 'erettsegi-de-kozep-szobeli-minta-b', type: 'erettsegi', language: 'de', level: 'kozep', sittingLabelHu: 'Szóbeli minta B', speakingOnly: true },
+  { id: 'erettsegi-de-kozep-szobeli-minta-c', type: 'erettsegi', language: 'de', level: 'kozep', sittingLabelHu: 'Szóbeli minta C', speakingOnly: true },
+  { id: 'erettsegi-de-kozep-szobeli-minta-d', type: 'erettsegi', language: 'de', level: 'kozep', sittingLabelHu: 'Szóbeli minta D', speakingOnly: true },
+  { id: 'erettsegi-de-kozep-szobeli-minta-e', type: 'erettsegi', language: 'de', level: 'kozep', sittingLabelHu: 'Szóbeli minta E', speakingOnly: true },
   { id: 'nyelvvizsga-en-b1-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Minta 1.', track: 'general' },
   { id: 'nyelvvizsga-en-b1-gazdasagi-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Minta 1.', track: 'business' },
 ]
@@ -104,6 +109,7 @@ export function getExamPaperMeta(id: string): ExamPaperMeta | undefined {
   return examPapers.find((p) => p.id === id)
 }
 
+/** Papers with a written part (everything but the speaking-only sample sets) load their content on demand. */
 export async function loadExamPaper(id: string): Promise<ExamPaper> {
   const load = loaders[id]
   if (!load) throw new Error(`Unknown exam paper ${id}`)

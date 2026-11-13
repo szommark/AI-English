@@ -20,6 +20,7 @@ import {
   KICKOFF_MESSAGE as EXAM_KICKOFF_MESSAGE,
   buildAssessmentPrompt,
   buildExaminerSystemPrompt,
+  closingLine,
   learnerTurns,
   parseAssessment,
   parseExaminerReply,
@@ -27,7 +28,7 @@ import {
 } from './_lib/examSpeaking.js'
 
 // Single Vercel function for the whole /api/tutor surface (conversation turn,
-// end-of-session feedback, and the nyelvvizsga speaking exam's examiner turns and
+// end-of-session feedback, and the speaking exams's examiner turns and
 // assessment), multiplexed by ?action= to stay under Vercel Hobby's
 // 12-serverless-function cap — do not add new files directly under api/.
 
@@ -274,7 +275,7 @@ async function handleExamTurn(req: VercelRequest, res: VercelResponse, userId: s
 
   const parsed = parseExaminerReply(result.content)
   const response: SpeakingTurnResponse = {
-    reply: parsed.reply || "Thank you, that's the end of this task.",
+    reply: parsed.reply || closingLine(exam),
     taskDone: parsed.taskDone || closeNow,
   }
   res.status(200).json(response)
@@ -321,7 +322,7 @@ async function handleExamAssess(req: VercelRequest, res: VercelResponse, userId:
             userId,
             activityType: 'exam-prep.speaking_task',
             itemRef: exam.paperId,
-            language: 'en',
+            language: exam.language,
             units: tasksDone,
             performanceScore: assessment.max > 0 ? assessment.total / assessment.max : null,
           })
