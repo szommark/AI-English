@@ -20,6 +20,8 @@ export interface ExamPaperMeta {
   sittingLabelHu: string
   /** Nyelvvizsga only: which exam of the centre the paper belongs to. */
   track?: ExamTrack
+  /** A speaking exam on its own (e.g. the érettségi oral sample sets): no written paper, no loader. */
+  speakingOnly?: boolean
 }
 
 export interface ExamPaper extends ExamPaperMeta {

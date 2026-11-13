@@ -9,6 +9,7 @@ function imageUrl(asset: string): string | undefined {
 }
 
 export function RoleCard({ card, tone = 'sky' }: { card: SpeakingCard; tone?: 'sky' | 'muted' }) {
+  const ListTag = card.numbered ? 'ol' : 'ul'
   return (
     <div className={`space-y-2 rounded-xl border p-4 text-base leading-relaxed ${tone === 'sky' ? 'border-sky-200 bg-sky-50/60' : 'border-border bg-muted'}`}>
       {card.heading && <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{card.heading}</p>}
@@ -17,8 +18,18 @@ export function RoleCard({ card, tone = 'sky' }: { card: SpeakingCard; tone?: 's
           {p}
         </p>
       ))}
+      {card.box && (
+        <div className="space-y-1 rounded-lg border border-border bg-card px-4 py-3 text-center text-sm leading-relaxed text-foreground">
+          {card.box.map((line, i) => (
+            <p key={line} className={i === 0 ? 'font-semibold' : undefined}>
+              {line}
+            </p>
+          ))}
+        </div>
+      )}
+      {card.lead && <p className="text-foreground">{card.lead}</p>}
       {card.points && (
-        <ul className="list-disc space-y-1 pl-6 text-foreground">
+        <ListTag className={`${card.numbered ? 'list-decimal' : 'list-disc'} space-y-1 pl-6 text-foreground`}>
           {card.points.map((p) => (
             <li key={p.text}>
               {p.text}
@@ -31,7 +42,7 @@ export function RoleCard({ card, tone = 'sky' }: { card: SpeakingCard; tone?: 's
               )}
             </li>
           ))}
-        </ul>
+        </ListTag>
       )}
       {card.after?.map((p) => (
         <p key={p} className="font-semibold text-foreground">
@@ -60,7 +71,13 @@ export default function SpeakingTaskSheet({
   const { t } = useLanguage()
   const Heading = headingLevel
   const src = task.image && imageUrl(task.image.asset)
-  const sourceNote = task.source === 'added' ? t('exSpkSourceAdded') : task.source === 'title-only' ? t('exSpkSourceTitleOnly') : null
+  const sourceNote = task.source === 'added'
+    ? t('exSpkSourceAdded')
+    : task.source === 'title-only'
+    ? t('exSpkSourceTitleOnly')
+    : task.choiceGroup && compact
+    ? t('exSpkChoiceNote')
+    : null
 
   return (
     <section className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-6">

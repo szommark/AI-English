@@ -1,24 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { VoiceGender } from '../lib/types'
-import { accentToLangTag, getVoicesReliably, resolveVoice, type AccentPreference } from '../lib/voiceSelection'
+import { accentToLangTag, getVoicesReliably, pickNativeVoice, resolveVoice, type AccentPreference } from '../lib/voiceSelection'
 
-export function useSpeechSynthesis(voiceGender: VoiceGender = 'female', accent: AccentPreference = 'us') {
+/**
+ * Browser TTS in an English voice of the given gender and accent — or, with `nativeLocale`
+ * (e.g. `de-DE` for the German speaking exams), the device's best voice of that language.
+ */
+export function useSpeechSynthesis(voiceGender: VoiceGender = 'female', accent: AccentPreference = 'us', nativeLocale?: string) {
   const [supported] = useState(() => typeof window !== 'undefined' && 'speechSynthesis' in window)
   const [speaking, setSpeaking] = useState(false)
   const voiceRef = useRef<SpeechSynthesisVoice | undefined>(undefined)
-  const langTag = accentToLangTag(accent)
+  const langTag = nativeLocale ?? accentToLangTag(accent)
 
   useEffect(() => {
     if (!supported) return
     let cancelled = false
     getVoicesReliably().then((voices) => {
       if (cancelled) return
-      voiceRef.current = resolveVoice(voices, voiceGender, langTag)
+      voiceRef.current = nativeLocale ? pickNativeVoice(voices, nativeLocale) : resolveVoice(voices, voiceGender, langTag)
     })
     return () => {
       cancelled = true
     }
-  }, [supported, voiceGender, langTag])
+  }, [supported, voiceGender, langTag, nativeLocale])
 
   const speak = useCallback(
     /** onEnd fires when the utterance finishes, fails or is cancelled (or at once without TTS). */

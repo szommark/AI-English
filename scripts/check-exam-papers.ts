@@ -14,7 +14,7 @@ import type { ExamItem, ExamPaper, ExamTask } from '../src/data/exams/types.ts'
 import { examKeys } from './exam-keys.ts'
 import { buildExamKeys, examKeysFile } from './build-exam-keys.ts'
 import { existsSync, readFileSync } from 'node:fs'
-import { SPEAKING_CRITERIA, SPEAKING_EXAMS } from '../src/data/exams/speaking.ts'
+import { SPEAKING_CRITERIA, SPEAKING_EXAMS, sittingTasks } from '../src/data/exams/speaking.ts'
 
 const errors: string[] = []
 const fail = (msg: string) => errors.push(msg)
@@ -27,7 +27,11 @@ if (examCatalog.length !== expectedCells) fail(`catalog: ${examCatalog.length} c
 const cellKeys = new Set(examCatalog.map((c) => `${c.type}/${c.language}/${c.level}`))
 if (cellKeys.size !== examCatalog.length) fail('catalog: duplicate cell')
 for (const cell of examCatalog) {
-  for (const id of cell.paperIds) if (!examPaperLoaders[id]) fail(`catalog: paper ${id} has no loader`)
+  for (const id of cell.paperIds) {
+    const speakingOnly = examPapers.find((m) => m.id === id)?.speakingOnly
+    if (speakingOnly && examPaperLoaders[id]) fail(`catalog: speaking-only paper ${id} has a loader`)
+    if (!speakingOnly && !examPaperLoaders[id]) fail(`catalog: paper ${id} has no loader`)
+  }
 }
 const paperIds = new Set<string>()
 for (const meta of examPapers) {
@@ -211,9 +215,22 @@ function checkSpeaking() {
     const meta = examPapers.find((m) => m.id === id)
     if (exam.paperId !== id) fail(`speaking ${id}: keyed under another paper id (${exam.paperId})`)
     if (!meta) fail(`speaking ${id}: no paper with this id in the catalog`)
-    else if (meta.type !== 'nyelvvizsga') fail(`speaking ${id}: only nyelvvizsga papers have a speaking exam`)
-    else if (meta.track !== exam.track) fail(`speaking ${id}: track ${exam.track}, the catalog says ${meta.track}`)
+    else {
+      if (meta.language !== exam.language) fail(`speaking ${id}: language ${exam.language}, the catalog says ${meta.language}`)
+      if (meta.track !== exam.track) fail(`speaking ${id}: track ${exam.track}, the catalog says ${meta.track}`)
+      const board = meta.type === 'nyelvvizsga' ? 'zold-ut' : 'erettsegi'
+      if (exam.board !== board) fail(`speaking ${id}: board ${exam.board} on a ${meta.type} paper`)
+    }
     if (!exam.tasks.length) fail(`speaking ${id}: no tasks`)
+    // Choice groups: at least two options, next to each other, sharing a label.
+    const groups = [...new Set(exam.tasks.map((t) => t.choiceGroup).filter((g): g is string => !!g))]
+    for (const g of groups) {
+      const idx = exam.tasks.flatMap((t, i) => (t.choiceGroup === g ? [i] : []))
+      if (idx.length < 2) fail(`speaking ${id}: choice group ${g} has only one task`)
+      if (idx.at(-1)! - idx[0] !== idx.length - 1) fail(`speaking ${id}: choice group ${g} is not contiguous`)
+      if (new Set(idx.map((i) => exam.tasks[i].label)).size !== 1) fail(`speaking ${id}: choice group ${g} mixes labels`)
+    }
+    if (new Set(sittingTasks(exam).map((t) => t.label)).size !== sittingTasks(exam).length) fail(`speaking ${id}: two tasks of one sitting share a label`)
     const ids = new Set<string>()
     for (const t of exam.tasks) {
       const where = `speaking ${id} ${t.id}`
@@ -224,6 +241,7 @@ function checkSpeaking() {
       if (t.kind === 'role-play' && !t.examineeCard?.points?.length) fail(`${where}: role-play without a role card`)
       if ((t.kind === 'picture' || t.kind === 'graph') && !t.image) fail(`${where}: ${t.kind} task without an image`)
       if (t.kind === 'interview' && !t.instructions?.length) fail(`${where}: interview without instructions for the learner`)
+      if (t.kind === 'presentation' && (t.examineeCard?.points?.length ?? 0) < 3) fail(`${where}: topic talk without its guiding points`)
       if (t.image) {
         if (t.image.alt.length < 40) fail(`${where}: image description too short for the AI examiner`)
         if (!existsSync(new URL(`../src/assets/exams/${t.image.asset}`, import.meta.url))) fail(`${where}: missing image src/assets/exams/${t.image.asset}`)
@@ -231,6 +249,7 @@ function checkSpeaking() {
     }
   }
   for (const meta of examPapers) {
+    if (meta.speakingOnly && !SPEAKING_EXAMS[meta.id]) fail(`${meta.id}: speaking-only paper without a speaking exam`)
     if (meta.type === 'nyelvvizsga' && !meta.track) fail(`${meta.id}: nyelvvizsga paper without a track`)
     if (meta.type !== 'nyelvvizsga' && meta.track) fail(`${meta.id}: only nyelvvizsga papers have a track`)
   }

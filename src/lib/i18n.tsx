@@ -1988,6 +1988,16 @@ const messages = {
   exSpkBeginTask: { hu: 'Feladat indítása', en: 'Start the task', de: 'Aufgabe starten' },
   exSpkResumeTask: { hu: 'Feladat folytatása', en: 'Resume the task', de: 'Aufgabe fortsetzen' },
   exSpkTaskDone: { hu: 'Ez a feladat véget ért.', en: 'This task is finished.', de: 'Diese Aufgabe ist beendet.' },
+  exSpkChooseTopicTitle: { hu: 'Válassz témát', en: 'Choose your topic', de: 'Wählen Sie ein Thema' },
+  exSpkChooseTopicIntro: {
+    hu: 'Ennél a feladatnál a két téma közül egyet választasz. Olvasd el mindkettőt, aztán válassz – a vizsgáztató utána indítja a feladatot.',
+    en: 'In this task you pick one of the two topics. Read both, then choose – the examiner starts the task after that.',
+    de: 'Bei dieser Aufgabe wählen Sie eines der beiden Themen. Lesen Sie beide und wählen Sie dann – danach beginnt der Prüfer die Aufgabe.',
+  },
+  exSpkChooseThis: { hu: 'Ezt a témát választom', en: 'Choose this topic', de: 'Dieses Thema wählen' },
+  exSpkChangeTopic: { hu: 'Inkább a másik témát választom', en: 'Choose the other topic instead', de: 'Lieber das andere Thema wählen' },
+  exSpkChoiceNote: { hu: 'A vizsgán ennél a feladatnál két téma közül választasz egyet.', en: 'In the exam you pick one of two topics for this task.', de: 'In der Prüfung wählen Sie bei dieser Aufgabe eines von zwei Themen.' },
+  exSpkTopicN: { hu: '{n}. téma', en: 'Topic {n}', de: 'Thema {n}' },
   exSpkNextTask: { hu: 'Tovább: {task}', en: 'Next: {task}', de: 'Weiter: {task}' },
   exSpkEndTask: { hu: 'Feladat lezárása', en: 'End this task', de: 'Aufgabe beenden' },
   exSpkFinish: { hu: 'Befejezés és értékelés', en: 'Finish and get my assessment', de: 'Beenden und Bewertung anzeigen' },
@@ -2040,6 +2050,11 @@ const messages = {
     hu: 'A vizsgáztató elindítja a feladatot. Hangosan válaszolj (vagy gépelj); a feladatlapot végig látod. A végén becsült pontszámot kapsz erre a feladatra.',
     en: 'The examiner starts the task. Answer out loud (or type); the task sheet stays on the screen. At the end you get an estimated score for this task.',
     de: 'Der Prüfer beginnt die Aufgabe. Antworte laut (oder tippe); das Aufgabenblatt bleibt auf dem Bildschirm. Am Ende bekommst du eine geschätzte Punktzahl für diese Aufgabe.',
+  },
+  exSpkRehearsalIntroNoSample: {
+    hu: 'Próbáld ki a feladatot a vizsgáztatóval. Gyakorlásnál türelmesebb: ha elakadsz, segít egy mondatkezdéssel vagy egyszerűbb kérdéssel.',
+    en: 'Try the task with the examiner. In a rehearsal the examiner is more patient: if you get stuck, you get a sentence starter or a simpler question.',
+    de: 'Probier die Aufgabe mit dem Prüfer aus. Beim Üben ist er geduldiger: Wenn du nicht weiterkommst, hilft er mit einem Satzanfang oder einer einfacheren Frage.',
   },
   exSpkRehearsalIntro: {
     hu: 'Nézd át a hasznos kifejezéseket és a minta beszélgetést (a vizsgáztató mondatait fel is olvassuk), aztán próbáld ki te magad. Ha elakadsz, a vizsgáztató segít.',

@@ -52,7 +52,8 @@ function stripPaper(paper: ExamPaper): Record<string, unknown> {
 
 export async function buildExamKeys(): Promise<string> {
   const papers: Record<string, unknown> = {}
-  for (const meta of [...examPapers].sort((a, b) => a.id.localeCompare(b.id))) {
+  // Speaking-only papers (the érettségi oral sample sets) have no written answers to score.
+  for (const meta of examPapers.filter((m) => !m.speakingOnly).sort((a, b) => a.id.localeCompare(b.id))) {
     const paper = (await examPaperLoaders[meta.id]()).default
     papers[meta.id] = stripPaper(paper)
   }

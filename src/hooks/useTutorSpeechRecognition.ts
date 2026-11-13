@@ -60,6 +60,10 @@ export interface UseTutorSpeechRecognitionParams {
   onUtterance: (text: string) => void
   /** Fired once silence follows an empty listening window. */
   onSilenceTimeout: () => void
+  /** BCP 47 language of the learner's speech; defaults to American English. */
+  lang?: string
+  /** How long a pause ends the learner's turn once they have started; longer suits a monologue. */
+  endSilenceMs?: number
 }
 
 /**
@@ -72,7 +76,7 @@ export interface UseTutorSpeechRecognitionParams {
  * Because a restart resets the recognizer's own `results` list, the transcript built up
  * before the restart is carried forward in `committedRef` so it isn't lost.
  */
-export function useTutorSpeechRecognition({ onUtterance, onSilenceTimeout }: UseTutorSpeechRecognitionParams) {
+export function useTutorSpeechRecognition({ onUtterance, onSilenceTimeout, lang = 'en-US', endSilenceMs = END_OF_SPEECH_SILENCE_MS }: UseTutorSpeechRecognitionParams) {
   const [supported] = useState(() => getSpeechRecognitionCtor() !== null)
   const [permissionDenied, setPermissionDenied] = useState(false)
   const [interimTranscript, setInterimTranscript] = useState('')
@@ -85,6 +89,12 @@ export function useTutorSpeechRecognition({ onUtterance, onSilenceTimeout }: Use
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onUtteranceRef = useRef(onUtterance)
   const onSilenceTimeoutRef = useRef(onSilenceTimeout)
+  const langRef = useRef(lang)
+  const endSilenceRef = useRef(endSilenceMs)
+  useEffect(() => {
+    langRef.current = lang
+    endSilenceRef.current = endSilenceMs
+  }, [lang, endSilenceMs])
 
   useEffect(() => {
     onUtteranceRef.current = onUtterance
@@ -106,7 +116,7 @@ export function useTutorSpeechRecognition({ onUtterance, onSilenceTimeout }: Use
   const armSilenceTimer = useCallback(
     (hasSpeech: boolean) => {
       clearSilenceTimer()
-      const delay = hasSpeech ? END_OF_SPEECH_SILENCE_MS : NO_SPEECH_TIMEOUT_MS
+      const delay = hasSpeech ? endSilenceRef.current : NO_SPEECH_TIMEOUT_MS
       silenceTimerRef.current = setTimeout(() => {
         const text = transcriptRef.current.trim()
         transcriptRef.current = ''
@@ -132,7 +142,7 @@ export function useTutorSpeechRecognition({ onUtterance, onSilenceTimeout }: Use
     if (!Ctor) return
 
     const recognition = new Ctor()
-    recognition.lang = 'en-US'
+    recognition.lang = langRef.current
     recognition.continuous = true
     recognition.interimResults = true
 

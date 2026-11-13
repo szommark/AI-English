@@ -8,7 +8,7 @@ import SpeakingResults from '../components/ExamSpeaking/SpeakingResults'
 import SpeakingTaskSheet from '../components/ExamSpeaking/SpeakingTaskSheet'
 import { Elapsed, PrimaryButton, SecondaryButton, StepPill } from '../components/ExamSpeaking/SpeakingControls'
 import { getExamPaperMeta } from '../data/exams/catalog'
-import { getSpeakingExam, type SpeakingExam } from '../data/exams/speaking'
+import { choiceGroupTasks, getSpeakingExam, sittingExam, sittingTasks, type SpeakingExam, type SpeakingTask } from '../data/exams/speaking'
 import type { ExamPaperMeta } from '../data/exams/types'
 import { examPaperLabel } from '../lib/examLabels'
 import { assessSpeakingExam } from '../lib/examSpeakingApi'
@@ -30,7 +30,7 @@ import { useLanguage } from '../lib/i18n'
 import type { ChatMessage } from '../lib/types'
 
 /**
- * `/exams/:paperId/speaking`: a nyelvvizsga speaking exam with the AI examiner — either the
+ * `/exams/:paperId/speaking`: a speaking exam with the AI examiner — either the
  * whole exam in a row (exam mode) or each task on its own with a rehearsal and a test
  * (practice mode).
  */
@@ -38,7 +38,7 @@ export default function ExamSpeakingPage() {
   const { paperId } = useParams()
   const meta = paperId ? getExamPaperMeta(paperId) : undefined
   const exam = meta ? getSpeakingExam(meta.id) : undefined
-  if (!meta || !exam) return <Navigate to={meta ? `/exams/${meta.id}` : '/exams'} replace />
+  if (!meta || !exam) return <Navigate to={meta && !meta.speakingOnly ? `/exams/${meta.id}` : '/exams'} replace />
   return <SpeakingPage key={meta.id} meta={meta} exam={exam} />
 }
 
@@ -47,7 +47,8 @@ function hasLearnerTurns(turns: ChatMessage[] | undefined): boolean {
 }
 
 /** Where a saved exam attempt picks up: its first unfinished task, or the results. */
-function resumeExam(attempt: SpeakingAttempt, exam: SpeakingExam): { attempt: SpeakingAttempt; autoStart: string | null } {
+function resumeExam(attempt: SpeakingAttempt, fullExam: SpeakingExam): { attempt: SpeakingAttempt; autoStart: string | null } {
+  const exam = sittingExam(fullExam, attempt.choices)
   const view = attempt.view
   if (view.name === 'results' || (view.name === 'task' && exam.tasks.some((x) => x.id === view.taskId))) return { attempt, autoStart: null }
   const firstOpen = exam.tasks.find((task) => !attempt.done.includes(task.id))
@@ -122,7 +123,8 @@ function SpeakingIntro({
   const [savedPractice, setSavedPractice] = useState(() => loadSpeakingPractice(meta.id))
   const examInProgress = !!savedExam && (Object.values(savedExam.transcripts).some((m) => m.length > 0) || !!savedExam.assessment)
   const practised = (taskId: string) => !!savedPractice?.runs[`${taskId}:test`]?.assessment
-  const totalMinutes = exam.tasks.reduce((n, task) => n + task.minutes, 0)
+  const examTasks = sittingTasks(exam)
+  const totalMinutes = examTasks.reduce((n, task) => n + task.minutes, 0)
 
   return (
     <div className="space-y-6">
@@ -134,7 +136,7 @@ function SpeakingIntro({
           <Mic className="mt-0.5 h-4 w-4 shrink-0" />
           {t('exSpkMicNote')}
         </p>
-        <p className="text-sm font-medium text-foreground">{t('exSpeakingTaskCount', { n: exam.tasks.length, min: totalMinutes })}</p>
+        <p className="text-sm font-medium text-foreground">{t('exSpeakingTaskCount', { n: examTasks.length, min: totalMinutes })}</p>
       </section>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -227,6 +229,8 @@ function SpeakingRunner({
   const [assessing, setAssessing] = useState(false)
   const [assessError, setAssessError] = useState<'failed' | 'empty' | null>(null)
   const language = meta.language
+  // The tasks this sitting runs: one topic of each choice group.
+  const sitting = sittingExam(exam, attempt.choices)
 
   useEffect(() => saveSpeakingAttempt(meta.id, attempt), [attempt, meta.id])
 
@@ -247,14 +251,20 @@ function SpeakingRunner({
   }
 
   async function assess(current: SpeakingAttempt) {
-    if (!exam.tasks.some((task) => hasLearnerTurns(current.transcripts[task.id]))) {
+    const tasks = sittingTasks(exam, current.choices)
+    if (!tasks.some((task) => hasLearnerTurns(current.transcripts[task.id]))) {
       setAssessError('empty')
       return
     }
     setAssessError(null)
     setAssessing(true)
     try {
-      const assessment = await assessSpeakingExam({ paperId: meta.id, transcripts: current.transcripts, uiLang: lang })
+      const assessment = await assessSpeakingExam({
+        paperId: meta.id,
+        transcripts: current.transcripts,
+        uiLang: lang,
+        taskIds: tasks.map((task) => task.id),
+      })
       update((a) => ({ ...a, assessment }))
     } catch (err) {
       console.error('Speaking exam assessment failed', err)
@@ -295,11 +305,11 @@ function SpeakingRunner({
           </div>
         )}
         {attempt.assessment && (
-          <SpeakingResults exam={exam} language={language} assessment={attempt.assessment} transcripts={attempt.transcripts} />
+          <SpeakingResults exam={sitting} language={language} assessment={attempt.assessment} transcripts={attempt.transcripts} />
         )}
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link
-            to={`/exams/${meta.id}`}
+            to={meta.speakingOnly ? '/exams' : `/exams/${meta.id}`}
             className="inline-flex min-h-12 items-center justify-center rounded-xl bg-primary px-6 text-base font-semibold text-primary-foreground hover:opacity-90"
           >
             {t('exBackToExams')}
@@ -313,11 +323,42 @@ function SpeakingRunner({
 
   // --- One task: its sheet next to the examiner ------------------------------------------
   const taskId = attempt.view.taskId
-  const index = exam.tasks.findIndex((task) => task.id === taskId)
-  const task = exam.tasks[index]
+  const index = sitting.tasks.findIndex((task) => task.id === taskId)
+  const task = sitting.tasks[index]
   if (!task) return null
   const done = attempt.done.includes(task.id)
-  const next = exam.tasks.slice(index + 1).find((x) => !attempt.done.includes(x.id)) ?? exam.tasks.find((x) => !attempt.done.includes(x.id) && x.id !== task.id)
+  const next =
+    sitting.tasks.slice(index + 1).find((x) => !attempt.done.includes(x.id)) ??
+    sitting.tasks.find((x) => !attempt.done.includes(x.id) && x.id !== task.id)
+  // A choice group's task shows the topic chooser until the learner has picked one.
+  const choosing = !!task.choiceGroup && !attempt.choices[task.choiceGroup]
+  const canChangeTopic = !!task.choiceGroup && !choosing && !done && !hasLearnerTurns(attempt.transcripts[task.id])
+
+  function choose(option: SpeakingTask) {
+    if (!option.choiceGroup) return
+    const group = option.choiceGroup
+    setAutoStart(option.id)
+    update((a) => ({
+      ...a,
+      choices: { ...a.choices, [group]: option.id },
+      view: { name: 'task', taskId: option.id },
+      startedAt: { ...a.startedAt, [option.id]: Date.now() },
+    }))
+  }
+
+  /** Back to the chooser, before the learner has said anything in the chosen topic. */
+  function changeTopic() {
+    if (!task.choiceGroup) return
+    const group = task.choiceGroup
+    const first = choiceGroupTasks(exam, group)[0]
+    setAutoStart(null)
+    update((a) => {
+      const { [group]: _, ...choices } = a.choices
+      const { [task.id]: __, ...transcripts } = a.transcripts
+      const { [task.id]: ___, ...startedAt } = a.startedAt
+      return { ...a, choices, transcripts, startedAt, view: { name: 'task', taskId: first.id } }
+    })
+  }
 
   return (
     <div className="space-y-5">
@@ -325,7 +366,7 @@ function SpeakingRunner({
 
       <nav className="flex flex-wrap gap-2" aria-label={t('exSpkSteps')}>
         <StepPill onClick={onExit}>{t('exSpkOverviewTitle')}</StepPill>
-        {exam.tasks.map((x) => (
+        {sitting.tasks.map((x) => (
           <StepPill key={x.id} current={x.id === task.id} onClick={() => x.id !== task.id && openTask(x.id, false)}>
             {attempt.done.includes(x.id) && <Check className="h-4 w-4" aria-label={t('exSubmitted')} />}
             {x.label}
@@ -333,13 +374,28 @@ function SpeakingRunner({
         ))}
       </nav>
 
+      {choosing && task.choiceGroup ? (
+        <TopicChooser options={choiceGroupTasks(exam, task.choiceGroup)} language={language} onChoose={choose} />
+      ) : (
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
-        <SpeakingTaskSheet task={task} language={language} />
+        <div className="space-y-2">
+          <SpeakingTaskSheet task={task} language={language} />
+          {canChangeTopic && (
+            <button
+              type="button"
+              onClick={changeTopic}
+              className="min-h-11 text-sm font-medium text-sky-700 underline-offset-2 hover:underline"
+            >
+              {t('exSpkChangeTopic')}
+            </button>
+          )}
+        </div>
         <div className="space-y-4 rounded-2xl border border-border bg-card p-4 sm:p-5 lg:sticky lg:top-20">
           {attempt.startedAt[task.id] && !done && <Elapsed since={attempt.startedAt[task.id]} minutes={task.minutes} />}
           <ExaminerSession
             key={task.id}
             paperId={meta.id}
+            language={exam.language}
             task={task}
             messages={attempt.transcripts[task.id] ?? []}
             done={done}
@@ -356,13 +412,42 @@ function SpeakingRunner({
           {done && (
             <div className="flex flex-col gap-2">
               {next ? (
-                <PrimaryButton onClick={() => openTask(next.id, true)}>{t('exSpkNextTask', { task: `${next.label}: ${next.title}` })}</PrimaryButton>
+                <PrimaryButton onClick={() => openTask(next.id, true)}>
+                  {t('exSpkNextTask', {
+                    task: `${next.label}: ${next.choiceGroup && !attempt.choices[next.choiceGroup] ? t('exSpkChooseTopicTitle') : next.title}`,
+                  })}
+                </PrimaryButton>
               ) : (
                 <PrimaryButton onClick={finishExam}>{t('exSpkFinish')}</PrimaryButton>
               )}
             </div>
           )}
         </div>
+      </div>
+      )}
+    </div>
+  )
+}
+
+/** Picking one topic of a choice group: every option's task sheet, each with its own button. */
+function TopicChooser({ options, language, onChoose }: { options: SpeakingTask[]; language: string; onChoose: (task: SpeakingTask) => void }) {
+  const { t } = useLanguage()
+  return (
+    <div className="space-y-4">
+      <section className="space-y-1 rounded-2xl border border-sky-200 bg-sky-50 p-4 sm:p-5">
+        <h2 className="text-lg font-semibold text-foreground">{t('exSpkChooseTopicTitle')}</h2>
+        <p className="text-sm text-foreground">{t('exSpkChooseTopicIntro')}</p>
+      </section>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {options.map((option, i) => (
+          <div key={option.id} className="flex flex-col gap-3">
+            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('exSpkTopicN', { n: i + 1 })}</p>
+            <div className="flex-1">
+              <SpeakingTaskSheet task={option} language={language} headingLevel="h3" />
+            </div>
+            <PrimaryButton onClick={() => onChoose(option)}>{t('exSpkChooseThis')}</PrimaryButton>
+          </div>
+        ))}
       </div>
     </div>
   )

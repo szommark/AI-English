@@ -13,13 +13,15 @@ export interface SpeakingAttempt {
   done: string[]
   /** When each task was started (ms since epoch), for the elapsed-time hint. */
   startedAt: Record<string, number>
+  /** Choice group → the task the learner picked (e.g. the érettségi topic of Aufgabe 3). */
+  choices: Record<string, string>
   assessment?: SpeakingAssessment
 }
 
 const key = (paperId: string) => `ai-english:exam-speaking:${paperId}`
 
 export function newSpeakingAttempt(): SpeakingAttempt {
-  return { view: { name: 'overview' }, transcripts: {}, done: [], startedAt: {} }
+  return { view: { name: 'overview' }, transcripts: {}, done: [], startedAt: {}, choices: {} }
 }
 
 export function loadSpeakingAttempt(paperId: string): SpeakingAttempt | null {

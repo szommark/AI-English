@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ChevronDown, ChevronRight, FileText, GraduationCap, Languages } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, GraduationCap, Languages, MessagesSquare } from 'lucide-react'
 import PageHeading from '../components/PageHeading'
 import { getFeature } from '../data/features'
 import { EXAM_LANGUAGES, EXAM_TYPES, examCatalog, getExamPaperMeta, type ExamCell } from '../data/exams/catalog'
@@ -23,7 +23,7 @@ function PaperList({ ids }: { ids: string[] }) {
               className="group flex min-h-12 items-center justify-between gap-3 rounded-xl border border-border px-4 py-2 transition-colors hover:border-sky-200 hover:bg-sky-50"
             >
               <span className="flex items-center gap-2 text-base text-foreground">
-                <FileText className="h-5 w-5 text-sky-600" />
+                {paper.speakingOnly ? <MessagesSquare className="h-5 w-5 text-sky-600" /> : <FileText className="h-5 w-5 text-sky-600" />}
                 {paper.sittingLabelHu}
               </span>
               <span className="inline-flex items-center gap-1 text-sm font-semibold text-sky-700">
