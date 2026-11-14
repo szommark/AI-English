@@ -145,11 +145,13 @@ export default function ClubSignUp({ copy, id }: { copy: ClubCopy; id: string })
               <ul className="mt-2 divide-y divide-[rgba(201,162,39,0.55)]">
                 {sessions.map((s) => (
                   <li key={s.date} className="flex flex-wrap items-center justify-between gap-2 py-3">
-                    <span className="font-brand text-lg font-semibold text-[#0f2a24]">
+                    <span className={`font-brand text-lg font-semibold ${s.closed ? 'text-muted-foreground line-through' : 'text-[#0f2a24]'}`}>
                       {formatClubDate(s.date, locale, { month: 'long', day: 'numeric', weekday: 'long' })}
                     </span>
                     <span className="flex items-center gap-3">
-                      {s.mine === 'semester' ? (
+                      {s.closed ? (
+                        <span className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">{copy.closed}</span>
+                      ) : s.mine === 'semester' ? (
                         <Done text={copy.registeredSemester} />
                       ) : s.mine === 'session' ? (
                         <>

@@ -12,6 +12,8 @@ export interface ClubSession {
   date: string
   semesterStart: string
   full: boolean
+  /** A holiday or a Wednesday the admin closed: no club, no sign-up. */
+  closed: boolean
   /** The signed-in user's booking for this Wednesday, if any. */
   mine: 'session' | 'semester' | null
 }
@@ -52,10 +54,11 @@ export function useClubRegistration(userId: string | null) {
     if (s.error) console.warn('Club sessions not loaded', s.error.message)
     else
       setSessions(
-        (s.data as { session_date: string; semester_start: string; is_full: boolean; mine: ClubSession['mine'] }[]).map((r) => ({
+        (s.data as { session_date: string; semester_start: string; is_full: boolean; is_closed: boolean; mine: ClubSession['mine'] }[]).map((r) => ({
           date: r.session_date,
           semesterStart: r.semester_start,
           full: r.is_full,
+          closed: r.is_closed,
           mine: r.mine,
         })),
       )
