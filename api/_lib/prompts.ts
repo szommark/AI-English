@@ -228,9 +228,10 @@ function reportedLine(item: GrammarItem, kind: 'lesson' | 'exercises'): string {
   return `\nREPORTED SPEECH. ${scope}${spread}${mix}
 ${rules}
 Every item shows the exact direct speech it reports, in single quotation marks, with who said it and — whenever a pronoun in the answer depends on it — to whom: "Emily asked me, 'Are you coming to the party?'", "Tom said, 'I am tired.'". The learner can never work out a reported sentence without it.
-- "order": "quote" is the direct speech; "answer" is its reported version; "extra" is the word a learner who gets the rule wrong would use (the unshifted verb, "did" in a reported question, "said" where told is needed…).
-- "form": "quote" is the direct speech; "sentence" is the complete reported version with ONE gap holding only the changing verb form (cue: its base form, e.g. "be", or "not / eat"), or only if / whether (cue "if / whether"), or only the time word (cue the original word, e.g. "tomorrow"). Never gap a whole clause, the subject or the reporting verb; pronouns and time words outside the gap are already changed.
-- "transform": "source" is the direct speech with the reporting verb and listener the answer uses ("Mark said, '…'", "The coach told the players, '…'", "Anna asked me, '…'"), so "cue" is always "". Answers with and without "that" are accepted automatically, so list each wording once.
+"quote" is ONLY that direct-speech sentence, exactly as spoken with its speaker and quotation marks — never the reported or gapped sentence.
+- "order": "quote" is the direct speech; "answer" is its reported version; "extra" is the word a learner who gets the rule wrong would use (the unshifted verb, "did" in a reported question, "said" where told is needed…). The extra must not appear anywhere in "answer", not even inside a longer verb form: for 'I visited Paris.' the answer contains "had visited", so "visited" cannot be the extra — use e.g. "has" or "did".
+- "form": "quote" is the direct speech; "sentence" is the complete reported version, subject and reporting verb included ("Emma said that she ___ a new job the following week."), with ONE gap holding only the changing verb form (cue: its base form, e.g. "be", or "not / eat"), or only if / whether (cue "if / whether"), or only the time word (cue the original word, e.g. "tomorrow"). Never gap a whole clause, the subject or the reporting verb; pronouns and time words outside the gap are already changed.
+- "transform": "source" is the direct speech with the reporting verb and listener the answer uses ("Mark said, '…'", "The coach told the players, '…'", "Anna asked me, '…'"), so "cue" is always "". Every answer names the speaker exactly as the source does ("Mark said he…", never "He said he…"). Answers with and without "that" are accepted automatically, so list each wording once.
 `
 }
 
@@ -307,7 +308,7 @@ ${hintLine}${reviewLine(item, 'exercises')}${reportedLine(item, 'exercises')}
 Respond with ONLY valid JSON (no markdown, no code fences) matching EXACTLY this shape:
 {"formInstruction":"...","transformInstruction":"...","order":[{${quoteField}"answer":"...","alternatives":["..."],"extra":"..."}],"form":[{${quoteField}"sentence":"...","cue":"...","answers":["..."]}],"transform":[{"source":"...","cue":"...","answers":["..."]}]}
 
-There are three exercise types, exactly ${EXERCISES_PER_TYPE} items each, ordered from easier to harder:
+There are three exercise types, exactly ${EXERCISES_PER_TYPE + 1} items each (one is a spare: the app keeps the first ${EXERCISES_PER_TYPE} that follow every rule), ordered from easier to harder:
 
 1. "order" — the learner rebuilds a sentence from its shuffled words plus one extra word that does not belong.
 - "answer": the correct sentence (4 to 12 words) with its final punctuation. It must not start with a name or other proper noun.
