@@ -50,6 +50,8 @@ export interface ClubCopy {
   sizeLabel: string
   size: string
   full: string
+  /** A Wednesday without a club (holiday or break). */
+  closed: string
   /** The hero button: scrolls to the sign-up section. */
   signUp: string
   signUpTitle: string
@@ -97,6 +99,7 @@ const hu: ClubCopy = {
   sizeLabel: 'Létszám',
   size: 'kb. 12 fő',
   full: 'Megtelt',
+  closed: 'Szünet',
   signUp: 'Jelentkezem',
   signUpTitle: 'Jelentkezés',
   signUpIntro: 'Jelentkezhetsz egy-egy alkalomra vagy egy egész félévre. Az első félév szeptembertől januárig, a második februártól júniusig tart.',
@@ -202,6 +205,7 @@ const en: ClubCopy = {
   sizeLabel: 'Group size',
   size: 'about 12 people',
   full: 'Full',
+  closed: 'No club',
   signUp: 'Sign me up',
   signUpTitle: 'Sign-up',
   signUpIntro: 'You can sign up for a single session or for a whole semester. The first semester runs from September to January, the second from February to June.',
@@ -307,6 +311,7 @@ const de: ClubCopy = {
   sizeLabel: 'Gruppengröße',
   size: 'ca. 12 Personen',
   full: 'Ausgebucht',
+  closed: 'Kein Treffen',
   signUp: 'Ich melde mich an',
   signUpTitle: 'Anmeldung',
   signUpIntro: 'Du kannst dich für ein einzelnes Treffen oder für ein ganzes Semester anmelden. Das erste Semester geht von September bis Januar, das zweite von Februar bis Juni.',
