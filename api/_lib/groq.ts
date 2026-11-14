@@ -24,7 +24,7 @@ import {
   type VocabKind,
   type VocabPos,
 } from '../../src/lib/vocab.js'
-import { bareCue, doublesAtGap, EXERCISES_PER_TYPE, GAP, isClauseGap, normalizeAnswer, sameWords, sentenceTiles } from '../../src/lib/grammarExercises.js'
+import { bareCue, doublesAtGap, EXERCISES_PER_TYPE, finalPunctuation, GAP, isClauseGap, isDeicticGap, normalizeAnswer, sameWords, sentenceTiles } from '../../src/lib/grammarExercises.js'
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
@@ -358,9 +358,14 @@ export function parseGrammarLessonJson(
   return parsed as GrammarLesson
 }
 
-/** Non-empty, trimmed strings of an answers array; throws when none are left. */
+/** "A / B" written as one answer: each version on its own. */
+function splitVersions(text: string): string[] {
+  return text.split(/\s+\/\s+/).map((v) => v.trim()).filter(Boolean)
+}
+
+/** Non-empty, trimmed strings of an answers array, "A / B" entries split; throws when none are left. */
 function answerList(value: unknown, what: string): string[] {
-  const answers = Array.isArray(value) ? value.filter(isNonEmptyString).map((a) => a.trim()) : []
+  const answers = Array.isArray(value) ? value.filter(isNonEmptyString).flatMap(splitVersions) : []
   if (answers.length === 0) throw new Error(`Grammar ${what} has no answers`)
   return answers
 }
@@ -437,7 +442,12 @@ export function parseGrammarExercisesJson(raw: string, options: { reported?: boo
 
   const order = validItems(parsed.order, 'order', (item) => {
     if (!isNonEmptyString(item.answer) || !isNonEmptyString(item.extra)) throw new Error('Grammar order item is missing answer/extra')
-    const answer = reportedEnd(item.answer.trim())
+    // "…had finished the report / …finished the report." mixed two sentences into one set of
+    // tiles: keep the first version (with the sentence's final mark) as the sentence to build.
+    const versions = splitVersions(item.answer)
+    const last = versions[versions.length - 1]
+    const first = versions[0].replace(/[.!?]+$/, '') + finalPunctuation(last)
+    const answer = reportedEnd(versions.length > 1 ? first : item.answer.trim())
     const extra = item.extra.trim()
     const tiles = sentenceTiles(answer)
     if (tiles.length < 3 || /\s/.test(extra)) throw new Error('Grammar order item has too few words or a multi-word extra')
@@ -459,6 +469,10 @@ export function parseGrammarExercisesJson(raw: string, options: { reported?: boo
     // "He said that ___ ." with "he was tired" can't be worked out: gap the verb, not the clause.
     if (reported && answers.some(isClauseGap)) {
       throw new Error('Grammar reported speech gap holds a whole clause')
+    }
+    // "They said that they lived ___. (here)" → "there": only true if reported somewhere else.
+    if (reported && answers.some(isDeicticGap)) {
+      throw new Error('Grammar reported speech gap holds a time or place word')
     }
     const cue = bareCue(item.cue)
     // "Liam said that he ___ swim. (can)" with only "can" accepted teaches no backshift.

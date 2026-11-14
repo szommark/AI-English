@@ -169,6 +169,8 @@ export function FormItem({ number, item, result, onCheck, flagPanel }: ItemProps
   const [value, setValue] = useState('')
   const checked = result !== null
   const { before, cue, after } = gapParts(item.sentence, item.cue)
+  // Reported speech: the direct speech above already shows the verb, so a bracket only repeats it.
+  const showCue = !item.quote
   const check = () => {
     if (!checked && value.trim()) onCheck(matchesGap(item.sentence, value, item.answers))
   }
@@ -184,7 +186,7 @@ export function FormItem({ number, item, result, onCheck, flagPanel }: ItemProps
           number,
           [
             ['Direct speech', item.quote],
-            ['Shown as', `${before}___ (${cue})${after}`],
+            ['Shown as', `${before}___${showCue ? ` (${cue})` : ''}${after}`],
             ['Stored sentence', item.sentence],
             ['Stored cue', item.cue],
             ['Accepted answers', item.answers.join(' | ')],
@@ -209,7 +211,7 @@ export function FormItem({ number, item, result, onCheck, flagPanel }: ItemProps
             spellCheck={false}
             className={`${inputClass} mx-1 w-36`}
           />
-          <span className="text-slate-500">({cue})</span>
+          {showCue && <span className="text-slate-500">({cue})</span>}
           {after}
         </p>
         {!checked && <CheckButton disabled={!value.trim()} onClick={check} />}
