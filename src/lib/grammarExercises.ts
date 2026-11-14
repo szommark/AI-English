@@ -134,6 +134,20 @@ export function gapParts(sentence: string, storedCue: string): { before: string;
   return { before: strip(before), cue, after: strip(rest) }
 }
 
+/** Time and place words that shift in reported speech. */
+const DEICTIC_WORDS = new Set(
+  'here there this that these those now then today tonight tomorrow yesterday ago before after earlier later next following previous the day night morning week month year'.split(' '),
+)
+
+/**
+ * A reported speech gap answer made only of time or place words ("there", "the next day"):
+ * whether they change depends on where and when the words are reported, which the item can't show.
+ */
+export function isDeicticGap(answer: string): boolean {
+  const words = normalizeAnswer(answer).split(' ').filter(Boolean)
+  return words.length > 0 && words.every((w) => DEICTIC_WORDS.has(w))
+}
+
 /** Words any rewrite may add without being told: auxiliaries, modals, pronouns, articles, linkers. */
 const FREE_WORDS = new Set(
   (
@@ -234,9 +248,28 @@ function keptWording(source: string, cue: string | undefined, answer: string): s
  * at the moment." counts for "I watch TV at the moment." → "I am watching TV now.".
  */
 export function transformAnswers(item: { source: string; cue?: string; answers: string[] }): string[] {
-  const listed = [...item.answers, ...item.answers.flatMap(thatVariants)]
+  const withThat = [...item.answers, ...item.answers.flatMap(thatVariants)]
+  const listed = [...withThat, ...withThat.flatMap((a) => placeKeptVariant(item.source, a))]
   const kept = listed.map((a) => keptWording(item.source, item.cue, a)).filter((a): a is string => a !== null)
   return [...listed, ...kept]
+}
+
+/** "that" right after a reporting verb (and its listener) is the linking word, not "this" shifted. */
+const LINKING_THAT = /\b(?:said|says|told|tells|explained|added|replied|answered|promised|admitted)(?:\s+[a-z]+)?\s+$/i
+
+/**
+ * Reported speech changes here → there and this → that only when the words are reported
+ * somewhere else, which an exercise can't show: when the direct speech has "here", "this" or
+ * "these", the answer with them kept counts too ("Jane said she liked this book.").
+ */
+function placeKeptVariant(source: string, answer: string): string[] {
+  if (!quotesDirectSpeech(source)) return []
+  const has = (w: string) => new RegExp(`\\b${w}\\b`, 'i').test(source)
+  let kept = answer
+  if (has('here')) kept = kept.replace(/\bthere\b/gi, 'here')
+  if (has('these')) kept = kept.replace(/\bthose\b/gi, 'these')
+  if (has('this')) kept = kept.replace(/\bthat\b/gi, (word, offset: number) => (LINKING_THAT.test(kept.slice(0, offset)) ? word : 'this'))
+  return kept === answer ? [] : [kept]
 }
 
 const SAY_TELL = String.raw`\b(said|says|told (?:me|you|him|her|us|them))`
