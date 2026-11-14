@@ -24,7 +24,7 @@ import {
   type VocabKind,
   type VocabPos,
 } from '../../src/lib/vocab.js'
-import { bareCue, doublesAtGap, EXERCISES_PER_TYPE, GAP, isClauseGap, sameWords, sentenceTiles } from '../../src/lib/grammarExercises.js'
+import { bareCue, doublesAtGap, EXERCISES_PER_TYPE, GAP, isClauseGap, normalizeAnswer, sameWords, sentenceTiles } from '../../src/lib/grammarExercises.js'
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
@@ -365,33 +365,66 @@ function answerList(value: unknown, what: string): string[] {
   return answers
 }
 
-/** The first EXERCISES_PER_TYPE items of a section; throws when there are fewer. */
-function exerciseItems(value: unknown, section: string): Record<string, unknown>[] {
-  if (!Array.isArray(value) || value.length < EXERCISES_PER_TYPE) {
-    throw new Error(`Grammar exercises need ${EXERCISES_PER_TYPE} "${section}" items`)
+/**
+ * The first EXERCISES_PER_TYPE items of a section that pass `build`, in order. The prompt asks
+ * for spares, so one broken item is dropped instead of failing the whole set; throws (with the
+ * first item's error) when too few are left.
+ */
+function validItems<T>(value: unknown, section: string, build: (item: Record<string, unknown>) => T): T[] {
+  const kept: T[] = []
+  let firstError: unknown = null
+  for (const item of Array.isArray(value) ? value : []) {
+    if (kept.length === EXERCISES_PER_TYPE) break
+    try {
+      if (typeof item !== 'object' || item === null) throw new Error(`Grammar "${section}" item is not an object`)
+      kept.push(build(item as Record<string, unknown>))
+    } catch (err) {
+      if (firstError === null) firstError = err
+    }
   }
-  return value.slice(0, EXERCISES_PER_TYPE).map((item) => {
-    if (typeof item !== 'object' || item === null) throw new Error(`Grammar "${section}" item is not an object`)
-    return item as Record<string, unknown>
+  if (kept.length < EXERCISES_PER_TYPE) {
+    throw firstError ?? new Error(`Grammar exercises need ${EXERCISES_PER_TYPE} "${section}" items`)
+  }
+  return kept
+}
+
+const REPORTING_VERB = String.raw`(said|says|told|tells|asked|asks|wanted to know|wondered|reminded|warned|advised)`
+
+/**
+ * A reported answer that starts with a pronoun where the source names the speaker ("He said…"
+ * for "Mike said, '…'") gets the named version first — the one shown and the one a learner
+ * writes — while the pronoun version stays accepted.
+ */
+function speakerFirst(source: string, answers: string[]): string[] {
+  const speaker = source.match(new RegExp(`^(.+?)\\s+${REPORTING_VERB}\\b`, 'i'))?.[1]
+  if (!speaker || /^(i|you|he|she|it|we|they)$/i.test(speaker)) return answers
+  const named = answers.flatMap((a) => {
+    const m = a.match(new RegExp(`^(he|she|they)\\s+(?=${REPORTING_VERB}\\b)`, 'i'))
+    return m ? [speaker + ' ' + a.slice(m[0].length)] : []
   })
+  return [...new Set([...named, ...answers])]
 }
 
 /**
  * Strict parse+validate for buildGrammarExercisesPrompt's reply, rebuilt field by field so
- * nothing unexpected reaches the cache. Throws on any item that couldn't be played as an
- * exercise (api/grammar-lesson.ts retries once, like the lesson). Word-order alternatives
- * that don't use exactly the answer's words are dropped rather than failing the set.
+ * nothing unexpected reaches the cache. An item that couldn't be played as an exercise is
+ * dropped (the prompt asks for a spare per section); the set fails only when a section has
+ * too few good items (api/grammar-lesson.ts then tries again). Word-order alternatives that
+ * don't use exactly the answer's words are dropped rather than failing the item.
  *
  * `reported` (a reported speech lesson): every order and form item must show the direct
- * speech it reports ("quote"), a form gap holds only a few words (never a whole clause),
- * transform items get no bracket hint, and a reported question ends with a full stop.
+ * speech it reports ("quote", in quotation marks, never the gapped sentence), a form gap
+ * holds only a few words (never a whole clause), transform items get no bracket hint and
+ * name the speaker as the source does, and a reported question ends with a full stop.
  */
 export function parseGrammarExercisesJson(raw: string, options: { reported?: boolean } = {}): GrammarExerciseSet {
   const reported = !!options.reported
   const quoteOf = (item: Record<string, unknown>, section: string): { quote?: string } => {
     if (!reported) return {}
     if (!isNonEmptyString(item.quote)) throw new Error(`Grammar ${section} item does not show the direct speech it reports`)
-    return { quote: item.quote.trim() }
+    const quote = item.quote.trim()
+    if (!/['"‘’“”]/.test(quote) || /_{2,}/.test(quote)) throw new Error(`Grammar ${section} quote is not the direct speech`)
+    return { quote }
   }
   // A reported question is a statement: "She asked if I was coming." — never "…coming?".
   const reportedEnd = (text: string) => (reported ? text.replace(/\?\s*$/, '.') : text)
@@ -402,7 +435,7 @@ export function parseGrammarExercisesJson(raw: string, options: { reported?: boo
     throw new Error('Grammar exercises are missing an instruction')
   }
 
-  const order = exerciseItems(parsed.order, 'order').map((item) => {
+  const order = validItems(parsed.order, 'order', (item) => {
     if (!isNonEmptyString(item.answer) || !isNonEmptyString(item.extra)) throw new Error('Grammar order item is missing answer/extra')
     const answer = reportedEnd(item.answer.trim())
     const extra = item.extra.trim()
@@ -416,7 +449,7 @@ export function parseGrammarExercisesJson(raw: string, options: { reported?: boo
     return { ...quoteOf(item, 'order'), answer, extra, ...(alternatives.length ? { alternatives } : {}) }
   })
 
-  const form = exerciseItems(parsed.form, 'form').map((item) => {
+  const form = validItems(parsed.form, 'form', (item) => {
     if (!isNonEmptyString(item.sentence) || !isNonEmptyString(item.cue)) throw new Error('Grammar form item is missing sentence/cue')
     const sentence = reportedEnd(item.sentence.trim().replace(/_{2,}/g, GAP))
     if (sentence.split(GAP).length !== 2) throw new Error('Grammar form item needs exactly one gap')
@@ -427,15 +460,22 @@ export function parseGrammarExercisesJson(raw: string, options: { reported?: boo
     if (reported && answers.some(isClauseGap)) {
       throw new Error('Grammar reported speech gap holds a whole clause')
     }
-    return { ...quoteOf(item, 'form'), sentence, cue: bareCue(item.cue), answers }
+    const cue = bareCue(item.cue)
+    // "Liam said that he ___ swim. (can)" with only "can" accepted teaches no backshift.
+    if (reported && answers.every((a) => normalizeAnswer(a) === normalizeAnswer(cue))) {
+      throw new Error('Grammar reported speech gap answer is the unchanged cue')
+    }
+    return { ...quoteOf(item, 'form'), sentence, cue, answers }
   })
 
-  const transform = exerciseItems(parsed.transform, 'transform').map((item) => {
+  const transform = validItems(parsed.transform, 'transform', (item) => {
     if (!isNonEmptyString(item.source)) throw new Error('Grammar transform item is missing its source sentence')
+    const source = item.source.trim()
     // Reported speech sources carry their own reporting verb and listener; a hint only confuses.
     const cue = !reported && isNonEmptyString(item.cue) ? bareCue(item.cue) || undefined : undefined
-    const answers = answerList(item.answers, 'transform item').map(reportedEnd)
-    return { source: item.source.trim(), ...(cue ? { cue } : {}), answers }
+    const listed = answerList(item.answers, 'transform item').map(reportedEnd)
+    const answers = reported ? speakerFirst(source, listed) : listed
+    return { source, ...(cue ? { cue } : {}), answers }
   })
 
   return {

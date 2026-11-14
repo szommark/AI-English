@@ -4,14 +4,22 @@ import { resolveTensePolicy } from './_lib/tenseExplorerSettings.js'
 import { handleTenseGameAction, TENSE_GAME_ACTIONS } from './_lib/tenseGame.js'
 import { parseGrammarExercisesJson, parseGrammarLessonJson } from './_lib/groq.js'
 import { buildGrammarExercisesPrompt, buildGrammarLessonPrompt } from './_lib/prompts.js'
-import { callModel } from './_lib/modelRouter.js'
+import { backupModel, callModel } from './_lib/modelRouter.js'
 import { logModelUsage, type LlmCallType } from './_lib/usageLog.js'
 import { getModelForFeature } from './_lib/modelSettings.js'
 import type { ModelId } from '../src/lib/models.js'
 import { getGrammarItem, type CefrLevel, type GrammarItem } from '../src/data/grammarCurriculum.js'
 import type { ExplainLanguage, GrammarExerciseSet, GrammarLesson, LessonLanguage } from '../src/lib/types.js'
 
+/** Tries with the chosen model before falling back to the backup model. */
 const GENERATION_ATTEMPTS = 2
+
+/**
+ * Output budget, reasoning included. Without one, GPT-OSS replies stopped at 3,072 tokens:
+ * on the longer reported speech sheets the reasoning used nearly all of it and the JSON was
+ * cut off (or empty) every time.
+ */
+const MAX_OUTPUT_TOKENS = 8000
 
 const LESSON_LANGUAGES: LessonLanguage[] = ['hu', 'en', 'de']
 
@@ -61,7 +69,7 @@ async function readCached(
   return data?.content ?? null
 }
 
-/** Generates and validates, retrying once; null when both attempts fail. */
+/** Generates and validates: the chosen model twice, then the backup model; null when all fail. */
 async function generate(
   kind: ContentKind<unknown>,
   item: GrammarItem,
@@ -72,15 +80,18 @@ async function generate(
   userId: string,
 ): Promise<unknown | null> {
   let lastError: unknown = null
-  for (let attempt = 0; attempt < GENERATION_ATTEMPTS; attempt++) {
+  // The backup's content is still cached under the chosen model's key, so the learner gets it next time too.
+  const models = [...Array<ModelId>(GENERATION_ATTEMPTS).fill(modelId), backupModel(modelId)]
+  for (const attemptModel of models) {
     try {
       const { systemPrompt, messages } = kind.build(item, cefrLevel, lang, explain)
-      const result = await callModel(modelId, systemPrompt, messages)
+      const result = await callModel(attemptModel, systemPrompt, messages, { maxTokens: MAX_OUTPUT_TOKENS })
       const content = kind.parse(result.content, lang, explain, item)
-      await logModelUsage({ userId, scenarioId: item.id, callType: kind.callType, modelId, usage: result.usage })
+      await logModelUsage({ userId, scenarioId: item.id, callType: kind.callType, modelId: attemptModel, usage: result.usage })
       return content
     } catch (err) {
       lastError = err
+      console.warn(`Grammar ${kind.table} attempt failed`, { grammarItemId: item.id, modelId: attemptModel, error: String(err).slice(0, 300) })
     }
   }
   // Fail silently from the learner's perspective (see Grammar Coach brief) — nothing
