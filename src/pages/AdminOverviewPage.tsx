@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { fetchAdminOverview, type AdminOverview } from '../lib/adminApi'
 import AdminGamificationCard from '../components/gamification/AdminGamificationCard'
 import AdminQrCard from '../components/admin/AdminQrCard'
+import AdminClubCard from '../components/admin/AdminClubCard'
 
 export default function AdminOverviewPage() {
   const [overview, setOverview] = useState<AdminOverview | null>(null)
@@ -105,6 +106,8 @@ export default function AdminOverviewPage() {
             </>
           )
         )}
+
+        <AdminClubCard />
 
         <AdminQrCard />
 
