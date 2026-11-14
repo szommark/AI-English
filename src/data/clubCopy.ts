@@ -2,19 +2,12 @@ import type { Lang } from '../lib/i18n'
 
 /**
  * The on-site English club (/club and the banner on the signed-out home page). Practical
- * details are the site owner's own words (venue, price, theme): keep them verbatim.
+ * details are the site owner's own words (time, venue, size, the poster's lines): keep them verbatim.
  *
- * `edition` keys the sign-up counter (club_signups.club_key, see
- * supabase/migrations/20261110120000_club_signups.sql): a new topic gets a new key, so the
- * count starts again from BASE_PARTICIPANTS.
+ * Sign-up is account-based, for one Wednesday or a whole semester (September–January,
+ * February–June); a Wednesday is full at 16. The rules live in
+ * supabase/migrations/20261115120000_club_registrations.sql.
  */
-export const CLUB = {
-  edition: 'ettermi-kalandok',
-  /** Shown before anyone signs up; each sign-up adds one. */
-  baseParticipants: 2,
-  /** 8:30, in minutes after midnight: the timeline's first block starts here. */
-  startMinutes: 8 * 60 + 30,
-}
 
 /** Platform features a club block continues on; routes open them (signed-out visitors are asked to sign in). */
 export type ClubLinkId = 'pronunciation' | 'vocabulary' | 'grammar' | 'scenarios' | 'tutorBot' | 'speaking' | 'lyrics'
@@ -31,68 +24,106 @@ export const CLUB_LINK_ROUTES: Record<ClubLinkId, string | null> = {
 }
 
 export interface ClubBlock {
+  /** The block's length, for planning only: the page doesn't show it. */
   minutes: number
   title: string
   text: string
   links: ClubLinkId[]
 }
 
+/** What club_register() answers, plus a network error. */
+export type ClubResult = 'ok' | 'full' | 'already' | 'invalid' | 'auth' | 'error'
+
 export interface ClubCopy {
-  kicker: string
-  title: string
   firstBadge: string
-  intro: string
-  themeMonthLabel: string
-  themeMonth: string
-  nextTopicLabel: string
-  nextTopic: string
+  /** Under the wordmark, as on the poster. */
+  subtitle: string
+  slogan: string
+  /** The poster's ribbon. */
+  joinUs: string
+  themesLabel: string
+  themes: string
   whenLabel: string
   when: string
   whereLabel: string
   where: string
-  priceLabel: string
-  price: string
-  participantsLabel: string
-  /** {n} = current number of participants. */
-  participants: string
+  sizeLabel: string
+  size: string
+  full: string
+  /** The hero button: scrolls to the sign-up section. */
+  signUp: string
+  signUpTitle: string
+  signUpIntro: string
+  needAccount: string
+  createAccount: string
+  /** Mail link for people who don't want an account. */
+  noAccount: string
+  semestersTitle: string
+  /** {n} = 1 (September–January) or 2 (February–June). */
+  semesterName: string
+  /** {n} = Wednesdays left in the semester. */
+  sessionsLeft: string
+  joinSemester: string
+  sessionsTitle: string
+  joinSession: string
+  registered: string
+  registeredSemester: string
+  cancel: string
+  semesterFull: string
+  loading: string
+  results: Record<ClubResult, string>
   scheduleTitle: string
   scheduleIntro: string
-  minutes: string
   linkLabels: Record<ClubLinkId, string>
   blocks: ClubBlock[]
-  signUp: string
-  signedUp: string
-  signUpNote: string
-  /** Shown instead of the button while CONTACT_EMAIL is still empty. */
-  signUpUnavailable: string
   mailSubject: string
-  /** Pre-filled email body. */
+  /** Pre-filled email body (sign-up without an account). */
   mailBody: string
   /** Home page banner. */
-  banner: { kicker: string; cta: string }
+  banner: { cta: string }
 }
 
 const hu: ClubCopy = {
-  kicker: 'Angol klub',
-  title: 'Avalon angol klub',
   firstBadge: 'Az első klub',
-  intro:
-    'Személyes angol klub kötetlen hangulatban, egy kávé vagy reggeli mellett. Beszélgetünk, gyakorlunk, ismerkedünk, a klub után pedig az Avalon platformon folytathatod, amit elkezdtünk.',
-  themeMonthLabel: 'Tematikus hónap',
-  themeMonth: 'nyaralás/utazás',
-  nextTopicLabel: 'A legközelebbi téma',
-  nextTopic: 'éttermi kalandok',
+  subtitle: 'Angol társalgási klub',
+  slogan: 'English is a tool. The goal is to connect.',
+  joinUs: 'Join us!',
+  themesLabel: 'Tematikus alkalmak',
+  themes: 'Minden alkalom egy téma köré épül',
   whenLabel: 'Időpont',
-  when: 'Minden reggel 8.30-tól 10-ig',
+  when: 'Minden szerdán 8.30-kor',
   whereLabel: 'Helyszín',
   where: 'Pedró pékség, Vágóhíd utca',
-  priceLabel: 'Ár',
-  price: '2000 Ft + fogyasztás',
-  participantsLabel: 'Résztvevők',
-  participants: '{n} fő',
+  sizeLabel: 'Létszám',
+  size: 'kb. 12 fő',
+  full: 'Megtelt',
+  signUp: 'Jelentkezem',
+  signUpTitle: 'Jelentkezés',
+  signUpIntro: 'Jelentkezhetsz egy-egy alkalomra vagy egy egész félévre. Az első félév szeptembertől januárig, a második februártól júniusig tart.',
+  needAccount: 'A jelentkezéshez ingyenes Avalon-fiók kell.',
+  createAccount: 'Ingyenes regisztráció',
+  noAccount: 'Fiók nélkül jelentkeznél? Írj nekünk e-mailt.',
+  semestersTitle: 'Félévre',
+  semesterName: '{n}. félév',
+  sessionsLeft: 'még {n} alkalom',
+  joinSemester: 'Jelentkezem a félévre',
+  sessionsTitle: 'Alkalomra',
+  joinSession: 'Jelentkezem',
+  registered: 'Jelentkeztél',
+  registeredSemester: 'Félévre jelentkeztél',
+  cancel: 'Lemondás',
+  semesterFull: 'Valamelyik alkalom már megtelt',
+  loading: 'Betöltés…',
+  results: {
+    ok: 'Köszönjük, jelentkeztél!',
+    full: 'Sajnos ez már megtelt.',
+    already: 'Erre már jelentkeztél.',
+    invalid: 'Erre az időpontra nem lehet jelentkezni.',
+    auth: 'A jelentkezéshez jelentkezz be.',
+    error: 'Valami hiba történt, próbáld újra.',
+  },
   scheduleTitle: 'Egy klubalkalom menete',
   scheduleIntro: 'Minden blokk mellett ott van, melyik Avalon-funkcióval gyakorolhatsz tovább otthon.',
-  minutes: 'perc',
   linkLabels: {
     pronunciation: 'Kiejtés és shadowing',
     vocabulary: 'Szólisták és szókártyák',
@@ -104,7 +135,7 @@ const hu: ClubCopy = {
   },
   blocks: [
     {
-      minutes: 5,
+      minutes: 10,
       title: 'Az Avalon platform és a klub bemutatása',
       text: 'Röviden arról, hogyan épül fel a klub, és hogyan segít a platform a két alkalom között.',
       links: [],
@@ -119,7 +150,7 @@ const hu: ClubCopy = {
       minutes: 10,
       title: 'Témafeldolgozás párban vagy kiscsoportban',
       text: 'A téma szókincse és a hozzá illő nyelvtan közös feldolgozása.',
-      links: ['vocabulary', 'grammar'],
+      links: ['vocabulary'],
     },
     {
       minutes: 10,
@@ -128,16 +159,16 @@ const hu: ClubCopy = {
       links: ['scenarios', 'tutorBot'],
     },
     {
-      minutes: 10,
-      title: 'Dalszöveges gap fill',
-      text: 'Egy témába illő dal hiányzó szavainak kiegészítése hallás után.',
-      links: ['lyrics'],
-    },
-    {
       minutes: 15,
       title: 'Panel a témához illően',
       text: 'Néhány résztvevő a többiek előtt beszélget a témáról, a többiek kérdezhetnek.',
       links: ['speaking'],
+    },
+    {
+      minutes: 10,
+      title: 'Dalszöveges gap fill',
+      text: 'Egy témába illő dal hiányzó szavainak kiegészítése hallás után.',
+      links: ['lyrics'],
     },
     {
       minutes: 20,
@@ -146,42 +177,58 @@ const hu: ClubCopy = {
       links: [],
     },
     {
-      minutes: 5,
+      minutes: 10,
       title: 'Zárás',
       text: 'QR-kód az aznapi szólistához és szituációhoz, hogy a platformon folytathasd.',
       links: ['vocabulary', 'scenarios'],
     },
   ],
-  signUp: 'Jelentkezem',
-  signedUp: 'Jelentkeztél, köszönjük!',
-  signUpNote: 'A gomb megnyitja a leveleződet egy előre kitöltött e-maillel; küldd el, és visszaírunk.',
-  signUpUnavailable: 'A jelentkezés hamarosan indul.',
-  mailSubject: 'Jelentkezés: Avalon angol klub – éttermi kalandok',
-  mailBody: 'Szia!\n\nSzeretnék jelentkezni az Avalon angol klubra (éttermi kalandok).\n\nNevem:\nAngoltudásom szintje:\n\nKöszönöm!',
-  banner: { kicker: 'Angol klub', cta: 'Részletek / Jelentkezem' },
+  mailSubject: 'Jelentkezés: Avalon angol klub',
+  mailBody: 'Szia!\n\nSzeretnék jelentkezni az Avalon angol klubra.\n\nNevem:\nAngoltudásom szintje:\n\nKöszönöm!',
+  banner: { cta: 'Részletek / Jelentkezem' },
 }
 
 const en: ClubCopy = {
-  kicker: 'English club',
-  title: 'Avalon English Club',
   firstBadge: 'Our first club',
-  intro:
-    'An in-person English club in a relaxed setting, over a coffee or breakfast. We talk, practise and get to know each other, and after the club you can carry on with what we started on the Avalon platform.',
-  themeMonthLabel: 'Theme of the month',
-  themeMonth: 'holidays/travel',
-  nextTopicLabel: 'Next topic',
-  nextTopic: 'restaurant adventures',
+  subtitle: 'English conversation club',
+  slogan: 'English is a tool. The goal is to connect.',
+  joinUs: 'Join us!',
+  themesLabel: 'Themed sessions',
+  themes: 'Every session is built around a topic',
   whenLabel: 'When',
-  when: 'Every morning, 8:30 to 10:00',
+  when: 'Every Wednesday 8.30',
   whereLabel: 'Where',
   where: 'Pedró pékség, Vágóhíd utca',
-  priceLabel: 'Price',
-  price: 'HUF 2,000 + what you order',
-  participantsLabel: 'Participants',
-  participants: '{n} people',
+  sizeLabel: 'Group size',
+  size: 'about 12 people',
+  full: 'Full',
+  signUp: 'Sign me up',
+  signUpTitle: 'Sign-up',
+  signUpIntro: 'You can sign up for a single session or for a whole semester. The first semester runs from September to January, the second from February to June.',
+  needAccount: 'To sign up you need a free Avalon account.',
+  createAccount: 'Create a free account',
+  noAccount: 'Rather sign up without an account? Email us.',
+  semestersTitle: 'For a semester',
+  semesterName: 'Semester {n}',
+  sessionsLeft: '{n} sessions left',
+  joinSemester: 'Sign me up for the semester',
+  sessionsTitle: 'For a session',
+  joinSession: 'Sign me up',
+  registered: 'You’re signed up',
+  registeredSemester: 'Signed up for the semester',
+  cancel: 'Cancel',
+  semesterFull: 'One of the sessions is already full',
+  loading: 'Loading…',
+  results: {
+    ok: 'Thank you, you’re signed up!',
+    full: 'Sorry, this is already full.',
+    already: 'You’re already signed up for this.',
+    invalid: 'You can’t sign up for this date.',
+    auth: 'Please sign in to sign up.',
+    error: 'Something went wrong, please try again.',
+  },
   scheduleTitle: 'How a club session runs',
   scheduleIntro: 'Next to each block you can see which Avalon feature lets you keep practising at home.',
-  minutes: 'min',
   linkLabels: {
     pronunciation: 'Pronunciation and shadowing',
     vocabulary: 'Word lists and flashcards',
@@ -193,7 +240,7 @@ const en: ClubCopy = {
   },
   blocks: [
     {
-      minutes: 5,
+      minutes: 10,
       title: 'Introducing the Avalon platform and the club',
       text: 'A short look at how the club works and how the platform helps between sessions.',
       links: [],
@@ -208,7 +255,7 @@ const en: ClubCopy = {
       minutes: 10,
       title: 'Working on the topic in pairs or small groups',
       text: 'The topic’s vocabulary and the grammar that goes with it, worked through together.',
-      links: ['vocabulary', 'grammar'],
+      links: ['vocabulary'],
     },
     {
       minutes: 10,
@@ -217,16 +264,16 @@ const en: ClubCopy = {
       links: ['scenarios', 'tutorBot'],
     },
     {
-      minutes: 10,
-      title: 'Song lyrics gap fill',
-      text: 'Filling in the missing words of a song that fits the topic, by ear.',
-      links: ['lyrics'],
-    },
-    {
       minutes: 15,
       title: 'Panel on the topic',
       text: 'A few participants discuss the topic in front of the others, who can ask questions.',
       links: ['speaking'],
+    },
+    {
+      minutes: 10,
+      title: 'Song lyrics gap fill',
+      text: 'Filling in the missing words of a song that fits the topic, by ear.',
+      links: ['lyrics'],
     },
     {
       minutes: 20,
@@ -235,42 +282,58 @@ const en: ClubCopy = {
       links: [],
     },
     {
-      minutes: 5,
+      minutes: 10,
       title: 'Wrap-up',
       text: 'A QR code for the day’s word list and scenario, so you can carry on on the platform.',
       links: ['vocabulary', 'scenarios'],
     },
   ],
-  signUp: 'Sign me up',
-  signedUp: 'You’re signed up, thank you!',
-  signUpNote: 'The button opens your email app with a pre-filled message; send it and we’ll get back to you.',
-  signUpUnavailable: 'Sign-up opens soon.',
-  mailSubject: 'Sign-up: Avalon English Club – restaurant adventures',
-  mailBody: 'Hi,\n\nI’d like to sign up for the Avalon English Club (restaurant adventures).\n\nMy name:\nMy English level:\n\nThank you!',
-  banner: { kicker: 'English club', cta: 'Details / Sign me up' },
+  mailSubject: 'Sign-up: Avalon English Club',
+  mailBody: 'Hi,\n\nI’d like to sign up for the Avalon English Club.\n\nMy name:\nMy English level:\n\nThank you!',
+  banner: { cta: 'Details / Sign me up' },
 }
 
 const de: ClubCopy = {
-  kicker: 'Englischclub',
-  title: 'Avalon Englischclub',
   firstBadge: 'Unser erster Club',
-  intro:
-    'Ein Englischclub vor Ort in entspannter Atmosphäre, bei einem Kaffee oder Frühstück. Wir unterhalten uns, üben und lernen uns kennen, und nach dem Club kannst du auf der Avalon-Plattform weitermachen, wo wir aufgehört haben.',
-  themeMonthLabel: 'Themenmonat',
-  themeMonth: 'Urlaub/Reisen',
-  nextTopicLabel: 'Nächstes Thema',
-  nextTopic: 'Abenteuer im Restaurant',
+  subtitle: 'Englischer Konversationsclub',
+  slogan: 'English is a tool. The goal is to connect.',
+  joinUs: 'Join us!',
+  themesLabel: 'Thematische Treffen',
+  themes: 'Jedes Treffen dreht sich um ein Thema',
   whenLabel: 'Wann',
-  when: 'Jeden Morgen von 8:30 bis 10:00 Uhr',
+  when: 'Jeden Mittwoch um 8.30 Uhr',
   whereLabel: 'Wo',
   where: 'Pedró pékség, Vágóhíd utca',
-  priceLabel: 'Preis',
-  price: '2000 HUF + Verzehr',
-  participantsLabel: 'Teilnehmende',
-  participants: '{n} Personen',
+  sizeLabel: 'Gruppengröße',
+  size: 'ca. 12 Personen',
+  full: 'Ausgebucht',
+  signUp: 'Ich melde mich an',
+  signUpTitle: 'Anmeldung',
+  signUpIntro: 'Du kannst dich für ein einzelnes Treffen oder für ein ganzes Semester anmelden. Das erste Semester geht von September bis Januar, das zweite von Februar bis Juni.',
+  needAccount: 'Für die Anmeldung brauchst du ein kostenloses Avalon-Konto.',
+  createAccount: 'Kostenlos registrieren',
+  noAccount: 'Lieber ohne Konto anmelden? Schreib uns eine E-Mail.',
+  semestersTitle: 'Für ein Semester',
+  semesterName: '{n}. Semester',
+  sessionsLeft: 'noch {n} Treffen',
+  joinSemester: 'Für das Semester anmelden',
+  sessionsTitle: 'Für ein Treffen',
+  joinSession: 'Anmelden',
+  registered: 'Du bist angemeldet',
+  registeredSemester: 'Für das Semester angemeldet',
+  cancel: 'Absagen',
+  semesterFull: 'Eines der Treffen ist schon ausgebucht',
+  loading: 'Wird geladen…',
+  results: {
+    ok: 'Danke, du bist angemeldet!',
+    full: 'Leider schon ausgebucht.',
+    already: 'Dafür bist du schon angemeldet.',
+    invalid: 'Für diesen Termin ist keine Anmeldung möglich.',
+    auth: 'Bitte melde dich an, um dich einzutragen.',
+    error: 'Etwas ist schiefgelaufen, bitte versuch es noch einmal.',
+  },
   scheduleTitle: 'So läuft ein Clubtreffen ab',
   scheduleIntro: 'Neben jedem Block steht, mit welcher Avalon-Funktion du zu Hause weiterüben kannst.',
-  minutes: 'Min.',
   linkLabels: {
     pronunciation: 'Aussprache und Shadowing',
     vocabulary: 'Wortlisten und Karteikarten',
@@ -282,7 +345,7 @@ const de: ClubCopy = {
   },
   blocks: [
     {
-      minutes: 5,
+      minutes: 10,
       title: 'Vorstellung der Avalon-Plattform und des Clubs',
       text: 'Kurz dazu, wie der Club abläuft und wie die Plattform zwischen den Treffen hilft.',
       links: [],
@@ -297,7 +360,7 @@ const de: ClubCopy = {
       minutes: 10,
       title: 'Themenarbeit in Paaren oder Kleingruppen',
       text: 'Der Wortschatz des Themas und die passende Grammatik, gemeinsam erarbeitet.',
-      links: ['vocabulary', 'grammar'],
+      links: ['vocabulary'],
     },
     {
       minutes: 10,
@@ -306,16 +369,16 @@ const de: ClubCopy = {
       links: ['scenarios', 'tutorBot'],
     },
     {
-      minutes: 10,
-      title: 'Lückentext mit Songtext',
-      text: 'Die fehlenden Wörter eines passenden Songs nach Gehör ergänzen.',
-      links: ['lyrics'],
-    },
-    {
       minutes: 15,
       title: 'Podiumsgespräch zum Thema',
       text: 'Einige Teilnehmende sprechen vor den anderen über das Thema, die anderen können Fragen stellen.',
       links: ['speaking'],
+    },
+    {
+      minutes: 10,
+      title: 'Lückentext mit Songtext',
+      text: 'Die fehlenden Wörter eines passenden Songs nach Gehör ergänzen.',
+      links: ['lyrics'],
     },
     {
       minutes: 20,
@@ -324,19 +387,15 @@ const de: ClubCopy = {
       links: [],
     },
     {
-      minutes: 5,
+      minutes: 10,
       title: 'Abschluss',
       text: 'Ein QR-Code zur Wortliste und zum Szenario des Tages, damit du auf der Plattform weitermachen kannst.',
       links: ['vocabulary', 'scenarios'],
     },
   ],
-  signUp: 'Ich melde mich an',
-  signedUp: 'Du bist angemeldet, danke!',
-  signUpNote: 'Der Button öffnet dein E-Mail-Programm mit einer vorausgefüllten Nachricht; schick sie ab, und wir melden uns.',
-  signUpUnavailable: 'Die Anmeldung startet bald.',
-  mailSubject: 'Anmeldung: Avalon Englischclub – Abenteuer im Restaurant',
-  mailBody: 'Hallo,\n\nich möchte mich für den Avalon Englischclub (Abenteuer im Restaurant) anmelden.\n\nMein Name:\nMein Englischniveau:\n\nDanke!',
-  banner: { kicker: 'Englischclub', cta: 'Details / Anmelden' },
+  mailSubject: 'Anmeldung: Avalon Englischclub',
+  mailBody: 'Hallo,\n\nich möchte mich für den Avalon Englischclub anmelden.\n\nMein Name:\nMein Englischniveau:\n\nDanke!',
+  banner: { cta: 'Details / Anmelden' },
 }
 
 export const clubCopy: Record<Lang, ClubCopy> = { hu, en, de }

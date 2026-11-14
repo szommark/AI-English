@@ -1,7 +1,7 @@
 import type { Lang } from '../lib/i18n'
 
 /** Where the teacher/school and company panels' button sends its email. */
-export const CONTACT_EMAIL = ''
+export const CONTACT_EMAIL = 'szombathely.mark@tobbmintangol.hu'
 
 /** A side panel: bold lead line, optional bullet list, paragraphs, then the email button. */
 export interface LandingPanelCopy {
