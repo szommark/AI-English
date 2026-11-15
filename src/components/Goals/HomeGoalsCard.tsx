@@ -32,13 +32,13 @@ export default function HomeGoalsCard() {
   return (
     <section className="mx-auto max-w-5xl space-y-3">
       {shown.length > 0 && (
-        <div className="rounded-2xl border border-[var(--teal-accent-border)] bg-[var(--teal-accent-soft)] px-5 py-4">
+        <div className="border border-[var(--club-gold)] bg-[var(--club-cream)] px-5 py-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 font-semibold text-foreground">
-              <Target className="h-5 w-5 text-[var(--teal-accent-strong)]" aria-hidden="true" />
+            <h2 className="flex items-center gap-2 font-brand text-xl font-semibold text-[var(--club-green)]">
+              <Target className="h-5 w-5 text-[var(--club-gold-dark)]" aria-hidden="true" />
               {t('myGoals')}
             </h2>
-            <Link to="/my-goals" className="text-sm font-medium text-[var(--teal-accent-strong)] hover:underline">
+            <Link to="/my-goals" className="text-sm font-medium text-[var(--club-gold-dark)] hover:underline">
               {t('glHomeAll')}
             </Link>
           </div>

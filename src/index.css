@@ -34,6 +34,16 @@
   /* Avalon brand: the wordmark navy and its gold accent (header, BrandIntro). */
   --brand-navy: #0a1f44;
   --brand-gold: #c9a227;
+
+  /* English club palette (the club poster, src/components/club/Deco.tsx), also used by the
+     landing page, the home tiles and the header's Sign in button. */
+  --club-green: #0f2a24;
+  --club-green-soft: #1d4a40;
+  --club-gold: #c9a227;
+  --club-gold-light: #e9d28a;
+  --club-gold-dark: #8a6d14;
+  --club-cream: #f6ecd2;
+  --club-paper: #fbf6e9;
 }
 
 /* Avalon intro (src/components/BrandIntro.tsx): "AVLN" parts and the missing gold a and o fade in. */

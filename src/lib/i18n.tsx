@@ -352,6 +352,7 @@ const messages = {
     de: 'An dieser Funktion arbeiten wir noch — schau bald wieder vorbei!',
   },
   comingSoon: { hu: 'Hamarosan', en: 'Coming soon', de: 'Demnächst' },
+  backToTop: { hu: 'Vissza az elejére', en: 'Back to top', de: 'Zurück nach oben' },
 
   pickCategory: { hu: 'válassz egy kategóriát', en: 'choose a category', de: 'wähle eine Kategorie' },
   pickSubcategory: { hu: 'válassz egy alkategóriát', en: 'choose a subcategory', de: 'wähle eine Unterkategorie' },

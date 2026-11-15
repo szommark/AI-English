@@ -18,7 +18,7 @@ export default function LanguageSwitcher() {
           title={option.name}
           className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
             lang === option.value
-              ? 'bg-[var(--teal-accent)] text-primary'
+              ? 'bg-[var(--club-green)] text-[var(--club-gold-light)]'
               : 'text-muted-foreground hover:bg-secondary'
           }`}
         >
