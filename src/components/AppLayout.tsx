@@ -137,8 +137,9 @@ export default function AppLayout() {
 
   const trail = useMemo(() => buildTrail(pathname, lang, t), [pathname, lang, t])
   const isHome = pathname === '/'
-  // Decided once on mount: the intro plays only when a session starts on the home page.
-  const [showIntro, setShowIntro] = useState(() => isHome && shouldShowBrandIntro())
+  // Decided once on mount: the intro plays only when a session starts on the home page, and not
+  // for a link straight to one of its sections (e.g. /#companies), which should land there.
+  const [showIntro, setShowIntro] = useState(() => isHome && !window.location.hash && shouldShowBrandIntro())
   const hideIntro = useCallback(() => setShowIntro(false), [])
 
   return (
@@ -146,7 +147,7 @@ export default function AppLayout() {
       <ReportProblemContext.Provider value={reportValue}>
         {showIntro && <BrandIntro onDone={hideIntro} />}
         <div className="flex min-h-screen flex-col bg-background">
-          <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+          <header className="sticky top-0 z-40 border-b border-border bg-white/90 backdrop-blur-xl">
             <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
               <Link to="/" className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-md flex items-center justify-center bg-[var(--brand-navy)] font-brand text-xl font-semibold leading-none text-white">
@@ -186,7 +187,7 @@ export default function AppLayout() {
                     </Link>
                     <button
                       onClick={() => promptValue.promptSignIn()}
-                      className="rounded-lg bg-[var(--teal-accent)] text-primary text-sm font-semibold px-4 py-2 hover:bg-[var(--teal-accent-strong)]"
+                      className="bg-[var(--club-gold)] text-[var(--club-green)] text-sm font-semibold px-4 py-2 hover:bg-[var(--club-gold-light)]"
                     >
                       {t('signIn')}
                     </button>

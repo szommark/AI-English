@@ -15,6 +15,8 @@ export interface Feature {
   children?: string[]
   /** Opens for signed-out visitors too (no sign-in prompt), e.g. the club page. */
   public?: boolean
+  /** Shown as a locked tile (green, padlock and chain) that can't be opened yet. */
+  locked?: boolean
 }
 
 export const features: Feature[] = [
@@ -96,6 +98,7 @@ export const features: Feature[] = [
     accent: 'emerald',
     status: 'coming-soon',
     route: '/coming-soon/business-english',
+    locked: true,
   },
   {
     id: 'pronunciation-session',
