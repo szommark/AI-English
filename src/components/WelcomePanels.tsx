@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowUp, Briefcase, ChevronDown, GraduationCap, Sparkles, type LucideIcon } from 'lucide-react'
 import { useAuthPrompt } from './AppLayout'
 import ClubBanner from './ClubBanner'
-import { DecoDivider, DecoFan, DecoFrame } from './club/Deco'
+import { DecoDivider, DecoFan } from './club/Deco'
 import { CONTACT_EMAIL, landingCopy, type LandingPanelCopy } from '../data/landingCopy'
 import { useLanguage } from '../lib/i18n'
 
@@ -16,13 +16,13 @@ function scrollToSection(id: string, instant = false) {
   document.getElementById(id)?.scrollIntoView({ behavior: instant || reduce ? 'auto' : 'smooth', block: 'start' })
 }
 
-function BulletList({ items, onGreen = false }: { items: string[]; onGreen?: boolean }) {
+function BulletList({ items }: { items: string[] }) {
   return (
     <ul className="mt-2 space-y-1.5">
       {items.map((item, i) => (
         <li key={i} className="flex gap-2.5">
           <span className="mt-[0.55em] h-1.5 w-1.5 shrink-0 rotate-45 bg-[var(--club-gold)]" aria-hidden="true" />
-          <span className={onGreen ? 'text-[rgba(246,236,210,0.9)]' : ''}>{item}</span>
+          <span>{item}</span>
         </li>
       ))}
     </ul>
@@ -38,7 +38,7 @@ function PaperFrame({ children, className = '' }: { children: ReactNode; classNa
   )
 }
 
-function BackToTop({ onGreen = false }: { onGreen?: boolean }) {
+function BackToTop() {
   const { t } = useLanguage()
   const navigate = useNavigate()
   return (
@@ -50,9 +50,7 @@ function BackToTop({ onGreen = false }: { onGreen?: boolean }) {
           window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' })
           navigate({ hash: '' }, { replace: true })
         }}
-        className={`inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.15em] hover:underline ${
-          onGreen ? 'text-[var(--club-gold-light)]' : 'text-[var(--club-gold-dark)]'
-        }`}
+        className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-[var(--club-gold-dark)] hover:underline"
       >
         <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
         {t('backToTop')}
@@ -91,14 +89,12 @@ function AudienceButton({ id, label, icon: Icon }: { id: SectionId; label: strin
   )
 }
 
-function SectionHeading({ title, onGreen = false }: { title: string; onGreen?: boolean }) {
+function SectionHeading({ title }: { title: string }) {
   return (
     <div className="text-center">
       <DecoFan className="mx-auto w-14" />
       <h2
-        className={`mt-2 font-brand text-3xl font-semibold leading-tight sm:text-4xl ${
-          onGreen ? 'text-[var(--club-cream)]' : 'text-[var(--club-green)]'
-        }`}
+        className="mt-2 font-brand text-3xl font-semibold leading-tight text-[var(--club-green)] sm:text-4xl"
       >
         {title}
       </h2>
@@ -181,20 +177,20 @@ export default function WelcomePanels() {
       </nav>
 
       <section id="learners" className="scroll-mt-24">
-        <DecoFrame innerClassName="px-5 py-8 sm:px-10 sm:py-10">
-          <SectionHeading title={learners.title} onGreen />
-          <p className="mx-auto mt-5 max-w-2xl text-center font-brand text-2xl italic leading-snug text-[var(--club-gold-light)] sm:text-3xl">
+        <PaperFrame>
+          <SectionHeading title={learners.title} />
+          <p className="mx-auto mt-5 max-w-2xl text-center font-brand text-2xl italic leading-snug text-[var(--club-gold-dark)] sm:text-3xl">
             {learners.hero}
           </p>
 
           <div className="mx-auto mt-8 grid max-w-4xl gap-6 text-[15px] leading-relaxed md:grid-cols-2">
             <div>
-              <p className="font-semibold text-[var(--club-gold-light)]">{learners.forYouIntro}</p>
-              <BulletList items={learners.forYou} onGreen />
+              <p className="font-semibold text-[var(--club-green)]">{learners.forYouIntro}</p>
+              <BulletList items={learners.forYou} />
             </div>
             <div>
-              <p className="font-semibold text-[var(--club-gold-light)]">{learners.youGetIntro}</p>
-              <BulletList items={learners.youGet} onGreen />
+              <p className="font-semibold text-[var(--club-green)]">{learners.youGetIntro}</p>
+              <BulletList items={learners.youGet} />
             </div>
           </div>
 
@@ -202,27 +198,27 @@ export default function WelcomePanels() {
             <button
               type="button"
               onClick={promptSignUp}
-              className="bg-[var(--club-gold)] px-8 py-3 font-brand text-xl font-semibold uppercase tracking-[0.12em] text-[var(--club-green)] shadow-sm [clip-path:polygon(0_0,100%_0,96%_50%,100%_100%,0_100%,4%_50%)] hover:bg-[var(--club-gold-light)]"
+              className="bg-[var(--club-gold)] px-8 py-3 font-brand text-xl font-semibold uppercase tracking-[0.12em] text-[var(--club-green)] shadow-sm [clip-path:polygon(0_0,100%_0,96%_50%,100%_100%,0_100%,4%_50%)] hover:bg-[var(--club-green)] hover:text-[var(--club-gold-light)]"
             >
               {learners.cta}
             </button>
-            <span className="text-sm text-[rgba(246,236,210,0.75)]">
+            <span className="text-sm text-muted-foreground">
               {copy.haveAccount}{' '}
               <button
                 type="button"
                 onClick={() => promptSignIn()}
-                className="font-semibold text-[var(--club-cream)] underline hover:text-[var(--club-gold-light)]"
+                className="font-semibold text-[var(--club-green)] underline hover:text-[var(--club-gold-dark)]"
               >
                 {t('signIn')}
               </button>
             </span>
           </div>
 
-          <p className="mx-auto mt-8 max-w-2xl border-l-2 border-[var(--club-gold)] pl-4 font-brand text-xl italic leading-snug text-[var(--club-cream)]">
+          <p className="mx-auto mt-8 max-w-2xl border-l-2 border-[var(--club-gold)] pl-4 font-brand text-xl italic leading-snug text-[var(--club-green)]">
             {learners.closing}
           </p>
-          <BackToTop onGreen />
-        </DecoFrame>
+          <BackToTop />
+        </PaperFrame>
       </section>
 
       <AudienceSection id="teachers" copy={copy.teachers} />
