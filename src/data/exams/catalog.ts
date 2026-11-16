@@ -55,6 +55,7 @@ export const examPapers: ExamPaperMeta[] = [
   { id: 'erettsegi-de-kozep-szobeli-minta-e', type: 'erettsegi', language: 'de', level: 'kozep', sittingLabelHu: 'Szóbeli minta E', speakingOnly: true },
   { id: 'nyelvvizsga-en-b1-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Minta 1.', track: 'general' },
   { id: 'nyelvvizsga-en-b1-gazdasagi-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Minta 1.', track: 'business' },
+  { id: 'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-02', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Szóbeli minta 2.', track: 'business', speakingOnly: true },
 ]
 
 const loaders: Record<string, () => Promise<{ default: ExamPaper }>> = {
