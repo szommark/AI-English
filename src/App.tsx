@@ -58,6 +58,11 @@ const CourseNewPage = lazy(() => import('./pages/CourseNewPage'))
 const CourseEditorPage = lazy(() => import('./pages/CourseEditorPage'))
 const CourseLibraryPage = lazy(() => import('./pages/CourseLibraryPage'))
 const AdminCoursesPage = lazy(() => import('./pages/AdminCoursesPage'))
+// Lazy: they carry the Markdown renderer (marked).
+const BlogPage = lazy(() => import('./pages/BlogPage'))
+const BlogPostPage = lazy(() => import('./pages/BlogPostPage'))
+const AdminBlogPage = lazy(() => import('./pages/AdminBlogPage'))
+const AdminBlogEditorPage = lazy(() => import('./pages/AdminBlogEditorPage'))
 const MyCoursesPage = lazy(() => import('./pages/MyCoursesPage'))
 const MyCoursePage = lazy(() => import('./pages/MyCoursePage'))
 const CoursePlayerPage = lazy(() => import('./pages/CoursePlayerPage'))
@@ -270,6 +275,23 @@ function AppRoutes() {
       {/* Public legal pages: linked from the footer and the sign-up form. */}
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/impressum" element={<ImpressumPage />} />
+      {/* Public blog: posts read on avln.hu, plus cards that open older posts on tobbmintangol.hu. */}
+      <Route
+        path="/blog"
+        element={
+          <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+            <BlogPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/blog/:slug"
+        element={
+          <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+            <BlogPostPage />
+          </Suspense>
+        }
+      />
       <Route
         path="/my-progress"
         element={
@@ -596,6 +618,26 @@ function AppRoutes() {
           <RoleProtectedRoute role="admin">
             <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
               <AdminCoursesPage />
+            </Suspense>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/blog"
+        element={
+          <RoleProtectedRoute role="admin">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <AdminBlogPage />
+            </Suspense>
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/blog/:postId"
+        element={
+          <RoleProtectedRoute role="admin">
+            <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
+              <AdminBlogEditorPage />
             </Suspense>
           </RoleProtectedRoute>
         }
