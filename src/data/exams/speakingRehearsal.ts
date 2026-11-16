@@ -171,9 +171,87 @@ const businessB1: Record<string, SpeakingRehearsal> = {
   },
 }
 
+// Szóbeli minta 2.: the Task 3 figures match the chart's alt text in speaking.ts (read off the
+// chart, so "about").
+const businessB1Speaking02: Record<string, SpeakingRehearsal> = {
+  'S-1': {
+    phrases: [
+      { en: "I'm from ... It's a small town, but I like it because ...", hu: '...-ból/-ből jövök. Kis város, de szeretem, mert ...' },
+      { en: 'I work as a ... at a ... company.', hu: '...-ként dolgozom egy ... cégnél.' },
+      { en: 'On a normal day I start at ... First I ..., then I ...', hu: 'Egy átlagos napon ...-kor kezdek. Először ..., aztán ...' },
+      { en: "I'd prefer to work for a small company, because ...", hu: 'Inkább egy kis cégnél dolgoznék, mert ...' },
+      { en: 'I prefer working in a team, because ...', hu: 'Jobban szeretek csapatban dolgozni, mert ...' },
+      { en: 'I need English for my job, for example when I write emails to ...', hu: 'A munkámhoz kell az angol, például amikor e-maileket írok ...-nak/-nek.' },
+      { en: 'Last year I went to ... for work. I stayed there for ... days.', hu: 'Tavaly ...-ba/-be utaztam munka miatt. ... napig voltam ott.' },
+      { en: 'In five years I would like to be a ...', hu: 'Öt év múlva ... szeretnék lenni.' },
+    ],
+    sample: [
+      { speaker: 'examiner', line: 'Good morning. Let’s start with a few questions about you. Where are you from?' },
+      { speaker: 'you', line: "Good morning. I'm from Kecskemét. It's not a very big town, but I like it because it's quiet and the centre is really nice." },
+      { speaker: 'examiner', line: 'Do you work or study?' },
+      { speaker: 'you', line: "I work. I'm an assistant at a car parts company. I answer the phone, write emails and organise meetings for my manager." },
+      { speaker: 'examiner', line: 'Do you prefer working alone or in a team?' },
+      { speaker: 'you', line: "I prefer working in a team, because we can help each other and it's more fun. But sometimes I need to work alone, when I have a lot of emails." },
+      { speaker: 'examiner', line: 'Why are you learning English?' },
+      { speaker: 'you', line: "Because I need it for my job. Our company has partners in Germany and England, so I often write emails in English. I'd also like to travel more." },
+      { speaker: 'examiner', line: CLOSE },
+    ],
+  },
+  'S-2': {
+    phrases: [
+      { en: "Good morning. I'd like to rent a car for two days, please.", hu: 'Jó napot. Szeretnék bérelni egy autót két napra.' },
+      { en: 'I need a small car with air conditioning.', hu: 'Egy kis autóra van szükségem, légkondicionálással.' },
+      { en: 'How much does it cost for two days?', hu: 'Mennyibe kerül két napra?' },
+      { en: 'Is insurance in the price? What about petrol?', hu: 'A biztosítás benne van az árban? És a benzin?' },
+      { en: 'Can I pay by card?', hu: 'Fizethetek kártyával?' },
+      { en: "I'd like to bring it back on Thursday at about six o'clock.", hu: 'Csütörtökön hat óra körül szeretném visszahozni.' },
+      { en: "Here's my driving licence.", hu: 'Itt a jogosítványom.' },
+      { en: "No, thanks, I don't need a sat nav. I'll use my phone.", hu: 'Nem, köszönöm, nem kell navigáció. A telefonomat használom.' },
+    ],
+    sample: [
+      { speaker: 'examiner', line: "In this task I'm the assistant at the car rental desk. Good morning. Can I help you?" },
+      { speaker: 'you', line: "Good morning. I'd like to rent a car for two days, please. I need a small car with air conditioning." },
+      { speaker: 'examiner', line: 'Of course. We have a Ford Fiesta with air conditioning.' },
+      { speaker: 'you', line: 'Great. How much does it cost for two days?' },
+      { speaker: 'examiner', line: "It's forty-five pounds a day, so ninety pounds for two days." },
+      { speaker: 'you', line: 'Is insurance in the price? And what about petrol?' },
+      { speaker: 'examiner', line: 'Insurance is in the price, but petrol isn’t. The car has a full tank, and you bring it back full.' },
+      { speaker: 'you', line: 'OK. Can I pay by card?' },
+      { speaker: 'examiner', line: 'Yes, credit or debit card only. We also keep two hundred pounds on the card as a deposit, and you get it back when you return the car. Can I see your driving licence, please?' },
+      { speaker: 'you', line: "Yes, here's my driving licence, and here's my passport." },
+      { speaker: 'examiner', line: 'Thank you. When do you want to bring the car back?' },
+      { speaker: 'you', line: "On Thursday, at about six o'clock in the evening. I'll bring it back here, to the airport." },
+      { speaker: 'examiner', line: `Perfect. Here are your keys. The car is in the car park, space 14. Have a good trip! ${CLOSE}` },
+    ],
+  },
+  'S-3': {
+    phrases: [
+      { en: 'The chart shows the unemployment rate in the USA by education level, from 1992 to 2010.', hu: 'A diagram az USA munkanélküliségi rátáját mutatja iskolai végzettség szerint, 1992 és 2010 között.' },
+      { en: 'People without a high school diploma have the highest unemployment.', hu: 'A középiskolai végzettséggel nem rendelkezők körében a legmagasabb a munkanélküliség.' },
+      { en: 'People with a university degree have the lowest unemployment.', hu: 'Az egyetemi végzettségűek körében a legalacsonyabb a munkanélküliség.' },
+      { en: 'From 1992 to 2000 the numbers went down.', hu: '1992 és 2000 között a számok csökkentek.' },
+      { en: 'In 2008 and 2009 unemployment went up very fast in every group.', hu: '2008-ban és 2009-ben minden csoportban nagyon gyorsan nőtt a munkanélküliség.' },
+      { en: 'I think this was because of the economic crisis.', hu: 'Szerintem ez a gazdasági válság miatt volt.' },
+      { en: 'In my opinion, people with a degree find jobs more easily, because ...', hu: 'Véleményem szerint a diplomások könnyebben találnak munkát, mert ...' },
+    ],
+    sample: [
+      { speaker: 'examiner', line: 'Now please look at the chart on your task sheet and talk about it.' },
+      { speaker: 'you', line: 'The chart shows the unemployment rate in the USA by education level, from 1992 to 2010. There are four groups. People without a high school diploma have the highest unemployment, and people with a bachelor’s degree have the lowest. In 1992 it was about 12 per cent for the first group, and only about 3 per cent for people with a degree.' },
+      { speaker: 'examiner', line: 'How did the numbers change?' },
+      { speaker: 'you', line: 'From 1992 to 2000 unemployment went down in every group. Then it went up a little and went down again. But in 2008 and 2009 it went up very fast. For people without a diploma it went up to about 15 per cent. I think this was because of the economic crisis.' },
+      { speaker: 'examiner', line: 'Why do you think people with a university degree find jobs more easily?' },
+      { speaker: 'you', line: 'Because they know more and they can do more difficult jobs. Companies also like people with a degree, because they think they can learn quickly.' },
+      { speaker: 'examiner', line: 'Do you think you need a university degree to get a good job?' },
+      { speaker: 'you', line: "Not always. For example, a good electrician or a cook can earn a lot of money without a degree. But for some jobs, like doctor or lawyer, you need one." },
+      { speaker: 'examiner', line: CLOSE },
+    ],
+  },
+}
+
 const REHEARSALS: Record<string, Record<string, SpeakingRehearsal>> = {
   'nyelvvizsga-en-b1-minta-01': generalB1,
   'nyelvvizsga-en-b1-gazdasagi-minta-01': businessB1,
+  'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-02': businessB1Speaking02,
 }
 
 export function getSpeakingRehearsal(paperId: string, taskId: string): SpeakingRehearsal | undefined {

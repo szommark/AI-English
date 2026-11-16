@@ -300,6 +300,119 @@ const businessB1: SpeakingExam = {
   ],
 }
 
+// --- Nyelvvizsga B1 gazdasági: szóbeli minta 2. -------------------------------------------
+// Written for this app (2026-11-16) on the model of a Zöld Út business oral exam: the car hire
+// situation is a B1 rewrite of a B2 sample task, and Task 3 uses that sample's original line
+// chart (US unemployment by education level, BLS via businessinsider.com). Speaking only.
+const businessB1Speaking02: SpeakingExam = {
+  paperId: 'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-02',
+  language: 'en',
+  board: 'zold-ut',
+  track: 'business',
+  title: 'SPEAKING SKILLS',
+  tasks: [
+    {
+      id: 'S-1',
+      label: 'Task 1',
+      kind: 'interview',
+      title: 'Introduction',
+      source: 'paper',
+      instructions: ['The examiner asks you a few questions about yourself, your work or studies, and how you use English.'],
+      examinerBrief: [
+        'Run a short B1 warm-up interview for the business exam. Ask one simple question at a time, and move on once the candidate has said two or three sentences.',
+        'Ask at least one question from each group. About you: where they are from and what they like about their town; whether they work or study and what they do; their free time.',
+        'Work and study: a normal day at work or school; what they like or don’t like about their job or studies; a big or a small company, and why; working alone or in a team.',
+        'English and business: why they are learning English and how they use it; a business trip or a trip abroad; how they travel to another city (car, train or plane); the job they would like in five years.',
+        'Ask five or six questions in all, then close the task.',
+      ].join(' '),
+      minutes: 4,
+      maxLearnerTurns: 7,
+    },
+    {
+      id: 'S-2',
+      label: 'Task 2',
+      kind: 'role-play',
+      title: 'Situation',
+      source: 'paper',
+      examineeCard: {
+        heading: 'Candidate card',
+        text: [
+          'You are on a business trip in England. You have just arrived at Manchester Airport. Tomorrow you have a meeting in Leeds. You want to rent a car for two days.',
+          'Talk to the assistant at the car rental desk.',
+        ],
+        points: [
+          { text: 'Say what car you want: a small car with air conditioning.' },
+          { text: 'Ask how much it costs for two days.' },
+          { text: 'Ask what is in the price (for example, petrol or insurance).' },
+          { text: 'Ask how you can pay.' },
+          { text: 'Answer the assistant’s questions.' },
+        ],
+      },
+      examinerCard: {
+        heading: 'Examiner card – you are the assistant',
+        text: ['Start with: “Good morning. Can I help you?” Give the information below only when asked. Speak slowly and use simple words.'],
+        points: [
+          { text: 'Car: a small car with air conditioning, a Ford Fiesta.' },
+          { text: 'Price: £45 a day, so £90 for two days.' },
+          { text: 'In the price: insurance is in the price. Petrol is not: the car has a full tank and must come back full.' },
+          { text: 'Payment: credit or debit card only, no cash. £200 stays on the card as a deposit and comes back when the car is returned.' },
+          { text: 'Documents: a driving licence and a passport.' },
+          {
+            text: 'Ask at least three of these questions:',
+            sub: [
+              'Can I see your driving licence, please?',
+              'When do you want to bring the car back? What time?',
+              'Do you want to return it here or in Leeds? (Returning it in Leeds costs £20 more.)',
+              'Do you need a sat nav? It’s £5 a day.',
+              'Will anyone else drive the car?',
+            ],
+          },
+        ],
+        after: ['End with: “Here are your keys. The car is in the car park, space 14. Have a good trip!”'],
+      },
+      examinerBrief: [
+        'You play the assistant at a car rental desk at Manchester Airport, following your role card. Speak slowly and use simple B1 words.',
+        'Begin in role with “Good morning. Can I help you?” and let the candidate ask. Give each piece of information on your card only when they ask for it.',
+        'If they leave out a point on their card (the car they want, the price for two days, what is in the price, how to pay), give them a natural opening to ask.',
+        'Ask at least three of the questions on your card, one at a time. When everything is settled, end with the keys line on your card and close the task.',
+      ].join(' '),
+      minutes: 4,
+      maxLearnerTurns: 10,
+    },
+    {
+      id: 'S-3',
+      label: 'Task 3',
+      kind: 'graph',
+      title: 'Chart',
+      source: 'paper',
+      instructions: [
+        'Look at the chart. Talk about it for about 2 minutes.',
+        'Say what the chart is about. Compare the four groups: which group has the highest and the lowest unemployment? Say how the numbers changed between 1992 and 2010. What happened in 2008 and 2009? Why do you think people with a university degree find jobs more easily?',
+        'Words on the chart: high school = secondary school · college = university · diploma, degree = the paper you get when you finish school or university.',
+      ],
+      image: {
+        asset: 'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-02-chart.webp',
+        alt: [
+          'Line chart headed “Employment by education level, USA”: “Unemployment Rate – Civilian Population 25 Years And Over By Educational Attainment”, in per cent, monthly from 1992 to early 2011. Four lines, read off the chart (approximate):',
+          'Less than a High School Diploma (blue, always the highest): about 11–12% in 1992, down to about 6–6.5% in 2000, up to about 9% in 2003, down to about 6% in 2006, then a sharp rise in 2008–2009 to about 15.5%, and about 14–15.5% in 2010.',
+          'High School Graduates, No College (red): about 7% in 1992, about 3.5% in 2000, about 5.5% in 2003, about 4% in 2006–2007, up to about 11% in 2009–2010, about 10% at the end.',
+          'Some College or Associate Degree (green): about 5.5–6% in 1992, about 3% in 2000, about 5% in 2003, about 3.5% in 2007, up to about 9% in 2010, about 8.5% at the end.',
+          'Bachelor’s degree and higher (purple, always the lowest): about 3% in 1992, about 2% in 2000, about 3% in 2003, about 2% in 2006–2007, up to about 5% in 2009–2010.',
+          'All four lines move together: down in the 1990s, up around 2001–2003, down to 2007, and a big jump in 2008–2009 (the financial crisis). Source: BLS (02/04/11), businessinsider.com.',
+        ].join(' '),
+      },
+      examinerBrief: [
+        'First ask the candidate to describe the chart for about two minutes: what it shows, the highest and lowest group, and how the numbers changed, especially the big rise in 2008–2009. Let them talk; only prompt gently if they stop very early.',
+        'This is B1: the main points are enough, not exact figures. Do not correct their numbers.',
+        'Then ask two or three of these, one at a time: Is it easy to find a job in your town? Why or why not? Do you think you need a university degree to get a good job? What can people do if they lose their job? Is it better to study after school or to start working? Which jobs do you think will be popular in ten years?',
+        'React briefly to the answers, then close the task.',
+      ].join(' '),
+      minutes: 6,
+      maxLearnerTurns: 8,
+    },
+  ],
+}
+
 // --- Érettségi német, középszint: szóbeli mintafeladatok A–E ------------------------------
 // Source: Oktatási Hivatal, "Mintafeladatok a középszintű szóbeli vizsgához" (német), sets
 // „A”–„E”, with the examiner's copies (Vizsgáztatói példány). Each set prints two tasks:
@@ -987,6 +1100,7 @@ const deSetE = deErettsegiSet('erettsegi-de-kozep-szobeli-minta-e', [
 export const SPEAKING_EXAMS: Record<string, SpeakingExam> = {
   [generalB1.paperId]: generalB1,
   [businessB1.paperId]: businessB1,
+  [businessB1Speaking02.paperId]: businessB1Speaking02,
   [deSetA.paperId]: deSetA,
   [deSetB.paperId]: deSetB,
   [deSetC.paperId]: deSetC,
