@@ -20,7 +20,6 @@ const messages = {
   voiceSettings: { hu: 'Hangbeállítások', en: 'Voice settings', de: 'Stimmeinstellungen' },
   // The page itself is Hungarian-only (src/data/myProgressCopy.ts); this is just its header menu.
   myProgress: { hu: 'Az én fejlődésem', en: 'My progress', de: 'Mein Fortschritt' },
-  myProgressOverview: { hu: 'Áttekintés', en: 'Overview', de: 'Übersicht' },
   connectTeacher: { hu: 'Kapcsolódás tanárhoz', en: 'Connect to teacher', de: 'Mit Lehrer verbinden' },
   teacherDashboard: { hu: 'Tanári felület', en: 'Teacher Dashboard', de: 'Lehrer-Übersicht' },
   tdTabStudents: { hu: 'Diákok', en: 'Students', de: 'Schüler' },
