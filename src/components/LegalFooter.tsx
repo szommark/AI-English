@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import { useLanguage } from '../lib/i18n'
-import { blogCopy } from '../data/blogCopy'
 
 /** Adult education registry line: its own element so it can be removed in one place. */
 function RegistryLine() {
@@ -13,7 +12,7 @@ function RegistryLine() {
  * clear of the floating language pill / Report a problem button.
  */
 export default function LegalFooter() {
-  const { lang, t } = useLanguage()
+  const { t } = useLanguage()
   const linkClass = 'underline-offset-2 hover:text-foreground hover:underline'
 
   return (
@@ -22,9 +21,6 @@ export default function LegalFooter() {
         <h2 className="font-semibold uppercase tracking-wider text-foreground/70">{t('legalHeading')}</h2>
         <RegistryLine />
         <nav aria-label={t('legalHeading')} className="flex flex-wrap gap-x-4 gap-y-1">
-          <Link to="/blog" className={linkClass}>
-            {blogCopy[lang].nav}
-          </Link>
           <Link to="/privacy" className={linkClass}>
             {t('legalPrivacy')}
           </Link>

@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowUp, Briefcase, ChevronDown, GraduationCap, Sparkles, type LucideIcon } from 'lucide-react'
 import { useAuthPrompt } from './AppLayout'
 import ClubBanner from './ClubBanner'
-import BlogTeaser from './blog/BlogTeaser'
 import { DecoDivider, DecoFan } from './club/Deco'
 import { CONTACT_EMAIL, landingCopy, type LandingPanelCopy } from '../data/landingCopy'
 import { useLanguage } from '../lib/i18n'
@@ -224,8 +223,6 @@ export default function WelcomePanels() {
 
       <AudienceSection id="teachers" copy={copy.teachers} />
       <AudienceSection id="companies" copy={copy.business} />
-
-      <BlogTeaser />
     </div>
   )
 }
