@@ -1195,6 +1195,101 @@ export const scenarios: Scenario[] = [
     mouth: { mouthX: 50, mouthY: 30, mouthBoxWidth: 16, mouthBoxHeight: 12 },
     voiceGender: 'male',
   },
+
+  // Networking role-play cards (src/data/roleCards.ts holds the printable A/B cards): the
+  // learner plays Role A (the description is their card), the AI plays Role B and keeps to
+  // that card's goal in its system prompt. All three share the conference photo; the AI is
+  // the man on the right (glasses), so the mouth anchor points at him.
+  {
+    id: 'networking-conference-coffee',
+    title: 'Coffee break at a conference',
+    titleHu: 'Kávészünet egy konferencián',
+    description:
+      "You're Alex, a UX designer at your first conference, and you don't know anyone here. Start a chat at the coffee break and make one new contact.",
+    aiRole: 'Sam, a conference regular',
+    setting: 'the coffee break at a business conference, where the user is a first-timer',
+    systemPrompt:
+      "You are Sam, who runs marketing at a software startup. This is your fifth year at this conference and you love meeting new people. You are standing at the coffee table during the break. The user is at their first conference (their card calls them Alex, a UX designer, but use whatever name and job they give you). Stay in character, American networking style: warm, upbeat, first names. Keep every reply short and natural (2-3 sentences). Your goal is to welcome the newcomer and offer to help: ask what brings them here and what they do, and share one fact about yourself at a time. When they mention their field or that they want to meet people, invite them to the mixer tonight and offer to introduce them to a few folks. If they hesitate, ask a simple friendly question (how they're liking the conference, what they thought of the keynote). Once you've swapped details, close warmly, e.g. \"Let's keep in touch!\"",
+    rehearsalPhrases: [
+      { en: 'Mind if I join you?', hu: 'Nem bánod, ha csatlakozom?' },
+      { en: 'Is this your first time at this conference?', hu: 'Először vagy ezen a konferencián?' },
+      { en: 'Great to meet you!', hu: 'Nagyon örülök, hogy megismertelek!' },
+      { en: 'So, what do you do?', hu: 'És te mivel foglalkozol?' },
+      { en: "I'd love to meet more people in the startup world.", hu: 'Szívesen megismernék több embert a startupok világából.' },
+      { en: 'Here, let me give you my card.', hu: 'Tessék, hadd adjam oda a névjegykártyámat.' },
+    ],
+    rehearsalScript: [
+      { speaker: 'You', line: "Hi, I'm Alex. Is this your first time at this conference?", lineHu: 'Szia, Alex vagyok. Először vagy ezen a konferencián?' },
+      { speaker: 'Sam', line: "Hey Alex, I'm Sam! Nope, it's my fifth year. How are you liking it so far?", lineHu: 'Szia Alex, Sam vagyok! Nem, ez már az ötödik évem. Hogy tetszik eddig?' },
+      { speaker: 'You', line: 'Love it. The keynote was great! So, what do you do, Sam?', lineHu: 'Nagyon tetszik. A nyitóelőadás remek volt! És te mivel foglalkozol, Sam?' },
+      { speaker: 'Sam', line: 'I run marketing at a software startup. How about you?', lineHu: 'Egy szoftveres startupnál vezetem a marketinget. És te?' },
+      { speaker: 'You', line: "I'm a UX designer. I'd love to meet more people in the startup world.", lineHu: 'UX-tervező vagyok. Szívesen megismernék több embert a startupok világából.' },
+      { speaker: 'Sam', line: "Come to the mixer tonight! I'll introduce you to a few folks.", lineHu: 'Gyere el ma este az ismerkedős estre! Bemutatlak néhány embernek.' },
+      { speaker: 'You', line: "That'd be awesome, thanks! Here, let me give you my card.", lineHu: 'Az szuper lenne, köszi! Tessék, hadd adjam oda a névjegykártyámat.' },
+    ],
+    mouth: { mouthX: 72, mouthY: 32, mouthBoxWidth: 14, mouthBoxHeight: 9 },
+    voiceGender: 'male',
+  },
+  {
+    id: 'networking-elevator-pitch',
+    title: 'The elevator pitch at a mixer',
+    titleHu: 'Elevator pitch egy szakmai esten',
+    description:
+      "You're Jordan and you want a new job in data analytics. At a mixer you meet a hiring manager. Give a short, confident pitch, then ask for a coffee chat.",
+    aiRole: 'Taylor, a hiring manager',
+    setting: 'an after-work networking mixer, where the user meets a hiring manager',
+    systemPrompt:
+      "You are Taylor, who leads an analytics team and came to this mixer to find talent. The user wants a new job in data analytics (their card calls them Jordan, a data analyst, but use whatever name they give you). Stay in character, American networking style: friendly, direct, interested in specifics. Keep every reply short and natural (2-3 sentences). Your goal is to learn what this person can do and decide the next step. Start by asking about them, e.g. \"So, what's your story? What do you do?\" Then ask for specifics: what kind of results they've seen, what they're looking for. If their pitch is clear and backed by a concrete result (a number, a client, an outcome), mention that your analytics team is hiring and suggest keeping in touch; if they ask for a coffee chat, agree and tell them to email you or send you their resume. If the pitch is vague, don't offer the job lead yet — ask one friendly follow-up question that helps them be more specific.",
+    rehearsalPhrases: [
+      { en: "I'm a data analyst who helps retailers turn numbers into smart decisions.", hu: 'Adatelemző vagyok, aki segít a kiskereskedőknek a számokból okos döntéseket hozni.' },
+      { en: 'Last year I helped a client cut waste by 15%.', hu: 'Tavaly segítettem egy ügyfélnek 15%-kal csökkenteni a veszteséget.' },
+      { en: "I'm looking for my next challenge.", hu: 'A következő kihívásomat keresem.' },
+      { en: 'Would you be open to grabbing coffee next week?', hu: 'Lenne kedved jövő héten meginni velem egy kávét?' },
+      { en: 'Can I send you my resume?', hu: 'Elküldhetem az önéletrajzomat?' },
+      { en: "Let's keep in touch!", hu: 'Tartsuk a kapcsolatot!' },
+    ],
+    rehearsalScript: [
+      { speaker: 'Taylor', line: "So, Jordan, what's your story? What do you do?", lineHu: 'Szóval, Jordan, mesélj magadról! Mivel foglalkozol?' },
+      { speaker: 'You', line: "I'm a data analyst who helps retailers turn numbers into smart decisions.", lineHu: 'Adatelemző vagyok, aki segít a kiskereskedőknek a számokból okos döntéseket hozni.' },
+      { speaker: 'Taylor', line: 'Interesting! What kind of results have you seen?', lineHu: 'Érdekes! Milyen eredményeket értél el?' },
+      { speaker: 'You', line: "Last year I helped a client cut waste by 15%. I'm looking for my next challenge.", lineHu: 'Tavaly segítettem egy ügyfélnek 15%-kal csökkenteni a veszteséget. A következő kihívásomat keresem.' },
+      { speaker: 'Taylor', line: "We're hiring on our analytics team, actually. Let's keep in touch!", lineHu: 'Ami azt illeti, az elemzőcsapatunkba most keresünk embert. Tartsuk a kapcsolatot!' },
+      { speaker: 'You', line: 'Awesome! Would you be open to grabbing coffee next week?', lineHu: 'Szuper! Lenne kedved jövő héten meginni velem egy kávét?' },
+      { speaker: 'Taylor', line: "Sure! Email me and we'll set something up.", lineHu: 'Persze! Írj egy e-mailt, és megbeszélünk egy időpontot.' },
+    ],
+    mouth: { mouthX: 72, mouthY: 32, mouthBoxWidth: 14, mouthBoxHeight: 9 },
+    voiceGender: 'male',
+  },
+  {
+    id: 'networking-follow-up-coffee',
+    title: 'The follow-up coffee chat',
+    titleHu: 'Utánkövető kávézás',
+    description:
+      "You're Riley and you want to switch to product management. You met Morgan, a product manager, at a mixer last week and now you're having coffee. Get advice and ask for one more introduction.",
+    aiRole: 'Morgan, a busy product manager',
+    setting: 'a 20-minute coffee chat with a product manager the user met at a mixer last week',
+    systemPrompt:
+      "You are Morgan, a product manager who agreed to a 20-minute coffee chat with someone you met at a mixer last week (their card calls them Riley, but use whatever name they give you). They want to switch to product management. Stay in character, American networking style: friendly but busy, so keep things moving. Keep every reply short and natural (2-3 sentences). Your goal is to give useful advice and decide how much to help. Give one piece of advice at a time — the one that helps most is building a few real projects; you can also suggest talking to people already in the role. If they ask who else they should talk to, offer to introduce them to Lee and say you'll send an email today. Help more when they thank you, keep it short and ask clear questions; if they ramble or don't ask for anything specific, just ask \"What's on your mind?\" rather than offering the introduction. Close warmly, e.g. \"Keep me posted!\" or \"Don't be a stranger!\"",
+    rehearsalPhrases: [
+      { en: "Thanks for taking the time! I know you're busy.", hu: 'Köszönöm, hogy időt szántál rám! Tudom, hogy sok a dolgod.' },
+      { en: "I'd love to pick your brain about breaking into product management.", hu: 'Szívesen kikérném a véleményedet arról, hogyan lehet bekerülni a termékmenedzsmentbe.' },
+      { en: 'Who else would you recommend I talk to?', hu: 'Kivel javasolnád még, hogy beszéljek?' },
+      { en: 'Could I follow up by email?', hu: 'Írhatok majd e-mailt a folytatásról?' },
+      { en: 'I owe you a coffee!', hu: 'Jövök neked egy kávéval!' },
+      { en: 'Let me know if I can return the favor.', hu: 'Szólj, ha én is segíthetek valamiben.' },
+    ],
+    rehearsalScript: [
+      { speaker: 'You', line: "Thanks for taking the time, Morgan! I know you're busy.", lineHu: 'Köszönöm, hogy időt szántál rám, Morgan! Tudom, hogy sok a dolgod.' },
+      { speaker: 'Morgan', line: "Happy to! It was great meeting you at the mixer. What's on your mind?", lineHu: 'Szívesen! Jó volt megismerni téged az ismerkedős esten. Miről szeretnél beszélni?' },
+      { speaker: 'You', line: "I'd love to pick your brain about breaking into product management.", lineHu: 'Szívesen kikérném a véleményedet arról, hogyan lehet bekerülni a termékmenedzsmentbe.' },
+      { speaker: 'Morgan', line: 'Sure. Honestly, building a few real projects helps the most.', lineHu: 'Persze. Őszintén szólva, néhány valódi projekt elkészítése segít a legtöbbet.' },
+      { speaker: 'You', line: 'Super helpful. Who else would you recommend I talk to?', lineHu: 'Ez nagyon hasznos. Kivel javasolnád még, hogy beszéljek?' },
+      { speaker: 'Morgan', line: "Let me introduce you to Lee. I'll send an email today.", lineHu: 'Bemutatlak Lee-nek. Még ma küldök egy e-mailt.' },
+      { speaker: 'You', line: 'Thanks! Let me know if I can return the favor.', lineHu: 'Köszönöm! Szólj, ha én is segíthetek valamiben.' },
+    ],
+    mouth: { mouthX: 72, mouthY: 32, mouthBoxWidth: 14, mouthBoxHeight: 9 },
+    voiceGender: 'male',
+  },
 ]
 
 export function getScenario(id: string): Scenario | undefined {

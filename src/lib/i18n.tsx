@@ -395,6 +395,13 @@ const messages = {
   listenAgain: { hu: 'Meghallgatom újra', en: 'Listen again', de: 'Nochmal anhören' },
   sampleEnded: { hu: 'Vége a minta beszélgetésnek.', en: 'End of the sample conversation.', de: 'Ende des Beispielgesprächs.' },
   startMyTry: { hu: 'Kezdem a saját próbámat', en: 'Start my own try', de: 'Ich starte meinen eigenen Versuch' },
+  printRoleCards: { hu: 'Szerepkártyák nyomtatása', en: 'Print role cards', de: 'Rollenkarten drucken' },
+  printRoleCardsHint: {
+    hu: 'A és B szerepkártya egy A4-es lapon, QR-kóddal, amely ehhez a beszélgetéshez visz',
+    en: 'Role A and Role B cards on one A4 page, with a QR code that opens this conversation',
+    de: 'Rollenkarte A und B auf einer A4-Seite, mit QR-Code, der dieses Gespräch öffnet',
+  },
+  printRoleCardsFailed: { hu: 'A nyomtatás nem sikerült.', en: "Couldn't print the cards.", de: 'Drucken fehlgeschlagen.' },
   practiceConversation: { hu: 'Gyakorold a beszélgetést', en: 'Practice the conversation', de: 'Übe das Gespräch' },
   practiceConversationHint: {
     hu: 'Minden sort meghallgathatsz és elmondhatsz, akár a szereplő, akár a saját mondataidat.',

@@ -11,6 +11,7 @@ import parentTeacherConference from './parent-teacher-conference.jpg'
 import clothesShopping from './clothes-shopping.jpg'
 import hairdresser from './hairdresser.jpg'
 import askingDriver from './asking-driver.jpg'
+import networking from './networking.webp'
 
 export const scenarioPhotos: Record<string, string> = {
   'hotel-checkin': hotelCheckin,
@@ -32,4 +33,8 @@ export const scenarioPhotos: Record<string, string> = {
   'clothes-shopping': clothesShopping,
   'hairdresser': hairdresser,
   'asking-driver': askingDriver,
+  // Networking role-play cards share the conference coffee-break photo.
+  'networking-conference-coffee': networking,
+  'networking-elevator-pitch': networking,
+  'networking-follow-up-coffee': networking,
 }
