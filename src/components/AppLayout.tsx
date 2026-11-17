@@ -11,6 +11,7 @@ import BrandIntro, { shouldShowBrandIntro } from './BrandIntro'
 import Wordmark from './Wordmark'
 import LanguageSwitcher from './LanguageSwitcher'
 import LegalFooter from './LegalFooter'
+import { blogCopy } from '../data/blogCopy'
 import ProgressMenu from './ProgressMenu'
 import LevelChip from './gamification/LevelChip'
 import XpNotifications from './gamification/XpNotifications'
@@ -184,6 +185,9 @@ export default function AppLayout() {
                   <>
                     <Link to="/mission" className="font-medium text-[var(--brand-navy)] hover:underline">
                       {t('mission')}
+                    </Link>
+                    <Link to="/blog" className="font-medium text-[var(--brand-navy)] hover:underline">
+                      {blogCopy[lang].nav}
                     </Link>
                     <button
                       onClick={() => promptValue.promptSignIn()}
