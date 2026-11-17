@@ -15,6 +15,12 @@ import askingDriver from './asking-driver.jpg'
 export const scenarioPhotos: Record<string, string> = {
   'hotel-checkin': hotelCheckin,
   'restaurant-order': restaurantOrder,
+  // Restaurant role-play cards reuse the waiter photo (and its mouth calibration).
+  'restaurant-booking': restaurantOrder,
+  'restaurant-food-problem': restaurantOrder,
+  'restaurant-recommendations': restaurantOrder,
+  'restaurant-split-bill': restaurantOrder,
+  'restaurant-delivery-problem': restaurantOrder,
   'asking-directions': askingDirections,
   'airport-checkin': airportCheckin,
   'post-office': postOffice,

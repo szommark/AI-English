@@ -61,6 +61,156 @@ export const scenarios: Scenario[] = [
     mouth: { mouthX: 48, mouthY: 23, mouthBoxWidth: 16, mouthBoxHeight: 13 },
     voiceGender: 'male', // TODO: confirm against photo
   },
+
+  // Restaurant role-play cards (from the double-sided A/B card set): the learner plays
+  // Student A (the description is their card), the AI plays Student B and keeps to that
+  // card's facts and limits in its system prompt. All reuse the restaurant-order photo,
+  // so they share its mouth anchor and voice.
+  {
+    id: 'restaurant-booking',
+    title: 'Booking a table by phone',
+    titleHu: 'Asztalfoglalás telefonon',
+    description:
+      "Call to book a table for 6 this Saturday at 7:30 pm for a friend's birthday. One friend uses a wheelchair, so you need a step-free entrance. You'd like the terrace or a window table. Ask about bringing a cake and a group set menu.",
+    aiRole: 'a restaurant host taking bookings',
+    setting: 'a phone call with a restaurant, where the user wants to book a table for a birthday dinner',
+    systemPrompt:
+      "You are the host of a busy restaurant, answering the phone and taking a table booking. Stay in character. Keep every reply short and natural (2-3 sentences). Facts you know: the terrace is fully booked on Saturday at 7:30 pm, and it closes at 9 pm in October; you can offer a table for 6 inside, near the window; the side door has a step-free entrance; cakes are welcome, but there is a €3 cutting fee per person; the group set menu costs €32 per person. Give each fact only when the caller asks about that topic or it becomes relevant — never list everything at once. Before you finish, ask for the caller's name and phone number. If the caller hesitates, gently ask a simple question (how many people, what time) to keep the booking moving.",
+    rehearsalPhrases: [
+      { en: "I'd like to book a table for six this Saturday, please.", hu: 'Szeretnék asztalt foglalni hat főre erre a szombatra.' },
+      { en: 'Do you have a step-free entrance?', hu: 'Van akadálymentes bejáratuk?' },
+      { en: 'Could we sit on the terrace or near the window?', hu: 'Ülhetnénk a teraszon vagy az ablak mellett?' },
+      { en: 'Is there a set menu for groups?', hu: 'Van csoportos menüjük?' },
+      { en: 'Can we bring a birthday cake?', hu: 'Hozhatunk születésnapi tortát?' },
+      { en: 'The booking is under the name...', hu: 'A foglalás ... néven lesz.' },
+    ],
+    rehearsalScript: [
+      { speaker: 'Host', line: 'Good afternoon, thank you for calling. How can I help you?', lineHu: 'Jó napot, köszönöm, hogy hívott. Miben segíthetek?' },
+      { speaker: 'You', line: "Hi, I'd like to book a table for six this Saturday at 7:30, for a friend's birthday.", lineHu: 'Jó napot, szeretnék asztalt foglalni hat főre szombat este fél nyolcra, egy barátom születésnapjára.' },
+      { speaker: 'Host', line: "Let me check... I'm afraid the terrace is fully booked, but we can offer you a table for six inside, near the window.", lineHu: 'Hadd nézzem... sajnos a terasz teljesen foglalt, de tudunk adni egy hatfős asztalt bent, az ablak mellett.' },
+      { speaker: 'You', line: "That's fine. One of my friends uses a wheelchair — do you have a step-free entrance?", lineHu: 'Az jó. Az egyik barátom kerekesszékes — van akadálymentes bejáratuk?' },
+      { speaker: 'Host', line: "Yes, there's a step-free entrance at the side door. May I have your name and phone number?", lineHu: 'Igen, az oldalsó ajtónál van akadálymentes bejárat. Megkaphatnám a nevét és a telefonszámát?' },
+      { speaker: 'You', line: "Sure, it's Kovács, 06 30 123 4567. Can we bring a birthday cake?", lineHu: 'Persze, Kovács, 06 30 123 4567. Hozhatunk születésnapi tortát?' },
+    ],
+    mouth: { mouthX: 48, mouthY: 23, mouthBoxWidth: 16, mouthBoxHeight: 13 },
+    voiceGender: 'male',
+  },
+  {
+    id: 'restaurant-food-problem',
+    title: 'A problem with the food',
+    titleHu: 'Probléma az étellel',
+    description:
+      'Your medium-rare steak arrived well-done after 40 minutes, the chips were cold, and the water you asked for twice never came. Politely but firmly ask for a new steak without another long wait, and for some compensation.',
+    aiRole: 'a waiter at a busy restaurant',
+    setting: 'a restaurant table, where the user has just been served a disappointing meal and calls the waiter over',
+    systemPrompt:
+      "You are a waiter on a very busy evening. The customer ordered a medium-rare steak with chips, waited 40 minutes, and got a well-done steak with cold chips; they also asked for water twice and it never came. Stay in character: apologise sincerely and make the customer feel looked after. Keep every reply short and natural (2-3 sentences). What you can offer: a new steak (about 15 minutes), a free dessert, or 20% off the bill. You cannot give a free meal without the manager — if the customer asks for one, say you will have to ask the manager. Promise to bring the water immediately. Offer one option at a time and let the customer negotiate; if they hesitate, gently ask what would make it right for them.",
+    rehearsalPhrases: [
+      { en: "Excuse me, I'm afraid there's a problem with my steak.", hu: 'Elnézést, attól tartok, gond van a steakemmel.' },
+      { en: 'I asked for medium-rare, but this is well-done.', hu: 'Angolosan kértem, de ez teljesen át van sütve.' },
+      { en: 'The chips are cold.', hu: 'A sült krumpli hideg.' },
+      { en: 'Could you bring me a new one, please?', hu: 'Hozna egy újat, kérem?' },
+      { en: "I've asked for water twice.", hu: 'Már kétszer kértem vizet.' },
+      { en: "I'd appreciate some compensation.", hu: 'Értékelném, ha kapnék valamilyen kárpótlást.' },
+    ],
+    rehearsalScript: [
+      { speaker: 'Waiter', line: 'Is everything all right with your meal?', lineHu: 'Minden rendben van az étellel?' },
+      { speaker: 'You', line: "I'm afraid not. I asked for my steak medium-rare, but it's well-done, and the chips are cold.", lineHu: 'Sajnos nem. Angolosan kértem a steaket, de teljesen át van sütve, és a sült krumpli hideg.' },
+      { speaker: 'Waiter', line: "I'm very sorry about that. The kitchen is very busy tonight. I can bring you a new steak in about 15 minutes.", lineHu: 'Nagyon sajnálom. Ma este nagy a hajtás a konyhán. Körülbelül 15 perc alatt hozhatok egy új steaket.' },
+      { speaker: 'You', line: "Fifteen minutes is fine. And I've asked for water twice — could you bring it now, please?", lineHu: 'A tizenöt perc rendben van. És már kétszer kértem vizet — hozná most, kérem?' },
+      { speaker: 'Waiter', line: "Of course, I'll bring it right away. And please accept a free dessert for the trouble.", lineHu: 'Természetesen, azonnal hozom. És kérem, fogadjon el egy ingyen desszertet a kellemetlenségért.' },
+      { speaker: 'You', line: 'Thank you, I appreciate that.', lineHu: 'Köszönöm, ezt értékelem.' },
+    ],
+    mouth: { mouthX: 48, mouthY: 23, mouthBoxWidth: 16, mouthBoxHeight: 13 },
+    voiceGender: 'male',
+  },
+  {
+    id: 'restaurant-recommendations',
+    title: 'Asking for recommendations',
+    titleHu: 'Ajánlás kérése',
+    description:
+      "It's your first evening in a new city. You don't like very spicy food and have about €25 for a main course and a drink. Ask about local specialities, how spicy and how big the dishes are and what to drink, then decide what to order.",
+    aiRole: 'a waiter at a traditional local restaurant',
+    setting: 'a table at a traditional local restaurant, where the user, a tourist, is looking at an unfamiliar menu',
+    systemPrompt:
+      "You are a friendly waiter at a traditional local restaurant, serving a tourist who doesn't know the local food. Stay in character. Keep every reply short and natural (2-3 sentences). Dishes you recommend: a traditional beef soup (mild, €7), chicken paprikash with dumplings (not spicy, €14), and a stuffed pepper with rice (medium spicy, vegetarian, €12). Portions are big. To drink, suggest a local white wine or a lemonade. Near the end, offer a small dessert to share. Describe dishes simply when asked (what's in them, how spicy, how big) and answer price questions honestly; don't list everything at once. If the tourist hesitates, gently ask what they usually like to eat.",
+    rehearsalPhrases: [
+      { en: 'What do you recommend?', hu: 'Mit ajánlana?' },
+      { en: "What's a typical local dish?", hu: 'Mi egy tipikus helyi étel?' },
+      { en: 'Is it very spicy?', hu: 'Nagyon csípős?' },
+      { en: 'How big is the portion?', hu: 'Mekkora az adag?' },
+      { en: 'What goes well with it?', hu: 'Mi illik hozzá?' },
+      { en: "I'll have the chicken paprikash, please.", hu: 'A paprikás csirkét kérem.' },
+    ],
+    rehearsalScript: [
+      { speaker: 'Waiter', line: 'Good evening! Have you had a chance to look at the menu?', lineHu: 'Jó estét! Volt már alkalma megnézni az étlapot?' },
+      { speaker: 'You', line: "Yes, but I don't know the local food. What's a typical local dish?", lineHu: 'Igen, de nem ismerem a helyi ételeket. Mi egy tipikus helyi étel?' },
+      { speaker: 'Waiter', line: "I'd recommend the chicken paprikash with dumplings. It's a traditional dish made with chicken, paprika and sour cream.", lineHu: 'A paprikás csirkét ajánlanám galuskával. Ez egy hagyományos étel csirkéből, paprikából és tejfölből.' },
+      { speaker: 'You', line: "Is it very spicy? I don't like spicy food.", lineHu: 'Nagyon csípős? Nem szeretem a csípős ételeket.' },
+      { speaker: 'Waiter', line: "No, it's mild, not spicy. It's €14, and the portions are quite big.", lineHu: 'Nem, enyhe, nem csípős. 14 euró, és az adagok elég nagyok.' },
+      { speaker: 'You', line: "Perfect, I'll have that. What goes well with it to drink?", lineHu: 'Tökéletes, azt kérem. Milyen ital illik hozzá?' },
+    ],
+    mouth: { mouthX: 48, mouthY: 23, mouthBoxWidth: 16, mouthBoxHeight: 13 },
+    voiceGender: 'male',
+  },
+  {
+    id: 'restaurant-split-bill',
+    title: 'Splitting the bill',
+    titleHu: 'A számla megosztása',
+    description:
+      "You're out with 4 friends. You only had a salad and a glass of water (€9), but they had steaks and wine. Ask the waiter to split the bill by person, pay by card, leave a tip, and ask if service is included.",
+    aiRole: 'a waiter at a restaurant',
+    setting: 'a restaurant table at the end of a group dinner, where the user asks the waiter for the bill',
+    systemPrompt:
+      "You are a friendly waiter bringing the bill to a group of five at the end of their dinner. Stay in character. Keep every reply short and natural (2-3 sentences). Facts: the total is €96; service is not included (10% is usual); you can split the bill, but the card machine is slow, so you can only do 2 or 3 separate payments, not 5. If the customer asks for five separate bills, explain the problem kindly and suggest a solution — for example, the customer pays for their own salad (€9) and the others split the rest. Mention service only when asked or when the customer is about to pay. If the customer hesitates, gently ask how they would like to pay.",
+    rehearsalPhrases: [
+      { en: 'Could we have separate bills, please?', hu: 'Kérhetnénk külön számlát?' },
+      { en: 'I only had a salad and a glass of water.', hu: 'Én csak egy salátát és egy pohár vizet kértem.' },
+      { en: "We'd rather not split it equally.", hu: 'Nem szeretnénk egyenlő részekre osztani.' },
+      { en: 'Can I pay by card?', hu: 'Fizethetek kártyával?' },
+      { en: 'Is service included?', hu: 'Benne van a szervizdíj?' },
+      { en: 'Keep the change.', hu: 'A visszajárót megtarthatja.' },
+    ],
+    rehearsalScript: [
+      { speaker: 'You', line: 'Excuse me, could we have the bill, please? And could we pay separately?', lineHu: 'Elnézést, kérhetnénk a számlát? És fizethetnénk külön?' },
+      { speaker: 'Waiter', line: 'Of course. The total comes to €96. How would you like to split it?', lineHu: 'Természetesen. Összesen 96 euró. Hogyan szeretnék elosztani?' },
+      { speaker: 'You', line: 'By person, please. I only had a salad and a glass of water.', lineHu: 'Személyenként, kérem. Én csak egy salátát és egy pohár vizet kértem.' },
+      { speaker: 'Waiter', line: "I'm afraid the card machine is a bit slow, so I can only do two or three payments. Maybe you could pay for your salad, and your friends split the rest?", lineHu: 'Sajnos a kártyaolvasó elég lassú, így csak két-három fizetést tudok intézni. Esetleg ön kifizethetné a salátáját, a barátai pedig elosztják a többit?' },
+      { speaker: 'You', line: 'That works. Is service included?', lineHu: 'Ez jó. Benne van a szervizdíj?' },
+      { speaker: 'Waiter', line: "No, service isn't included — about 10% is usual.", lineHu: 'Nem, a szervizdíj nincs benne — körülbelül 10% a szokásos.' },
+    ],
+    mouth: { mouthX: 48, mouthY: 23, mouthBoxWidth: 16, mouthBoxHeight: 13 },
+    voiceGender: 'male',
+  },
+  {
+    id: 'restaurant-delivery-problem',
+    title: 'A problem with a delivery',
+    titleHu: 'Probléma a házhozszállítással',
+    description:
+      'Your dinner for 3 arrived an hour late: the pizza was cold, a dessert was missing and you got the wrong drink. A new delivery is no use now. Call and ask for your money back for the missing and wrong items and the delivery fee.',
+    aiRole: "a restaurant's customer service agent",
+    setting: "a phone call with a restaurant's delivery line, where the user is calling about a late and incomplete order",
+    systemPrompt:
+      "You are a customer service agent on a restaurant's delivery phone line. The caller ordered dinner for 3 people; it arrived 1 hour late, the pizza was cold, one dessert was missing and they got the wrong drink. Stay in character: polite and apologetic. Keep every reply short and natural (2-3 sentences). Facts: the delay was caused by heavy traffic and a driver problem. Ask for the order number, name and address. You can refund the missing and wrong items plus the delivery fee, or give a 20% voucher. For a full refund of the whole order you need photos of the order by email. Refunds take 3-5 working days. Offer options one at a time and let the caller choose; if they are unclear, gently ask a simple clarifying question.",
+    rehearsalPhrases: [
+      { en: 'My order arrived an hour late.', hu: 'A rendelésem egy órát késett.' },
+      { en: 'One of the desserts was missing.', hu: 'Az egyik desszert hiányzott.' },
+      { en: 'I got the wrong drink.', hu: 'Rossz italt kaptam.' },
+      { en: 'The pizza was cold.', hu: 'A pizza hideg volt.' },
+      { en: 'A new delivery is no use now.', hu: 'Most már nem segít egy új kiszállítás.' },
+      { en: "I'd like a refund for the missing items and the delivery fee.", hu: 'Szeretném visszakapni a hiányzó tételek és a kiszállítási díj árát.' },
+    ],
+    rehearsalScript: [
+      { speaker: 'Agent', line: 'Good evening, delivery service, how can I help you?', lineHu: 'Jó estét, házhozszállítás, miben segíthetek?' },
+      { speaker: 'You', line: 'Hi, my order arrived an hour late, the pizza was cold and one dessert was missing.', lineHu: 'Jó estét, a rendelésem egy órát késett, a pizza hideg volt, és hiányzott egy desszert.' },
+      { speaker: 'Agent', line: "I'm very sorry for the delay — there was heavy traffic and a problem with a driver. Could I have your order number, please?", lineHu: 'Nagyon sajnálom a késést — nagy volt a forgalom, és gond volt az egyik futárral. Megkaphatnám a rendelésszámát?' },
+      { speaker: 'You', line: "It's 5172. I also got the wrong drink. A new delivery is no use now, so I'd like a refund.", lineHu: '5172. Ráadásul rossz italt kaptam. Most már nem segít egy új kiszállítás, ezért szeretném visszakapni a pénzt.' },
+      { speaker: 'Agent', line: 'Of course. I can refund the missing dessert, the wrong drink and the delivery fee. It will take 3-5 working days.', lineHu: 'Természetesen. Vissza tudom téríteni a hiányzó desszertet, a rossz italt és a kiszállítási díjat. 3-5 munkanap alatt érkezik meg.' },
+      { speaker: 'You', line: "That's fine, thank you for sorting it out.", lineHu: 'Rendben, köszönöm, hogy elintézte.' },
+    ],
+    mouth: { mouthX: 48, mouthY: 23, mouthBoxWidth: 16, mouthBoxHeight: 13 },
+    voiceGender: 'male',
+  },
   {
     id: 'asking-directions',
     title: 'Asking for directions',
