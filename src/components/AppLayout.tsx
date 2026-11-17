@@ -161,7 +161,7 @@ export default function AppLayout() {
                 {user ? (
                   <>
                     <LevelChip />
-                    <ProgressMenu onReportProblem={() => setReport({ crashed: false })} />
+                    <ProgressMenu />
                     {hasTeacherAccess(role) && (
                       <Link to="/teacher" className="font-medium text-muted-foreground hover:text-foreground hover:underline">
                         {t('teacherDashboard')}
