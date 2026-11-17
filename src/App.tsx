@@ -200,7 +200,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Suspense fallback={<div className="flex items-center justify-center py-24 text-slate-400">Loading...</div>}>
-              <ExamPaperPage part="written" />
+              <ExamPaperPage />
             </Suspense>
           </ProtectedRoute>
         }

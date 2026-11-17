@@ -249,8 +249,8 @@ const businessB1Speaking02: Record<string, SpeakingRehearsal> = {
 }
 
 const REHEARSALS: Record<string, Record<string, SpeakingRehearsal>> = {
-  'nyelvvizsga-en-b1-minta-01': generalB1,
-  'nyelvvizsga-en-b1-gazdasagi-minta-01': businessB1,
+  'nyelvvizsga-en-b1-szobeli-minta-01': generalB1,
+  'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-01': businessB1,
   'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-02': businessB1Speaking02,
 }
 

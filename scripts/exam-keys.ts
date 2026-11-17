@@ -2,12 +2,12 @@
 // útmutató separately from the paper files. If a paper disagrees, re-read the PDF rather than
 // editing the fixture.
 //
-//   keys: '<letters>' for choice/mcq items, 'T'/'F' style labels for boolean items, starting at
+//   keys: '<letters>' for choice/mcq items (`words`: the bank words, for word banks), 'T'/'F' style labels for boolean items, starting at
 //         item id `first`; `text`: item id → every variant the key accepts; `ticks`: the ticked
 //         option keys of a single multi-select item (with the tick count and option count);
 //         `multi`: item id → ticked option keys, for one multi-select item per table row;
 //         `order`: the right order of the parts of an ordering task, example part first.
-export type TaskKey = { first: number; keys: string } | { text: Record<string, string[]> } | { ticks: string; pick: number; options: number }
+export type TaskKey = { first: number; keys: string } | { first: number; words: string[] } | { text: Record<string, string[]> } | { ticks: string; pick: number; options: number }
   | { multi: Record<string, string> }
   | { order: string }
 export type PaperKey = Record<string, TaskKey>
@@ -268,5 +268,60 @@ export const examKeys: Record<string, PaperKey> = {
     'R-3': { multi: { '1': '1 2 3', '2': '1 3', '3': '2', '4': '1', '5': '3', '6': '2 3', '7': '1 3', '8': '3', '9': '2 3' } },
     'L-1': { first: 1, keys: 'T T F F T' },
     'L-2': { text: { '1': ['part-time', 'full time'], '2': ['artist', 'artists'], '3': ['customer', 'interested customers'], '4': ['knitting', 'crochet', 'painting', 'sculpting'], '5': ['woodwork', 'iron work', 'glass work', 'anything original'], '6': ['what you are good at', 'what you are passionate about'], '7': ['cost of material', 'materials'], '8': ['time', 'your time'], '9': ['unused', 'neglected websites'], '10': ['173,000', '173 000 dollars'] } },
+  },
+  // Zöld Út B2/C1 and German B1/B2 samples (2026-11-17), from each sample's megoldókulcs.
+  'nyelvvizsga-en-c1-minta-01': {
+    'R-cloze': { text: { '1': ['like'], '2': ['study', 'research', 'specialize in'], '3': ['have developed'], '4': ['to leave'], '5': ['length', 'duration'], '6': ['supplies'], '7': ['instead of'], '8': ['descend to', 'land on'], '9': ['safely'], '10': ['controlled'], '11': ['temperature'], '12': ['exceed'], '13': ['so', 'therefore'], '14': ['sustain'], '15': ['Survive'] } },
+    'R-1': { text: { '1': ['limit it to the 2020 level', '2020 levels'], '2': ['trees absorb CO2 as they grow', 'mitigate the effects of the burning jet-fuel'], '3': ['in the high altitudes it has stronger warming effect', 'high altitude'], '4': ['increase efficiency'], '5': ['low-carbon synthetic jet fuels'], '6': ['effective offset schemes'] } },
+    'R-2': { first: 7, keys: 'F T T F' },
+    'L-1': { first: 1, keys: 'T F T T F T F' },
+    'L-2': { text: { '1': ['coffee', 'freshly cut grass'], '2': ['bindings'], '3': ['carbon'], '4': ['moisture'], '5': ['release'], '6': ['vapourise', 'enter'], '7': ['almond'], '8': ['manufacturing'], '9': ['flavours'], '10': ['water-resistant'], '11': ['condition'], '12': ['water damage'], '13': ['better preserved', 'protected'] } },
+  },
+  'nyelvvizsga-en-c1-gazdasagi-minta-01': {
+    'R-1-1': { text: { '1': ['You will earn enemies', 'alienate people'], '2': ['alienate people', 'earn enemies'], '3': ['build effective work relationships'], '4': ['Build alliances'], '5': ['you affect the work of others'], '6': ['whole organisation benefits'] } },
+    'R-1-2': { first: 7, keys: 'T T T F F T F F T' },
+    'R-2-1': { first: 1, keys: 'C E G B F' },
+    'R-2-2': { text: { '6': ['people in the air'], '7': ['people at the airport'], '8': ['people living around the airport'], '9': ['of an infinite absorbing capacity'], '10': ['it can tolerate any pollution'] } },
+    'L-1': { first: 1, keys: 'T T F F T F F T' },
+    'L-2': { text: { '1': ['rents', 'payrolls'], '2': ['payrolls', 'security cameras'], '3': ['plumbers', 'electricians'], '4': ['Guideshops'], '5': ['shopping malls'], '6': ['bookstore'], '7': ['shoe’s fit', 'apple’s crispness'], '8': ['car seats', 'baby equipment'], '9': ['storefronts'], '10': ['bulky goods'], '11': ['returned'], '12': ['convenient outlet'] } },
+  },
+  'nyelvvizsga-en-c1-muszaki-minta-01': {
+    'R-1-1': { text: { '1': ['setae'], '2': ['spatulae'], '3': ['van der Waals force'], '4': ['carbon nanotubes'], '5': ['silicon wafer'], '6': ['curly', 'tangled'], '7': ['it takes bigger force to stick'], '8': ['to replace glue'], '9': ['to replace solder'], '10': ['to create lasting adhesion in space'], '11': ['pulling it perpendicular to the surface'] } },
+    'R-1-2': { first: 12, keys: 'F F T T' },
+    'R-2-1': { text: { '1': ['radar altimeter', 'electromagnetic'], '2': ['overall coverage', 'full coverage'], '3': ['continuous'], '4': ['logistic'], '5': ['uneven', 'increasing'], '6': ['ice redistribution', 'ice piling up'], '7': ['melting'] } },
+    'R-2-2': { first: 8, keys: 'C A B' },
+    // Statements 6 and 8 follow the recording (and the C1 economics key), not this paper's key.
+    'L-1': { first: 1, keys: 'T T F F T F F T' },
+    'L-2': { text: { '1': ['braking'], '2': ['restrictions'], '3': ['force', 'temperature', 'sound', 'visual'], '4': ['design'], '5': ['laser'], '6': ['ultrasonic'], '7': ['infrared'], '8': ['machine vision'], '9': ['damaged wheels'], '10': ['slow down', 'stop'], '11': ['cleanup operations', 'cleanup efforts'], '12': ['oil spills'] } },
+  },
+  'nyelvvizsga-en-b2-gazdasagi-minta-01': {
+    'R-1-1': { text: { '1': ['Student Loans Company'], '2': ['banks'], '3': ['credit card companies'], '4': ['parents'], '5': ['accommodation'], '6': ['travel'], '7': ['food'], '8': ['2.6%'], '9': ['Prioritise debts'], '10': ['student loans'] } },
+    'R-1-2': { first: 11, keys: 'T T F F F' },
+    'R-2-1': { first: 1, keys: 'E F D A C' },
+    'R-2-2': { text: { '6': ['skin cancer has risen 66%'], '7': ['solar stoplights'], '8': ['education programs'], '9': ['most of them ignore it'], '10': ['provide money for monitoring and research'] } },
+    'L-1': { first: 1, keys: 'F T T T F T F' },
+    'L-2': { text: { '1': ['labour force'], '2': ['1/4', 'a quarter', 'one fourth'], '3': ['interest rates'], '4': ['5 or 6'], '5': ['job seeking process'], '6': ['recession'], '7': ['structural'], '8': ['change in technology'], '9': ['a robot'], '10': ['worker in India'], '11': ['outsourcing'], '12': ['offshoring'], '13': ['lower wages'] } },
+  },
+  'nyelvvizsga-en-b2-muszaki-minta-01': {
+    'R-1-1': { text: { '1': ['flexibility'], '2': ['adaptability'], '3': ['ecology'], '4': ['low running costs'], '5': ['flexibility'], '6': ['interaction between departments', 'flow of information'], '7': ['four rectangular spaces'], '8': ['energy efficient'], '9': ['air conditioning'], '10': ['natural lighting'], '11': ['products shown in use'], '12': ['very impressed'] } },
+    'R-1-2': { first: 13, keys: 'F F T' },
+    'R-2-1': { text: { '1': ['reducing dependence on oil'], '2': ['reduced emission of greenhouse gases'], '3': ['diverting food grain for fuel'], '4': ['set aside land for biofuel production'], '5': ['financial speculation on grains'], '6': ['moratorium on their use'] } },
+    'R-2-2': { first: 7, keys: 'T F F T' },
+    'L-1': { first: 1, keys: 'F T T T F T F' },
+    'L-2': { text: { '1': ['Switzerland'], '2': ['escalators'], '3': ['700,000'], '4': ['running smoothly'], '5': ['25-35%'], '6': ['installations'], '7': ['services'], '8': ['technicians'], '9': ['standardised'], '10': ['double-decker'], '11': ['control panels'], '12': ['consulting services'], '13': ['inspect'] } },
+  },
+  'nyelvvizsga-de-b1-minta-01': {
+    'R-cloze': { first: 1, words: ['bietet', 'gibt', 'Abitur', 'Friseur', 'zehn', 'haben', 'keinen', 'kleine', 'waren', 'weil', 'kombinierbar', 'Semester', 'in', 'Jahren', 'schon'] },
+    'R-1': { first: 1, keys: 'R R R F F' },
+    'R-2': { text: { '6': ['mindestens 8 Tage'], '7': ['im Sommer'], '8': ['in heißen Regionen'], '9': ['aus der regionalen Landwirtschaft'], '10': ['man kommt entspannter ans Ausflugsziel'], '11': ['der Transport von Fahrrädern ist problemlos'], '12': ['Mountainbiking'], '13': ['Wandern'], '14': ['auf Einwegverpackungen verzichten', 'den Abfall selbst entsorgen'], '15': ['Obstbäumen', 'Kokospalmen'] } },
+    'L-1': { first: 1, keys: 'F F R R F R' },
+    'L-2': { text: { '1': ['Die ganze Familie kommt zusammen'], '2': ['zündet die Kerzen an'], '3': ['den Adventskalender aufmachen'], '4': ['Bilder'], '5': ['Schokolade'], '6': ['Kekse (Vanillekipferl)'], '7': ['heißen Kinderpunsch oder Glühwein trinken'], '8': ['Geschenke kaufen'], '9': ['die Wohnung schmücken', 'den Weihnachtsbaum schmücken'] } },
+  },
+  'nyelvvizsga-de-b2-minta-01': {
+    'R-cloze': { first: 1, words: ['meisten', 'E-Mails', 'Ergebnis', 'deutlich', 'Internetangeboten', 'ähneln', 'fähig', 'digitalen', 'sprachlich', 'konzentrieren', 'anders', 'wie', 'entwickelt', 'Jahren', 'vor allem'] },
+    'R-1': { first: 1, keys: 'R F F R F' },
+    'R-2': { text: { '6': ['Umweltwärme'], '7': ['Holz / Holzpellets'], '8': ['aus dem Boden', 'aus der Luft'], '9': ['aus dem Grundwasser'], '10': ['weniger CO2-Emission', 'klimafreundlicher'] } },
+    'L-1': { first: 1, keys: 'F R F R R R R F' },
+    'L-2': { text: { '1': ['für Familien, die eine Haushaltshilfe suchen'], '2': ['kostenlos'], '3': ['in Großstädten'], '4': ['für Familien'], '5': ['Stellenanzeigen aufgeben'], '6': ['in Angeboten suchen'], '7': ['E-Mails schreiben'], '8': ['Internet aufrufen'], '9': ['die Adresse'], '10': ['das Geburtsdatum'], '11': ['die E-Mail-Adresse'], '12': ['sie sind unfallverichert', 'Rentenversicherung'] } },
   },
 }

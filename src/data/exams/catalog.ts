@@ -53,9 +53,23 @@ export const examPapers: ExamPaperMeta[] = [
   { id: 'erettsegi-de-kozep-szobeli-minta-c', type: 'erettsegi', language: 'de', level: 'kozep', sittingLabelHu: 'Szóbeli minta C', speakingOnly: true },
   { id: 'erettsegi-de-kozep-szobeli-minta-d', type: 'erettsegi', language: 'de', level: 'kozep', sittingLabelHu: 'Szóbeli minta D', speakingOnly: true },
   { id: 'erettsegi-de-kozep-szobeli-minta-e', type: 'erettsegi', language: 'de', level: 'kozep', sittingLabelHu: 'Szóbeli minta E', speakingOnly: true },
+  // Nyelvvizsga (Zöld Út): each sample's written paper and its speaking part are separate entries.
   { id: 'nyelvvizsga-en-b1-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Minta 1.', track: 'general' },
+  { id: 'nyelvvizsga-en-b1-szobeli-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Szóbeli minta 1.', track: 'general', speakingOnly: true },
   { id: 'nyelvvizsga-en-b1-gazdasagi-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Minta 1.', track: 'business' },
+  { id: 'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Szóbeli minta 1.', track: 'business', speakingOnly: true },
   { id: 'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-02', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Szóbeli minta 2.', track: 'business', speakingOnly: true },
+  { id: 'nyelvvizsga-en-b2-gazdasagi-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B2', sittingLabelHu: 'Minta 1.', track: 'business' },
+  { id: 'nyelvvizsga-en-b2-gazdasagi-szobeli-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B2', sittingLabelHu: 'Szóbeli minta 1.', track: 'business', speakingOnly: true },
+  { id: 'nyelvvizsga-en-b2-muszaki-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B2', sittingLabelHu: 'Minta 1.', track: 'technical' },
+  { id: 'nyelvvizsga-en-b2-muszaki-szobeli-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B2', sittingLabelHu: 'Szóbeli minta 1.', track: 'technical', speakingOnly: true },
+  { id: 'nyelvvizsga-en-c1-minta-01', type: 'nyelvvizsga', language: 'en', level: 'C1', sittingLabelHu: 'Minta 1.', track: 'general' },
+  { id: 'nyelvvizsga-en-c1-gazdasagi-minta-01', type: 'nyelvvizsga', language: 'en', level: 'C1', sittingLabelHu: 'Minta 1.', track: 'business' },
+  { id: 'nyelvvizsga-en-c1-muszaki-minta-01', type: 'nyelvvizsga', language: 'en', level: 'C1', sittingLabelHu: 'Minta 1.', track: 'technical' },
+  { id: 'nyelvvizsga-de-b1-minta-01', type: 'nyelvvizsga', language: 'de', level: 'B1', sittingLabelHu: 'Minta 1.', track: 'general' },
+  { id: 'nyelvvizsga-de-b1-szobeli-minta-01', type: 'nyelvvizsga', language: 'de', level: 'B1', sittingLabelHu: 'Szóbeli minta 1.', track: 'general', speakingOnly: true },
+  { id: 'nyelvvizsga-de-b2-minta-01', type: 'nyelvvizsga', language: 'de', level: 'B2', sittingLabelHu: 'Minta 1.', track: 'general' },
+  { id: 'nyelvvizsga-de-b2-szobeli-minta-01', type: 'nyelvvizsga', language: 'de', level: 'B2', sittingLabelHu: 'Szóbeli minta 1.', track: 'general', speakingOnly: true },
 ]
 
 const loaders: Record<string, () => Promise<{ default: ExamPaper }>> = {
@@ -83,6 +97,13 @@ const loaders: Record<string, () => Promise<{ default: ExamPaper }>> = {
   'erettsegi-de-kozep-2021-majus': () => import('./papers/erettsegi-de-kozep-2021-majus.ts'),
   'nyelvvizsga-en-b1-minta-01': () => import('./papers/nyelvvizsga-en-b1-minta-01.ts'),
   'nyelvvizsga-en-b1-gazdasagi-minta-01': () => import('./papers/nyelvvizsga-en-b1-gazdasagi-minta-01.ts'),
+  'nyelvvizsga-en-b2-gazdasagi-minta-01': () => import('./papers/nyelvvizsga-en-b2-gazdasagi-minta-01.ts'),
+  'nyelvvizsga-en-b2-muszaki-minta-01': () => import('./papers/nyelvvizsga-en-b2-muszaki-minta-01.ts'),
+  'nyelvvizsga-en-c1-minta-01': () => import('./papers/nyelvvizsga-en-c1-minta-01.ts'),
+  'nyelvvizsga-en-c1-gazdasagi-minta-01': () => import('./papers/nyelvvizsga-en-c1-gazdasagi-minta-01.ts'),
+  'nyelvvizsga-en-c1-muszaki-minta-01': () => import('./papers/nyelvvizsga-en-c1-muszaki-minta-01.ts'),
+  'nyelvvizsga-de-b1-minta-01': () => import('./papers/nyelvvizsga-de-b1-minta-01.ts'),
+  'nyelvvizsga-de-b2-minta-01': () => import('./papers/nyelvvizsga-de-b2-minta-01.ts'),
 }
 
 /** Sort key: year*100 + month, so 2026 május sorts after 2025 október. Samples without a year sort last. */

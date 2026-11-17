@@ -18,7 +18,12 @@ import { isValidSubtype, OTHER_SUBTYPE } from '../../src/data/mistakeTaxonomy.js
 /** The examiner appends this to the turn that closes a task; stripped before the reply is spoken. */
 export const TASK_DONE_MARKER = '[[TASK_DONE]]'
 
-const TRACK_NAME = { general: 'General English', business: 'Economics and management (business English)' } as const
+const TRACK_NAME = { general: 'general language', business: 'Economics and management (business language)', technical: 'Technical (technical language)' } as const
+
+/** The CEFR level the exam is set at: B1 unless the exam says otherwise (the érettségi középszint is about B1). */
+function examLevel(exam: SpeakingExam): string {
+  return exam.level ?? 'B1'
+}
 
 const LANGUAGE_NAME: Record<LessonLanguage, string> = { hu: 'Hungarian', en: 'English', de: 'German' }
 
@@ -26,7 +31,7 @@ const LANGUAGE_NAME: Record<LessonLanguage, string> = { hu: 'Hungarian', en: 'En
 function examDescription(exam: SpeakingExam): string {
   return exam.board === 'erettsegi'
     ? `the oral part of the Hungarian school-leaving exam (érettségi) in ${LANGUAGE_NAME[exam.language]}, intermediate level (középszint, about B1)`
-    : `a Hungarian state-accredited ${LANGUAGE_NAME[exam.language]} language exam (Zöld Út Nyelvvizsgaközpont), level B1, ${TRACK_NAME[exam.track ?? 'general']}`
+    : `a Hungarian state-accredited ${LANGUAGE_NAME[exam.language]} language exam (Zöld Út Nyelvvizsgaközpont), level ${examLevel(exam)}, ${TRACK_NAME[exam.track ?? 'general']}`
 }
 
 /** The examiner's closing line, also the fallback when the model's closing turn comes back empty. */
@@ -64,7 +69,7 @@ function openingGuidance(exam: SpeakingExam, task: SpeakingTask, mode: SpeakingS
     case 'interview':
       return `${intro} Then ask your first question.`
     case 'role-play': {
-      const youStart = task.examineeCard?.after?.some((l) => /you start/i.test(l))
+      const youStart = task.examineeCard?.after?.some((l) => /you start|sie beginnen/i.test(l))
       return youStart
         ? `${intro} Set the scene in one sentence (who you are playing), tell the candidate they start, and then stop — wait for them.`
         : `${intro} Set the scene in one sentence (who you are playing), then begin the role-play in role.`
@@ -99,7 +104,7 @@ export function buildExaminerSystemPrompt(args: {
     'This is a spoken exam: your words are read aloud by text-to-speech, and the candidate\'s turns come from speech recognition, so ignore small recognition glitches and missing punctuation.',
     '',
     '== HOW TO SPEAK ==',
-    `- Speak only ${language}. Use clear, natural B1-level ${language}. Keep every turn short: one to three sentences, and ask only one question at a time.`,
+    `- Speak only ${language}. Use clear, natural ${examLevel(exam)}-level ${language}. Keep every turn short: one to three sentences, and ask only one question at a time.`,
     ...(german ? ['- Address the candidate formally with "Sie" (in a role-play too, unless your role card says otherwise). Standard German; in an Austrian setting a greeting such as "Grüß Gott" is fine.'] : []),
     `- Do not correct the candidate, teach, translate or comment on their ${language}, and never give scores or feedback. React briefly and naturally, like a friendly examiner (or, in a role-play, like the person you are playing).`,
     '- Plain spoken text only: no markdown, lists, emojis, stage directions or text in brackets.',
@@ -178,14 +183,14 @@ export function buildAssessmentPrompt(args: {
 
   const systemPrompt = [
     `You are an experienced oral examiner assessing a Hungarian candidate's performance in ${examDescription(exam)}. The candidate spoke to an AI examiner; the transcripts come from speech recognition, so do not judge spelling, punctuation or capital letters, and you cannot judge pronunciation.`,
-    `Score every task on four criteria, each an integer from 0 to ${SPEAKING_CRITERION_MAX}, against the B1 standard (${SPEAKING_CRITERION_MAX} = a confident B1 performance or better, 3 = adequate B1, 1 = well below B1, 0 = nothing assessable). A task that was not attempted scores 0 on every criterion.`,
+    `Score every task on four criteria, each an integer from 0 to ${SPEAKING_CRITERION_MAX}, against the ${examLevel(exam)} standard (${SPEAKING_CRITERION_MAX} = a confident ${examLevel(exam)} performance or better, 3 = adequate ${examLevel(exam)}, 1 = well below ${examLevel(exam)}, 0 = nothing assessable). A task that was not attempted scores 0 on every criterion.`,
     ...criteria.map((c) => `- ${c}`),
     'Respond with ONLY valid JSON (no markdown, no code fences) in exactly this shape:',
     '{"tasks": [{"taskId": "S-1", "scores": {"task": 3, "fluency": 3, "vocabulary": 3, "grammar": 3}, "comment": "..."}], "summary": "...", "strengths": ["...", "..."], "corrections": [{"original": "...", "corrected": "...", "note": "...", "subtype": "other"}]}',
     `- "tasks": one entry per task, in order, with these ids: ${exam.tasks.map((t) => t.id).join(', ')}. "comment": two or three sentences on that task — what went well and what to improve.`,
     '- "summary": two sentences on the whole performance.',
     '- "strengths": two or three specific strengths.',
-    `- "corrections": three to five of the candidate's own sentences that had mistakes: "original" quoted from the transcript, "corrected" the natural B1 version, "note" a short explanation. "subtype": always "other".`,
+    `- "corrections": three to five of the candidate's own sentences that had mistakes: "original" quoted from the transcript, "corrected" the natural ${examLevel(exam)} version, "note" a short explanation. "subtype": always "other".`,
     `Write "comment", "summary", "strengths" and "note" in ${feedbackLanguage}; keep "original" and "corrected" in ${LANGUAGE_NAME[exam.language]}. Be encouraging but honest and specific.`,
   ].join('\n')
 
