@@ -1,7 +1,7 @@
 // Zöld Út Nyelvvizsgaközpont (MATE), C1 Technical English (felsőfok, műszaki), sample paper 1 —
 // freely downloadable at https://zoldut.uni-mate.hu/mintafeladatsorok. Transcribed verbatim from
 // the task sheet and its answer key, including the source's own typos ("that off gecko feet",
-// "trough"). Three departures from the key, all checked against the recording or the sheet:
+// "trough"). Two departures from the key, both checked against the recording or the sheet:
 // - Listening Text 1 (the same recording and statements as the C1 economics paper): this key
 //   marks statements 6 and 8 the other way round from the economics key. The recording says the
 //   coal cutback is "thanks to a slowdown in economic growth" and that the US "has seen its coal
@@ -9,8 +9,7 @@
 // - Writing Task 1: the key's sample description is of a different table (car makers' fuel
 //   economy), so it is left out; the task's own table (African hydropower projects) is
 //   transcribed from the image on the sheet.
-// - Reading Text 2 Task 2: the key prints all the options; the answers here are the ones the
-//   text supports (8 C, 9 A, 10 B).
+// (Reading Text 2 Task 2: the key prints every option and sets the right one in bold.)
 // Added for the screen: "Text 1/2 ·" in the reading task labels and "First/Second news item:"
 // before listening statements 1 and 5. No speaking part; no section times printed.
 import type { ExamPaper, PassageBlock, ShortTextItem } from '../types'
