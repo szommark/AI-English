@@ -67,6 +67,7 @@ export const categoryDe: Record<string, string> = {
   'shopping-complaints': 'Einkaufen & Reklamationen',
   'public-transport': 'Öffentlicher Nahverkehr',
   'family-parenting': 'Familie & Erziehung',
+  networking: 'Networking',
 }
 
 export const subcategoryDe: Record<string, string> = {
@@ -106,6 +107,9 @@ export const subcategoryDe: Record<string, string> = {
   playdates: 'Spieltreffen',
   'family-gathering': 'Familientreffen',
   childcare: 'Kinderbetreuung',
+  conference: 'Konferenz',
+  mixer: 'Networking-Abend',
+  'coffee-chat': 'Kaffee-Treffen',
 }
 
 export const scenarioDe: Record<string, string> = {
@@ -150,4 +154,7 @@ export const scenarioDe: Record<string, string> = {
   playdates: 'Ein Spieltreffen organisieren',
   'family-gathering': 'Bei einem Familientreffen plaudern',
   childcare: 'Mit einem Babysitter sprechen',
+  'networking-conference-coffee': 'Kaffeepause auf einer Konferenz',
+  'networking-elevator-pitch': 'Der Elevator Pitch beim Networking-Abend',
+  'networking-follow-up-coffee': 'Das Kaffee-Treffen danach',
 }

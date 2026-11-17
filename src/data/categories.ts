@@ -100,6 +100,19 @@ export const categories: Category[] = [
     ],
   },
   {
+    // From the printable A/B networking role cards (src/data/roleCards.ts).
+    id: 'networking',
+    title: 'Networking',
+    titleHu: 'Szakmai kapcsolatépítés',
+    tilePhoto: scenarioPhotos['networking-conference-coffee'],
+    status: 'active',
+    subcategories: [
+      { id: 'conference', title: 'Conference', titleHu: 'Konferencia', tilePhoto: scenarioPhotos['networking-conference-coffee'], scenarioIds: ['networking-conference-coffee'] },
+      { id: 'mixer', title: 'Networking Mixer', titleHu: 'Szakmai ismerkedős est', tilePhoto: scenarioPhotos['networking-elevator-pitch'], scenarioIds: ['networking-elevator-pitch'] },
+      { id: 'coffee-chat', title: 'Coffee Chat', titleHu: 'Kávézás', tilePhoto: scenarioPhotos['networking-follow-up-coffee'], scenarioIds: ['networking-follow-up-coffee'] },
+    ],
+  },
+  {
     id: 'shopping-complaints',
     title: 'Shopping & Complaints',
     titleHu: 'Vásárlás és panaszkezelés',

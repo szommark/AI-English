@@ -7,6 +7,7 @@ import ConversationSession from '../components/ConversationSession'
 import MouthBubbleLayer from '../components/SpeechBubble/MouthBubbleLayer'
 import TranscriptLines from '../components/SpeechBubble/TranscriptLines'
 import PracticeSentence from '../components/PracticeSentence'
+import PrintRoleCardsButton from '../components/PrintRoleCardsButton'
 import { scenarioPhotos } from '../assets/scenarioPhotos'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { localizeCategory, localizeScenario, useLanguage, withGloss } from '../lib/i18n'
@@ -49,6 +50,7 @@ export default function RehearsalPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
+        <PrintRoleCardsButton scenarioId={scenario.id} className="-mb-3" />
         {!started ? (
           <>
             <div>
