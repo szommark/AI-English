@@ -111,6 +111,11 @@ export const subcategoryDe: Record<string, string> = {
 export const scenarioDe: Record<string, string> = {
   'hotel-checkin': 'Im Hotel einchecken',
   'restaurant-order': 'Essen im Restaurant bestellen',
+  'restaurant-booking': 'Telefonisch einen Tisch reservieren',
+  'restaurant-food-problem': 'Ein Problem mit dem Essen',
+  'restaurant-recommendations': 'Nach Empfehlungen fragen',
+  'restaurant-split-bill': 'Die Rechnung aufteilen',
+  'restaurant-delivery-problem': 'Ein Problem mit einer Lieferung',
   'asking-directions': 'Nach dem Weg fragen',
   'airport-checkin': 'Flughafen-Check-in',
   'post-office': 'Ein Paket auf der Post aufgeben',

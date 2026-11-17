@@ -29,7 +29,7 @@ export const categories: Category[] = [
     tilePhoto: scenarioPhotos['airport-checkin'],
     status: 'active',
     subcategories: [
-      { id: 'restaurant', title: 'Restaurant', titleHu: 'Étterem', tilePhoto: scenarioPhotos['restaurant-order'], scenarioIds: ['restaurant-order'] },
+      { id: 'restaurant', title: 'Restaurant', titleHu: 'Étterem', tilePhoto: scenarioPhotos['restaurant-order'], scenarioIds: ['restaurant-order', 'restaurant-booking', 'restaurant-food-problem', 'restaurant-recommendations', 'restaurant-split-bill', 'restaurant-delivery-problem'] },
       { id: 'hotel', title: 'Hotel', titleHu: 'Szálloda', tilePhoto: scenarioPhotos['hotel-checkin'], scenarioIds: ['hotel-checkin'] },
       { id: 'airport', title: 'Airport', titleHu: 'Repülőtér', tilePhoto: scenarioPhotos['airport-checkin'], scenarioIds: ['airport-checkin'] },
       { id: 'street', title: 'In the Street', titleHu: 'Az utcán', tilePhoto: scenarioPhotos['asking-directions'], scenarioIds: ['asking-directions'] },
