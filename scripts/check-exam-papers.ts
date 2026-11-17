@@ -220,6 +220,8 @@ function checkSpeaking() {
       if (meta.track !== exam.track) fail(`speaking ${id}: track ${exam.track}, the catalog says ${meta.track}`)
       const board = meta.type === 'nyelvvizsga' ? 'zold-ut' : 'erettsegi'
       if (exam.board !== board) fail(`speaking ${id}: board ${exam.board} on a ${meta.type} paper`)
+      if (meta.type === 'nyelvvizsga' && (exam.level ?? 'B1') !== meta.level) fail(`speaking ${id}: level ${exam.level ?? 'B1 (default)'}, the catalog says ${meta.level}`)
+      if (!meta.speakingOnly) fail(`speaking ${id}: speaking exams are speaking-only papers of their own, not part of a written paper`)
     }
     if (!exam.tasks.length) fail(`speaking ${id}: no tasks`)
     // Choice groups: at least two options, next to each other, sharing a label.
@@ -473,7 +475,7 @@ function checkKeys(p: ExamPaper, key: Record<string, import('./exam-keys.ts').Ta
       if (missing.length) fail(`${p.id} ${taskId}: no fixture for items ${missing.join(', ')}`)
       continue
     }
-    const expected = tk.keys.split(' ')
+    const expected = 'words' in tk ? tk.words : tk.keys.split(' ')
     if (t.items.length !== expected.length) fail(`${p.id} ${taskId}: ${t.items.length} items, key has ${expected.length}`)
     expected.forEach((k, i) => {
       const id = String(tk.first + i)

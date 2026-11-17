@@ -14,7 +14,7 @@ const LEVEL_KEY: Record<ExamLevel, MessageKey> = {
   C1: 'exLevelC1',
 }
 
-const TRACK_KEY: Record<ExamTrack, MessageKey> = { general: 'exTrackGeneral', business: 'exTrackBusiness' }
+const TRACK_KEY: Record<ExamTrack, MessageKey> = { general: 'exTrackGeneral', business: 'exTrackBusiness', technical: 'exTrackTechnical' }
 
 export const examTypeLabel = (t: T, type: ExamType) => t(TYPE_KEY[type])
 export const examTypeDescription = (t: T, type: ExamType) => t(TYPE_DESC_KEY[type])

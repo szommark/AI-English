@@ -1,5 +1,5 @@
-// Speaking exams (szóbeli), keyed by the id of the paper they belong to: the nyelvvizsga
-// papers' speaking parts, and the speaking-only érettségi sample sets. The learner sits them
+// Speaking exams (szóbeli), keyed by their speaking-only catalog entry: the nyelvvizsga
+// samples' speaking parts ("Szóbeli minta"), and the érettségi oral sample sets. The learner sits them
 // with an AI examiner (the Tutor Bot interface); see api/tutor.ts (?action=exam-turn /
 // exam-assess) for the examiner and the assessment.
 //
@@ -91,7 +91,9 @@ export interface SpeakingExam {
   language: SpeakingLanguage
   board: SpeakingBoard
   /** Nyelvvizsga: same as the paper's catalog track; here too so api/ needn't load the catalog. */
-  track?: 'general' | 'business'
+  track?: 'general' | 'business' | 'technical'
+  /** The level the examiner speaks at and the assessment measures against (default B1). */
+  level?: 'B1' | 'B2' | 'C1'
   /** As printed, e.g. `SPEAKING SKILLS`. */
   title: string
   tasks: SpeakingTask[]
@@ -127,7 +129,7 @@ export const SPEAKING_CRITERION_MAX = 5
 export const SPEAKING_TASK_MAX = SPEAKING_CRITERIA.length * SPEAKING_CRITERION_MAX
 
 const generalB1: SpeakingExam = {
-  paperId: 'nyelvvizsga-en-b1-minta-01',
+  paperId: 'nyelvvizsga-en-b1-szobeli-minta-01',
   language: 'en',
   board: 'zold-ut',
   track: 'general',
@@ -215,7 +217,7 @@ const generalB1: SpeakingExam = {
 }
 
 const businessB1: SpeakingExam = {
-  paperId: 'nyelvvizsga-en-b1-gazdasagi-minta-01',
+  paperId: 'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-01',
   language: 'en',
   board: 'zold-ut',
   track: 'business',
@@ -408,6 +410,349 @@ const businessB1Speaking02: SpeakingExam = {
         'React briefly to the answers, then close the task.',
       ].join(' '),
       minutes: 6,
+      maxLearnerTurns: 8,
+    },
+  ],
+}
+
+// --- Nyelvvizsga B2 (Zöld Út): gazdasági and műszaki szóbeli minta 1. ---------------------
+// From the B2 sample papers' SPEAKING SKILLS pages: Task 1 prints only its title, Task 2 a
+// situation with both role cards, Task 3 only a chart.
+
+/** The examiner-led professional discussion (Task 1), whose paper prints only the title. */
+function professionalDiscussionB2(field: string, topics: string): SpeakingTask {
+  return {
+    id: 'S-1',
+    label: 'Task 1',
+    kind: 'interview',
+    title: 'Professional discussion',
+    source: 'title-only',
+    instructions: [`The examiner asks you about your studies or your work and about topics of ${field}.`],
+    examinerBrief: [
+      `Lead a professional discussion at B2 level for the ${field} exam.`,
+      `Ask one question at a time about: what the candidate studies or where they work and what they do there, ${topics}.`,
+      'Ask for reasons, examples and opinions, and follow up when an answer is short. Cover four or five areas, then close the task.',
+    ].join(' '),
+    minutes: 5,
+    maxLearnerTurns: 8,
+  }
+}
+
+const businessB2: SpeakingExam = {
+  paperId: 'nyelvvizsga-en-b2-gazdasagi-szobeli-minta-01',
+  language: 'en',
+  board: 'zold-ut',
+  track: 'business',
+  level: 'B2',
+  title: 'SPEAKING SKILLS',
+  tasks: [
+    professionalDiscussionB2(
+      'economics and management',
+      'a company they know well (its products, customers, competitors and organisation), management and motivating staff, marketing and advertising, the economic situation in Hungary, international trade and the role of English at work',
+    ),
+    {
+      id: 'S-2',
+      label: 'Task 2',
+      kind: 'role-play',
+      title: 'Situation 51',
+      source: 'paper',
+      examineeCard: {
+        heading: 'THE EXAMINEE’S ROLE',
+        text: ['You and your colleagues are at a meeting, discussing a serious problem.'],
+        points: [
+          { text: 'Ask about the purpose of the meeting' },
+          {
+            text: 'Suggest solutions:',
+            sub: [
+              'how to motivate staff to fight the problem',
+              'new security measures (e.g. close circuit TV, restricted access to stock room, store detective)',
+            ],
+          },
+        ],
+      },
+      examinerCard: {
+        heading: 'THE EXAMINER’S ROLE',
+        text: ['You and your colleagues are at a meeting, discussing a serious problem.'],
+        lead: 'When asked,',
+        points: [
+          { text: 'introduce the problem: there is a significant stock loss at the company due to shoplifting, staff theft, internal errors and delivery problems.' },
+          { text: 'Ask for suggestions for solutions' },
+          { text: 'Ask for suggestions on how to inform staff about the new regulations (newsletter, noticeboard or general meeting for whole staff)' },
+        ],
+      },
+      examinerBrief: [
+        'You play a colleague (the manager who called the meeting) at a company meeting, following the examiner’s role card.',
+        'Welcome the candidate to the meeting in one sentence and let them ask what it is about. Introduce the problem only when asked: a significant stock loss caused by shoplifting, staff theft, internal errors and delivery problems. Make up one or two realistic figures if it helps.',
+        'Ask for their suggestions, react to each one as a colleague would (a doubt about the cost of CCTV, a question about how staff will feel about a store detective), and ask how to motivate staff to help fight the problem if they have not said.',
+        'Then ask how to inform the staff about the new regulations: a newsletter, the noticeboard or a general meeting for the whole staff. Close the task once you have agreed on the measures and how to announce them.',
+      ].join(' '),
+      minutes: 5,
+      maxLearnerTurns: 10,
+    },
+    {
+      id: 'S-3',
+      label: 'Task 3',
+      kind: 'graph',
+      title: 'Chart description',
+      source: 'paper',
+      image: {
+        asset: 'nyelvvizsga-en-b2-gazdasagi-szobeli-minta-01-chart.webp',
+        alt: [
+          'Line chart: “Real US GDP vs. Employment, 2002:Q1 to 2013:Q3”, quarterly. Blue line: real GDP (left axis, billions of 2005 dollars, $12,800–$16,000); red line: employment (right axis, thousands of persons, 136,000–152,000). A grey band marks the recession (about the end of 2007 to mid-2009).',
+          'Real GDP (approximate): about $12,850 billion in early 2002, rising steadily to about $14,950 billion at the end of 2007, falling to about $14,350 billion in mid-2009, then recovering to about $15,800 billion in 2013 Q3 — an arrow marks “+5.6%” above the pre-recession peak.',
+          'Employment (approximate): about 136,500 thousand in 2002–2003, rising to about 146,300 thousand in late 2007, falling sharply to about 138,000 thousand in early 2010, then recovering slowly to about 144,300 thousand in 2013 Q3 — an arrow marks “-2M jobs” below the pre-recession peak.',
+          'So output is higher than before the recession, but there are about two million fewer jobs. Sources: BEA, BLS; Carpe Diem Blog.',
+        ].join(' '),
+      },
+      examinerBrief: [
+        'First ask the candidate to describe the chart: what it shows, how GDP and employment changed before, during and after the recession, and how the two lines compare. Let them talk; only prompt gently if they stop very early.',
+        'Do not correct their figures.',
+        'Then ask two or three open questions, one at a time: why the economy can grow while there are fewer jobs (productivity, automation, outsourcing), how a recession affects companies and employees, what governments or companies can do to create jobs, how the situation compares with Hungary.',
+        'React briefly to the answers, then close the task.',
+      ].join(' '),
+      minutes: 5,
+      maxLearnerTurns: 8,
+    },
+  ],
+}
+
+const technicalB2: SpeakingExam = {
+  paperId: 'nyelvvizsga-en-b2-muszaki-szobeli-minta-01',
+  language: 'en',
+  board: 'zold-ut',
+  track: 'technical',
+  level: 'B2',
+  title: 'SPEAKING SKILLS',
+  tasks: [
+    professionalDiscussionB2(
+      'technical English',
+      'their field of engineering or technology, a project or a machine, device or software they have worked with, safety at work, new technologies that are changing their field, environmental questions in industry, and how they use English in technical work',
+    ),
+    {
+      id: 'S-2',
+      label: 'Task 2',
+      kind: 'role-play',
+      title: 'Situation 19',
+      source: 'paper',
+      examineeCard: {
+        heading: 'THE EXAMINEE’S ROLE',
+        text: [
+          'You are a distributor of photocopiers. You keep getting complaints from your customers saying that in model TX-1900 the paper is often stuck or the machine stops working for no obvious reason.',
+        ],
+        points: [
+          { text: 'Call the manufacturing company and forward the problem.' },
+          { text: 'Ask if a recall notice could be put in the press' },
+          { text: 'Suggest other solutions', sub: ['compensation', 'free service'] },
+        ],
+      },
+      examinerCard: {
+        heading: 'THE EXAMINER’S ROLE',
+        text: ['You are the head of the sales department of a company producing photocopiers.'],
+        points: [
+          { text: 'Try to convince the caller that this is the first time you have heard complaints about this series. (So far you have only received excellent feedback from you clients)' },
+          { text: 'Suggest that only quality paper should be used.' },
+          { text: 'If the problems persist the photocopiers should be returned to the firm and the money refunded.' },
+          { text: 'Say you will consider the other suggestions' },
+          { text: 'Invite the caller for a visit in the showroom for a demonstration session' },
+        ],
+      },
+      examinerBrief: [
+        'This is a phone call. You play the head of the sales department at the company that makes the photocopiers, following the examiner’s role card.',
+        'After setting the scene, answer the phone with a name you make up for yourself and the company, and let the candidate explain the problem.',
+        'Be polite but defend your product: this is the first time you have heard complaints about the TX-1900, and your clients have only given excellent feedback so far. Suggest that they use only quality paper.',
+        'React to a recall notice in the press with reluctance. Say that if the problems persist, the machines should be returned and the money refunded, and that you will consider their other suggestions (compensation, free service).',
+        'If the candidate forgets a point on their card, give them a natural opening. Finally invite them to a demonstration session in your showroom, agree on a day, and close the task.',
+      ].join(' '),
+      minutes: 5,
+      maxLearnerTurns: 10,
+    },
+    {
+      id: 'S-3',
+      label: 'Task 3',
+      kind: 'graph',
+      title: 'Chart description',
+      source: 'paper',
+      image: {
+        asset: 'nyelvvizsga-en-b2-muszaki-szobeli-minta-01-chart.webp',
+        alt: [
+          'Line chart: “Women Inventors 2000-2014”, the percentage of inventors who are women in six countries, with values for 2000, 2003, 2007, 2010 and 2014 joined by straight lines (axis 5.00–14.00 per cent). Values read off the chart (approximate):',
+          'Australia 11.1 → 13.6 → 13.3 → 12.4 → 9.2 (highest in 2003–2010, then a steep fall).',
+          'Chile 5.3 → 9.0 → 11.8 → 10.9 → 12.4 (the lowest in 2000, then the biggest rise).',
+          'Finland 6.9 → 7.5 → 8.1 → 12.2 → 8.0 (a jump in 2010, then a fall).',
+          'Greece 11.2 → 13.9 → 11.1 → 11.1 → 13.1 (highest in 2003 and in 2014).',
+          'Israel 10.2 → 11.9 → 12.4 → 10.0 → 10.8.',
+          'US 8.7 → 9.2 → 9.9 → 10.1 → 9.8 (slow, steady, almost flat).',
+          'In every country and year the share of women inventors stays below 14%. Data: stats.oecd.org; made with Chartbuilder.',
+        ].join(' '),
+      },
+      examinerBrief: [
+        'First ask the candidate to describe the chart: what it shows, the main trends, the highest and lowest values, and comparisons between the countries. Let them talk; only prompt gently if they stop very early.',
+        'Do not correct their figures.',
+        'Then ask two or three open questions, one at a time: why so few inventors are women, how more girls could be encouraged to study engineering and science, whether the situation is different in Hungary, famous women scientists or inventors they know.',
+        'React briefly to the answers, then close the task.',
+      ].join(' '),
+      minutes: 5,
+      maxLearnerTurns: 8,
+    },
+  ],
+}
+
+// --- Nyelvvizsga német (Zöld Út), B1 and B2 általános: szóbeli minta 1. -------------------
+// From the German sample papers' "Sprechen" pages: "Situation 2" (a role play with the
+// Kandidatenblatt only) and a picture to describe. The introductory conversation is not on
+// the paper: it is added like the English B1 exam's warm-up.
+
+function deNyelvvizsgaIntro(level: 'B1' | 'B2', avoid: string): SpeakingTask {
+  return {
+    id: 'S-1',
+    label: 'Aufgabe 1',
+    kind: 'interview',
+    title: 'Einführendes Gespräch',
+    source: 'added',
+    instructions: [
+      'Die Prüferin / der Prüfer stellt Ihnen einige Fragen zu Ihrer Person: zu Ihrem Studium oder Ihrer Arbeit, Ihrer Familie, Ihrem Wohnort, Ihrer Freizeit und Ihren Plänen.',
+    ],
+    examinerBrief: [
+      `Run a short warm-up conversation in German, as at the start of a ${level} oral language exam. Address the candidate formally with "Sie".`,
+      'Ask one personal question at a time about: their studies or work, their family, where they live, their free time and hobbies, why they are learning German and their plans.',
+      level === 'B2' ? 'Ask for reasons and opinions too, not just facts.' : 'Keep the questions simple.',
+      `Ask a natural follow-up when an answer is very short. Stay away from the topics of the later tasks (${avoid}). Cover four or five areas, then close the task.`,
+    ].join(' '),
+    minutes: 3,
+    maxLearnerTurns: 7,
+  }
+}
+
+const DE_PICTURE_INSTRUCTIONS = ['Beschreiben Sie das Bild und äußern Sie anschließend Ihre Gedanken zum Thema, das mit dem Bild verbunden ist.']
+
+const germanB1: SpeakingExam = {
+  paperId: 'nyelvvizsga-de-b1-szobeli-minta-01',
+  language: 'de',
+  board: 'zold-ut',
+  track: 'general',
+  level: 'B1',
+  title: 'Sprechen',
+  tasks: [
+    deNyelvvizsgaIntro('B1', 'school-leaving plans, studying abroad, travel in Europe; product labels and packaging'),
+    {
+      id: 'S-2',
+      label: 'Aufgabe 2',
+      kind: 'role-play',
+      title: 'Situation 2',
+      source: 'paper',
+      examineeCard: {
+        heading: 'Kandidatenblatt',
+        text: [
+          'Ihre Schule empfängt Austauschschüler aus Deutschland. Ihre Familie beherbergt einen Schüler einer Partnerschule und jetzt unterhalten Sie sich mit ihm / ihr.',
+        ],
+        points: [
+          { text: 'Fragen Sie ihn / sie nach seinen /ihren Plänen nach dem Schulabschluss.' },
+          { text: 'Sagen Sie ihm / ihr, wofür Sie sich besonders interessieren.' },
+          {
+            text: 'Erklären Sie ihm / ihr,',
+            sub: [
+              'an welcher ausländischen Universität Sie sich um einen Studienplatz bewerben möchten und warum,',
+              'in welchen Fächern Sie gute Noten benötigen',
+              'in welches europäische Land Sie am liebsten reisen würden und warum.',
+            ],
+          },
+        ],
+        after: ['SIE BEGINNEN DAS GESPRÄCH'],
+      },
+      examinerBrief: [
+        'Play a German exchange student from a partner school who is staying with the candidate’s family. You are chatting in a friendly way at home. Between two young people "du" would be natural, but follow the candidate: if they say "du", use "du" too.',
+        'The card says the candidate starts: after setting the scene in one sentence, wait for them to speak first.',
+        'When asked about your plans after school, give a short, concrete answer (for example an apprenticeship as a mechatronics technician, or studying medicine in Leipzig) and ask the candidate about their interests in return.',
+        'React naturally to what they tell you, and if they leave out a point on their card (their special interest, the foreign university and why, the subjects they need good marks in, the European country they would most like to visit and why), ask about it as a curious friend would.',
+        'Close the task once every point on their card has come up.',
+      ].join(' '),
+      minutes: 4,
+      maxLearnerTurns: 10,
+    },
+    {
+      id: 'S-3',
+      label: 'Aufgabe 3',
+      kind: 'picture',
+      title: 'Bildbeschreibung',
+      source: 'paper',
+      instructions: DE_PICTURE_INSTRUCTIONS,
+      image: {
+        asset: 'nyelvvizsga-de-b1-szobeli-minta-01-picture.webp',
+        alt: [
+          'A photo of two small sealed sachets of “bestview Brillen-Putztücher” (cleaning wipes for glasses) from the German drugstore chain Rossmann, front and back.',
+          'Front: a pair of glasses, a camera and a smartphone are pictured; the text says “schonende und streifenfreie Reinigung”, “auch für entspiegelte- & Kunststoffgläser” and “Zitronenduft”, with the ROSSMANN logo at the bottom.',
+          'Back: a red-and-white hazard symbol with a flame and the word “ACHTUNG” (flammable), and “Hinweis: Darf nicht in die Hände von Kindern gelangen.” Then “Hergestellt für Dirk Rossmann GmbH, Isernhägener Str. 16, 30938 Burgwedel, GERMANY”, a free info phone number (0800 - 76 77 62 66), the website www.domol.rossmann.de and a batch number.',
+        ].join(' '),
+      },
+      examinerBrief: [
+        'First ask the candidate to describe the picture. Let them talk; only prompt gently if they stop very early (for example: "Was steht auf der Rückseite?").',
+        'Then discuss the topic of the picture: everyday products and their packaging, what information a label gives and whether people read it, safety warnings and children, drugstore shopping, single-use products and waste, wearing glasses or contact lenses.',
+        'Ask two or three open questions in German, one at a time, and react briefly to the answers. Then close the task.',
+      ].join(' '),
+      minutes: 5,
+      maxLearnerTurns: 8,
+    },
+  ],
+}
+
+const germanB2: SpeakingExam = {
+  paperId: 'nyelvvizsga-de-b2-szobeli-minta-01',
+  language: 'de',
+  board: 'zold-ut',
+  track: 'general',
+  level: 'B2',
+  title: 'Sprechen',
+  tasks: [
+    deNyelvvizsgaIntro('B2', 'a language course in Germany, staying with a host family, illness, restaurants; food labels, Fairtrade, healthy eating'),
+    {
+      id: 'S-2',
+      label: 'Aufgabe 2',
+      kind: 'role-play',
+      title: 'Situation 2',
+      source: 'paper',
+      examineeCard: {
+        heading: 'Kandidatenblatt',
+        text: ['Sie nehmen gerade an einem Sprachkurs in Deutschland teil und wohnen bei einer einheimischen Familie.'],
+        points: [
+          { text: 'Teilen Sie Ihrem Gastgeber / Ihren Gastgebern mit, dass Sie Bauchschmerzen haben.' },
+          { text: 'Bitten Sie sie, Ihnen ein leichtes Frühstück und Kräutertee zu geben.' },
+          { text: 'Bitten Sie sie außerdem, Ihre Schule darüber zu informieren, dass Sie heute den Unterricht verpassen müssen.' },
+          { text: 'Erzählen Sie ihnen von dem Abendessen, das Sie gestern in einem Restaurant hatten, da dies die Ursache für Ihren gegenwärtigen Zustand sein könnte.' },
+        ],
+        after: ['IHR PARTNER BEGINNT DAS GESPRÄCH'],
+      },
+      examinerBrief: [
+        'You play the host mother or father of the German family the candidate is staying with during a language course. It is morning.',
+        'The card says you start: open in role at once, for example by greeting the candidate at breakfast and asking whether they slept well, then let them tell you how they feel.',
+        'Be caring: ask where it hurts and since when, offer something light (Zwieback, toast, a banana) and herbal tea (Kamille or Pfefferminz), agree to phone the language school, and ask what they ate yesterday and where. Suggest a doctor or the pharmacy if it does not get better.',
+        'If the candidate forgets a point on their card, give them a natural opening. Close the task once every point has been dealt with.',
+      ].join(' '),
+      minutes: 4,
+      maxLearnerTurns: 10,
+    },
+    {
+      id: 'S-3',
+      label: 'Aufgabe 3',
+      kind: 'picture',
+      title: 'Bildbeschreibung',
+      source: 'paper',
+      instructions: DE_PICTURE_INSTRUCTIONS,
+      image: {
+        asset: 'nyelvvizsga-de-b2-szobeli-minta-01-picture.webp',
+        alt: [
+          'A photo of the back of a chocolate bar wrapper (Lidl): “Vollmilchschokolade Salted Caramel”, 180 g, from Ludwig Weinrich GmbH & Co. KG, Herford.',
+          'Ingredients: milk chocolate with almond caramel and sea salt; cocoa at least 32%; sugar, 23% whole milk powder, cocoa butter, 10% almond caramel, butter, 0.5% almonds, lactose, 0.5% sea salt, emulsifier lecithin. “Kann Spuren von anderen Schalenfrüchten, Ei und Gluten enthalten.” Store cool and dry.',
+          'A nutrition table (Nährwerte) per 100 g / per 30 g portion / % of reference intake: energy 2282 kJ / 547 kcal (684 kJ / 164 kcal, 8%); fat 33.1 g (9.9 g, 14%), of which saturated 20.5 g (6.1 g, 31%); carbohydrate 54.3 g (16.3 g, 6%), of which sugar 52.8 g (15.8 g, 18%); protein 7.0 g (2.1 g, 4%); salt 0.85 g (0.26 g, 4%). Six portions of 30 g.',
+          'A Fairtrade logo with a text: cocoa, sugar and almonds were bought to Fairtrade standards (71.7% in total); Fairtrade supports better working and living conditions for producers and environmental protection.',
+          'At the bottom: recycling symbols (“Getrennt entsorgen”, C/PAP 82 and PAP 22, “Lokale Entsorgungsmöglichkeiten beachten”), an FSC mixed-paper logo, a barcode and a best-before date.',
+        ].join(' '),
+      },
+      examinerBrief: [
+        'First ask the candidate to describe the picture. Let them talk; only prompt gently if they stop very early (for example: "Was erfahren wir über die Nährwerte?").',
+        'Then discuss the topic of the picture in more depth, as at B2: reading food labels and nutrition tables, sugar and healthy eating, allergies, Fairtrade and whether people pay more for fair products, packaging and recycling, supermarket own brands.',
+        'Ask two or three open questions in German, one at a time, ask for reasons and opinions, and react briefly to the answers. Then close the task.',
+      ].join(' '),
+      minutes: 5,
       maxLearnerTurns: 8,
     },
   ],
@@ -1101,6 +1446,10 @@ export const SPEAKING_EXAMS: Record<string, SpeakingExam> = {
   [generalB1.paperId]: generalB1,
   [businessB1.paperId]: businessB1,
   [businessB1Speaking02.paperId]: businessB1Speaking02,
+  [businessB2.paperId]: businessB2,
+  [technicalB2.paperId]: technicalB2,
+  [germanB1.paperId]: germanB1,
+  [germanB2.paperId]: germanB2,
   [deSetA.paperId]: deSetA,
   [deSetB.paperId]: deSetB,
   [deSetC.paperId]: deSetC,

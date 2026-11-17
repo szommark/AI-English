@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { Check, Headphones } from 'lucide-react'
 import PageHeading from '../components/PageHeading'
-import ExamPartsHub from '../components/Exam/ExamPartsHub'
 import ExamSummary from '../components/Exam/ExamSummary'
 import { getSpeakingExam } from '../data/exams/speaking'
 import SectionResults from '../components/Exam/SectionResults'
@@ -16,17 +15,14 @@ import { answerKey, scorePaper, scoreSection, type AnswerValue } from '../lib/ex
 import { useLanguage } from '../lib/i18n'
 
 /**
- * `/exams/:paperId`: the paper itself, or — for a paper with a speaking part — the choice
- * between the written exam (`/exams/:paperId/written`, part="written") and the speaking exam.
+ * `/exams/:paperId` (and the older `/exams/:paperId/written`): the written paper. A speaking
+ * exam is a paper of its own, so its id leads on to `/exams/:paperId/speaking`.
  */
-export default function ExamPaperPage({ part }: { part?: 'written' }) {
+export default function ExamPaperPage() {
   const { paperId } = useParams()
   const meta = paperId ? getExamPaperMeta(paperId) : undefined
   if (!meta) return <Navigate to="/exams" replace />
-  const speaking = getSpeakingExam(meta.id)
-  // A speaking-only paper (the érettségi oral sample sets) has nothing but its speaking exam.
-  if (meta.speakingOnly) return <Navigate to={speaking ? `/exams/${meta.id}/speaking` : '/exams'} replace />
-  if (speaking && part !== 'written') return <ExamPartsHub meta={meta} speaking={speaking} />
+  if (meta.speakingOnly) return <Navigate to={getSpeakingExam(meta.id) ? `/exams/${meta.id}/speaking` : '/exams'} replace />
   return <PaperLoader key={meta.id} id={meta.id} />
 }
 

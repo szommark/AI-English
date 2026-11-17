@@ -7,8 +7,11 @@ export type ExamType = 'erettsegi' | 'nyelvvizsga'
 export type ExamLanguage = 'en' | 'de'
 export type ExamLevel = 'kozep' | 'emelt' | 'B1' | 'B2' | 'C1'
 export type SectionKind = 'reading' | 'language-use' | 'listening' | 'writing'
-/** Nyelvvizsga: general English or a professional language (gazdasági = economics and management). */
-export type ExamTrack = 'general' | 'business'
+/**
+ * Nyelvvizsga: the general exam or a professional language (gazdasági = economics and
+ * management, műszaki = technical).
+ */
+export type ExamTrack = 'general' | 'business' | 'technical'
 
 /** What the picker, the breadcrumb and the catalog need, without loading the paper's content. */
 export interface ExamPaperMeta {
@@ -20,7 +23,11 @@ export interface ExamPaperMeta {
   sittingLabelHu: string
   /** Nyelvvizsga only: which exam of the centre the paper belongs to. */
   track?: ExamTrack
-  /** A speaking exam on its own (e.g. the érettségi oral sample sets): no written paper, no loader. */
+  /**
+   * A speaking exam on its own: no written paper, no loader. Every speaking exam is one, so the
+   * picker lists written and speaking exams apart (a nyelvvizsga sample's speaking part is its
+   * own "Szóbeli minta").
+   */
   speakingOnly?: boolean
 }
 
@@ -227,7 +234,7 @@ export interface MultiSelectItem extends ItemBase {
   pick: number
 }
 
-export type WritingRegister = 'formal-email' | 'formal-letter' | 'informal-message' | 'forum-post' | 'description'
+export type WritingRegister = 'formal-email' | 'formal-letter' | 'informal-message' | 'forum-post' | 'description' | 'report'
 
 /**
  * A "complete the sentences" writing task: the paper prints the opening of each sentence and

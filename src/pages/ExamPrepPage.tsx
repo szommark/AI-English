@@ -81,7 +81,7 @@ function groupByYear(ids: string[]): { year: string | null; ids: string[] }[] {
   return groups
 }
 
-const TRACK_ORDER: ExamTrack[] = ['general', 'business']
+const TRACK_ORDER: ExamTrack[] = ['general', 'business', 'technical']
 
 /** Nyelvvizsga papers grouped by track (general first); papers without a track form one unlabelled group. */
 function groupByTrack(ids: string[]): { track: ExamTrack | null; ids: string[] }[] {
@@ -102,23 +102,23 @@ function PaperGroups({ ids }: { ids: string[] }) {
   )
 }
 
-/**
- * Written papers and speaking exams in two collapsed groups, when a cell has both kinds (the
- * German érettségi oral sample sets next to the written papers); otherwise just the papers.
- */
+/** Written papers and speaking exams always apart, each kind in its own collapsed group. */
 function PartGroups({ ids }: { ids: string[] }) {
   const { t } = useLanguage()
   const speaking = ids.filter((id) => getExamPaperMeta(id)!.speakingOnly)
   const written = ids.filter((id) => !getExamPaperMeta(id)!.speakingOnly)
-  if (!speaking.length || !written.length) return <PaperGroups ids={ids} />
   return (
     <>
-      <Collapsible title={t('exWrittenPapers')} count={written.length} icon={FileText}>
-        <PaperGroups ids={written} />
-      </Collapsible>
-      <Collapsible title={t('exSpeakingPapers')} count={speaking.length} icon={MessagesSquare}>
-        <PaperGroups ids={speaking} />
-      </Collapsible>
+      {written.length > 0 && (
+        <Collapsible title={t('exWrittenPapers')} count={written.length} icon={FileText}>
+          <PaperGroups ids={written} />
+        </Collapsible>
+      )}
+      {speaking.length > 0 && (
+        <Collapsible title={t('exSpeakingPapers')} count={speaking.length} icon={MessagesSquare}>
+          <PaperGroups ids={speaking} />
+        </Collapsible>
+      )}
     </>
   )
 }
