@@ -18,6 +18,7 @@ import {
   VERCEL_HOBBY_FUNCTIONS_PER_DEPLOYMENT,
   VERCEL_HOBBY_INVOCATIONS,
   VERCEL_HOBBY_TRANSFER_BYTES,
+  anthropicCostUsd,
   type AdminUsageSnapshot,
   type ManualMeterId,
   type UsageMeter,
@@ -45,7 +46,15 @@ interface DbSnapshot {
   active_users_30d: number
 }
 
-const MANUAL_METERS: Record<ManualMeterId, Omit<UsageMeter, 'used' | 'asOf' | 'source'>> = {
+/** Typed-in Claude Console balance; built separately because the app's spend is subtracted from it. */
+const ANTHROPIC_CREDIT_METER_ID = 'anthropic.credit_usd'
+
+function formatUsd(n: number): string {
+  if (n > 0 && n < 0.01) return 'under $0.01'
+  return `$${n.toFixed(2)}`
+}
+
+const MANUAL_METERS: Record<Exclude<ManualMeterId, typeof ANTHROPIC_CREDIT_METER_ID>, Omit<UsageMeter, 'used' | 'asOf' | 'source'>> = {
   'supabase.egress_bytes': {
     id: 'supabase.egress_bytes', vendor: 'supabase', label: 'Egress', limit: SUPABASE_FREE_EGRESS_BYTES,
     unit: 'bytes', period: 'cycle', note: 'No public API — copy from the Supabase org Usage page.',
@@ -235,6 +244,28 @@ export async function buildUsageSnapshot(): Promise<AdminUsageSnapshot> {
         source: 'measured', asOf: nowIso,
       },
     )
+  }
+
+  // Anthropic credit. No Anthropic API returns the prepaid balance, so the admin types the
+  // Console figure and this subtracts the Claude spend logged since then, at list price.
+  const creditRow = (manualRes.data ?? []).find((r) => r.meter_id === ANTHROPIC_CREDIT_METER_ID)
+  if (creditRow) {
+    const setAt = new Date(creditRow.updated_at as string)
+    const balance = Number(creditRow.value)
+    const spent = (await llmUsageSince(setAt))
+      .filter((r) => r.provider === 'anthropic')
+      .reduce((acc, r) => acc + anthropicCostUsd(r.model_id, r.prompt_tokens, r.completion_tokens), 0)
+    meters.push({
+      id: ANTHROPIC_CREDIT_METER_ID, vendor: 'anthropic', label: 'Credit left (estimate)', used: spent, limit: balance,
+      unit: 'usd', period: 'total', source: 'manual', asOf: setAt.toISOString(),
+      note: `You entered ${formatUsd(balance)} from the Claude Console. Claude calls since then cost about ${formatUsd(spent)} at list price, so about ${formatUsd(Math.max(0, balance - spent))} is left. Other apps on the same Anthropic account are not counted, so re-enter the Console figure now and then.`,
+    })
+  } else {
+    meters.push({
+      id: ANTHROPIC_CREDIT_METER_ID, vendor: 'anthropic', label: 'Credit left (estimate)', used: 0, limit: null,
+      unit: 'usd', period: 'total', source: 'manual', asOf: EPOCH_ISO,
+      note: 'Type the remaining credit shown on the Claude Console Billing page. No Anthropic API reports it, so the page counts down from your figure using the logged Claude calls.',
+    })
   }
 
   // Mistral, DeepSeek, Anthropic: no fixed free quota to compare against (see usageLimits.ts),

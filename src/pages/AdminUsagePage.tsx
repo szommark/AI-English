@@ -66,7 +66,7 @@ const VENDOR_CARDS: VendorCardConfig[] = [
   {
     vendor: 'anthropic', title: 'Anthropic Claude', subtitle: 'Claude Haiku 5.5 and Sonnet 5.5, when selected in Model settings', plan: 'Pay as you go',
     linkLabel: 'Open Claude Console billing', linkHref: 'https://platform.claude.com/settings/billing',
-    footnote: 'No ongoing free tier: new Console accounts get a one-time starter credit. Set a monthly spend limit in the Console.',
+    footnote: 'No ongoing free tier: new Console accounts get a one-time starter credit. No Anthropic API reports the remaining credit, so type it from the Console Billing page and this card counts down from it. Set a monthly spend limit in the Console.',
   },
   {
     vendor: 'vercel', title: 'Vercel', subtitle: 'Hosting and serverless functions', plan: 'Hobby',
@@ -104,11 +104,16 @@ function formatValue(value: number, unit: MeterUnit): string {
       return `${formatNumber(value)} requests`
     case 'count':
       return formatNumber(value)
+    case 'usd':
+      return value > 0 && value < 0.01 ? 'under $0.01' : `$${value.toFixed(2)}`
   }
 }
 
 function formatUsage(m: UsageMeter): string {
-  return m.limit === null ? formatValue(m.used, m.unit) : `${formatValue(m.used, m.unit)} of ${formatValue(m.limit, m.unit)}`
+  if (m.limit === null) return formatValue(m.used, m.unit)
+  // Credit reads as what is left; the bar and chip still show the share used.
+  if (m.unit === 'usd') return `${formatValue(Math.max(0, m.limit - m.used), 'usd')} left of ${formatValue(m.limit, 'usd')}`
+  return `${formatValue(m.used, m.unit)} of ${formatValue(m.limit, m.unit)}`
 }
 
 function formatPercent(used: number, limit: number): string {
@@ -147,6 +152,7 @@ function isStaleManual(m: UsageMeter, now: number): boolean {
 /** Manual bytes values are typed in GB; everything else in the meter's own unit. */
 function manualInputUnit(m: UsageMeter): { label: string; factor: number } {
   if (m.unit === 'bytes') return { label: 'GB', factor: GB }
+  if (m.unit === 'usd') return { label: 'USD', factor: 1 }
   return { label: m.unit === 'hours' ? 'h' : '', factor: 1 }
 }
 
@@ -226,7 +232,7 @@ function ManualEditor({ meter, onSaved }: { meter: UsageMeter; onSaved: () => vo
         onClick={() => setOpen(true)}
         className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-secondary"
       >
-        Update value
+        {meter.unit === 'usd' ? 'Update balance' : 'Update value'}
       </button>
     )
   }
@@ -279,11 +285,11 @@ function MeterRow({ meter, now, onSaved }: { meter: UsageMeter; now: number; onS
           </span>
           {status && style && meter.limit ? (
             <Chip bg={style.chipBg} color={style.chipText}>
-              {formatPercent(meter.used, meter.limit)} · {style.label}
+              {formatPercent(meter.used, meter.limit)}{meter.unit === 'usd' ? ' used' : ''} · {style.label}
             </Chip>
           ) : (
             <span className="rounded-full border border-dashed border-border px-2 py-0.5 text-xs text-muted-foreground">
-              Limit not set
+              {meter.unit === 'usd' ? 'Balance not set' : 'Limit not set'}
             </span>
           )}
         </span>
