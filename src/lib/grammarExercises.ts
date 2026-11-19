@@ -148,6 +148,55 @@ export function isDeicticGap(answer: string): boolean {
   return words.length > 0 && words.every((w) => DEICTIC_WORDS.has(w))
 }
 
+/** Closed-class words: when one is both the cue and the only answer, the bracket is the solution. */
+const FUNCTION_CUE_WORDS = new Set(
+  (
+    "i me my mine myself you your yours yourself he him his himself she her hers herself it its itself we us our ours ourselves they them their theirs themselves " +
+    "a an the this that these those some any much many few little no every each all both either neither " +
+    "am is are was were be will would shall should can could may might must ought need to not " +
+    "in on at by for from with of into onto under over between since ago " +
+    "and but or so because although though while if unless when until whether"
+  ).split(' '),
+)
+
+/** Auxiliaries that are also main verbs ("do my homework", "have a car"): only a give-away in a question. */
+const AUX_OR_MAIN_VERBS = new Set(['do', 'does', 'did', 'have', 'has', 'had'])
+
+/**
+ * Whether a form item's cue already is its answer, so the learner has nothing to work out:
+ * "He is reading ___ book. (his)", "___ you like tea? (do)", "She ___ (must) call her mother."
+ * A verb or adjective left in its base form ("They ___ (play) every Sunday." → "play") is a
+ * real choice and passes, and so does a cue listing options ("do / does").
+ */
+export function cueGivesAnswer(sentence: string, cue: string, answers: string[]): boolean {
+  const bare = normalizeAnswer(bareCue(cue))
+  if (!bare || bare.includes('/') || !answers.every((a) => normalizeAnswer(a) === bare)) return false
+  const words = bare.split(' ')
+  if (words.every((w) => AUX_OR_MAIN_VERBS.has(w))) return /\?\s*$/.test(sentence)
+  return words.every((w) => FUNCTION_CUE_WORDS.has(w) || AUX_OR_MAIN_VERBS.has(w))
+}
+
+/** Each possessive determiner with the pronouns that name the same owner again. */
+const SAME_OWNER: Record<string, string> = {
+  my: 'mine|me',
+  your: 'yours|you',
+  his: 'his|him',
+  her: 'hers|her',
+  its: 'its|it',
+  our: 'ours|us',
+  their: 'theirs|them',
+}
+
+/**
+ * A rewrite that names the same owner twice — "My book is mine.", "His house belongs to
+ * him." — says nothing a learner would ever say, so it can't be a model answer.
+ */
+export function repeatsOwner(sentence: string): boolean {
+  return Object.entries(SAME_OWNER).some(([det, again]) =>
+    new RegExp(`\\b${det}\\s+(?:[a-z'-]+\\s+){1,3}(?:is|are|was|were|belongs?\\s+to|belonged\\s+to)\\s+(?:${again})\\b`, 'i').test(sentence),
+  )
+}
+
 /** Words any rewrite may add without being told: auxiliaries, modals, pronouns, articles, linkers. */
 const FREE_WORDS = new Set(
   (
