@@ -31,6 +31,7 @@ import {
   loadWordlistDetail,
   loadWordlists,
   removeWordFromList,
+  setWordReviewed,
   renameWordlist,
 } from './_lib/vocabWordlists.js'
 import type { CefrLevel } from './_lib/prompts.js'
@@ -113,7 +114,10 @@ import {
 //   POST   wordlist-more&id=            { count } — more words for a custom list's topic and level (counts as a compile)
 //   POST   wordlist-word&id=            { terms } — add typed words to a custom list (409 if it has them all)
 //   DELETE wordlist-word&id=&itemId=    take a word off a custom list
-//   POST   wordlist-srs&id=             add a custom list's words to spaced repetition (SRS_MIN_WORDS words)
+//   PATCH  wordlist-word&id=&itemId=    { reviewed } — teacher/admin only (403): mark a generated (non-English)
+//                                        word on the caller's list reviewed or back to needs_review; global
+//   POST   wordlist-srs&id=             add a custom list's words to spaced repetition (SRS_MIN_WORDS words;
+//                                        words still needing review are held back: REVIEWED_ONLY_IN_SRS)
 // Fast practice (design §7.1; recorded apart from reviews, never rescheduled):
 //   POST   drill-start                  { list: { kind, id }, itemIds } — the run with every word's content
 //   POST   drill-answer                 { runId, itemId, exercise, correct, usedHint, responseMs }
@@ -858,6 +862,16 @@ async function handleWordlistWord(req: VercelRequest, res: VercelResponse, userI
     const itemId = req.query.itemId
     if (typeof itemId !== 'string' || !UUID_RE.test(itemId)) throw notFound()
     res.status(200).json(await withVocabErrors(() => removeWordFromList(userId, id, itemId)))
+    return
+  }
+  if (req.method === 'PATCH') {
+    // Items are global: only teachers and admins may mark a generated word reviewed.
+    if (!hasTeacherAccess(await getUserRole(userId))) throw new HttpError(403, { error: 'Forbidden' })
+    const itemId = req.query.itemId
+    if (typeof itemId !== 'string' || !UUID_RE.test(itemId)) throw notFound()
+    const reviewed = ((req.body ?? {}) as Record<string, unknown>).reviewed
+    if (typeof reviewed !== 'boolean') throw new HttpError(400, { error: 'reviewed must be a boolean' })
+    res.status(200).json(await withVocabErrors(() => setWordReviewed(userId, id, itemId, reviewed)))
     return
   }
   throw new HttpError(405, { error: 'Method not allowed' })

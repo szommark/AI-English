@@ -213,6 +213,29 @@ export type DaArticle = (typeof DA_ARTICLES)[number]
 
 export type ReviewStatus = 'needs_review' | 'reviewed'
 
+/**
+ * Generated (non-English) words stay out of spaced repetition until a teacher or admin
+ * marks them reviewed: a wrong meaning learned by heart is hard to unlearn. Fast practice,
+ * games and the Cards view still show them, with a "needs review" badge.
+ */
+export const REVIEWED_ONLY_IN_SRS = true
+
+/** Whether a word may be in spaced repetition (REVIEWED_ONLY_IN_SRS). English words always may. */
+export function srsEligible(targetLanguage: TargetLanguage, reviewStatus: ReviewStatus): boolean {
+  return !REVIEWED_ONLY_IN_SRS || targetLanguage === 'en' || reviewStatus === 'reviewed'
+}
+
+/** Browser TTS locale per target language; English keeps the learner's accent choice. */
+export const SPEECH_LOCALE_BY_TARGET: Partial<Record<TargetLanguage, string>> = { da: 'da-DK' }
+
+/** The nativeLocale to pass to useSpeechSynthesis for a list's language (undefined = English). */
+export function speechLocaleFor(lang: TargetLanguage | null | undefined): string | undefined {
+  return lang ? SPEECH_LOCALE_BY_TARGET[lang] : undefined
+}
+
+/** Danish audio comes from the browser's da-DK voice; an Azure voice is a later option, not built. */
+export const DA_TTS_PROVIDER: 'browser' | 'azure' = 'browser'
+
 /** "et hus" → "hus", "at spise" → "spise": a typed Danish word as its stored bare form. */
 export function stripDanishMarker(term: string): string {
   const trimmed = term.trim().replace(/\s+/g, ' ')
@@ -521,6 +544,11 @@ export interface WordlistSummary extends WordlistRef {
   wordCount: number
   /** Words of the list that are in spaced repetition (paused ones included). */
   inSrs: number
+  /**
+   * Words kept out of spaced repetition until reviewed (srsEligible); 0 for English lists.
+   * The list's session counts only wordCount − heldBack words.
+   */
+  heldBack: number
   /** This list's spaced-repetition pipeline; a session needs SRS_MIN_WORDS words. */
   srs: ListSrs
   /** Fast practice runs started on this list. */
@@ -545,9 +573,12 @@ export interface WordlistsResponse {
   compiledToday: number
 }
 
-/** A list can have a review session: enough words, and at least one of them in spaced repetition. */
-export function hasSrsSession(list: Pick<WordlistSummary, 'wordCount' | 'inSrs'>): boolean {
-  return list.wordCount >= SRS_MIN_WORDS && list.inSrs > 0
+/**
+ * A list can have a review session: enough words that may be in spaced repetition, and at
+ * least one of them there.
+ */
+export function hasSrsSession(list: Pick<WordlistSummary, 'wordCount' | 'inSrs'> & { heldBack?: number }): boolean {
+  return list.wordCount - (list.heldBack ?? 0) >= SRS_MIN_WORDS && list.inSrs > 0
 }
 
 /** A word's spaced-repetition card, if it has one. */
@@ -618,7 +649,14 @@ export interface AddWordsResult {
 export interface AddToSrsResult {
   cardsCreated: number
   alreadyInSrs: number
+  /** Words not added because they still need review (REVIEWED_ONLY_IN_SRS); 0 for English. */
+  heldBack: number
   detail: WordlistDetail
+}
+
+/** PATCH /api/vocab?action=wordlist-word&id=&itemId= { reviewed }: teacher/admin only. */
+export interface ReviewWordInput {
+  reviewed: boolean
 }
 
 /** One word of a Fast practice run, with what its exercises need. */

@@ -1671,6 +1671,40 @@ const messages = {
     en: 'A list needs at least {n} words for spaced repetition.',
     de: 'Für die Wiederholung braucht eine Liste mindestens {n} Wörter.',
   },
+  vcSrsMinReviewedWords: {
+    hu: 'Az ismétléshez legalább {n} ellenőrzött szó kell a listán.',
+    en: 'A list needs at least {n} reviewed words for spaced repetition.',
+    de: 'Für die Wiederholung braucht eine Liste mindestens {n} geprüfte Wörter.',
+  },
+  vcAllReviewedInSrs: {
+    hu: 'Minden ellenőrzött szó az ismétlésben van',
+    en: 'All reviewed words are in spaced repetition',
+    de: 'Alle geprüften Wörter sind in der Wiederholung',
+  },
+  vcSrsHeldBack: {
+    hu: '{n} szó még ellenőrzésre vár, ezért kimarad az ismétlésből. Gyakorolni és kártyázni már lehet vele.',
+    en: '{n} word(s) still need review, so they stay out of spaced repetition for now. You can already practise them and use them as cards.',
+    de: '{n} Wort/Wörter müssen noch geprüft werden und bleiben vorerst aus der Wiederholung. Üben und Karten gehen schon.',
+  },
+  vcNeedsReview: { hu: 'Ellenőrzésre vár', en: 'Needs review', de: 'Wird noch geprüft' },
+  vcNeedsReviewHint: {
+    hu: 'Ezt a szót gép készítette, és egy tanár még nem nézte át. Addig nem kerül az ismétlésbe.',
+    en: 'This word was generated and a teacher has not checked it yet. Until then it stays out of spaced repetition.',
+    de: 'Dieses Wort wurde automatisch erstellt und noch nicht von einer Lehrkraft geprüft. Bis dahin bleibt es aus der Wiederholung.',
+  },
+  vcReviewedToggle: { hu: 'Ellenőrizve', en: 'Reviewed', de: 'Geprüft' },
+  vcReviewedToggleHint: {
+    hu: 'Minden tanulónál érvényes: az ellenőrzött szó bekerülhet az ismétlésbe.',
+    en: 'Applies for every learner: a reviewed word can go into spaced repetition.',
+    de: 'Gilt für alle Lernenden: Ein geprüftes Wort darf in die Wiederholung.',
+  },
+  vcNoDanishVoice: {
+    hu: 'Ezen az eszközön nincs dán felolvasóhang, ezért itt nem lehet meghallgatni a szavakat. A rendszer beszédbeállításainál hozzáadhatsz egyet.',
+    en: "This device has no Danish voice, so the words can't be played here. You can add one in your system's speech settings.",
+    de: 'Dieses Gerät hat keine dänische Stimme, daher können die Wörter hier nicht vorgelesen werden. In den Spracheinstellungen des Systems lässt sich eine hinzufügen.',
+  },
+  fcPronunciation: { hu: 'Kiejtés', en: 'Pronunciation', de: 'Aussprache' },
+  fcVerbForms: { hu: 'Igealakok', en: 'Verb forms', de: 'Verbformen' },
   vcAddWords: { hu: 'Szavak hozzáadása', en: 'Add words', de: 'Wörter hinzufügen' },
   vcAddTypedTitle: { hu: 'Saját szavak', en: 'Type your own', de: 'Eigene Wörter' },
   vcAddWordsPlaceholder: {

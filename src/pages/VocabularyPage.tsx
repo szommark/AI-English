@@ -22,6 +22,7 @@ import { fetchPracticeSession, fetchWordlist, fetchWordlists, startDrill, startT
 import {
   COMPILES_PER_DAY,
   hasSrsSession,
+  speechLocaleFor,
   type DrillRun,
   type PracticeCard,
   type PracticeExercise,
@@ -84,7 +85,14 @@ export default function VocabularyPage() {
     return listId ? { name: 'list', ref: { kind: 'teacher', id: listId }, initial: null } : { name: 'tabs' }
   })
   const [accent, setAccent] = useState<AccentPreference>(() => getAccentPreference())
-  const tts = useSpeechSynthesis('female', accent)
+  // A Danish list's session speaks with a da-DK voice; English keeps the accent toggle.
+  const sessionLanguage =
+    view.name === 'review' || view.name === 'test' ? view.list.targetLanguage : view.name === 'drill' ? view.detail.list.targetLanguage : undefined
+  const speechLocale = speechLocaleFor(sessionLanguage)
+  const speech = useSpeechSynthesis('female', accent, speechLocale)
+  // No voice for that language: the session runs as without TTS (no listening exercise, no speakers).
+  const noVoice = speechLocale !== undefined && speech.hasVoice === false
+  const tts = noVoice ? { ...speech, supported: false } : speech
 
   const [wordlists, setWordlists] = useState<WordlistsResponse | null>(null)
   const [loadFailed, setLoadFailed] = useState(false)
@@ -173,6 +181,7 @@ export default function VocabularyPage() {
   }
 
   const startError = startFailed && <p className="text-sm text-red-600">{t('vcDrillFailed')}</p>
+  const noVoiceLine = noVoice && <p className="text-xs text-muted-foreground">{t('vcNoDanishVoice')}</p>
 
   let body: ReactNode
   switch (view.name) {
@@ -182,6 +191,7 @@ export default function VocabularyPage() {
           <p className="break-words text-sm text-muted-foreground">
             {t('vcListSrsTitle')} · <span className="font-medium text-foreground">{listTitle(view.list)}</span>
           </p>
+          {noVoiceLine}
           <PracticeSession
             cards={view.cards}
             speech={tts}
@@ -205,6 +215,7 @@ export default function VocabularyPage() {
           <p className="break-words text-sm text-muted-foreground">
             {t('vcTestTitle')} · <span className="font-medium text-foreground">{listTitle(view.list)}</span>
           </p>
+          {noVoiceLine}
           <TestSession
             key={view.run.testId}
             testId={view.run.testId}
@@ -236,17 +247,20 @@ export default function VocabularyPage() {
 
     case 'drill':
       body = (
-        <DrillSession
-          key={view.run.runId}
-          runId={view.run.runId}
-          cards={view.run.cards}
-          exercises={view.choice.exercises}
-          speech={tts}
-          onFinish={(summary) => {
-            setView({ ...view, name: 'drill-summary', summary })
-            refresh()
-          }}
-        />
+        <div className="space-y-3">
+          {noVoiceLine}
+          <DrillSession
+            key={view.run.runId}
+            runId={view.run.runId}
+            cards={view.run.cards}
+            exercises={view.choice.exercises}
+            speech={tts}
+            onFinish={(summary) => {
+              setView({ ...view, name: 'drill-summary', summary })
+              refresh()
+            }}
+          />
+        </div>
       )
       break
 

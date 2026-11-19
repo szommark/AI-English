@@ -28,6 +28,7 @@ import {
   isVocabTopicId,
   testScore,
   mixedLevels,
+  srsEligible,
   termKey,
   termKind,
   tidyHyphens,
@@ -36,6 +37,7 @@ import {
   type CompileInput,
   type ListLevel,
   type ListTestScores,
+  type ReviewStatus,
   type TargetLanguage,
   type VocabOrigin,
   type WordCard,
@@ -77,7 +79,7 @@ const ITEM_COLUMNS =
 /** A list word's content: what the exercises need, plus the target-language card fields. */
 type ListItemContent = ItemContent & {
   target_language: TargetLanguage
-  review_status: 'needs_review' | 'reviewed'
+  review_status: ReviewStatus
   article: 'en' | 'et' | null
   pronunciation_hint: string | null
   example_hu: string | null
@@ -154,16 +156,16 @@ async function cardsByTerm(userId: string, terms: string[]): Promise<Map<string,
   return cards
 }
 
-/** The terms of each of the caller's own lists. */
+/** The terms of each of the caller's own lists that may be in spaced repetition (srsEligible). */
 async function customListTerms(userId: string): Promise<string[][]> {
   const { data, error } = await supabaseAdmin
     .from('vocab_student_lists')
-    .select('vocab_student_list_items(vocab_items(term_normalized))')
+    .select('vocab_student_list_items(vocab_items(term_normalized, target_language, review_status))')
     .eq('user_id', userId)
   if (error) throw error
   return ((data ?? []) as unknown as {
-    vocab_student_list_items: { vocab_items: { term_normalized: string } | null }[]
-  }[]).map((l) => l.vocab_student_list_items.flatMap((i) => (i.vocab_items ? [i.vocab_items.term_normalized] : [])))
+    vocab_student_list_items: { vocab_items: SummaryItem | null }[]
+  }[]).map((l) => srsTerms(l.vocab_student_list_items.flatMap((i) => (i.vocab_items ? [i.vocab_items] : []))))
 }
 
 /**
@@ -310,13 +312,28 @@ interface TeacherAssignmentRow {
   } | null
 }
 
+/** What a custom list summary needs of each word: its key and whether it may be in SRS. */
+interface SummaryItem {
+  term_normalized: string
+  target_language: TargetLanguage
+  review_status: ReviewStatus
+}
+
+/** The keys of the words that may be in spaced repetition (srsEligible). */
+function srsTerms(items: SummaryItem[]): string[] {
+  return items.filter((i) => srsEligible(i.target_language, i.review_status)).map((i) => i.term_normalized)
+}
+
 function customSummary(
   list: StudentListRow,
-  terms: string[],
+  items: SummaryItem[],
   ctx: SrsContext,
   practiceCount: number,
   tests: Map<string, ListTestScores>,
 ): WordlistSummary {
+  // Words still needing review count as list words but stay out of the SRS numbers.
+  const terms = items.map((i) => i.term_normalized)
+  const eligible = srsTerms(items)
   return {
     kind: 'custom',
     id: list.id,
@@ -325,8 +342,9 @@ function customSummary(
     topic: list.topic,
     targetLanguage: list.target_language,
     wordCount: terms.length,
-    inSrs: terms.filter((t) => ctx.cards.has(t)).length,
-    srs: listSrs(terms, ctx),
+    inSrs: eligible.filter((t) => ctx.cards.has(t)).length,
+    heldBack: terms.length - eligible.length,
+    srs: listSrs(eligible, ctx),
     practiceCount,
     tests: tests.get(listKey({ kind: 'custom', id: list.id })) ?? null,
     createdAt: list.created_at,
@@ -368,6 +386,7 @@ async function teacherSummaries(
       targetLanguage: 'en',
       wordCount: terms.length,
       inSrs: terms.filter((t) => ctx.cards.has(t)).length,
+      heldBack: 0,
       srs: listSrs(terms, ctx),
       practiceCount: practiced.get(listKey({ kind: 'teacher', id: l.id })) ?? 0,
       tests: tests.get(listKey({ kind: 'teacher', id: l.id })) ?? null,
@@ -398,6 +417,7 @@ function conversationsSummary(
     targetLanguage: 'en',
     wordCount: tutorCards.length,
     inSrs: tutorCards.length,
+    heldBack: 0,
     srs: listSrs(
       tutorCards.map((c) => c.term_normalized),
       ctx,
@@ -418,7 +438,10 @@ export async function loadWordlists(userId: string, now = new Date()): Promise<W
     cardsStartedToday(userId, now),
     supabaseAdmin
       .from('vocab_student_lists')
-      .select('id, title, topic, cefr_level, target_language, created_at, vocab_student_list_items(vocab_items(term_normalized))')
+      .select(
+        'id, title, topic, cefr_level, target_language, created_at, ' +
+          'vocab_student_list_items(vocab_items(term_normalized, target_language, review_status))',
+      )
       .eq('user_id', userId)
       .order('created_at', { ascending: false }),
     supabaseAdmin
@@ -436,12 +459,12 @@ export async function loadWordlists(userId: string, now = new Date()): Promise<W
 
   const ctx: SrsContext = { cards: new Map(deck.map((c) => [c.term_normalized, c])), startedToday, now }
   const customRows = (custom.data ?? []) as unknown as (StudentListRow & {
-    vocab_student_list_items: { vocab_items: { term_normalized: string } | null }[]
+    vocab_student_list_items: { vocab_items: SummaryItem | null }[]
   })[]
   const customLists = customRows.map((l) =>
     customSummary(
       l,
-      l.vocab_student_list_items.flatMap((i) => (i.vocab_items ? [i.vocab_items.term_normalized] : [])),
+      l.vocab_student_list_items.flatMap((i) => (i.vocab_items ? [i.vocab_items] : [])),
       ctx,
       practiced.get(listKey({ kind: 'custom', id: l.id })) ?? 0,
       tests,
@@ -516,7 +539,12 @@ export async function loadListWords(
     ])
     const rows = await withCards(userId, await customListItems(list.id))
     const ctx = rowsContext(rows, startedToday, now)
-    return { summary: customSummary(list, rows.map((r) => r.term_normalized), ctx, practiceCount, tests), rows, ctx }
+    const items = rows.map((r) => ({
+      term_normalized: r.term_normalized,
+      target_language: r.vocab_items.target_language,
+      review_status: r.vocab_items.review_status,
+    }))
+    return { summary: customSummary(list, items, ctx, practiceCount, tests), rows, ctx }
   }
 
   if (ref.kind === 'teacher') {
@@ -901,11 +929,13 @@ export async function removeWordFromList(userId: string, listId: string, itemId:
  * they are, like Tutor Bot words (§4.3). Teacher lists join automatically on assignment
  * and conversation words already are cards, so only custom lists take this. A list needs
  * SRS_MIN_WORDS words: its review session draws the meaning exercise's options from it.
+ * Words still needing review (Danish, REVIEWED_ONLY_IN_SRS) are held back and don't count.
  */
 export async function addListToSrs(userId: string, listId: string): Promise<AddToSrsResult> {
-  const { rows } = await loadListWords(userId, { kind: 'custom', id: listId })
+  const { rows: all } = await loadListWords(userId, { kind: 'custom', id: listId })
+  const rows = srsRows(all)
   if (rows.length < SRS_MIN_WORDS) {
-    throw new VocabApiError(400, `A list needs at least ${SRS_MIN_WORDS} words for spaced repetition`)
+    throw new VocabApiError(400, `A list needs at least ${SRS_MIN_WORDS} reviewed words for spaced repetition`)
   }
   const missing = rows.filter((r) => !r.card)
   const now = new Date()
@@ -933,6 +963,44 @@ export async function addListToSrs(userId: string, listId: string): Promise<AddT
   return {
     cardsCreated,
     alreadyInSrs: rows.length - missing.length,
+    heldBack: all.length - rows.length,
     detail: await loadWordlistDetail(userId, { kind: 'custom', id: listId }),
   }
+}
+
+/** The rows that may be in spaced repetition (srsEligible): reviews and sessions use only these. */
+export function srsRows<T extends { vocab_items: Pick<ListItemContent, 'target_language' | 'review_status'> }>(rows: T[]): T[] {
+  return rows.filter((r) => srsEligible(r.vocab_items.target_language, r.vocab_items.review_status))
+}
+
+/**
+ * PATCH wordlist-word { reviewed } (teacher/admin; the caller checks the role): marks a
+ * generated word on the caller's own custom list reviewed, or back to needs review. Items
+ * are global, so this changes the word for every learner. Only shared non-English items
+ * have a review state: English words and teacher-owned rows are a 400.
+ */
+export async function setWordReviewed(userId: string, listId: string, itemId: string, reviewed: boolean): Promise<WordlistDetail> {
+  await loadOwnList(userId, listId)
+  const { data: onList, error: listError } = await supabaseAdmin
+    .from('vocab_student_list_items')
+    .select('item_id, vocab_items(target_language, owner_teacher_id)')
+    .eq('list_id', listId)
+    .eq('item_id', itemId)
+    .maybeSingle()
+  if (listError) throw listError
+  const item = (onList as unknown as { vocab_items: { target_language: TargetLanguage; owner_teacher_id: string | null } | null } | null)
+    ?.vocab_items
+  if (!item) throw notFound()
+  if (item.target_language === 'en' || item.owner_teacher_id !== null) {
+    throw new VocabApiError(400, 'Only generated non-English words have a review state')
+  }
+
+  const { error } = await supabaseAdmin
+    .from('vocab_items')
+    .update({ review_status: reviewed ? 'reviewed' : 'needs_review' })
+    .eq('id', itemId)
+    .neq('target_language', 'en')
+    .is('owner_teacher_id', null)
+  if (error) throw error
+  return loadWordlistDetail(userId, { kind: 'custom', id: listId })
 }

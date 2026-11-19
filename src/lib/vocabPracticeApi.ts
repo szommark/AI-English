@@ -10,6 +10,7 @@ import type {
   PracticeSession,
   ReviewInput,
   ReviewResult,
+  ReviewWordInput,
   TestAnswerInput,
   TestResult,
   TestRun,
@@ -98,6 +99,14 @@ export function addWordsToList(id: string, terms: string[]): Promise<AddWordsRes
 
 export function removeWordFromList(id: string, itemId: string): Promise<WordlistDetail> {
   return request(`action=wordlist-word&id=${listId(id)}&itemId=${encodeURIComponent(itemId)}`, { method: 'DELETE' })
+}
+
+/** Teacher/admin only: marks a generated word reviewed (or back to needs review) for every learner. */
+export function setWordReviewed(id: string, itemId: string, reviewed: boolean): Promise<WordlistDetail> {
+  return request(`action=wordlist-word&id=${listId(id)}&itemId=${encodeURIComponent(itemId)}`, {
+    method: 'PATCH',
+    body: { reviewed } satisfies ReviewWordInput,
+  })
 }
 
 export function addListToSrs(id: string): Promise<AddToSrsResult> {
