@@ -108,6 +108,118 @@ export function termKind(term: string): VocabKind {
   return normalizeTerm(term).includes(' ') ? 'phrase' : 'word'
 }
 
+// --- Target languages (Danish, Phase 1) ---------------------------------------------------
+
+/** Languages a word can be learned in. Must match the target_language check constraints. */
+export const TARGET_LANGUAGES = ['en', 'da'] as const
+export type TargetLanguage = (typeof TARGET_LANGUAGES)[number]
+export const DEFAULT_TARGET_LANGUAGE: TargetLanguage = 'en'
+
+export function isTargetLanguage(value: unknown): value is TargetLanguage {
+  return typeof value === 'string' && (TARGET_LANGUAGES as readonly string[]).includes(value)
+}
+
+/** "da:" etc.: the key prefix of every non-English language. */
+const LANGUAGE_KEY_PREFIXES = TARGET_LANGUAGES.filter((l) => l !== 'en').map((l) => `${l}:`)
+
+/**
+ * The term_normalized key of a term in a language: normalizeTerm(term) for English,
+ * '<lang>:' + normalizeTerm(term) otherwise (vocab_items_term_language_check), so a Danish
+ * "hus" never meets an English "hus" in the cache, a list or the learner's deck. Returns ''
+ * (treated as no term) for empty input, and for an English term that would normalize to a
+ * reserved prefix ("da:hus" typed as English).
+ */
+export function termKey(term: string, lang: TargetLanguage = DEFAULT_TARGET_LANGUAGE): string {
+  const normalized = normalizeTerm(term)
+  if (!normalized) return ''
+  if (lang === 'en') return LANGUAGE_KEY_PREFIXES.some((p) => normalized.startsWith(p)) ? '' : normalized
+  return `${lang}:${normalized}`
+}
+
+/** The language a term_normalized key belongs to (see termKey). */
+export function keyLanguage(key: string): TargetLanguage {
+  return TARGET_LANGUAGES.find((l) => l !== 'en' && key.startsWith(`${l}:`)) ?? 'en'
+}
+
+/** A key without its language prefix: the normalized term itself. */
+export function bareKey(key: string): string {
+  const lang = keyLanguage(key)
+  return lang === 'en' ? key : key.slice(lang.length + 1)
+}
+
+/** Levels Danish words are generated at. */
+export const DA_LEVELS = ['A1', 'A2', 'B1'] as const
+export type DaLevel = (typeof DA_LEVELS)[number] & CefrLevel
+
+export function isDaLevel(level: unknown): level is DaLevel {
+  return typeof level === 'string' && (DA_LEVELS as readonly string[]).includes(level)
+}
+
+/** The topic of a "most frequent everyday words" Danish list. */
+export const DA_TOP_FREQUENCY_TOPIC = 'top-frequency'
+
+/** Topics offered for Danish lists (VOCAB_TOPICS ids where they fit), plus DA_TOP_FREQUENCY_TOPIC. */
+export const DA_TOPICS = [
+  'food',
+  'travel',
+  'work',
+  'family',
+  'numbers',
+  'shopping',
+  'health',
+  'home',
+  'free-time',
+  'nature',
+] as const
+export type DaTopicId = (typeof DA_TOPICS)[number]
+
+/** English topic names for the Danish prompt (UI labels live in i18n, Phase 3). */
+export const DA_TOPIC_PROMPT: Record<DaTopicId, string> = {
+  food: 'food and drink',
+  travel: 'travel, transport and directions',
+  work: 'work and jobs',
+  family: 'family and relatives',
+  numbers: 'numbers, time and dates',
+  shopping: 'shopping and money',
+  health: 'health and the body',
+  home: 'the home: rooms, furniture and housework',
+  'free-time': 'free time and hobbies',
+  nature: 'nature and weather',
+}
+
+export function isDaTopicId(topic: string): topic is DaTopicId {
+  return (DA_TOPICS as readonly string[]).includes(topic)
+}
+
+/** Most cards asked of the model in one Danish generation call. */
+export const DA_GENERATE_BATCH_SIZE = 20
+/** Output budget of a Danish generation call (reasoning models spend part of it thinking). */
+export const DA_GENERATE_MAX_TOKENS = 6000
+/**
+ * Output tokens budgeted per Danish card. A sample 14-card reply came to ~60–90 tokens per
+ * card (at 3.5–2.5 characters per token: æøå and Hungarian accents tokenize worse); this
+ * leaves headroom. DA_GENERATE_BATCH_SIZE × this must stay within DA_GENERATE_MAX_TOKENS.
+ */
+export const DA_TOKENS_PER_CARD = 160
+/** Extra cards asked for, so dropping invalid or already-known ones still leaves enough. */
+export const DA_PICK_SLACK = 3
+/** Stored Danish items read per compile to choose from at random. */
+export const DA_STORED_POOL_MAX = 500
+/** Words in a Danish example sentence (A1–A2 grammar). */
+export const DA_EXAMPLE_MAX_WORDS = 10
+export const DA_PRONUNCIATION_HINT_MAX_LENGTH = 60
+export const DA_ARTICLES = ['en', 'et'] as const
+export type DaArticle = (typeof DA_ARTICLES)[number]
+
+export type ReviewStatus = 'needs_review' | 'reviewed'
+
+/** "et hus" → "hus", "at spise" → "spise": a typed Danish word as its stored bare form. */
+export function stripDanishMarker(term: string): string {
+  const trimmed = term.trim().replace(/\s+/g, ' ')
+  const match = /^(en|et|at) (\S.*)$/iu.exec(trimmed)
+  return match ? match[2] : trimmed
+}
+
 // --- Teacher word lists (Phase 2, design §5.1) -------------------------------------------
 
 export const LIST_TITLE_MAX_LENGTH = 120
@@ -404,6 +516,8 @@ export interface WordlistSummary extends WordlistRef {
   cefrLevel: ListLevel | null
   /** Custom lists: a VOCAB_TOPICS id or the student's own topic. */
   topic: string | null
+  /** Custom lists can be Danish; teacher and conversations lists are English. */
+  targetLanguage: TargetLanguage
   wordCount: number
   /** Words of the list that are in spaced repetition (paused ones included). */
   inSrs: number
@@ -451,8 +565,20 @@ export interface WordlistWord {
   term: string
   cefrLevel: CefrLevel | null
   meaningHu: string | null
+  /** Danish words: the optional English gloss. */
   definitionEn: string | null
+  /** Example in the word's target language (Danish words: the Danish sentence). */
   exampleEn: string | null
+  targetLanguage: TargetLanguage
+  /** Danish nouns: en or et (term is the bare noun). */
+  article: DaArticle | null
+  /** Danish words: a simple respelling for a Hungarian reader. */
+  pronunciationHint: string | null
+  /** Hungarian translation of the example (Danish words). */
+  exampleHu: string | null
+  /** Danish verbs: infinitive, present, past, perfect. */
+  verbForms: string[] | null
+  reviewStatus: ReviewStatus
   /** Tutor Bot words: what the learner said, and the better version. */
   contextOriginal: string | null
   contextCorrected: string | null
@@ -471,6 +597,11 @@ export interface CompileInput {
   cefrLevel: ListLevel
   count: number
   title: string
+  /**
+   * Defaults to 'en'. Danish: topic is a DA_TOPICS id, DA_TOP_FREQUENCY_TOPIC or the
+   * student's own; cefrLevel one of DA_LEVELS, or 'mixed' for all of them.
+   */
+  targetLanguage?: TargetLanguage
 }
 
 /** POST /api/vocab?action=wordlist-word { terms }: typed words added to a custom list. */
@@ -478,6 +609,8 @@ export interface AddWordsResult {
   added: string[]
   /** Typed terms the list already had; skipped. */
   alreadyInList: string[]
+  /** Danish lists: typed words the model couldn't make a card for; not added. */
+  failed: string[]
   detail: WordlistDetail
 }
 

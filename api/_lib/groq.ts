@@ -15,12 +15,18 @@ import { WORD_PICK_MAX_WORDS_PER_TERM, type CefrLevel } from './prompts.js'
 import { isValidSubtype, OTHER_SUBTYPE } from '../../src/data/mistakeTaxonomy.js'
 import { recordGroqRateLimits } from './groqRateLimit.js'
 import {
+  DA_EXAMPLE_MAX_WORDS,
+  DA_PRONUNCIATION_HINT_MAX_LENGTH,
   ITEM_FIELD_MAX_LENGTH,
   MAX_TUTOR_ITEMS_PER_SESSION,
   TERM_MAX_LENGTH,
   normalizeTerm,
+  stripDanishMarker,
+  termKey,
   termKind,
+  tidyHyphens,
   VOCAB_POS,
+  type DaArticle,
   type VocabKind,
   type VocabPos,
 } from '../../src/lib/vocab.js'
@@ -541,4 +547,149 @@ export function parseWordPickJson(raw: string): string[] {
     terms.push(term)
   }
   return terms
+}
+
+/** One Danish card from buildDanishVocabPrompt's reply, validated. */
+export interface DanishVocabEntry {
+  /** Bare Danish word (no article, no "at"). */
+  term: string
+  /** termKey(term, 'da'): 'da:' + normalizeTerm(term). */
+  termNormalized: string
+  kind: VocabKind
+  pos: VocabPos
+  article: DaArticle | null
+  cefrLevel: CefrLevel
+  pronunciationHint: string
+  meaningHu: string
+  meaningEn: string | null
+  exampleDa: string
+  exampleHu: string
+  /** Verbs: infinitive, present, past, perfect. */
+  verbForms: string[] | null
+}
+
+export interface DanishVocabParseResult {
+  entries: DanishVocabEntry[]
+  /** Card mode: input terms (as given) with no valid card. Pick mode: always empty. */
+  failed: string[]
+  /** Cards in the reply that were dropped as invalid, duplicate or avoided. */
+  dropped: number
+}
+
+/** Letters (æ, ø, å and other accents included), spaces, hyphens and apostrophes. */
+const DANISH_TERM_RE = /^[\p{L}][\p{L}' -]*$/u
+/** IPA and transcription marks a respelling must not use. */
+const IPA_RE = /[ˈˌːˑəɐɒɑɔɛɪʊʌʁʔðθŋɲʃʒɕ/[\]]/u
+
+function wordCount(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length
+}
+
+function trimmedLine(v: unknown, maxLength = ITEM_FIELD_MAX_LENGTH): string | null {
+  if (typeof v !== 'string') return null
+  const text = v.trim().replace(/\s+/g, ' ')
+  return text && text.length <= maxLength ? text : null
+}
+
+/**
+ * Strict parser for buildDanishVocabPrompt's reply. A card is kept only when every
+ * required field is valid: a Danish word (letters only, at most
+ * WORD_PICK_MAX_WORDS_PER_TERM words; a noun's leading "en"/"et" or a verb's "at" is moved out of it), a
+ * known pos, an article en/et for nouns (and only for nouns), a level among `levels`, a
+ * respelling without IPA, Hungarian meaning, a Danish example of at most
+ * DA_EXAMPLE_MAX_WORDS words with its Hungarian translation, and for verbs exactly four
+ * forms whose first is the word and whose last starts with "har" or "er". meaningEn is
+ * optional. Duplicates (by termKey) and `avoid` keys are dropped. With `inputTerms` (card
+ * mode) only cards for those terms count, matched by key, never by position. Tolerates a
+ * wrapper object or a bare array; throws only when the reply isn't JSON at all.
+ */
+export function parseDanishVocabJson(
+  raw: string,
+  opts: { levels: readonly CefrLevel[]; avoid?: ReadonlySet<string>; inputTerms?: string[] },
+): DanishVocabParseResult {
+  const cleaned = raw.trim().replace(/^```(json)?/i, '').replace(/```$/, '').trim()
+  const parsed: unknown = JSON.parse(cleaned)
+  const list: unknown[] = Array.isArray(parsed)
+    ? parsed
+    : typeof parsed === 'object' && parsed !== null
+      ? ((Object.values(parsed).find(Array.isArray) as unknown[] | undefined) ?? [])
+      : []
+
+  const levels = new Set<string>(opts.levels)
+  // Card mode: a typed "et hus" may come back as "hus", a typed "en gang" (a phrase) as itself.
+  const wanted = opts.inputTerms
+    ? new Map(opts.inputTerms.flatMap((t) => [termKey(t, 'da'), termKey(stripDanishMarker(t), 'da')].map((key) => [key, t] as const)))
+    : null
+  const seen = new Set<string>()
+  const entries: DanishVocabEntry[] = []
+  let dropped = 0
+
+  for (const item of list) {
+    const entry = typeof item === 'object' && item !== null ? danishEntry(item as Record<string, unknown>, levels) : null
+    if (!entry || seen.has(entry.termNormalized) || opts.avoid?.has(entry.termNormalized) || (wanted && !wanted.has(entry.termNormalized))) {
+      dropped++
+      continue
+    }
+    seen.add(entry.termNormalized)
+    entries.push(entry)
+  }
+
+  const failed = (opts.inputTerms ?? []).filter((t) => ![termKey(t, 'da'), termKey(stripDanishMarker(t), 'da')].some((key) => seen.has(key)))
+  return { entries, failed, dropped }
+}
+
+function danishEntry(e: Record<string, unknown>, levels: Set<string>): DanishVocabEntry | null {
+  const rawWord = trimmedLine(e.word, TERM_MAX_LENGTH)
+  if (!rawWord) return null
+  if (typeof e.pos !== 'string' || !VOCAB_POS_SET.has(e.pos)) return null
+  const pos = e.pos as VocabPos
+  // "et hus" / "at spise": a noun's article or a verb's "at" doesn't belong in the word.
+  // Phrases keep theirs ("en gang").
+  const marker = /^(en|et|at) (?=\S)/i.exec(rawWord)?.[1]?.toLowerCase()
+  const strip = (pos === 'noun' && (marker === 'en' || marker === 'et')) || (pos === 'verb' && marker === 'at')
+  const term = tidyHyphens(strip ? rawWord.slice(3) : rawWord)
+  if (!DANISH_TERM_RE.test(term) || wordCount(term) > WORD_PICK_MAX_WORDS_PER_TERM) return null
+  if (typeof e.cefrLevel !== 'string' || !levels.has(e.cefrLevel)) return null
+
+  let article: DaArticle | null = null
+  if (pos === 'noun') {
+    const given = typeof e.article === 'string' ? e.article.trim().toLowerCase() : strip ? marker! : ''
+    if (given !== 'en' && given !== 'et') return null
+    article = given
+  }
+
+  const hint = trimmedLine(e.pronunciationHint, DA_PRONUNCIATION_HINT_MAX_LENGTH)
+  if (!hint || IPA_RE.test(hint)) return null
+
+  const meaningHu = trimmedLine(e.meaningHu)
+  const exampleDa = trimmedLine(e.exampleDa)
+  const exampleHu = trimmedLine(e.exampleHu)
+  if (!meaningHu || !exampleDa || !exampleHu || wordCount(exampleDa) > DA_EXAMPLE_MAX_WORDS) return null
+
+  let verbForms: string[] | null = null
+  if (pos === 'verb') {
+    if (!Array.isArray(e.verbForms) || e.verbForms.length !== 4) return null
+    const forms = e.verbForms.map((f) => trimmedLine(f, TERM_MAX_LENGTH))
+    if (forms.some((f) => !f || !DANISH_TERM_RE.test(f))) return null
+    const [infinitive, , , perfect] = forms as string[]
+    const bareInfinitive = infinitive.replace(/^at /i, '')
+    if (normalizeTerm(bareInfinitive) !== normalizeTerm(term)) return null
+    if (!/^(har|er) \S/i.test(perfect)) return null
+    verbForms = [bareInfinitive, ...(forms as string[]).slice(1)].map(tidyHyphens)
+  }
+
+  return {
+    term,
+    termNormalized: termKey(term, 'da'),
+    kind: termKind(term),
+    pos,
+    article,
+    cefrLevel: e.cefrLevel as CefrLevel,
+    pronunciationHint: hint,
+    meaningHu: tidyHyphens(meaningHu),
+    meaningEn: trimmedLine(e.meaningEn) && tidyHyphens(trimmedLine(e.meaningEn)!),
+    exampleDa: tidyHyphens(exampleDa),
+    exampleHu: tidyHyphens(exampleHu),
+    verbForms,
+  }
 }

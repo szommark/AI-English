@@ -5,6 +5,7 @@ import { logModelUsage } from './usageLog.js'
 import { buildVocabWordPickPrompt, type CefrLevel } from './prompts.js'
 import { parseWordPickJson } from './groq.js'
 import { enrichTerms } from './vocabEnrichment.js'
+import { danishLevels, pickDanishWords, resolveTypedDanishWords, typedDanishKeys } from './vocabDanish.js'
 import { newCardFields } from './vocabScheduler.js'
 import {
   computeListProgress,
@@ -27,7 +28,7 @@ import {
   isVocabTopicId,
   testScore,
   mixedLevels,
-  normalizeTerm,
+  termKey,
   termKind,
   tidyHyphens,
   type AddToSrsResult,
@@ -35,6 +36,7 @@ import {
   type CompileInput,
   type ListLevel,
   type ListTestScores,
+  type TargetLanguage,
   type VocabOrigin,
   type WordCard,
   type WordlistDetail,
@@ -69,9 +71,20 @@ const TERMS_PER_QUERY = 100
 const DEFAULT_LEVEL: CefrLevel = 'B1'
 
 const ITEM_COLUMNS =
-  'id, term, term_normalized, kind, pos, meaning_hu, definition_en, example_en, cefr_level, enrichment_status, owner_teacher_id'
+  'id, term, term_normalized, kind, pos, meaning_hu, definition_en, example_en, cefr_level, enrichment_status, owner_teacher_id, ' +
+  'target_language, review_status, article, pronunciation_hint, example_hu, verb_forms'
 
-type ItemRow = ItemContent & { id: string; term_normalized: string }
+/** A list word's content: what the exercises need, plus the target-language card fields. */
+type ListItemContent = ItemContent & {
+  target_language: TargetLanguage
+  review_status: 'needs_review' | 'reviewed'
+  article: 'en' | 'et' | null
+  pronunciation_hint: string | null
+  example_hu: string | null
+  verb_forms: string[] | null
+}
+
+type ItemRow = ListItemContent & { id: string; term_normalized: string }
 
 export interface CardRow extends SrsCardRow {
   item_id: string
@@ -89,7 +102,7 @@ const CARD_COLUMNS = `${SRS_CARD_COLUMNS}, item_id, context_original, context_co
 export interface ListWordRow {
   item_id: string
   term_normalized: string
-  vocab_items: ItemContent
+  vocab_items: ListItemContent
   /** Tutor Bot cards: what the learner said, and the better version. */
   context_original: string | null
   context_corrected: string | null
@@ -108,6 +121,12 @@ function toWord(row: ListWordRow): WordlistWord {
     meaningHu: row.vocab_items.meaning_hu,
     definitionEn: row.vocab_items.definition_en,
     exampleEn: row.vocab_items.example_en,
+    targetLanguage: row.vocab_items.target_language,
+    article: row.vocab_items.article,
+    pronunciationHint: row.vocab_items.pronunciation_hint,
+    exampleHu: row.vocab_items.example_hu,
+    verbForms: row.vocab_items.verb_forms,
+    reviewStatus: row.vocab_items.review_status,
     contextOriginal: row.context_original,
     contextCorrected: row.context_corrected,
     card: row.card ? toWordCard(row.card) : null,
@@ -274,6 +293,7 @@ interface StudentListRow {
   title: string
   topic: string
   cefr_level: ListLevel
+  target_language: TargetLanguage
   created_at: string
 }
 
@@ -303,6 +323,7 @@ function customSummary(
     title: list.title,
     cefrLevel: list.cefr_level,
     topic: list.topic,
+    targetLanguage: list.target_language,
     wordCount: terms.length,
     inSrs: terms.filter((t) => ctx.cards.has(t)).length,
     srs: listSrs(terms, ctx),
@@ -344,6 +365,7 @@ async function teacherSummaries(
       title: l.title,
       cefrLevel: l.cefr_level,
       topic: null,
+      targetLanguage: 'en',
       wordCount: terms.length,
       inSrs: terms.filter((t) => ctx.cards.has(t)).length,
       srs: listSrs(terms, ctx),
@@ -373,6 +395,7 @@ function conversationsSummary(
     title: '',
     cefrLevel: null,
     topic: null,
+    targetLanguage: 'en',
     wordCount: tutorCards.length,
     inSrs: tutorCards.length,
     srs: listSrs(
@@ -395,7 +418,7 @@ export async function loadWordlists(userId: string, now = new Date()): Promise<W
     cardsStartedToday(userId, now),
     supabaseAdmin
       .from('vocab_student_lists')
-      .select('id, title, topic, cefr_level, created_at, vocab_student_list_items(vocab_items(term_normalized))')
+      .select('id, title, topic, cefr_level, target_language, created_at, vocab_student_list_items(vocab_items(term_normalized))')
       .eq('user_id', userId)
       .order('created_at', { ascending: false }),
     supabaseAdmin
@@ -440,7 +463,7 @@ export async function loadWordlists(userId: string, now = new Date()): Promise<W
 async function loadOwnList(userId: string, listId: string): Promise<StudentListRow> {
   const { data, error } = await supabaseAdmin
     .from('vocab_student_lists')
-    .select('id, title, topic, cefr_level, created_at')
+    .select('id, title, topic, cefr_level, target_language, created_at')
     .eq('id', listId)
     .eq('user_id', userId)
     .maybeSingle()
@@ -611,7 +634,7 @@ async function pickFromModel(
     // Logged before parsing: the tokens were spent either way.
     await logModelUsage({ userId, scenarioId: 'vocabulary', callType: 'vocab_generate', modelId, usage: result.usage })
     return parseWordPickJson(result.content)
-      .filter((t) => !avoid.has(normalizeTerm(t)))
+      .filter((t) => termKey(t) !== '' && !avoid.has(termKey(t)))
       .slice(0, count)
   } catch (err) {
     console.error('Vocab word pick failed', { topic, levels, error: err })
@@ -633,9 +656,22 @@ function splitCount(count: number, levels: CefrLevel[]): Map<CefrLevel, number> 
  * first. Bank words create 'catalog' items, model words 'student' ones — the origin only
  * labels cache rows created now (decision 9).
  */
-async function pickWords(userId: string, topic: string, level: ListLevel, count: number): Promise<PickedWords> {
+async function pickWords(
+  userId: string,
+  topic: string,
+  level: ListLevel,
+  count: number,
+  lang: TargetLanguage = 'en',
+): Promise<PickedWords> {
   if ((await compilesToday(userId)) >= COMPILES_PER_DAY) {
     throw new VocabApiError(429, `At most ${COMPILES_PER_DAY} word-list compiles per day`)
+  }
+  if (lang === 'da') {
+    // Stored Danish items first, the model only for the shortfall; no English word bank.
+    // bankWords counts the reused stored items (vocab_compiles has no column of its own).
+    const picked = await pickDanishWords(userId, topic, danishLevels(level), count, await termsToAvoid(userId))
+    if (picked.itemIds.length === 0) throw new VocabApiError(502, "Couldn't pick words for this topic; please try again")
+    return { itemIds: picked.itemIds, bankWords: picked.storedWords, aiWords: picked.aiWords }
   }
 
   const levels = level === MIXED_LEVEL ? mixedLevels(await learnerLevel(userId)) : [level]
@@ -643,7 +679,7 @@ async function pickWords(userId: string, topic: string, level: ListLevel, count:
   const bankByLevel = new Map<CefrLevel, string[]>()
   for (const [l, n] of splitCount(count, levels)) {
     const terms = await pickFromBank(topic, l, n, avoid)
-    for (const t of terms) avoid.add(normalizeTerm(t))
+    for (const t of terms) avoid.add(termKey(t))
     bankByLevel.set(l, terms)
   }
   const bank = [...bankByLevel.values()].flat()
@@ -671,17 +707,22 @@ async function recordCompile(userId: string, listId: string, picked: PickedWords
   if (error) console.error('Failed to record vocab compile', error)
 }
 
-/** Global items for these terms (find-or-create), in the given order. */
-async function ensureItems(terms: { term: string; origin: VocabOrigin }[]): Promise<string[]> {
+/**
+ * Global English items for these terms (find-or-create), in the given order. Danish
+ * items are made complete in vocabDanish.ts, never through this pending-row path.
+ */
+async function ensureItems(input: { term: string; origin: VocabOrigin }[]): Promise<string[]> {
+  const terms = input.filter(({ term }) => termKey(term) !== '')
+  if (terms.length === 0) return []
   const { data, error } = await supabaseAdmin.rpc('ensure_global_vocab_items', {
     p_items: terms.map(({ term, origin }) => {
-      const termNormalized = normalizeTerm(term)
+      const termNormalized = termKey(term)
       return { term: tidyHyphens(term), term_normalized: termNormalized, kind: termKind(termNormalized), origin }
     }),
   })
   if (error) throw error
   const byTerm = new Map(((data ?? []) as { id: string; term_normalized: string }[]).map((i) => [i.term_normalized, i.id]))
-  return [...new Set(terms.flatMap(({ term }) => byTerm.get(normalizeTerm(term)) ?? []))]
+  return [...new Set(terms.flatMap(({ term }) => byTerm.get(termKey(term)) ?? []))]
 }
 
 async function insertListItems(listId: string, itemIds: string[], firstPosition: number): Promise<void> {
@@ -717,11 +758,12 @@ async function touchList(listId: string): Promise<void> {
 
 /** POST wordlist-compile: picks the words and saves the list (input already validated). */
 export async function compileWordlist(userId: string, input: CompileInput): Promise<WordlistDetail> {
-  const picked = await pickWords(userId, input.topic, input.cefrLevel, input.count)
+  const lang = input.targetLanguage ?? 'en'
+  const picked = await pickWords(userId, input.topic, input.cefrLevel, input.count, lang)
 
   const { data: list, error } = await supabaseAdmin
     .from('vocab_student_lists')
-    .insert({ user_id: userId, title: input.title, topic: input.topic, cefr_level: input.cefrLevel })
+    .insert({ user_id: userId, title: input.title, topic: input.topic, cefr_level: input.cefrLevel, target_language: lang })
     .select('id')
     .single()
   if (error) throw error
@@ -740,7 +782,7 @@ export async function addBankWords(userId: string, listId: string, count: number
   const room = STUDENT_LIST_MAX_ITEMS - items.length
   if (room <= 0) throw new VocabApiError(400, `At most ${STUDENT_LIST_MAX_ITEMS} words per list`)
 
-  const picked = await pickWords(userId, list.topic, list.cefr_level, Math.min(count, room))
+  const picked = await pickWords(userId, list.topic, list.cefr_level, Math.min(count, room), list.target_language)
   await appendListItems(listId, items, picked.itemIds)
   await recordCompile(userId, listId, picked)
   await touchList(listId)
@@ -774,12 +816,15 @@ export async function deleteWordlist(userId: string, listId: string): Promise<vo
  */
 export async function addWordsToList(userId: string, listId: string, terms: string[]): Promise<AddWordsResult> {
   const list = await loadOwnList(userId, listId)
+  if (list.target_language === 'da') return addDanishWordsToList(userId, list, terms)
   const items = await customListItems(listId)
   const have = new Set(items.map((i) => i.term_normalized))
   const added: string[] = []
   const alreadyInList: string[] = []
   for (const term of terms) {
-    const key = normalizeTerm(term)
+    const key = termKey(term)
+    // '' = an English term that would wear a language prefix ("da:hus"): never stored.
+    if (!key) continue
     if (have.has(key)) alreadyInList.push(term)
     else {
       have.add(key)
@@ -795,7 +840,44 @@ export async function addWordsToList(userId: string, listId: string, terms: stri
   const itemIds = await ensureItems(added.map((term) => ({ term, origin: 'student' as const })))
   await appendListItems(listId, items, itemIds)
   await touchList(listId)
-  return { added, alreadyInList, detail: await loadWordlistDetail(userId, { kind: 'custom', id: listId }) }
+  return { added, alreadyInList, failed: [], detail: await loadWordlistDetail(userId, { kind: 'custom', id: listId }) }
+}
+
+/**
+ * Typed words on a Danish list: stored Danish items are reused, the rest made by the model
+ * in one call and stored as needs_review (vocabDanish.ts) — never the English enrichment.
+ * A word the list already has (as typed, or without its article) is skipped, before and
+ * after the lookup; 409 when nothing is left to add, 502 when the model made no card.
+ */
+async function addDanishWordsToList(userId: string, list: StudentListRow, terms: string[]): Promise<AddWordsResult> {
+  const items = await customListItems(list.id)
+  const have = new Set(items.map((i) => i.term_normalized))
+  const alreadyInList = terms.filter((t) => typedDanishKeys(t).some((k) => have.has(k)))
+  const wanted = terms.filter((t) => !alreadyInList.includes(t))
+  if (wanted.length === 0) throw new VocabApiError(409, 'Already in the list')
+  if (items.length + wanted.length > STUDENT_LIST_MAX_ITEMS) {
+    throw new VocabApiError(400, `At most ${STUDENT_LIST_MAX_ITEMS} words per list`)
+  }
+
+  const { resolved, failed } = await resolveTypedDanishWords(userId, wanted)
+  const added: string[] = []
+  const itemIds: string[] = []
+  for (const r of resolved) {
+    if (have.has(r.key)) alreadyInList.push(r.term)
+    else {
+      have.add(r.key)
+      added.push(r.term)
+      itemIds.push(r.itemId)
+    }
+  }
+  if (added.length === 0) {
+    if (failed.length > 0) throw new VocabApiError(502, "Couldn't make cards for these words; check the spelling and try again")
+    throw new VocabApiError(409, 'Already in the list')
+  }
+
+  await appendListItems(list.id, items, itemIds)
+  await touchList(list.id)
+  return { added, alreadyInList, failed, detail: await loadWordlistDetail(userId, { kind: 'custom', id: list.id }) }
 }
 
 /** DELETE wordlist-word: takes a word off the list; its card, if any, stays. */
