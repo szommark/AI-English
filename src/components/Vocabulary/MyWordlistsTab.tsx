@@ -3,7 +3,7 @@ import type { WordlistDetail, WordlistRef, WordlistsResponse } from '../../lib/v
 import ListProgress from '../VocabLists/ListProgress'
 import CompileListForm from './CompileListForm'
 import WordlistFilters, { applyWordlistFilter, type WordlistFilter } from './WordlistFilters'
-import { KindBadge, LevelBadge, useListTitle, useTopicLabel } from './wordlistLabels'
+import { KindBadge, LanguageBadge, LevelBadge, useListTitle, useTopicLabel } from './wordlistLabels'
 
 /** My wordlists (design §7.2): compile a new list, then every list, filtered and sorted. */
 export default function MyWordlistsTab({
@@ -49,13 +49,14 @@ export default function MyWordlistsTab({
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <p className="min-w-0 break-words font-medium text-foreground">{listTitle(l)}</p>
                       <div className="flex shrink-0 items-center gap-2">
+                        <LanguageBadge language={l.targetLanguage} />
                         <LevelBadge level={l.cefrLevel} />
                         <KindBadge kind={l.kind} />
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {l.kind === 'teacher' && l.teacher ? `${t('vcFromTeacherBy', { email: l.teacher.email })} · ` : ''}
-                      {l.kind === 'custom' && l.topic ? `${topicLabel(l.topic)} · ` : ''}
+                      {l.kind === 'custom' && l.topic ? `${topicLabel(l.topic, l.targetLanguage)} · ` : ''}
                       {t('vcWordCount', { n: l.wordCount })}
                       {l.kind === 'custom' && ` · ${t('vcInSrsCount', { n: l.inSrs })}`}
                       {l.practiceCount > 0 && ` · ${t('vcPracticedCount', { n: l.practiceCount })}`}

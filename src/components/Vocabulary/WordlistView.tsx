@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useLanguage } from '../../lib/i18n'
+import { hasTeacherAccess, useAuth } from '../../lib/AuthContext'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import { printWordlistPdf } from '../../lib/vocabPdf'
 import WordSpeakButton from '../WordSpeakButton'
@@ -15,6 +16,7 @@ import {
   renameWordlist,
   reviewCardAgain,
   setCardSuspended,
+  setWordReviewed,
 } from '../../lib/vocabPracticeApi'
 import {
   COMPILES_PER_DAY,
@@ -22,6 +24,8 @@ import {
   SRS_MIN_WORDS,
   TEST_SHARE,
   hasTest,
+  speechLocaleFor,
+  srsEligible,
   testSize,
   type WordlistDetail,
   type WordlistRef,
@@ -30,10 +34,10 @@ import {
 } from '../../lib/vocab'
 import ListProgress from '../VocabLists/ListProgress'
 import AddWordsPanel from './AddWordsPanel'
-import FlashcardDeck, { WordsViewToggle, useWordsView } from './FlashcardDeck'
+import FlashcardDeck, { NeedsReviewBadge, ReviewToggle, WordsViewToggle, displayTerm, useWordsView } from './FlashcardDeck'
 import ListSrsPanel from './ListSrsPanel'
 import { TestScoresLine } from './TestSession'
-import { CardBadge, KindBadge, LevelBadge, useListTitle, useTopicLabel } from './wordlistLabels'
+import { CardBadge, KindBadge, LanguageBadge, LevelBadge, useListTitle, useTopicLabel } from './wordlistLabels'
 
 const inputClass =
   'min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-[var(--teal-accent)] focus:outline-none'
@@ -74,8 +78,13 @@ export default function WordlistView({
   const { t } = useLanguage()
   const listTitle = useListTitle()
   const topicLabel = useTopicLabel()
-  const speech = useSpeechSynthesis()
+  const { role } = useAuth()
   const [detail, setDetail] = useState<WordlistDetail | null>(initial)
+  // Danish lists speak with a da-DK voice; the list's language is known once it has loaded.
+  const speechLocale = speechLocaleFor(detail?.list.targetLanguage)
+  const speech = useSpeechSynthesis('female', 'us', speechLocale)
+  const noVoice = speechLocale !== undefined && speech.hasVoice === false
+  const canSpeak = speech.supported && !noVoice
   const [loadFailed, setLoadFailed] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -139,9 +148,15 @@ export default function WordlistView({
 
   const { list, words } = detail
   const custom = list.kind === 'custom'
+  const danish = list.targetLanguage === 'da'
   const listId = list.id!
-  const notInSrs = words.filter((w) => !w.card).length
-  const tooShortForSrs = words.length < SRS_MIN_WORDS
+  // Generated words still needing review stay out of spaced repetition (REVIEWED_ONLY_IN_SRS).
+  const srsWords = words.filter((w) => srsEligible(w.targetLanguage, w.reviewStatus))
+  const heldBack = words.length - srsWords.length
+  const notInSrs = srsWords.filter((w) => !w.card).length
+  const tooShortForSrs = srsWords.length < SRS_MIN_WORDS
+  /** Teachers and admins check generated words; items are global, so it applies to everyone. */
+  const canReview = hasTeacherAccess(role) && list.targetLanguage !== 'en'
 
   function saveTitle(e: FormEvent) {
     e.preventDefault()
@@ -159,7 +174,9 @@ export default function WordlistView({
       (r) => {
         setDetail(r.detail)
         const skipped = r.alreadyInList.length > 0 ? ` ${t('vcWordsSkipped', { terms: r.alreadyInList.join(', ') })}` : ''
-        setNotice(`${t('vcWordsAdded', { n: r.added.length })}${skipped}`)
+        // Danish lists only: typed words the model couldn't make a card for.
+        const failed = r.failed?.length ? ` ${t('vcWordsFailed', { terms: r.failed.join(', ') })}` : ''
+        setNotice(`${t('vcWordsAdded', { n: r.added.length })}${skipped}${failed}`)
       },
       (err) => (err instanceof VocabRequestError && err.status === 409 ? t('vcAllWordsExist') : null),
     )
@@ -182,13 +199,27 @@ export default function WordlistView({
     const ok = printWordlistPdf(
       listTitle(list),
       words.map((w) => ({
-        term: w.term,
+        // Danish nouns with their article; the respelling and the example's translation have
+        // columns of their own (empty, so left out, for English lists).
+        term: displayTerm(w),
+        pronunciation: w.pronunciationHint,
         meaningHu: w.meaningHu,
         definitionEn: w.definitionEn,
         exampleEn: w.exampleEn,
+        exampleHu: w.exampleHu,
         cefrLevel: w.cefrLevel,
       })),
-      { term: t('vlTerm'), meaning: t('vlMeaning'), definition: t('vlDefinition'), example: t('vlExample'), level: t('vlLevel') },
+      danish
+        ? {
+            term: t('vlTermDa'),
+            pronunciation: t('fcPronunciation'),
+            meaning: t('vlMeaning'),
+            definition: t('vlDefinitionDa'),
+            example: t('vlExample'),
+            exampleHu: t('vlExampleHu'),
+            level: t('vlLevel'),
+          }
+        : { term: t('vlTerm'), meaning: t('vlMeaning'), definition: t('vlDefinition'), example: t('vlExample'), level: t('vlLevel') },
       list.teacher?.description ?? null,
     )
     setPdfBlocked(!ok)
@@ -202,8 +233,22 @@ export default function WordlistView({
   function addToSrs() {
     void run('srs', () => addListToSrs(listId), (r) => {
       setDetail(r.detail)
-      setNotice(t('vcAddedToSrs', { n: r.cardsCreated }))
+      const held = r.heldBack > 0 ? ` ${t('vcSrsHeldBack', { n: r.heldBack })}` : ''
+      setNotice(`${t('vcAddedToSrs', { n: r.cardsCreated })}${held}`)
     })
+  }
+
+  function setReviewed(itemId: string, reviewed: boolean) {
+    void run(`review-${itemId}`, () => setWordReviewed(listId, itemId, reviewed), setDetail)
+  }
+
+  /** A generated word's review state: the toggle for teachers, a badge for everyone else. */
+  function reviewState(w: WordlistWord) {
+    if (w.targetLanguage === 'en') return null
+    if (canReview) {
+      return <ReviewToggle reviewed={w.reviewStatus === 'reviewed'} disabled={busy !== null} onChange={(r) => setReviewed(w.itemId, r)} />
+    }
+    return w.reviewStatus === 'needs_review' ? <NeedsReviewBadge /> : null
   }
 
   function wordAction(w: WordlistWord) {
@@ -273,6 +318,7 @@ export default function WordlistView({
             <div className="flex flex-wrap items-start justify-between gap-2">
               <h2 className="min-w-0 break-words text-xl font-semibold text-foreground">{listTitle(list)}</h2>
               <div className="flex shrink-0 items-center gap-2">
+                <LanguageBadge language={list.targetLanguage} />
                 <LevelBadge level={list.cefrLevel} />
                 <KindBadge kind={list.kind} />
               </div>
@@ -280,7 +326,7 @@ export default function WordlistView({
           )}
           <p className="text-sm text-muted-foreground">
             {list.teacher && `${t('vcFromTeacherBy', { email: list.teacher.email })} · `}
-            {custom && list.topic && `${topicLabel(list.topic)} · `}
+            {custom && list.topic && `${topicLabel(list.topic, list.targetLanguage)} · `}
             {t('vcWordCount', { n: list.wordCount })}
             {list.tests && ' · '}
             <TestScoresLine tests={list.tests} />
@@ -319,7 +365,13 @@ export default function WordlistView({
               disabled={notInSrs === 0 || tooShortForSrs || busy !== null}
               className={actionButton}
             >
-              {busy === 'srs' ? t('vcSaving') : notInSrs === 0 ? t('vcAllInSrs') : t('vcAddToSrs', { n: notInSrs })}
+              {busy === 'srs'
+                ? t('vcSaving')
+                : notInSrs > 0
+                  ? t('vcAddToSrs', { n: notInSrs })
+                  : heldBack > 0
+                    ? t('vcAllReviewedInSrs')
+                    : t('vcAllInSrs')}
             </button>
           )}
           {custom && (
@@ -350,7 +402,14 @@ export default function WordlistView({
             </>
           )}
         </div>
-        {custom && tooShortForSrs && notInSrs > 0 && <p className="text-xs text-muted-foreground">{t('vcSrsMinWords', { n: SRS_MIN_WORDS })}</p>}
+        {custom && tooShortForSrs && (notInSrs > 0 || heldBack > 0) && (
+          <p className="text-xs text-muted-foreground">
+            {t(heldBack > 0 ? 'vcSrsMinReviewedWords' : 'vcSrsMinWords', { n: SRS_MIN_WORDS })}
+          </p>
+        )}
+        {custom && heldBack > 0 && <p className="text-xs text-muted-foreground">{t('vcSrsHeldBack', { n: heldBack })}</p>}
+        {/* The card view says it in its own toolbar. */}
+        {noVoice && wordsView !== 'cards' && <p className="text-xs text-muted-foreground">{t('vcNoDanishVoice')}</p>}
         {!custom && (
           <p className="text-xs text-muted-foreground">
             {list.kind === 'teacher' ? t('vcTeacherListSrsNote') : t('vcConversationsSrsNote')}
@@ -375,7 +434,13 @@ export default function WordlistView({
       </div>
 
       {custom && adding && (
-        <AddWordsPanel busy={busy} compilesLeft={compilesLeft} onAddTyped={addTyped} onAddFromBank={addFromBank} />
+        <AddWordsPanel
+          busy={busy}
+          compilesLeft={compilesLeft}
+          targetLanguage={list.targetLanguage}
+          onAddTyped={addTyped}
+          onAddFromBank={addFromBank}
+        />
       )}
 
       {words.length > 0 && (
@@ -397,7 +462,14 @@ export default function WordlistView({
               // Tutor Bot words have no example of their own: the corrected sentence stands in.
               exampleEn: w.exampleEn ?? w.contextCorrected,
               cefrLevel: w.cefrLevel,
+              article: w.article,
+              pronunciationHint: w.pronunciationHint,
+              exampleHu: w.exampleHu,
+              verbForms: w.verbForms,
+              reviewStatus: w.reviewStatus,
             }))}
+            targetLanguage={list.targetLanguage}
+            review={canReview ? { busy: busy !== null, onChange: setReviewed } : undefined}
           />
         </div>
       ) : (
@@ -408,7 +480,7 @@ export default function WordlistView({
                 <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
                   <LevelBadge level={w.cefrLevel} subtle />
                   <span className="min-w-0">
-                    <span className="break-words font-medium text-foreground">{w.term}</span>
+                    <span className="break-words font-medium text-foreground">{displayTerm(w)}</span>
                     <span className="text-muted-foreground">
                       {' — '}
                       {w.meaningHu ?? w.definitionEn ?? <em className="text-xs">{t('vcMeaningPending')}</em>}
@@ -417,11 +489,12 @@ export default function WordlistView({
                       <span className="block text-xs text-muted-foreground">{w.definitionEn}</span>
                     )}
                   </span>
-                  {speech.supported && (
-                    <WordSpeakButton label={`${t('vlSpeak')}: ${w.term}`} onSpeak={() => speech.speak(w.term)} />
+                  {canSpeak && (
+                    <WordSpeakButton label={`${t('vlSpeak')}: ${displayTerm(w)}`} onSpeak={() => speech.speak(displayTerm(w))} />
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  {reviewState(w)}
                   <CardBadge card={w.card} />
                   {wordAction(w).map((a) => (
                     <button

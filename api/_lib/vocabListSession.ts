@@ -1,6 +1,6 @@
 import { fillPendingItems, pickDistractors } from './vocabPractice.js'
 import { cardsStartedToday, loadDeck, sessionPlan, type SrsContext } from './vocabListSrs.js'
-import { VocabApiError, allListTerms, loadListWords } from './vocabWordlists.js'
+import { VocabApiError, allListTerms, loadListWords, srsRows } from './vocabWordlists.js'
 import {
   RECOGNITION_DISTRACTORS,
   SRS_MIN_WORDS,
@@ -17,10 +17,13 @@ import {
 
 /**
  * GET session&kind=&id=: the list's due reviews, then its new words for today. The list
- * needs SRS_MIN_WORDS words (409 otherwise).
+ * needs SRS_MIN_WORDS words (409 otherwise). Words still needing review (srsEligible) are
+ * left out: they are neither asked nor used as distractors, and don't count.
  */
 export async function buildListSession(userId: string, ref: WordlistRef, now = new Date()): Promise<PracticeSession> {
-  const { rows, ctx } = await loadListWords(userId, ref, now)
+  const loaded = await loadListWords(userId, ref, now)
+  const ctx = loaded.ctx
+  const rows = srsRows(loaded.rows)
   if (rows.length < SRS_MIN_WORDS) {
     throw new VocabApiError(409, `A list needs at least ${SRS_MIN_WORDS} words for spaced repetition`)
   }
@@ -47,6 +50,8 @@ export async function buildListSession(userId: string, ref: WordlistRef, now = n
     definitionEn: r.vocab_items.definition_en,
     exampleEn: r.vocab_items.example_en,
     contextCorrected: r.context_corrected,
+    targetLanguage: r.vocab_items.target_language,
+    article: r.vocab_items.article,
     ladderStep: r.card!.ladder_step,
     state: r.card!.state,
     distractors: r.card!.ladder_step === 1 ? pickDistractors(r.vocab_items.meaning_hu, pool, RECOGNITION_DISTRACTORS) : [],

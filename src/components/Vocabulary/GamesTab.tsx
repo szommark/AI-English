@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { useLanguage } from '../../lib/i18n'
+import { useLanguage, type MessageKey } from '../../lib/i18n'
 import type { WordlistDetail, WordlistRef, WordlistSummary, WordlistsResponse } from '../../lib/vocab'
 import { fetchWordlist } from '../../lib/vocabPracticeApi'
 import { logPracticeFinish, logPracticeStart } from '../../lib/practiceLog'
@@ -12,6 +12,7 @@ import {
   type GridPuzzle,
   type GridSize,
 } from '../../lib/vocabGrid'
+import ArticleGame from './ArticleGame'
 import CrosswordTab from './CrosswordTab'
 import GridGame from './GridGame'
 import { useListTitle } from './wordlistLabels'
@@ -21,29 +22,34 @@ const keyOf = (l: WordlistRef) => `${l.kind}-${l.id}`
 /** Whether a list has enough words for this size, with or without decoys. */
 const fits = (l: WordlistSummary, size: number, decoys: boolean) => l.wordCount >= gridWordCount(size, decoys)
 
-type Game = 'grid' | 'crossword'
+type Game = 'grid' | 'crossword' | 'article'
+
+const GAME_TITLE: Record<Game, MessageKey> = { grid: 'vgTitle', crossword: 'cwTitle', article: 'agTitle' }
 
 /**
- * Games tab: the word grid and the crossword, picked with a switch. Both stay mounted, so
- * switching doesn't lose a game in progress.
+ * Games tab: the word grid and the crossword, picked with a switch, plus "en or et?" for a
+ * learner with a Danish list. All stay mounted, so switching doesn't lose a game in progress.
  */
 export default function GamesTab({ data }: { data: WordlistsResponse }) {
   const { t } = useLanguage()
   const [game, setGame] = useState<Game>('grid')
+  const hasDanish = data.lists.some((l) => l.targetLanguage === 'da')
+  const games: Game[] = hasDanish ? ['grid', 'crossword', 'article'] : ['grid', 'crossword']
   return (
     <div className="space-y-3">
       <div className="inline-flex rounded-lg bg-secondary p-0.5" role="group" aria-label={t('vgPickGame')}>
-        {(['grid', 'crossword'] as const).map((g) => (
+        {games.map((g) => (
           <button
             key={g}
             type="button"
             onClick={() => setGame(g)}
             aria-pressed={game === g}
+            lang={g === 'article' ? 'da' : undefined}
             className={`rounded-md px-4 py-1.5 text-sm ${
               game === g ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t(g === 'grid' ? 'vgTitle' : 'cwTitle')}
+            {t(GAME_TITLE[g])}
           </button>
         ))}
       </div>
@@ -53,6 +59,11 @@ export default function GamesTab({ data }: { data: WordlistsResponse }) {
       <div hidden={game !== 'crossword'}>
         <CrosswordTab data={data} />
       </div>
+      {hasDanish && (
+        <div hidden={game !== 'article'}>
+          <ArticleGame data={data} />
+        </div>
+      )}
     </div>
   )
 }
@@ -124,6 +135,7 @@ function WordGridGame({ data }: { data: WordlistsResponse }) {
         <GridGame
           key={gameNo}
           puzzle={puzzle}
+          targetLanguage={list?.targetLanguage ?? 'en'}
           onPlayAgain={() => void start()}
           onQuit={() => setPuzzle(null)}
           onSolved={() => {

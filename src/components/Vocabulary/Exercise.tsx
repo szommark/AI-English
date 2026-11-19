@@ -3,15 +3,19 @@ import { useLanguage } from '../../lib/i18n'
 import {
   answerHint,
   checkTypedAnswer,
+  danishAnswerForms,
+  exerciseLanguage,
   gapSentence,
   practiceSentence,
   shuffle,
   spellingFixes,
+  usedLetterFallback,
   type AnswerCheck,
   type SpellingFix,
 } from '../../lib/vocabPractice'
-import type { ExerciseContent, PracticeExercise } from '../../lib/vocab'
+import { withArticle, type ExerciseContent, type PracticeExercise } from '../../lib/vocab'
 import { SpeakerIcon } from '../icons/AudioIcons'
+import { DanishLetterButtons, insertAtCaret } from './DanishLetters'
 
 export interface ExerciseOutcome {
   correct: boolean
@@ -21,6 +25,8 @@ export interface ExerciseOutcome {
   check: AnswerCheck
   /** For a typo: what was typed against the right spelling, to show the mistake. */
   spelling: SpellingFix[]
+  /** Danish: right thanks to ae/oe/aa — the spelling with æ/ø/å, to show. */
+  spelledAs?: string
 }
 
 export interface Speech {
@@ -75,13 +81,15 @@ function Recognition({ card, speech, onDone }: { card: ExerciseContent; speech: 
   const { t } = useLanguage()
   const started = useRef(performance.now())
   const options = useMemo(() => shuffle([card.meaningHu!, ...card.distractors]), [card])
+  // Danish nouns are shown and spoken with their article ("et hus").
+  const shown = withArticle(card.term, card.article)
 
   return (
     <div className="space-y-5">
       <p className="text-sm text-muted-foreground">{t('vcExRecognition')}</p>
       <div className="flex flex-wrap items-center gap-3">
-        <p className="text-2xl font-semibold text-foreground">{card.term}</p>
-        {speech.supported && <SpeakButton onClick={() => speech.speak(card.term)} label={t('vcPlay')} />}
+        <p className="text-2xl font-semibold text-foreground">{shown}</p>
+        {speech.supported && <SpeakButton onClick={() => speech.speak(shown)} label={t('vcPlay')} />}
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         {options.map((option) => (
@@ -128,12 +136,27 @@ function Typed({
   const [hintShown, setHintShown] = useState(false)
   const [retrying, setRetrying] = useState(false)
 
+  const lang = exerciseLanguage(card)
+  const danish = lang === 'da'
   const sentence = practiceSentence(card)
   const gap = exercise === 'recall' ? null : gapSentence(sentence, card.term)
   // Compare against the sentence's own form when there is one ("Book a table" at the
   // start of a sentence); the check ignores case either way.
   const expected = gap?.answer ?? card.term
-  const listenText = exercise === 'listening' ? (gap ? sentence! : card.term) : null
+  // A Danish noun is spoken with its article ("et hus"); the answer may have it or not.
+  const listenText = exercise === 'listening' ? (gap ? sentence! : withArticle(card.term, card.article)) : null
+
+  /**
+   * What a typed answer is checked against. A Danish word outside a sentence may be typed
+   * with its article or "at" (danishAnswerForms); everything else as it is.
+   */
+  const answerForms = (given: string) => (danish && !gap ? danishAnswerForms(expected, card.article, given) : { expected, given })
+
+  function typeLetter(letter: string) {
+    const next = insertAtCaret(inputRef.current, value, letter)
+    setValue(next.value)
+    requestAnimationFrame(() => inputRef.current?.setSelectionRange(next.caret, next.caret))
+  }
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -142,19 +165,22 @@ function Typed({
   }, [])
 
   function finish(check: AnswerCheck) {
+    const forms = answerForms(value)
     onDone({
       correct: strict ? check === 'exact' : check !== 'wrong',
       usedHint: hintShown || retrying || check === 'typo',
       responseMs: performance.now() - started.current,
       check,
-      spelling: check === 'typo' ? spellingFixes(expected, value) : [],
+      spelling: check === 'typo' ? spellingFixes(forms.expected, forms.given, lang) : [],
+      spelledAs: check === 'exact' && usedLetterFallback(forms.expected, forms.given, lang) ? forms.expected : undefined,
     })
   }
 
   function submit(e: FormEvent) {
     e.preventDefault()
     if (!value.trim()) return
-    const check = checkTypedAnswer(expected, value)
+    const forms = answerForms(value)
+    const check = checkTypedAnswer(forms.expected, forms.given, lang)
     // One second try after a wrong answer (design §6.1: "second attempt" → Hard).
     if (check === 'wrong' && !retrying && !strict) {
       setRetrying(true)
@@ -167,7 +193,7 @@ function Typed({
 
   const instruction =
     exercise === 'recall'
-      ? t('vcExRecall')
+      ? t(danish ? 'vcExRecallDa' : 'vcExRecall')
       : exercise === 'context'
         ? t('vcExContext')
         : gap
@@ -198,21 +224,27 @@ function Typed({
         </div>
       )}
 
-      {hintShown && !gap && <p className="font-mono text-lg tracking-wider text-muted-foreground">{answerHint(expected)}</p>}
+      {hintShown && !gap && (
+        <p className="font-mono text-lg tracking-wider text-muted-foreground">
+          {/* A Danish noun's hint gives its article away: that is half of learning it. */}
+          {danish && card.article ? `${card.article} ${answerHint(expected)}` : answerHint(expected)}
+        </p>
+      )}
 
       <form onSubmit={submit} className="space-y-3">
         <input
           ref={inputRef}
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder={t('vcAnswerPlaceholder')}
-          aria-label={t('vcAnswerPlaceholder')}
+          placeholder={t(danish ? 'vcAnswerPlaceholderDa' : 'vcAnswerPlaceholder')}
+          aria-label={t(danish ? 'vcAnswerPlaceholderDa' : 'vcAnswerPlaceholder')}
           autoComplete="off"
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
           className={`${inputClass} ${retrying ? 'border-amber-400' : ''}`}
         />
+        {danish && <DanishLetterButtons onLetter={typeLetter} showHint />}
         {retrying && (
           <p className="text-sm text-amber-700" role="status">
             {t('vcTryAgain')}

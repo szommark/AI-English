@@ -125,8 +125,11 @@ export default function ListSrsPanel({
   const { srs } = list
   const practisable = srs.dueCount + srs.newAvailable
   const session = hasSrsSession(list)
+  // Words still needing review (Danish) are held back: they are neither in nor waiting for SRS.
+  const heldBack = list.heldBack ?? 0
+  const srsWordCount = list.wordCount - heldBack
   const stagePipeline = (
-    <Pipeline caption="vcPipeByStage" steps={stageSteps(srs.stages, list.kind === 'custom' ? list.wordCount - list.inSrs : null)} />
+    <Pipeline caption="vcPipeByStage" steps={stageSteps(srs.stages, list.kind === 'custom' ? srsWordCount - list.inSrs : null)} />
   )
 
   return (
@@ -159,7 +162,11 @@ export default function ListSrsPanel({
         </div>
       )}
       {!session ? (
-        list.wordCount < SRS_MIN_WORDS && <p className="text-sm text-muted-foreground">{t('vcSrsMinWords', { n: SRS_MIN_WORDS })}</p>
+        srsWordCount < SRS_MIN_WORDS && (
+          <p className="text-sm text-muted-foreground">
+            {t(heldBack > 0 ? 'vcSrsMinReviewedWords' : 'vcSrsMinWords', { n: SRS_MIN_WORDS })}
+          </p>
+        )
       ) : practisable > 0 ? (
         <button
           type="button"

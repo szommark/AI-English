@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useLanguage } from '../../lib/i18n'
+import type { TargetLanguage } from '../../lib/vocab'
 import {
+  CROSSWORD_KEY,
   cellKey,
   crosswordCells,
+  crosswordLetters,
   entryCells,
   isEntryFilled,
   isSolved,
@@ -15,6 +18,7 @@ import {
   type Direction,
 } from '../../lib/vocabCrossword'
 import { awardClientXp } from '../../lib/gamificationApi'
+import { DanishLetterButtons } from './DanishLetters'
 
 type Phase = 'playing' | 'solved' | 'revealed'
 
@@ -35,12 +39,15 @@ const ARROWS: Record<string, [number, number]> = {
 export default function CrosswordGame({
   puzzle,
   clueLanguage,
+  targetLanguage = 'en',
   onPlayAgain,
   onQuit,
   onSolved,
 }: {
   puzzle: CrosswordPuzzle
   clueLanguage: ClueLanguage
+  /** The list's language: Danish squares also take Æ Ø Å, with buttons for them. */
+  targetLanguage?: TargetLanguage
   onPlayAgain: () => void
   onQuit: () => void
   /** The crossword was solved without showing the answers (for the practice log). */
@@ -142,7 +149,7 @@ export default function CrosswordGame({
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>, key: string) {
     if (done || e.ctrlKey || e.metaKey || e.altKey) return
     const cell = cells.get(key)!
-    if (/^[a-z]$/i.test(e.key)) {
+    if (CROSSWORD_KEY[targetLanguage].test(e.key)) {
       e.preventDefault()
       type(key, e.key.toUpperCase())
     } else if (e.key === 'Backspace') {
@@ -335,7 +342,7 @@ export default function CrosswordGame({
                 // the typed text arrives here.
                 onChange={(e) => {
                   if (done) return
-                  const letters = e.target.value.toUpperCase().replace(/[^A-Z]/g, '')
+                  const letters = crosswordLetters(e.target.value, targetLanguage)
                   if (letters) type(key, letters)
                   else setLetter(key, '')
                 }}
@@ -345,6 +352,13 @@ export default function CrosswordGame({
           )
         })}
       </div>
+
+      {/* A Hungarian keyboard has no Æ Ø Å: a tap types one into the active square. */}
+      {targetLanguage === 'da' && !done && (
+        <div className="flex justify-center">
+          <DanishLetterButtons upperCase onLetter={(letter) => type(active.key, letter)} />
+        </div>
+      )}
 
       <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3">
         <p className="text-sm font-semibold text-amber-900">★ {t('cwSolution')}</p>

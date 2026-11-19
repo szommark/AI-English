@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLanguage } from '../../lib/i18n'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import type { CefrLevel } from '../../data/grammarCurriculum'
+import { speechLocaleFor, withArticle, type DaArticle, type ReviewStatus, type TargetLanguage } from '../../lib/vocab'
 import { SpeakerIcon } from '../icons/AudioIcons'
 import { LevelBadge } from './wordlistLabels'
 
@@ -13,6 +14,67 @@ export interface Flashcard {
   definitionEn: string | null
   exampleEn: string | null
   cefrLevel: CefrLevel | null
+  /** Danish nouns: en/et, shown with the term ("et hus"). */
+  article?: DaArticle | null
+  /** Danish words: a respelling for a Hungarian reader, on the back. */
+  pronunciationHint?: string | null
+  /** Hungarian translation of the example, under it. */
+  exampleHu?: string | null
+  /** Danish verbs: infinitive, present, past, perfect. */
+  verbForms?: string[] | null
+  /** Generated words: needs_review until a teacher checks them. */
+  reviewStatus?: ReviewStatus
+}
+
+/** The term as shown and spoken: Danish nouns with their article. */
+export function displayTerm(c: { term: string; article?: DaArticle | null }): string {
+  return withArticle(c.term, c.article)
+}
+
+/** Small amber "needs review" pill for generated words a teacher hasn't checked yet. */
+export function NeedsReviewBadge() {
+  const { t } = useLanguage()
+  return (
+    <span
+      title={t('vcNeedsReviewHint')}
+      className="inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800"
+    >
+      {t('vcNeedsReview')}
+    </span>
+  )
+}
+
+/** Teacher/admin toggle of a generated word's review state (global: every learner sees it). */
+export function ReviewToggle({
+  reviewed,
+  disabled,
+  onChange,
+}: {
+  reviewed: boolean
+  disabled?: boolean
+  onChange: (reviewed: boolean) => void
+}) {
+  const { t } = useLanguage()
+  return (
+    <button
+      type="button"
+      aria-pressed={reviewed}
+      disabled={disabled}
+      title={t('vcReviewedToggleHint')}
+      onClick={(e) => {
+        e.stopPropagation()
+        onChange(!reviewed)
+      }}
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium disabled:opacity-40 ${
+        reviewed
+          ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+          : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+      }`}
+    >
+      <span aria-hidden>{reviewed ? '☑' : '☐'}</span>
+      {t('vcReviewedToggle')}
+    </button>
+  )
 }
 
 type Direction = 'en-hu' | 'hu-en'
@@ -140,9 +202,26 @@ const chip = (on: boolean) =>
  * to move on. Sorting a card into "I know it" / "Still learning" moves to the next one; at the
  * end of the deck the learner can go through just the words they're still learning.
  */
-export default function FlashcardDeck({ cards }: { cards: Flashcard[] }) {
+export default function FlashcardDeck({
+  cards,
+  targetLanguage = 'en',
+  review,
+}: {
+  cards: Flashcard[]
+  /** The list's language: Danish cards speak with a da-DK voice. */
+  targetLanguage?: TargetLanguage
+  /** Teacher/admin accounts on non-English lists: the review toggle on the back face. */
+  review?: { busy: boolean; onChange: (id: string, reviewed: boolean) => void }
+}) {
   const { t } = useLanguage()
-  const speech = useSpeechSynthesis()
+  const speechLocale = speechLocaleFor(targetLanguage)
+  const speech = useSpeechSynthesis('female', 'us', speechLocale)
+  // No voice for the list's language: hide the speakers rather than play the wrong voice.
+  const noVoice = speechLocale !== undefined && speech.hasVoice === false
+  const canSpeak = speech.supported && !noVoice
+  const danish = targetLanguage === 'da'
+  /** The word's side in the direction toggle: "EN → HU", "DA → HU". */
+  const code = targetLanguage.toUpperCase()
   const [settings, setSettings] = useState<DeckSettings>(loadSettings)
   const ids = useMemo(() => cards.map((c) => c.id), [cards])
   const idsKey = ids.join('|')
@@ -246,24 +325,55 @@ export default function FlashcardDeck({ cards }: { cards: Flashcard[] }) {
   const say = (text: string) => speech.speak(text)
   const hearWord = t('vlSpeak')
 
+  /** Danish extras on the back: the respelling and a verb's four forms. */
+  function backExtras(c: Flashcard): ReactNode {
+    const forms = c.verbForms && c.verbForms.length > 0 ? c.verbForms : null
+    if (!c.pronunciationHint && !forms) return null
+    return (
+      <>
+        {c.pronunciationHint && (
+          <p className="text-sm text-muted-foreground" title={t('fcPronunciation')}>
+            <span className="sr-only">{t('fcPronunciation')}: </span>[{c.pronunciationHint}]
+          </p>
+        )}
+        {forms && (
+          <p className="text-sm text-foreground">
+            <span className="text-muted-foreground">{t('fcVerbForms')}: </span>
+            {forms.join(' · ')}
+          </p>
+        )}
+      </>
+    )
+  }
+
   /** The two faces' contents for the current direction and options. */
   function faces(c: Flashcard): { front: ReactNode; back: ReactNode } {
     const meaning = c.meaningHu ?? c.definitionEn
     const meaningText = meaning ?? <em className="text-base text-muted-foreground">{t('vcMeaningPending')}</em>
     // The definition is its own line only when the Hungarian meaning is the main text.
     const definition = settings.showDefinition && c.meaningHu && c.definitionEn ? c.definitionEn : null
-    const example = settings.showExample && c.exampleEn ? (
+    const exampleLine = settings.showExample && c.exampleEn ? (
       <div className="flex items-start justify-center gap-2">
         <p className="text-sm italic text-muted-foreground">{c.exampleEn}</p>
-        {speech.supported && <SpeakButton label={t('fcHearExample')} onSpeak={() => say(c.exampleEn!)} hidden={!flipped} />}
+        {canSpeak && <SpeakButton label={t('fcHearExample')} onSpeak={() => say(c.exampleEn!)} hidden={!flipped} />}
       </div>
     ) : null
+    const example =
+      exampleLine && c.exampleHu ? (
+        <div className="space-y-1">
+          {exampleLine}
+          <p className="text-sm text-muted-foreground">{c.exampleHu}</p>
+        </div>
+      ) : (
+        exampleLine
+      )
+    const term = displayTerm(c)
     const termLine = (big: boolean, hidden: boolean) => (
       <div className="flex items-center justify-center gap-3">
         <span className={big ? 'break-words text-3xl font-semibold text-foreground sm:text-4xl' : 'break-words text-sm font-medium text-muted-foreground'}>
-          {c.term}
+          {term}
         </span>
-        {speech.supported && <SpeakButton label={`${hearWord}: ${c.term}`} onSpeak={() => say(c.term)} hidden={hidden} />}
+        {canSpeak && <SpeakButton label={`${hearWord}: ${term}`} onSpeak={() => say(term)} hidden={hidden} />}
       </div>
     )
 
@@ -273,6 +383,7 @@ export default function FlashcardDeck({ cards }: { cards: Flashcard[] }) {
         back: (
           <>
             {termLine(false, !flipped)}
+            {backExtras(c)}
             <p className="break-words text-2xl font-semibold text-foreground sm:text-3xl">{meaningText}</p>
             {definition && <p className="text-sm text-muted-foreground">{definition}</p>}
             {example}
@@ -291,6 +402,7 @@ export default function FlashcardDeck({ cards }: { cards: Flashcard[] }) {
         <>
           {c.meaningHu && <p className="text-sm text-muted-foreground">{c.meaningHu}</p>}
           {termLine(true, !flipped)}
+          {backExtras(c)}
           {example}
         </>
       ),
@@ -304,19 +416,19 @@ export default function FlashcardDeck({ cards }: { cards: Flashcard[] }) {
           type="button"
           onClick={() => update({ direction: 'en-hu' })}
           aria-pressed={settings.direction === 'en-hu'}
-          title={t('fcDirEnHu')}
+          title={t(danish ? 'fcDirDaHu' : 'fcDirEnHu')}
           className={segment(settings.direction === 'en-hu')}
         >
-          EN → HU
+          {code} → HU
         </button>
         <button
           type="button"
           onClick={() => update({ direction: 'hu-en' })}
           aria-pressed={settings.direction === 'hu-en'}
-          title={t('fcDirHuEn')}
+          title={t(danish ? 'fcDirHuDa' : 'fcDirHuEn')}
           className={segment(settings.direction === 'hu-en')}
         >
-          HU → EN
+          HU → {code}
         </button>
       </div>
       <button
@@ -325,7 +437,8 @@ export default function FlashcardDeck({ cards }: { cards: Flashcard[] }) {
         aria-pressed={settings.showDefinition}
         className={chip(settings.showDefinition)}
       >
-        {t('fcShowDefinition')}
+        {/* Danish words have an English gloss where English ones have a definition. */}
+        {t(danish ? 'fcShowGloss' : 'fcShowDefinition')}
       </button>
       <button
         type="button"
@@ -338,6 +451,7 @@ export default function FlashcardDeck({ cards }: { cards: Flashcard[] }) {
       <button type="button" onClick={shuffle} disabled={round.length < 2} className={`${toolButton} ml-auto`}>
         ⤮ {t('fcShuffle')}
       </button>
+      {noVoice && <p className="w-full text-xs text-muted-foreground">{t('vcNoDanishVoice')}</p>}
     </div>
   )
 
@@ -440,8 +554,19 @@ export default function FlashcardDeck({ cards }: { cards: Flashcard[] }) {
             aria-hidden={!flipped}
             className="flashcard__face flashcard__face--back flex min-h-[17rem] flex-col rounded-2xl border border-[var(--teal-accent)] bg-[var(--teal-accent-soft)] p-5 text-center shadow-sm"
           >
-            <div className="flex min-h-[1.5rem] justify-start">
+            <div className="flex min-h-[1.5rem] items-start justify-between gap-2">
               <LevelBadge level={card.cefrLevel} subtle />
+              {targetLanguage !== 'en' &&
+                card.reviewStatus &&
+                (review ? (
+                  <ReviewToggle
+                    reviewed={card.reviewStatus === 'reviewed'}
+                    disabled={review.busy || !flipped}
+                    onChange={(reviewed) => review.onChange(card.id, reviewed)}
+                  />
+                ) : (
+                  card.reviewStatus === 'needs_review' && <NeedsReviewBadge />
+                ))}
             </div>
             <div className="flex flex-1 flex-col items-center justify-center gap-3 py-4">{back}</div>
           </div>

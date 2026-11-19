@@ -39,6 +39,8 @@ export async function startDrill(userId: string, ref: WordlistRef, itemIds: stri
     definitionEn: r.vocab_items.definition_en,
     exampleEn: r.vocab_items.example_en,
     contextCorrected: r.context_corrected,
+    targetLanguage: r.vocab_items.target_language,
+    article: r.vocab_items.article,
     distractors: pickDistractors(r.vocab_items.meaning_hu, pool, RECOGNITION_DISTRACTORS),
   }))
 

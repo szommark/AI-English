@@ -92,6 +92,7 @@ export default function CrosswordTab({ data }: { data: WordlistsResponse }) {
           key={gameNo}
           puzzle={puzzle}
           clueLanguage={clueLanguage}
+          targetLanguage={list?.targetLanguage ?? 'en'}
           onPlayAgain={() => void start()}
           onQuit={() => setPuzzle(null)}
           onSolved={() => {
@@ -151,7 +152,8 @@ export default function CrosswordTab({ data }: { data: WordlistsResponse }) {
                   aria-pressed={clueLanguage === lang}
                   className={segment(clueLanguage === lang)}
                 >
-                  {t(lang === 'en' ? 'cwCluesEn' : 'cwCluesHu')}
+                  {/* For a Danish list, the English clues are the words' English glosses. */}
+                  {t(lang === 'hu' ? 'cwCluesHu' : list?.targetLanguage === 'da' ? 'cwCluesEnGloss' : 'cwCluesEn')}
                 </button>
               ))}
             </div>

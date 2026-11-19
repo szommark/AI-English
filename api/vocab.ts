@@ -31,6 +31,7 @@ import {
   loadWordlistDetail,
   loadWordlists,
   removeWordFromList,
+  setWordReviewed,
   renameWordlist,
 } from './_lib/vocabWordlists.js'
 import type { CefrLevel } from './_lib/prompts.js'
@@ -39,6 +40,10 @@ import {
   COMPILE_MAX_WORDS,
   COMPILE_MIN_WORDS,
   CUSTOM_TOPIC_MAX_LENGTH,
+  DA_LEVELS,
+  DA_TOP_FREQUENCY_TOPIC,
+  DEFAULT_TARGET_LANGUAGE,
+  TARGET_LANGUAGES,
   DRILL_MAX_WORDS,
   ITEM_FIELD_MAX_LENGTH,
   LIST_MAX_ITEMS,
@@ -46,6 +51,9 @@ import {
   MIXED_LEVEL,
   PRACTICE_EXERCISES,
   TERM_MAX_LENGTH,
+  isDaLevel,
+  isDaTopicId,
+  isTargetLanguage,
   isVocabTopicId,
   normalizeTerm,
   type CompileInput,
@@ -99,11 +107,17 @@ import {
 //   DELETE wordlist&id=                 delete a custom list — its words' cards stay
 //   POST   wordlist-compile             { topic, cefrLevel (a level or 'mixed'), count, title } — word-bank
 //                                        words, then model-picked ones for any gap; at most
-//                                        COMPILES_PER_DAY compiles + word-bank additions per UTC day (429)
+//                                        COMPILES_PER_DAY compiles + word-bank additions per UTC day (429).
+//                                        Optional targetLanguage ('en' default | 'da'): Danish reuses stored
+//                                        Danish words for the topic and level, the model makes only the
+//                                        shortfall (stored as needs_review); levels A1–B1 or 'mixed'
 //   POST   wordlist-more&id=            { count } — more words for a custom list's topic and level (counts as a compile)
 //   POST   wordlist-word&id=            { terms } — add typed words to a custom list (409 if it has them all)
 //   DELETE wordlist-word&id=&itemId=    take a word off a custom list
-//   POST   wordlist-srs&id=             add a custom list's words to spaced repetition (SRS_MIN_WORDS words)
+//   PATCH  wordlist-word&id=&itemId=    { reviewed } — teacher/admin only (403): mark a generated (non-English)
+//                                        word on the caller's list reviewed or back to needs_review; global
+//   POST   wordlist-srs&id=             add a custom list's words to spaced repetition (SRS_MIN_WORDS words;
+//                                        words still needing review are held back: REVIEWED_ONLY_IN_SRS)
 // Fast practice (design §7.1; recorded apart from reviews, never rescheduled):
 //   POST   drill-start                  { list: { kind, id }, itemIds } — the run with every word's content
 //   POST   drill-answer                 { runId, itemId, exercise, correct, usedHint, responseMs }
@@ -761,6 +775,9 @@ async function handleWordlist(req: VercelRequest, res: VercelResponse, userId: s
 }
 
 function compileInputFrom(body: Record<string, unknown>): CompileInput {
+  const lang = body.targetLanguage ?? DEFAULT_TARGET_LANGUAGE
+  if (!isTargetLanguage(lang)) throw new HttpError(400, { error: `targetLanguage must be one of ${TARGET_LANGUAGES.join(', ')}` })
+  if (lang === 'da') return danishCompileInputFrom(body)
   const topic = typeof body.topic === 'string' ? body.topic.trim().replace(/\s+/g, ' ') : ''
   if (!topic || (!isVocabTopicId(topic) && topic.length > CUSTOM_TOPIC_MAX_LENGTH)) {
     throw new HttpError(400, { error: `topic must be a listed topic or 1–${CUSTOM_TOPIC_MAX_LENGTH} characters` })
@@ -769,6 +786,24 @@ function compileInputFrom(body: Record<string, unknown>): CompileInput {
     throw new HttpError(400, { error: 'Invalid cefrLevel' })
   }
   return { topic, cefrLevel: body.cefrLevel as ListLevel, count: compileCountFrom(body.count), title: listTitleFrom(body.title) }
+}
+
+/** A Danish compile: a Danish topic, the top-frequency words or the learner's own topic; a DA level or 'mixed' (all of them). */
+function danishCompileInputFrom(body: Record<string, unknown>): CompileInput {
+  const topic = typeof body.topic === 'string' ? body.topic.trim().replace(/\s+/g, ' ') : ''
+  if (!topic || (!isDaTopicId(topic) && topic !== DA_TOP_FREQUENCY_TOPIC && topic.length > CUSTOM_TOPIC_MAX_LENGTH)) {
+    throw new HttpError(400, { error: `topic must be a listed topic or 1–${CUSTOM_TOPIC_MAX_LENGTH} characters` })
+  }
+  if (!isDaLevel(body.cefrLevel) && body.cefrLevel !== MIXED_LEVEL) {
+    throw new HttpError(400, { error: `Danish cefrLevel must be one of ${DA_LEVELS.join(', ')} or ${MIXED_LEVEL}` })
+  }
+  return {
+    topic,
+    cefrLevel: body.cefrLevel as ListLevel,
+    count: compileCountFrom(body.count),
+    title: listTitleFrom(body.title),
+    targetLanguage: 'da',
+  }
 }
 
 function compileCountFrom(count: unknown): number {
@@ -827,6 +862,16 @@ async function handleWordlistWord(req: VercelRequest, res: VercelResponse, userI
     const itemId = req.query.itemId
     if (typeof itemId !== 'string' || !UUID_RE.test(itemId)) throw notFound()
     res.status(200).json(await withVocabErrors(() => removeWordFromList(userId, id, itemId)))
+    return
+  }
+  if (req.method === 'PATCH') {
+    // Items are global: only teachers and admins may mark a generated word reviewed.
+    if (!hasTeacherAccess(await getUserRole(userId))) throw new HttpError(403, { error: 'Forbidden' })
+    const itemId = req.query.itemId
+    if (typeof itemId !== 'string' || !UUID_RE.test(itemId)) throw notFound()
+    const reviewed = ((req.body ?? {}) as Record<string, unknown>).reviewed
+    if (typeof reviewed !== 'boolean') throw new HttpError(400, { error: 'reviewed must be a boolean' })
+    res.status(200).json(await withVocabErrors(() => setWordReviewed(userId, id, itemId, reviewed)))
     return
   }
   throw new HttpError(405, { error: 'Method not allowed' })

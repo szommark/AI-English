@@ -5,6 +5,7 @@ import { enrichTerms } from './vocabEnrichment.js'
 import type { CefrLevel } from './prompts.js'
 import {
   ENRICH_BATCH_SIZE,
+  keyLanguage,
   type ReviewInput,
   type ReviewResult,
   type VocabKind,
@@ -72,7 +73,10 @@ export interface ItemContentRow {
  * choice copes with a missing meaning, and the next session retries.
  */
 export async function fillPendingItems(userId: string, rows: ItemContentRow[]): Promise<void> {
-  const pending = rows.filter((r) => r.vocab_items && r.vocab_items.enrichment_status !== 'done' && !r.vocab_items.owner_teacher_id)
+  // English only: Danish items are always stored complete, and the English prompt can't fill one.
+  const pending = rows.filter(
+    (r) => r.vocab_items && r.vocab_items.enrichment_status !== 'done' && !r.vocab_items.owner_teacher_id && keyLanguage(r.term_normalized) === 'en',
+  )
   const terms = [...new Set(pending.map((r) => r.vocab_items!.term))].slice(0, ENRICH_BATCH_SIZE)
   if (terms.length === 0) return
 

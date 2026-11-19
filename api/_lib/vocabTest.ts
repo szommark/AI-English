@@ -54,6 +54,8 @@ export async function startTest(userId: string, ref: WordlistRef): Promise<TestR
     definitionEn: r.vocab_items.definition_en,
     exampleEn: r.vocab_items.example_en,
     contextCorrected: r.context_corrected,
+    targetLanguage: r.vocab_items.target_language,
+    article: r.vocab_items.article,
     distractors: [],
   }))
 

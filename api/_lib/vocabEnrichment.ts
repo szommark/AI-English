@@ -8,7 +8,7 @@ import { getModelEntry, type ModelId } from '../../src/lib/models.js'
 import {
   ENRICH_BATCH_SIZE,
   LIST_MAX_ITEMS,
-  normalizeTerm,
+  termKey,
   tidyHyphens,
   termKind,
   type EnrichResult,
@@ -35,11 +35,14 @@ interface UniqueTerm {
   termNormalized: string
 }
 
-/** Normalizes, drops empties, dedupes (first spelling wins) and caps at LIST_MAX_ITEMS. */
+/**
+ * Normalizes (English keys: termKey), drops empties, dedupes (first spelling wins) and caps
+ * at LIST_MAX_ITEMS. This is the English enrichment; Danish words go through vocabDanish.ts.
+ */
 function uniqueTerms(terms: string[]): UniqueTerm[] {
   const seen = new Map<string, UniqueTerm>()
   for (const raw of terms) {
-    const termNormalized = normalizeTerm(raw)
+    const termNormalized = termKey(raw, 'en')
     if (!termNormalized || seen.has(termNormalized)) continue
     seen.set(termNormalized, { term: tidyHyphens(raw.trim().replace(/\s+/g, ' ')), termNormalized })
   }

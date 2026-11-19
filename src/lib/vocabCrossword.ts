@@ -2,9 +2,10 @@
 // English definitions or Hungarian meanings. One entry is the solution: shaded and without a
 // clue, its letters come from the words that cross it (and a hint on request).
 // Pure logic — building the puzzle and checking the letters — so the component only renders.
-import { normalizeTerm, type WordlistWord } from './vocab'
+import { normalizeTerm, withArticle, type TargetLanguage, type WordlistWord } from './vocab'
 import { shuffle, type Rng } from './vocabGrid'
 
+/** 'en': the English definition (Danish words: the English gloss); 'hu': the Hungarian meaning. */
 export type ClueLanguage = 'en' | 'hu'
 export type Direction = 'across' | 'down'
 
@@ -41,8 +42,9 @@ export interface CrosswordClue {
 
 export interface CrosswordWord {
   id: string
+  /** As listed after the game: a Danish noun with its article ("et hus"). */
   term: string
-  /** The letters in the grid: A–Z. */
+  /** The letters in the grid: A–Z, and Æ Ø Å for Danish (CROSSWORD_LETTERS). */
   answer: string
   meaningHu: string | null
   clue: CrosswordClue
@@ -70,28 +72,69 @@ export interface CrosswordPuzzle {
   solutionId: string
 }
 
-/** The grid letters for a term (A–Z only), or null when the term can't be an answer. */
-export function crosswordAnswer(term: string): string | null {
+/** The letters an answer may be made of, per language: Danish adds æ, ø and å. */
+export const CROSSWORD_LETTERS: Record<TargetLanguage, RegExp> = {
+  en: /^[a-z]+$/,
+  da: /^[a-zæøå]+$/u,
+}
+
+/** One letter a player may type into a square, per language (any case). */
+export const CROSSWORD_KEY: Record<TargetLanguage, RegExp> = {
+  en: /^[a-z]$/i,
+  da: /^[a-zæøå]$/iu,
+}
+
+/** What isn't a grid letter once uppercased, per language. */
+const NON_GRID_LETTERS: Record<TargetLanguage, RegExp> = {
+  en: /[^A-Z]/g,
+  da: /[^A-ZÆØÅ]/gu,
+}
+
+/** Typed or pasted text as grid letters: uppercase, anything that isn't a letter of the language dropped. */
+export function crosswordLetters(text: string, lang: TargetLanguage = 'en'): string {
+  return text.toUpperCase().replace(NON_GRID_LETTERS[lang], '')
+}
+
+/** The grid letters for a term, or null when the term can't be an answer (CROSSWORD_LETTERS, 3–12 letters). */
+export function crosswordAnswer(term: string, lang: TargetLanguage = 'en'): string | null {
   const word = normalizeTerm(term)
-  if (!/^[a-z]+$/.test(word) || word.length < ANSWER_MIN || word.length > ANSWER_MAX) return null
+  if (!CROSSWORD_LETTERS[lang].test(word) || word.length < ANSWER_MIN || word.length > ANSWER_MAX) return null
   return word.toUpperCase()
 }
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-/** The clue with the answer itself (and its common inflections) blanked out. */
-export function maskAnswer(text: string, term: string): string {
-  const pattern = new RegExp(`\\b${escapeRegExp(term)}(?:s|es|ed|d|ing|er|ers)?\\b`, 'gi')
-  return text.replace(pattern, '___')
+/**
+ * Endings blanked out along with the answer in its clue: English inflections, and Danish
+ * definite and plural endings ("huset", "husene").
+ */
+export const MASK_SUFFIXES: Record<TargetLanguage, readonly string[]> = {
+  en: ['s', 'es', 'ed', 'd', 'ing', 'er', 'ers'],
+  da: ['e', 'en', 'et', 'er', 'ene', 'erne', 'ne', 'r', 's'],
 }
 
-/** A word's clue in the chosen language, or in the other one when the word lacks it. */
+/**
+ * The clue with the answer itself (and its common inflections) blanked out. Word edges are
+ * Unicode-aware (any letter or digit counts as part of a word), so "bøger" or "kávé" never
+ * splits mid-word the way an ASCII \b would.
+ */
+export function maskAnswer(text: string, term: string, lang: TargetLanguage = 'en'): string {
+  if (!term) return text
+  const suffixes = MASK_SUFFIXES[lang].map(escapeRegExp).join('|')
+  const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(term)}(?:${suffixes})?(?=$|[^\\p{L}\\p{N}])`, 'giu')
+  return text.replace(pattern, (_, before: string) => `${before}___`)
+}
+
+/**
+ * A word's clue in the chosen language, or in the other one when the word lacks it. 'en' is
+ * the English definition, or for a Danish word its English gloss.
+ */
 export function crosswordClue(word: WordlistWord, lang: ClueLanguage): CrosswordClue | null {
   const text = { en: word.definitionEn?.trim(), hu: word.meaningHu?.trim() }
   const other: ClueLanguage = lang === 'en' ? 'hu' : 'en'
   const pick = text[lang] ? lang : text[other] ? other : null
   if (!pick) return null
-  return { text: maskAnswer(text[pick]!, normalizeTerm(word.term)), lang: pick }
+  return { text: maskAnswer(text[pick]!, normalizeTerm(word.term), word.targetLanguage ?? 'en'), lang: pick }
 }
 
 /** The list's words a crossword can use: single words with a clue, one per answer. */
@@ -99,11 +142,11 @@ export function crosswordEligibleWords(words: readonly WordlistWord[], lang: Clu
   const answers = new Set<string>()
   const out: CrosswordWord[] = []
   for (const w of words) {
-    const answer = crosswordAnswer(w.term)
+    const answer = crosswordAnswer(w.term, w.targetLanguage ?? 'en')
     const clue = crosswordClue(w, lang)
     if (!answer || !clue || answers.has(answer)) continue
     answers.add(answer)
-    out.push({ id: w.itemId, term: w.term, answer, meaningHu: w.meaningHu, clue })
+    out.push({ id: w.itemId, term: withArticle(w.term, w.article), answer, meaningHu: w.meaningHu, clue })
   }
   return out
 }

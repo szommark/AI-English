@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLanguage } from '../../lib/i18n'
 import { finishReviewSession, submitReview } from '../../lib/vocabPracticeApi'
 import { chooseExercise, type SpellingFix } from '../../lib/vocabPractice'
-import type { ExerciseContent, PracticeCard } from '../../lib/vocab'
+import { withArticle, type ExerciseContent, type PracticeCard } from '../../lib/vocab'
 import Exercise, { type ExerciseOutcome, type Speech } from './Exercise'
 import ProgressBar from '../VocabLists/ProgressBar'
 import { SpeakerIcon } from '../icons/AudioIcons'
@@ -174,6 +174,8 @@ function SpellingCorrection({ fix }: { fix: SpellingFix }) {
 export function FeedbackPanel({ card, feedback, speech }: { card: ExerciseContent; feedback: Feedback; speech: Speech }) {
   const { t } = useLanguage()
   const { check, correct } = feedback.outcome
+  // Danish nouns with their article ("et hus").
+  const shown = withArticle(card.term, card.article)
   // In a test a typo is wrong: red, and said so.
   const strictTypo = check === 'typo' && !correct
   const tone =
@@ -191,13 +193,16 @@ export function FeedbackPanel({ card, feedback, speech }: { card: ExerciseConten
       {feedback.outcome.spelling.map((fix, i) => (
         <SpellingCorrection key={i} fix={fix} />
       ))}
+      {feedback.outcome.spelledAs && (
+        <p className="text-sm text-foreground">{t('vcDaSpelling', { word: feedback.outcome.spelledAs })}</p>
+      )}
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-3">
-          <p className="text-2xl font-semibold text-foreground">{card.term}</p>
+          <p className="text-2xl font-semibold text-foreground">{shown}</p>
           {speech.supported && (
             <button
               type="button"
-              onClick={() => speech.speak(card.term)}
+              onClick={() => speech.speak(shown)}
               aria-label={t('vcPlay')}
               className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-secondary"
             >
