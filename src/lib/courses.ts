@@ -1,4 +1,4 @@
-import { finalPunctuation, GAP, matchesAnswer, matchesGap, normalizeAnswer, sentenceTiles } from './grammarExercises.js'
+import { cueGivesAnswer, finalPunctuation, GAP, matchesAnswer, matchesGap, normalizeAnswer, sentenceTiles } from './grammarExercises.js'
 import { getGrammarItem } from '../data/grammarCurriculum.js'
 
 // Mini courses (Teacher Toolkit, /teacher/tools/courses; students /my-courses). A course is 1–4
@@ -436,7 +436,8 @@ export function stepLeaksAnswer(step: CourseStep): boolean {
     case 'order':
       return orderPromptLeaks(step.prompt, step.answer)
     case 'gap':
-      return step.accepted.some((a) => has(step.sentence.replace(GAP, ' '), a))
+      // The bracket after the gap is the answer itself: "You ___ (can) go." → "can".
+      return step.accepted.some((a) => has(step.sentence.replace(GAP, ' '), a)) || cueGivesAnswer(step.sentence, step.sentence.split(GAP)[1]?.match(/^\s*\(([^)]*)\)/)?.[1] ?? '', step.accepted)
     case 'choice': {
       const right = step.options[step.answer] ?? ''
       return right.trim().split(/\s+/).length >= 2 && has(step.prompt, right) && !step.options.some((o, i) => i !== step.answer && has(step.prompt, o))

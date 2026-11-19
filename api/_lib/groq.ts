@@ -30,7 +30,7 @@ import {
   type VocabKind,
   type VocabPos,
 } from '../../src/lib/vocab.js'
-import { bareCue, doublesAtGap, EXERCISES_PER_TYPE, finalPunctuation, GAP, isClauseGap, isDeicticGap, normalizeAnswer, sameWords, sentenceTiles } from '../../src/lib/grammarExercises.js'
+import { bareCue, cueGivesAnswer, doublesAtGap, EXERCISES_PER_TYPE, finalPunctuation, GAP, isClauseGap, isDeicticGap, normalizeAnswer, repeatsOwner, sameWords, sentenceTiles } from '../../src/lib/grammarExercises.js'
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
@@ -485,6 +485,8 @@ export function parseGrammarExercisesJson(raw: string, options: { reported?: boo
     if (reported && answers.every((a) => normalizeAnswer(a) === normalizeAnswer(cue))) {
       throw new Error('Grammar reported speech gap answer is the unchanged cue')
     }
+    // "He is reading ___ book. (his)": the bracket is the solution.
+    if (cueGivesAnswer(sentence, cue, answers)) throw new Error('Grammar form cue is the answer itself')
     return { ...quoteOf(item, 'form'), sentence, cue, answers }
   })
 
@@ -493,7 +495,9 @@ export function parseGrammarExercisesJson(raw: string, options: { reported?: boo
     const source = item.source.trim()
     // Reported speech sources carry their own reporting verb and listener; a hint only confuses.
     const cue = !reported && isNonEmptyString(item.cue) ? bareCue(item.cue) || undefined : undefined
-    const listed = answerList(item.answers, 'transform item').map(reportedEnd)
+    // "My book is mine." names the owner twice: drop it, and the item if nothing natural is left.
+    const listed = answerList(item.answers, 'transform item').map(reportedEnd).filter((a) => !repeatsOwner(a))
+    if (listed.length === 0) throw new Error('Grammar transform answers name the same owner twice')
     const answers = reported ? speakerFirst(source, listed) : listed
     return { source, ...(cue ? { cue } : {}), answers }
   })
