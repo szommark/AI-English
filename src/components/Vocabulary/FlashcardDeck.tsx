@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useLanguage } from '../../lib/i18n'
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis'
 import type { CefrLevel } from '../../data/grammarCurriculum'
-import { speechLocaleFor, type DaArticle, type ReviewStatus, type TargetLanguage } from '../../lib/vocab'
+import { speechLocaleFor, withArticle, type DaArticle, type ReviewStatus, type TargetLanguage } from '../../lib/vocab'
 import { SpeakerIcon } from '../icons/AudioIcons'
 import { LevelBadge } from './wordlistLabels'
 
@@ -28,7 +28,7 @@ export interface Flashcard {
 
 /** The term as shown and spoken: Danish nouns with their article. */
 export function displayTerm(c: { term: string; article?: DaArticle | null }): string {
-  return c.article ? `${c.article} ${c.term}` : c.term
+  return withArticle(c.term, c.article)
 }
 
 /** Small amber "needs review" pill for generated words a teacher hasn't checked yet. */
@@ -219,6 +219,9 @@ export default function FlashcardDeck({
   // No voice for the list's language: hide the speakers rather than play the wrong voice.
   const noVoice = speechLocale !== undefined && speech.hasVoice === false
   const canSpeak = speech.supported && !noVoice
+  const danish = targetLanguage === 'da'
+  /** The word's side in the direction toggle: "EN → HU", "DA → HU". */
+  const code = targetLanguage.toUpperCase()
   const [settings, setSettings] = useState<DeckSettings>(loadSettings)
   const ids = useMemo(() => cards.map((c) => c.id), [cards])
   const idsKey = ids.join('|')
@@ -413,19 +416,19 @@ export default function FlashcardDeck({
           type="button"
           onClick={() => update({ direction: 'en-hu' })}
           aria-pressed={settings.direction === 'en-hu'}
-          title={t('fcDirEnHu')}
+          title={t(danish ? 'fcDirDaHu' : 'fcDirEnHu')}
           className={segment(settings.direction === 'en-hu')}
         >
-          EN → HU
+          {code} → HU
         </button>
         <button
           type="button"
           onClick={() => update({ direction: 'hu-en' })}
           aria-pressed={settings.direction === 'hu-en'}
-          title={t('fcDirHuEn')}
+          title={t(danish ? 'fcDirHuDa' : 'fcDirHuEn')}
           className={segment(settings.direction === 'hu-en')}
         >
-          HU → EN
+          HU → {code}
         </button>
       </div>
       <button
@@ -434,7 +437,8 @@ export default function FlashcardDeck({
         aria-pressed={settings.showDefinition}
         className={chip(settings.showDefinition)}
       >
-        {t('fcShowDefinition')}
+        {/* Danish words have an English gloss where English ones have a definition. */}
+        {t(danish ? 'fcShowGloss' : 'fcShowDefinition')}
       </button>
       <button
         type="button"

@@ -1,4 +1,12 @@
-import { foldDashes, type ExerciseContent, type PracticeCard, type PracticeExercise } from './vocab'
+import {
+  foldDashes,
+  keyLanguage,
+  type DaArticle,
+  type ExerciseContent,
+  type PracticeCard,
+  type PracticeExercise,
+  type TargetLanguage,
+} from './vocab'
 
 // Pure helpers for the student practice session (design §7). Steps 1–4 are rendered and
 // checked in the browser; only the result goes to the server for scheduling.
@@ -18,6 +26,24 @@ export function normalizeAnswer(text: string): string {
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .replace(/^[\p{P}\p{S}\s]+|[\p{P}\p{S}\s]+$/gu, '')
+}
+
+/**
+ * Danish letters a Hungarian keyboard lacks, and the two-letter spelling a typed answer may
+ * use instead: "aeble" counts as an exact "æble" (the right spelling is shown after it).
+ */
+export const DA_LETTER_FALLBACKS: Readonly<Record<string, string>> = { æ: 'ae', ø: 'oe', å: 'aa' }
+
+const DA_FALLBACK_PATTERN = new RegExp(`[${Object.keys(DA_LETTER_FALLBACKS).join('')}]`, 'gu')
+
+/** A normalized answer with every æ/ø/å spelled out (DA_LETTER_FALLBACKS), for comparing Danish. */
+function foldDanishLetters(normalized: string): string {
+  return normalized.replace(DA_FALLBACK_PATTERN, (ch) => DA_LETTER_FALLBACKS[ch])
+}
+
+/** The language an exercise's word is in: sent by the server, or read from its key (PracticeCard). */
+export function exerciseLanguage(card: Pick<ExerciseContent, 'targetLanguage'> & { termNormalized?: string }): TargetLanguage {
+  return card.targetLanguage ?? (card.termNormalized ? keyLanguage(card.termNormalized) : 'en')
 }
 
 /**
@@ -60,13 +86,20 @@ export function termAlternatives(term: string): string[] {
   return parts.length > 1 && parts.every((p) => /\p{L}/u.test(p)) ? parts : [term]
 }
 
-/** One typed answer against one expected form. */
-function checkOne(expected: string, given: string): AnswerCheck {
+/**
+ * One typed answer against one expected form. Danish also accepts ae/oe/aa for æ/ø/å
+ * (DA_LETTER_FALLBACKS); a typo is one edit away as typed ("sxster" for "søster") or once
+ * spelled out ("aebel" for "æble" is one swap). English is compared as typed.
+ */
+function checkOne(expected: string, given: string, lang: TargetLanguage = 'en'): AnswerCheck {
   const e = normalizeAnswer(expected)
   const g = normalizeAnswer(given)
   if (!g) return 'wrong'
   if (e === g) return 'exact'
-  if (e.length >= TYPO_MIN_LENGTH && editDistance(e, g, 1) === 1) return 'typo'
+  const folded = lang === 'da' ? { e: foldDanishLetters(e), g: foldDanishLetters(g) } : null
+  if (folded && folded.e === folded.g) return 'exact'
+  if (e.length < TYPO_MIN_LENGTH) return 'wrong'
+  if (editDistance(e, g, 1) === 1 || (folded && editDistance(folded.e, folded.g, 1) === 1)) return 'typo'
   return 'wrong'
 }
 
@@ -79,10 +112,12 @@ const RANK: Record<AnswerCheck, number> = { exact: 2, typo: 1, wrong: 0 }
  * A term with alternatives ("big / large") accepts any one of them, or several at once
  * separated by "," or "/" in any order ("large, big") — each must be a different
  * alternative, and one typo among them makes the whole answer a typo.
+ *
+ * `lang` is the word's language: 'da' adds the æ/ø/å fallbacks (checkOne).
  */
-export function checkTypedAnswer(expected: string, given: string): AnswerCheck {
+export function checkTypedAnswer(expected: string, given: string, lang: TargetLanguage = 'en'): AnswerCheck {
   const alternatives = termAlternatives(expected)
-  if (alternatives.length === 1) return checkOne(expected, given)
+  if (alternatives.length === 1) return checkOne(expected, given, lang)
 
   const parts = given
     .split(/[,/]/)
@@ -93,7 +128,7 @@ export function checkTypedAnswer(expected: string, given: string): AnswerCheck {
   // Match each typed part to its best still-unused alternative, best matches first.
   const unused = new Set(alternatives.map((_, i) => i))
   let result: AnswerCheck = 'exact'
-  const scored = parts.map((part) => alternatives.map((alt) => checkOne(alt, part)))
+  const scored = parts.map((part) => alternatives.map((alt) => checkOne(alt, part, lang)))
   const order = scored
     .map((row, i) => ({ i, best: Math.max(...row.map((c) => RANK[c])) }))
     .sort((a, b) => b.best - a.best)
@@ -106,6 +141,33 @@ export function checkTypedAnswer(expected: string, given: string): AnswerCheck {
     unused.delete(bestAlt)
   }
   return result
+}
+
+/**
+ * Whether a Danish answer was right only thanks to DA_LETTER_FALLBACKS ("aeble" for "æble"),
+ * so the right spelling should be shown. Always false for English.
+ */
+export function usedLetterFallback(expected: string, given: string, lang: TargetLanguage): boolean {
+  return lang === 'da' && checkTypedAnswer(expected, given, 'da') === 'exact' && checkTypedAnswer(expected, given, 'en') !== 'exact'
+}
+
+/**
+ * The forms a typed Danish word is checked in. With an article the learner typed ("en hus"),
+ * against the noun with its own article ("et hus"), so the wrong one is a one-letter typo; a
+ * leading "at" before a verb ("at spise") is dropped. An answer without either, or an
+ * expected form that already starts with one, is left as it is.
+ */
+export function danishAnswerForms(
+  expected: string,
+  article: DaArticle | null | undefined,
+  given: string,
+): { expected: string; given: string } {
+  const typed = given.trim().replace(/\s+/g, ' ')
+  const marker = /^(en|et|at) (\S.*)$/iu.exec(typed)
+  if (!marker || /^(en|et|at)\s/iu.test(expected.trim())) return { expected, given }
+  const word = marker[1].toLowerCase()
+  if (word !== 'at' && article) return { expected: `${article} ${expected}`, given: typed }
+  return { expected, given: marker[2] }
 }
 
 /** A misspelt answer and its correction, each split around the letters that differ. */
@@ -143,20 +205,38 @@ function spellingFix(expected: string, given: string): SpellingFix {
   }
 }
 
+const DA_FALLBACK_SPELLINGS = Object.entries(DA_LETTER_FALLBACKS)
+
+/**
+ * A Danish answer with its ae/oe/aa written as æ/ø/å, when that is closer to the expected
+ * form, so a correction marks only the real mistake ("en aeble" → "en æble" against
+ * "et æble" marks the article). Otherwise the answer as typed.
+ */
+function danishLettersFor(expected: string, given: string): string {
+  let respelled = given
+  for (const [letter, fallback] of DA_FALLBACK_SPELLINGS) {
+    respelled = respelled.replace(new RegExp(fallback, 'gi'), (m) => (m[0] === m[0].toUpperCase() ? letter.toUpperCase() : letter))
+  }
+  const e = normalizeAnswer(expected)
+  const distance = (s: string) => editDistance(e, normalizeAnswer(s), Math.max(e.length, s.length))
+  return respelled !== given && distance(respelled) < distance(given) ? respelled : given
+}
+
 /**
  * The corrections to show for an answer checkTypedAnswer rated a typo: one per misspelt
  * word. With alternatives ("big / large"), each typed part is set against the alternative
  * it misspells; parts that are already right are left out.
  */
-export function spellingFixes(expected: string, given: string): SpellingFix[] {
+export function spellingFixes(expected: string, given: string, lang: TargetLanguage = 'en'): SpellingFix[] {
+  const fix = (exp: string, typed: string) => spellingFix(exp, lang === 'da' ? danishLettersFor(exp, typed) : typed)
   const alternatives = termAlternatives(expected)
-  if (alternatives.length === 1) return checkOne(expected, given) === 'typo' ? [spellingFix(expected, given)] : []
+  if (alternatives.length === 1) return checkOne(expected, given, lang) === 'typo' ? [fix(expected, given)] : []
   const fixes: SpellingFix[] = []
   for (const part of given.split(/[,/]/).map((p) => p.trim()).filter(Boolean)) {
-    const checks = alternatives.map((alt) => checkOne(alt, part))
+    const checks = alternatives.map((alt) => checkOne(alt, part, lang))
     if (checks.includes('exact')) continue
     const typoOf = checks.indexOf('typo')
-    if (typoOf !== -1) fixes.push(spellingFix(alternatives[typoOf], part))
+    if (typoOf !== -1) fixes.push(fix(alternatives[typoOf], part))
   }
   return fixes
 }

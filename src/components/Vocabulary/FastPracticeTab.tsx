@@ -2,7 +2,7 @@ import { useLanguage } from '../../lib/i18n'
 import { TEST_SHARE, hasTest, testSize, type WordlistRef, type WordlistsResponse } from '../../lib/vocab'
 import { TestScoresLine } from './TestSession'
 import WordlistFilters, { applyWordlistFilter, type WordlistFilter } from './WordlistFilters'
-import { KindBadge, LevelBadge, useListTitle, useTopicLabel } from './wordlistLabels'
+import { KindBadge, LanguageBadge, LevelBadge, useListTitle, useTopicLabel } from './wordlistLabels'
 
 /**
  * Fast practice (design §7.1): practise any of the student's lists, with the My wordlists
@@ -51,8 +51,9 @@ export default function FastPracticeTab({
                     <p className="break-words text-sm font-medium text-foreground">{listTitle(l)}</p>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <KindBadge kind={l.kind} />
+                      <LanguageBadge language={l.targetLanguage} />
                       <LevelBadge level={l.cefrLevel} />
-                      {l.kind === 'custom' && l.topic && <span>{topicLabel(l.topic)}</span>}
+                      {l.kind === 'custom' && l.topic && <span>{topicLabel(l.topic, l.targetLanguage)}</span>}
                       <span>{t('vcWordCount', { n: l.wordCount })}</span>
                       {l.practiceCount > 0 && <span>{t('vcPracticedCount', { n: l.practiceCount })}</span>}
                       <TestScoresLine tests={l.tests} />

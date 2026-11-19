@@ -243,6 +243,11 @@ export function stripDanishMarker(term: string): string {
   return match ? match[2] : trimmed
 }
 
+/** A term as shown and spoken: a Danish noun with its article ("et hus"), anything else as it is. */
+export function withArticle(term: string, article: DaArticle | null | undefined): string {
+  return article ? `${article} ${term}` : term
+}
+
 // --- Teacher word lists (Phase 2, design §5.1) -------------------------------------------
 
 export const LIST_TITLE_MAX_LENGTH = 120
@@ -376,6 +381,13 @@ export interface ExerciseContent {
   contextCorrected: string | null
   /** Hungarian meanings of other items, for the recognition exercise. */
   distractors: string[]
+  /**
+   * The word's language: Danish typed answers also accept ae/oe/aa for æ/ø/å. Optional so
+   * a response from before Phase 3 reads as English.
+   */
+  targetLanguage?: TargetLanguage
+  /** Danish nouns: en/et (term is the bare noun). */
+  article?: DaArticle | null
 }
 
 /** One card of GET /api/vocab?action=session, with the content its exercises need. */

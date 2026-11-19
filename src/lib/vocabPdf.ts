@@ -6,18 +6,24 @@ export interface PdfWord {
   term: string
   /** Part of speech, already in the UI language. */
   pos?: string | null
+  /** Danish words: the respelling for a Hungarian reader. */
+  pronunciation?: string | null
   meaningHu?: string | null
   definitionEn?: string | null
   exampleEn?: string | null
+  /** Danish words: the example in Hungarian. */
+  exampleHu?: string | null
   cefrLevel?: string | null
 }
 
 export interface PdfLabels {
   term: string
   pos?: string
+  pronunciation?: string
   meaning: string
   definition: string
   example: string
+  exampleHu?: string
   level: string
 }
 
@@ -29,9 +35,11 @@ export function buildWordlistHtml(title: string, words: PdfWord[], labels: PdfLa
   const columns = [
     { key: 'term', label: labels.term, show: true },
     { key: 'pos', label: labels.pos ?? '', show: Boolean(labels.pos) && words.some((w) => w.pos) },
+    { key: 'pronunciation', label: labels.pronunciation ?? '', show: Boolean(labels.pronunciation) && words.some((w) => w.pronunciation) },
     { key: 'meaningHu', label: labels.meaning, show: words.some((w) => w.meaningHu) },
     { key: 'definitionEn', label: labels.definition, show: words.some((w) => w.definitionEn) },
     { key: 'exampleEn', label: labels.example, show: words.some((w) => w.exampleEn) },
+    { key: 'exampleHu', label: labels.exampleHu ?? '', show: Boolean(labels.exampleHu) && words.some((w) => w.exampleHu) },
     { key: 'cefrLevel', label: labels.level, show: words.some((w) => w.cefrLevel) },
   ] as const
   const shown = columns.filter((c) => c.show)

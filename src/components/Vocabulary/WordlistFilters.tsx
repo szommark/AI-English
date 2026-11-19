@@ -106,6 +106,9 @@ export default function WordlistFilters({
   const topics = [...lastUsed.keys()].sort((a, b) => lastUsed.get(b)!.localeCompare(lastUsed.get(a)!)).slice(0, MAX_TOPIC_OPTIONS)
   if (filter.topic !== ALL && filter.topic !== MIXED && !topics.includes(filter.topic)) topics.push(filter.topic)
   const hasMixedTopic = filter.topic === MIXED || lists.some((l) => l.topic === null)
+  // A topic only Danish lists use ("top-frequency", "family") gets its Danish-topic label.
+  const topicLanguage = (topic: string) =>
+    lists.some((l) => l.topic === topic) && lists.every((l) => l.topic !== topic || l.targetLanguage === 'da') ? 'da' : 'en'
 
   return (
     <div className="space-y-2">
@@ -163,7 +166,7 @@ export default function WordlistFilters({
           )}
           {topics.map((topic) => (
             <option key={topic} value={topic}>
-              {topicLabel(topic)} ({topicCount(topic)})
+              {topicLabel(topic, topicLanguage(topic))} ({topicCount(topic)})
             </option>
           ))}
         </select>

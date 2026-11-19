@@ -37,7 +37,7 @@ import AddWordsPanel from './AddWordsPanel'
 import FlashcardDeck, { NeedsReviewBadge, ReviewToggle, WordsViewToggle, displayTerm, useWordsView } from './FlashcardDeck'
 import ListSrsPanel from './ListSrsPanel'
 import { TestScoresLine } from './TestSession'
-import { CardBadge, KindBadge, LevelBadge, useListTitle, useTopicLabel } from './wordlistLabels'
+import { CardBadge, KindBadge, LanguageBadge, LevelBadge, useListTitle, useTopicLabel } from './wordlistLabels'
 
 const inputClass =
   'min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-[var(--teal-accent)] focus:outline-none'
@@ -148,6 +148,7 @@ export default function WordlistView({
 
   const { list, words } = detail
   const custom = list.kind === 'custom'
+  const danish = list.targetLanguage === 'da'
   const listId = list.id!
   // Generated words still needing review stay out of spaced repetition (REVIEWED_ONLY_IN_SRS).
   const srsWords = words.filter((w) => srsEligible(w.targetLanguage, w.reviewStatus))
@@ -173,7 +174,9 @@ export default function WordlistView({
       (r) => {
         setDetail(r.detail)
         const skipped = r.alreadyInList.length > 0 ? ` ${t('vcWordsSkipped', { terms: r.alreadyInList.join(', ') })}` : ''
-        setNotice(`${t('vcWordsAdded', { n: r.added.length })}${skipped}`)
+        // Danish lists only: typed words the model couldn't make a card for.
+        const failed = r.failed?.length ? ` ${t('vcWordsFailed', { terms: r.failed.join(', ') })}` : ''
+        setNotice(`${t('vcWordsAdded', { n: r.added.length })}${skipped}${failed}`)
       },
       (err) => (err instanceof VocabRequestError && err.status === 409 ? t('vcAllWordsExist') : null),
     )
@@ -196,13 +199,27 @@ export default function WordlistView({
     const ok = printWordlistPdf(
       listTitle(list),
       words.map((w) => ({
-        term: w.term,
+        // Danish nouns with their article; the respelling and the example's translation have
+        // columns of their own (empty, so left out, for English lists).
+        term: displayTerm(w),
+        pronunciation: w.pronunciationHint,
         meaningHu: w.meaningHu,
         definitionEn: w.definitionEn,
         exampleEn: w.exampleEn,
+        exampleHu: w.exampleHu,
         cefrLevel: w.cefrLevel,
       })),
-      { term: t('vlTerm'), meaning: t('vlMeaning'), definition: t('vlDefinition'), example: t('vlExample'), level: t('vlLevel') },
+      danish
+        ? {
+            term: t('vlTermDa'),
+            pronunciation: t('fcPronunciation'),
+            meaning: t('vlMeaning'),
+            definition: t('vlDefinitionDa'),
+            example: t('vlExample'),
+            exampleHu: t('vlExampleHu'),
+            level: t('vlLevel'),
+          }
+        : { term: t('vlTerm'), meaning: t('vlMeaning'), definition: t('vlDefinition'), example: t('vlExample'), level: t('vlLevel') },
       list.teacher?.description ?? null,
     )
     setPdfBlocked(!ok)
@@ -301,6 +318,7 @@ export default function WordlistView({
             <div className="flex flex-wrap items-start justify-between gap-2">
               <h2 className="min-w-0 break-words text-xl font-semibold text-foreground">{listTitle(list)}</h2>
               <div className="flex shrink-0 items-center gap-2">
+                <LanguageBadge language={list.targetLanguage} />
                 <LevelBadge level={list.cefrLevel} />
                 <KindBadge kind={list.kind} />
               </div>
@@ -308,7 +326,7 @@ export default function WordlistView({
           )}
           <p className="text-sm text-muted-foreground">
             {list.teacher && `${t('vcFromTeacherBy', { email: list.teacher.email })} · `}
-            {custom && list.topic && `${topicLabel(list.topic)} · `}
+            {custom && list.topic && `${topicLabel(list.topic, list.targetLanguage)} · `}
             {t('vcWordCount', { n: list.wordCount })}
             {list.tests && ' · '}
             <TestScoresLine tests={list.tests} />
@@ -416,7 +434,13 @@ export default function WordlistView({
       </div>
 
       {custom && adding && (
-        <AddWordsPanel busy={busy} compilesLeft={compilesLeft} onAddTyped={addTyped} onAddFromBank={addFromBank} />
+        <AddWordsPanel
+          busy={busy}
+          compilesLeft={compilesLeft}
+          targetLanguage={list.targetLanguage}
+          onAddTyped={addTyped}
+          onAddFromBank={addFromBank}
+        />
       )}
 
       {words.length > 0 && (

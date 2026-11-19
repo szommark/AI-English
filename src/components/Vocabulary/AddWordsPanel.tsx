@@ -1,6 +1,14 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { useLanguage } from '../../lib/i18n'
-import { ADD_WORDS_MAX, COMPILES_PER_DAY, COMPILE_MAX_WORDS, COMPILE_MIN_WORDS, TERM_MAX_LENGTH } from '../../lib/vocab'
+import {
+  ADD_WORDS_MAX,
+  COMPILES_PER_DAY,
+  COMPILE_MAX_WORDS,
+  COMPILE_MIN_WORDS,
+  TERM_MAX_LENGTH,
+  type TargetLanguage,
+} from '../../lib/vocab'
+import { DanishLetterButtons, insertAtCaret } from './DanishLetters'
 
 const DEFAULT_BANK_COUNT = 5
 
@@ -24,12 +32,15 @@ export function splitTerms(text: string): string[] {
 export default function AddWordsPanel({
   busy,
   compilesLeft,
+  targetLanguage = 'en',
   onAddTyped,
   onAddFromBank,
 }: {
   /** The key of the list action in progress, if any. */
   busy: string | null
   compilesLeft: number
+  /** The list's language: Danish lists get Danish wording and æ ø å buttons. */
+  targetLanguage?: TargetLanguage
   /** Resolves true once the words are saved, so the box can be cleared. */
   onAddTyped: (terms: string[]) => Promise<boolean>
   onAddFromBank: (count: number) => void
@@ -37,6 +48,15 @@ export default function AddWordsPanel({
   const { t } = useLanguage()
   const [text, setText] = useState('')
   const [count, setCount] = useState(DEFAULT_BANK_COUNT)
+  const textRef = useRef<HTMLTextAreaElement>(null)
+  const danish = targetLanguage === 'da'
+  const placeholder = t(danish ? 'vcAddWordsPlaceholderDa' : 'vcAddWordsPlaceholder')
+
+  function typeLetter(letter: string) {
+    const next = insertAtCaret(textRef.current, text, letter)
+    setText(next.value)
+    requestAnimationFrame(() => textRef.current?.setSelectionRange(next.caret, next.caret))
+  }
   const terms = splitTerms(text)
   const tooMany = terms.length > ADD_WORDS_MAX
   const tooLong = terms.some((term) => term.length > TERM_MAX_LENGTH)
@@ -52,14 +72,16 @@ export default function AddWordsPanel({
       <form onSubmit={submit} className="space-y-2">
         <h3 className="text-sm font-semibold text-foreground">{t('vcAddTypedTitle')}</h3>
         <textarea
+          ref={textRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={3}
-          placeholder={t('vcAddWordsPlaceholder')}
-          aria-label={t('vcAddWordsPlaceholder')}
+          placeholder={placeholder}
+          aria-label={placeholder}
           className={`${fieldClass} w-full resize-y`}
           autoFocus
         />
+        {danish && <DanishLetterButtons onLetter={typeLetter} />}
         {tooMany && <p className="text-xs text-red-600">{t('vcTooManyWords', { n: ADD_WORDS_MAX })}</p>}
         <button type="submit" disabled={terms.length === 0 || tooMany || tooLong || busy !== null} className={actionButton}>
           {busy === 'add-words' ? t('vcSaving') : terms.length > 1 ? `${t('vcAddWord')} (${terms.length})` : t('vcAddWord')}

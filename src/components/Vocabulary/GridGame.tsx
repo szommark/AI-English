@@ -19,6 +19,7 @@ import {
   type GridState,
 } from '../../lib/vocabGrid'
 import { awardClientXp } from '../../lib/gamificationApi'
+import type { TargetLanguage } from '../../lib/vocab'
 
 const FEEDBACK_STYLE: Record<GridFeedback, string> = {
   exact: 'border-emerald-500 bg-emerald-100 text-emerald-900',
@@ -66,17 +67,21 @@ const sameLocation = (a: GridLocation | null, b: GridLocation) =>
  */
 export default function GridGame({
   puzzle,
+  targetLanguage = 'en',
   onPlayAgain,
   onQuit,
   onSolved,
 }: {
   puzzle: GridPuzzle
+  /** The list's language, for naming the word side of a turned card. */
+  targetLanguage?: TargetLanguage
   onPlayAgain: () => void
   onQuit: () => void
   /** The puzzle was solved (for the practice log). */
   onSolved?: () => void
 }) {
   const { t } = useLanguage()
+  const flipBackLabel: MessageKey = targetLanguage === 'da' ? 'vgFlipBackDa' : 'vgFlipBack'
   const [state, setState] = useState<GridState>(() => initialGridState(puzzle))
   /** The card being dragged, or tapped and waiting for its place. */
   const [selected, setSelected] = useState<GridLocation | null>(null)
@@ -162,8 +167,8 @@ export default function GridGame({
         type="button"
         onClick={() => toggleFlip(cardId)}
         aria-pressed={isFlipped}
-        aria-label={t(isFlipped ? 'vgFlipBack' : 'vgFlip')}
-        title={t(isFlipped ? 'vgFlipBack' : 'vgFlip')}
+        aria-label={t(isFlipped ? flipBackLabel : 'vgFlip')}
+        title={t(isFlipped ? flipBackLabel : 'vgFlip')}
         className={`absolute bottom-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full border shadow-sm ${
           isFlipped
             ? 'border-[var(--teal-accent-strong)] bg-[var(--teal-accent)] text-primary'

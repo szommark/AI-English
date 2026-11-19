@@ -50,6 +50,8 @@ export async function buildListSession(userId: string, ref: WordlistRef, now = n
     definitionEn: r.vocab_items.definition_en,
     exampleEn: r.vocab_items.example_en,
     contextCorrected: r.context_corrected,
+    targetLanguage: r.vocab_items.target_language,
+    article: r.vocab_items.article,
     ladderStep: r.card!.ladder_step,
     state: r.card!.state,
     distractors: r.card!.ladder_step === 1 ? pickDistractors(r.vocab_items.meaning_hu, pool, RECOGNITION_DISTRACTORS) : [],
