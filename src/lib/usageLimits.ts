@@ -1,12 +1,12 @@
 // Free-tier quotas for every vendor the app depends on, plus the shared types for the
 // admin "API usage" page. Imported by both the client and the /api routes (same
-// cross-boundary pattern as models.ts). Free tiers only: no prices or budgets.
+// cross-boundary pattern as models.ts). Free tiers, plus Claude list prices for the credit estimate.
 // Limits as of 2026-09-20 — re-check the vendor consoles if a number looks off.
 
 export type UsageVendor = 'azure' | 'groq' | 'gemini' | 'mistral' | 'deepseek' | 'anthropic' | 'supabase' | 'vercel'
 export type MeterSource = 'measured' | 'vendor_api' | 'manual' | 'build_time'
 export type MeterStatus = 'ok' | 'watch' | 'critical'
-export type MeterUnit = 'seconds' | 'tokens' | 'requests' | 'bytes' | 'count' | 'hours'
+export type MeterUnit = 'seconds' | 'tokens' | 'requests' | 'bytes' | 'count' | 'hours' | 'usd'
 export type MeterPeriod = 'month' | 'day' | 'minute' | 'cycle' | 'total' | 'deployment'
 
 /** Fraction of the limit at which a meter turns "Watch" / "Critical". */
@@ -50,6 +50,27 @@ export const GEMINI_FREE_LIMITS: Record<string, { rpd: number | null; rpm: numbe
  * - Anthropic: pay as you go; new Console accounts get a one-time starter credit (about $5).
  * Their meters therefore show this app's own token use with no limit.
  */
+/**
+ * Claude list prices in USD per million tokens, for the credit estimate on the admin page.
+ * No Anthropic API returns the prepaid credit balance (the cost API reports spend before
+ * credits), so the admin types the Console balance and the app subtracts its own logged
+ * spend since then. Haiku 5.5 prices are for prompts up to 100K tokens ($0.50 / $2.50
+ * beyond); this app's prompts stay well under that. Thinking tokens are billed as output
+ * and are already in the logged completion tokens. Checked 2026-11-19.
+ */
+export const ANTHROPIC_PRICES_PER_MTOK: Record<string, { input: number; output: number }> = {
+  'claude-haiku-5-5': { input: 0.1, output: 0.5 },
+  'claude-sonnet-5-5': { input: 2, output: 10 },
+}
+/** For a Claude model missing above: Sonnet prices, so the estimate errs on the high side. */
+const ANTHROPIC_FALLBACK_PRICE_PER_MTOK = { input: 2, output: 10 }
+
+/** USD for the given tokens of one Claude model, at list price. */
+export function anthropicCostUsd(modelId: string | null, promptTokens: number, completionTokens: number): number {
+  const price = (modelId && ANTHROPIC_PRICES_PER_MTOK[modelId]) || ANTHROPIC_FALLBACK_PRICE_PER_MTOK
+  return (promptTokens * price.input + completionTokens * price.output) / 1_000_000
+}
+
 /** Gemini's requests-per-day quota resets at midnight in this zone (not UTC). */
 export const GEMINI_QUOTA_TIME_ZONE = 'America/Los_Angeles'
 
@@ -73,6 +94,7 @@ export const MANUAL_METER_IDS = [
   'vercel.transfer_bytes',
   'vercel.invocations',
   'vercel.active_cpu_hours',
+  'anthropic.credit_usd',
 ] as const
 export type ManualMeterId = (typeof MANUAL_METER_IDS)[number]
 
