@@ -808,6 +808,13 @@ const messages = {
   },
   orderPlaceholder: { hu: 'Koppints a szavakra…', en: 'Tap the words…', de: 'Tippe die Wörter an…' },
   formTitle: { hu: 'Helyes alak', en: 'Correct form', de: 'Richtige Form' },
+  // Reported speech gaps show no bracketed cue (the direct speech above gives the verb), so
+  // this replaces the generated instruction, which tends to mention brackets.
+  formInstructionReported: {
+    hu: 'Egészítsd ki a függő beszédet a megfelelő alakkal a fenti egyenes beszéd alapján!',
+    en: 'Complete the reported speech with the right form, using the direct speech above.',
+    de: 'Ergänze die indirekte Rede mit der richtigen Form – die direkte Rede steht darüber.',
+  },
   transformTitle: { hu: 'Átalakítás', en: 'Rewriting', de: 'Umformung' },
   transformPlaceholder: { hu: 'Írd ide az új mondatot…', en: 'Write the new sentence…', de: 'Schreib den neuen Satz…' },
   checkAnswer: { hu: 'Ellenőrzés', en: 'Check', de: 'Prüfen' },

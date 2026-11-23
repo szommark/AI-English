@@ -83,7 +83,12 @@ export default function WrittenPractice({
         ))}
       </SectionBlock>
 
-      <SectionBlock number={2} title={t('formTitle')} instruction={set.formInstruction}>
+      <SectionBlock
+        number={2}
+        title={t('formTitle')}
+        // Reported speech items hide the cue (see FormItem), so a generated "verb in brackets" instruction would mislead.
+        instruction={set.form.some((item) => item.quote) ? t('formInstructionReported') : set.formInstruction}
+      >
         {set.form.map((item, i) => (
           <FormItem key={i} number={i + 1} item={item} result={results.form[i]} onCheck={record('form', i)} flagPanel={`${flagSource} · Form`} />
         ))}
