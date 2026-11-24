@@ -94,8 +94,10 @@ export default function ProgressMenu() {
         onClick={toggle}
         aria-haspopup="menu"
         aria-expanded={open}
-        className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 font-medium text-primary hover:bg-secondary ${
-          inSection || open ? 'bg-secondary' : ''
+        className={`inline-flex items-center gap-1 border px-2.5 py-1.5 font-medium hover:border-[var(--club-gold)] hover:text-[var(--club-gold-light)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--club-gold)] ${
+          inSection || open
+            ? 'border-[var(--club-gold)] bg-[var(--club-green-soft)] text-[var(--club-gold-light)]'
+            : 'border-transparent text-[var(--club-cream)]'
         }`}
       >
         {t('myProgress')}

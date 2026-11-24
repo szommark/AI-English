@@ -105,7 +105,7 @@ export default function AssignPanel({
               type="button"
               onClick={assign}
               disabled={!canAssign}
-              className="rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40"
+              className="rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)] disabled:opacity-40"
             >
               {busy ? t('vlAssigning') : t('vlAssign')}
             </button>

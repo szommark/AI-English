@@ -51,7 +51,7 @@ export function CrashScreen({ error, onReport }: { error: Error; onReport?: () =
           <button
             type="button"
             onClick={onReport}
-            className="rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)]"
+            className="rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)]"
           >
             {t('crashReport')}
           </button>
@@ -61,7 +61,7 @@ export function CrashScreen({ error, onReport }: { error: Error; onReport?: () =
           onClick={reload}
           className={
             stale
-              ? 'rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)]'
+              ? 'rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)]'
               : 'rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-primary hover:bg-secondary'
           }
         >
@@ -85,7 +85,7 @@ export function RootCrashScreen() {
         <button
           type="button"
           onClick={reload}
-          className="mt-5 rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)]"
+          className="mt-5 rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)]"
         >
           Újratöltés · Reload
         </button>

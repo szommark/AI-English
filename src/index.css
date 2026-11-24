@@ -3,35 +3,41 @@
 @tailwind utilities;
 
 :root {
+  /* The whole platform wears the English club palette (see the --club-* tokens below): deep
+     green for primary, gold for accents, on a warm ivory page. Tailwind's slate and indigo
+     scales are retuned to match in tailwind.config.js. */
   --radius: 0.625rem;
-  --background: oklch(0.995 0.003 240);
-  --foreground: oklch(0.18 0.04 250);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.04 250);
-  --primary: oklch(0.24 0.07 255);
-  --primary-foreground: oklch(0.985 0.003 240);
-  --secondary: oklch(0.96 0.01 250);
-  --secondary-foreground: oklch(0.24 0.07 255);
-  --muted: oklch(0.96 0.012 250);
-  --muted-foreground: oklch(0.5 0.03 255);
-  --accent: oklch(0.72 0.13 195);
-  --accent-foreground: oklch(0.16 0.04 250);
-  --border: oklch(0.91 0.013 250);
-  --input: oklch(0.92 0.013 250);
-  --ring: oklch(0.72 0.13 195);
+  --background: #fdfbf6;
+  --foreground: #16241f;
+  --card: #ffffff;
+  --card-foreground: #16241f;
+  --primary: #0f2a24;
+  --primary-foreground: #fbf6e9;
+  --secondary: #f5eedc;
+  --secondary-foreground: #0f2a24;
+  --muted: #f5eedc;
+  --muted-foreground: #5d6a62;
+  --accent: #c9a227;
+  --accent-foreground: #0f2a24;
+  --border: #e8dfc7;
+  --input: #e2d6b6;
+  --ring: #c9a227;
 
-  /* Custom, non-shadcn-standard tokens (matched to tobbmintangol.hu) */
-  --teal-accent: oklch(0.72 0.13 195);
-  --teal-accent-strong: oklch(0.64 0.14 195);
-  /* Translucent teal. Tailwind can't add an opacity modifier to an arbitrary var() colour
+  /* Accent tokens. The names are historical (they were teal); they now carry the club gold.
+     Fills use --teal-accent with dark green text, like the gold Sign in button; text uses
+     --teal-accent-strong, the dark gold, which stays readable on white and cream. */
+  --teal-accent: #c9a227;
+  --teal-accent-strong: #8a6d14;
+  /* Translucent gold. Tailwind can't add an opacity modifier to an arbitrary var() colour
      (`border-[var(--teal-accent)]/40` compiles to nothing), so these are tokens. */
-  --teal-accent-soft: oklch(0.72 0.13 195 / 0.15);
-  --teal-accent-border: oklch(0.72 0.13 195 / 0.4);
-  --gradient-hero: linear-gradient(135deg, oklch(0.22 0.06 255) 0%, oklch(0.30 0.07 240) 60%, oklch(0.38 0.10 215) 100%);
-  --shadow-elegant: 0 20px 60px -25px oklch(0.24 0.07 255 / 0.35);
-  --shadow-card: 0 8px 30px -12px oklch(0.24 0.07 255 / 0.18);
+  --teal-accent-soft: rgb(201 162 39 / 0.16);
+  --teal-accent-border: rgb(201 162 39 / 0.5);
+  --gradient-hero: linear-gradient(135deg, #0f2a24 0%, #163a32 60%, #1d4a40 100%);
+  --shadow-elegant: 0 20px 60px -25px rgb(15 42 36 / 0.35);
+  --shadow-card: 0 8px 30px -12px rgb(15 42 36 / 0.2);
 
-  /* Avalon brand: the wordmark navy and its gold accent (header, BrandIntro). */
+  /* Avalon brand: the wordmark navy and its gold accent (BrandIntro, /mission). The header
+     shows the wordmark in cream on the green bar instead. */
   --brand-navy: #0a1f44;
   --brand-gold: #c9a227;
 

@@ -35,7 +35,7 @@ export default function ScenarioCard({ scenario }: { scenario: Scenario }) {
           </Link>
           <Link
             to={`/scenario/${scenario.id}/test`}
-            className="flex-1 text-center rounded-lg bg-[var(--teal-accent)] text-primary font-semibold text-sm py-2 hover:bg-[var(--teal-accent-strong)]"
+            className="flex-1 text-center rounded-lg bg-[var(--teal-accent)] text-primary font-semibold text-sm py-2 hover:bg-[var(--club-gold-light)]"
           >
             {t('testMode')}
           </Link>

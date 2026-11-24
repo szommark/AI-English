@@ -179,7 +179,7 @@ export default function CompileListForm({ data, onCompiled }: { data: WordlistsR
         <button
           type="submit"
           disabled={!canCompile}
-          className="rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40"
+          className="rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)] disabled:opacity-40"
         >
           {busy ? t('vcCompiling') : t('vcCompile')}
         </button>

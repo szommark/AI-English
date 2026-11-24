@@ -63,6 +63,13 @@ export function useAuthPrompt(): AuthPromptValue {
  */
 const FEEDBACK_COUNT_REFRESH_MS = 60_000
 
+/** A text link on the green header bar: cream, gold when hovered or when its section is open. */
+function headerLinkClass(active: boolean): string {
+  return `font-medium underline-offset-4 decoration-[var(--club-gold)] hover:text-[var(--club-gold-light)] hover:underline ${
+    active ? 'text-[var(--club-gold-light)] underline' : 'text-[var(--club-cream)]'
+  }`
+}
+
 /** New problem reports for the admin's header link; refreshed on navigation at most once a
  *  minute, and right away when the inbox changes a status. */
 function useNewFeedbackCount(enabled: boolean, pathname: string): number {
@@ -148,13 +155,19 @@ export default function AppLayout() {
       <ReportProblemContext.Provider value={reportValue}>
         {showIntro && <BrandIntro onDone={hideIntro} />}
         <div className="flex min-h-screen flex-col bg-background">
-          <header className="sticky top-0 z-40 border-b border-border bg-white/90 backdrop-blur-xl">
+          {/* The club green bar with a gold rule beneath, like the club banner on the landing page. */}
+          <header className="sticky top-0 z-40 border-b-2 border-[var(--club-gold)] bg-[var(--club-green)] text-[var(--club-cream)] shadow-[0_6px_18px_-12px_rgba(15,42,36,0.6)]">
             <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
-              <Link to="/" className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-md flex items-center justify-center bg-[var(--brand-navy)] font-brand text-xl font-semibold leading-none text-white">
-                  A
+              <Link
+                to="/"
+                className="flex items-center gap-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--club-gold)]"
+              >
+                <div className="h-8 w-8 flex items-center justify-center border border-[var(--club-gold)] p-[2px]">
+                  <span className="flex h-full w-full items-center justify-center border border-[rgba(201,162,39,0.55)] font-brand text-lg font-semibold leading-none text-[var(--club-gold-light)]">
+                    A
+                  </span>
                 </div>
-                <Wordmark className="text-xl" />
+                <Wordmark tone="cream" className="text-xl" />
               </Link>
 
               <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 text-sm">
@@ -163,12 +176,12 @@ export default function AppLayout() {
                     <LevelChip />
                     <ProgressMenu />
                     {hasTeacherAccess(role) && (
-                      <Link to="/teacher" className="font-medium text-muted-foreground hover:text-foreground hover:underline">
+                      <Link to="/teacher" className={headerLinkClass(pathname.startsWith('/teacher'))}>
                         {t('teacherDashboard')}
                       </Link>
                     )}
                     {role === 'admin' && (
-                      <Link to="/admin" className="inline-flex items-center gap-1.5 font-medium text-muted-foreground hover:text-foreground hover:underline">
+                      <Link to="/admin" className={`inline-flex items-center gap-1.5 ${headerLinkClass(pathname.startsWith('/admin'))}`}>
                         {t('admin')}
                         {newFeedback > 0 && (
                           <span
@@ -183,10 +196,10 @@ export default function AppLayout() {
                   </>
                 ) : (
                   <>
-                    <Link to="/mission" className="font-medium text-[var(--brand-navy)] hover:underline">
+                    <Link to="/mission" className={headerLinkClass(pathname === '/mission')}>
                       {t('mission')}
                     </Link>
-                    <Link to="/blog" className="font-medium text-[var(--brand-navy)] hover:underline">
+                    <Link to="/blog" className={headerLinkClass(pathname.startsWith('/blog'))}>
                       {blogCopy[lang].nav}
                     </Link>
                     <button
@@ -205,7 +218,7 @@ export default function AppLayout() {
             <nav aria-label={t('breadcrumbLabel')} className="w-full max-w-6xl mx-auto px-4 pt-5 space-y-2">
               <Link
                 to="/"
-                className="inline-flex items-center rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-primary shadow-sm hover:bg-secondary"
+                className="inline-flex items-center border border-[var(--club-gold)] bg-[var(--club-paper)] px-3 py-1.5 text-sm font-semibold text-[var(--club-green)] hover:bg-[var(--club-cream)]"
               >
                 {t('backHome')}
               </Link>
@@ -217,7 +230,7 @@ export default function AppLayout() {
                       {crumb.to ? (
                         <Link
                           to={crumb.to}
-                          className="rounded-md border border-border bg-card px-2.5 py-1 hover:bg-secondary hover:text-foreground"
+                          className="border border-[var(--teal-accent-border)] bg-card px-2.5 py-1 text-[var(--club-green-soft)] hover:bg-[var(--club-cream)] hover:text-[var(--club-green)]"
                         >
                           {crumb.label}
                         </Link>

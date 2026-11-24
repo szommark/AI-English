@@ -40,7 +40,7 @@ const SLOW_RATE = 0.7
 const inputClass =
   'w-full rounded-lg border border-border bg-background px-3 py-2.5 text-base text-foreground placeholder:text-muted-foreground/70 focus:border-[var(--teal-accent)] focus:outline-none'
 const primaryButton =
-  'rounded-lg bg-[var(--teal-accent)] px-4 py-2.5 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40'
+  'rounded-lg bg-[var(--teal-accent)] px-4 py-2.5 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)] disabled:opacity-40'
 const secondaryButton =
   'rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-secondary disabled:opacity-40'
 

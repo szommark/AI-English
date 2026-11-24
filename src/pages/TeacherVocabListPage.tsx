@@ -393,7 +393,7 @@ export default function TeacherVocabListPage() {
           type="button"
           onClick={save}
           disabled={saving || blocker !== null || !dirty}
-          className="rounded-lg bg-[var(--teal-accent)] px-5 py-2 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40"
+          className="rounded-lg bg-[var(--teal-accent)] px-5 py-2 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)] disabled:opacity-40"
         >
           {saving ? t('vlSaving') : t('vlSave')}
         </button>

@@ -129,7 +129,7 @@ function Shelf({ courses }: { courses: ShelfCourse[] }) {
               type="button"
               disabled={starting !== null}
               onClick={() => void start(course)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[var(--teal-accent)] px-4 py-2.5 font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[var(--teal-accent)] px-4 py-2.5 font-semibold text-primary hover:bg-[var(--club-gold-light)] disabled:opacity-60"
             >
               {starting === course.id && <Loader2 className="h-4 w-4 animate-spin" />}
               {c('shelfStart')}

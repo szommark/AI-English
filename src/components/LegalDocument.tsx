@@ -39,7 +39,7 @@ export default function LegalDocument({ id }: { id: LegalDocId }) {
 
   return (
     <article lang={lang === 'hu' ? 'hu' : 'en'} className="mx-auto max-w-3xl py-4 sm:py-6">
-      <h1 className="font-brand text-3xl font-semibold text-[var(--brand-navy)] sm:text-4xl">{doc.title}</h1>
+      <h1 className="font-brand text-3xl font-semibold text-[var(--club-green)] sm:text-4xl">{doc.title}</h1>
       <div className="mt-4 h-0.5 w-20 bg-[var(--brand-gold)]" aria-hidden="true" />
 
       <div className="mt-6 space-y-4 text-[15px] leading-relaxed text-muted-foreground">

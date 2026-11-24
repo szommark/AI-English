@@ -340,7 +340,7 @@ export default function WordlistView({
             type="button"
             onClick={() => onPractise(detail)}
             disabled={words.length === 0}
-            className="rounded-lg bg-[var(--teal-accent)] px-5 py-2.5 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40"
+            className="rounded-lg bg-[var(--teal-accent)] px-5 py-2.5 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)] disabled:opacity-40"
           >
             {t('vcFastPractise')}
           </button>

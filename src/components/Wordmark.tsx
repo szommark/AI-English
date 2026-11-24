@@ -20,11 +20,16 @@ export function letterStyle(kern: number): CSSProperties {
   return kern ? { marginLeft: `${kern}em` } : {}
 }
 
-/** The brand name as "AVaLoN": capitals in navy, the lowercase a and o in gold. */
-export default function Wordmark({ className = '' }: { className?: string }) {
+/**
+ * The brand name as "AVaLoN": capitals in navy (or cream on the green header bar, `tone="cream"`),
+ * the lowercase a and o in gold.
+ */
+export default function Wordmark({ className = '', tone = 'navy' }: { className?: string; tone?: 'navy' | 'cream' }) {
   return (
     <span
-      className={`font-brand font-semibold text-[var(--brand-navy)] [font-kerning:none] ${className}`}
+      className={`font-brand font-semibold ${
+        tone === 'cream' ? 'text-[var(--club-cream)]' : 'text-[var(--brand-navy)]'
+      } [font-kerning:none] ${className}`}
     >
       {WORDMARK_LETTERS.map((l, i) => (
         <span

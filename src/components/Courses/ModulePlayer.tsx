@@ -376,7 +376,7 @@ export default function ModulePlayer({
             type="button"
             disabled={!checked && unanswered === group.length}
             onClick={() => (checked ? next() : setChecked(true))}
-            className="w-full rounded-xl bg-[var(--teal-accent)] px-5 py-3.5 text-base font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40"
+            className="w-full rounded-xl bg-[var(--teal-accent)] px-5 py-3.5 text-base font-semibold text-primary hover:bg-[var(--club-gold-light)] disabled:opacity-40"
           >
             {checked ? c('continue') : c('checkAll')}
           </button>
@@ -481,7 +481,7 @@ export default function ModulePlayer({
           <button
             type="submit"
             disabled={!canGo}
-            className="w-full rounded-xl bg-[var(--teal-accent)] px-5 py-3.5 text-base font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40"
+            className="w-full rounded-xl bg-[var(--teal-accent)] px-5 py-3.5 text-base font-semibold text-primary hover:bg-[var(--club-gold-light)] disabled:opacity-40"
           >
             {marking ? (
               <span className="inline-flex items-center gap-2">

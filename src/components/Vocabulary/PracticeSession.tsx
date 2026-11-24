@@ -135,7 +135,7 @@ export default function PracticeSession({
             type="button"
             onClick={next}
             disabled={finishing}
-            className="rounded-lg bg-[var(--teal-accent)] px-5 py-2.5 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)]"
+            className="rounded-lg bg-[var(--teal-accent)] px-5 py-2.5 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)]"
           >
             {t('next')}
           </button>

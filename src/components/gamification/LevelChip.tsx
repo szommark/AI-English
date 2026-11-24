@@ -74,17 +74,17 @@ export default function LevelChip() {
         aria-label={t('progressChipLabel', { n: me.level, active: me.week.activeDays, goal: me.week.goalDays })}
         title={t('xpToNextLevel', { into: me.xpIntoLevel, next: me.xpForNextLevel })}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-2.5 rounded-full border border-border bg-card px-3 py-1 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="inline-flex items-center gap-2.5 rounded-full border border-[var(--teal-accent-border)] bg-[var(--club-green-soft)] px-3 py-1 hover:border-[var(--club-gold)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--club-gold)]"
       >
         <span aria-hidden="true" className="flex flex-col gap-1">
-          <span className="text-xs font-semibold leading-none text-foreground">{t('xpLevel', { n: me.level })}</span>
-          <span className="block h-1 w-14 overflow-hidden rounded-full bg-muted">
-            <span className="block h-full rounded-full bg-[var(--teal-accent)]" style={{ width: `${levelPercent}%` }} />
+          <span className="text-xs font-semibold leading-none text-[var(--club-cream)]">{t('xpLevel', { n: me.level })}</span>
+          <span className="block h-1 w-14 overflow-hidden rounded-full bg-[rgba(246,236,210,0.2)]">
+            <span className="block h-full rounded-full bg-[var(--club-gold)]" style={{ width: `${levelPercent}%` }} />
           </span>
         </span>
         <WeekRing ratio={weekRatio} />
         {me.dailyStreak > 0 && (
-          <span aria-hidden="true" className="inline-flex items-center gap-0.5 text-xs font-semibold text-foreground">
+          <span aria-hidden="true" className="inline-flex items-center gap-0.5 text-xs font-semibold text-[var(--club-cream)]">
             <Flame className="h-3.5 w-3.5 text-amber-500" />
             {me.dailyStreak}
           </span>
@@ -110,7 +110,7 @@ function WeekRing({ ratio }: { ratio: number }) {
   const c = 2 * Math.PI * r
   return (
     <svg aria-hidden="true" viewBox="0 0 18 18" className="h-[18px] w-[18px] -rotate-90">
-      <circle cx="9" cy="9" r={r} fill="none" strokeWidth="2.5" className="stroke-muted" />
+      <circle cx="9" cy="9" r={r} fill="none" strokeWidth="2.5" style={{ stroke: 'rgba(246,236,210,0.2)' }} />
       {ratio > 0 && (
         <circle
           cx="9"
