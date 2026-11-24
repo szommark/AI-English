@@ -231,7 +231,7 @@ function AddWordForm({ onAddWord }: { onAddWord: (row: ImportedRow) => AddWordEr
         <button
           type="submit"
           disabled={translating}
-          className="rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-60"
+          className="rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)] disabled:opacity-60"
         >
           {translating ? t('vlTranslating') : t('vlAdd')}
         </button>
@@ -275,7 +275,7 @@ function PasteForm({ onImport }: { onImport: (rows: ImportedRow[]) => void }) {
           onImport(parsePastedTerms(text))
           setText('')
         }}
-        className="rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40"
+        className="rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)] disabled:opacity-40"
       >
         {t('vlPasteAdd')}
       </button>

@@ -69,7 +69,7 @@ export default function LimitedAudio({ url, maxPlays, storageKey }: { url: strin
           el.currentTime = 0
           void el.play().then(() => setPlaying(true)).catch(() => setPlaying(false))
         }}
-        className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--teal-accent)] px-4 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-50"
+        className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--teal-accent)] px-4 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)] disabled:opacity-50"
       >
         <Play className="h-4 w-4" />
         {playing ? c('audioPlaying') : plays === 0 ? c('audioPlay') : c('audioPlayAgain')}

@@ -35,6 +35,35 @@ export default {
         border: 'var(--border)',
         input: 'var(--input)',
         ring: 'var(--ring)',
+        // Club palette retune (see src/index.css): older screens use slate for neutrals and
+        // indigo for buttons and links, so both scales are redrawn instead of editing every
+        // class. "slate" is a warm grey with a hint of green, "indigo" is the club green.
+        slate: {
+          50: '#f9f7f1',
+          100: '#f2eee3',
+          200: '#e6dfcc',
+          300: '#d1c8b1',
+          400: '#9a9584',
+          500: '#6d6b5e',
+          600: '#525449',
+          700: '#3d443c',
+          800: '#26302b',
+          900: '#18211d',
+          950: '#0d1411',
+        },
+        indigo: {
+          50: '#eef5f1',
+          100: '#d8e8e0',
+          200: '#b3d1c4',
+          300: '#85b3a1',
+          400: '#4f8c77',
+          500: '#2e6b58',
+          600: '#1d4a40',
+          700: '#163a32',
+          800: '#0f2a24',
+          900: '#0b201b',
+          950: '#061310',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',

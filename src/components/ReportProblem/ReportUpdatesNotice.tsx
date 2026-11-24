@@ -76,7 +76,7 @@ export default function ReportUpdatesNotice({ userId }: { userId: string }) {
         {fixed ? (
           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true" />
         ) : (
-          <MessageSquare className="mt-0.5 h-5 w-5 shrink-0 text-[var(--brand-navy)]" aria-hidden="true" />
+          <MessageSquare className="mt-0.5 h-5 w-5 shrink-0 text-[var(--club-green)]" aria-hidden="true" />
         )}
         <div className="min-w-0 space-y-1">
           <p className="text-sm font-semibold text-foreground">{t(noticeTitle(latest))}</p>
@@ -84,7 +84,7 @@ export default function ReportUpdatesNotice({ userId }: { userId: string }) {
           {updates.length > 1 && <p className="text-xs text-muted-foreground">{t('fnMore', { n: updates.length - 1 })}</p>}
           <Link
             to="/my-reports"
-            className="inline-block pt-1 text-sm font-semibold text-[var(--brand-navy)] hover:underline"
+            className="inline-block pt-1 text-sm font-semibold text-[var(--club-green)] hover:underline"
           >
             {t('fnView')} →
           </Link>

@@ -172,7 +172,7 @@ export default function ListSrsPanel({
           type="button"
           onClick={onStart}
           disabled={starting}
-          className="w-full rounded-lg bg-[var(--teal-accent)] px-5 py-3 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40 sm:w-auto"
+          className="w-full rounded-lg bg-[var(--teal-accent)] px-5 py-3 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)] disabled:opacity-40 sm:w-auto"
         >
           {starting ? t('vcStarting') : t('vcStartListReview')}
         </button>

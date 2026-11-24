@@ -69,7 +69,7 @@ function Player({ enrollmentId, moduleId }: { enrollmentId: string; moduleId: st
             <button
               type="button"
               onClick={() => navigate(`${courseUrl}/${next.moduleId}`)}
-              className="rounded-xl bg-[var(--teal-accent)] px-5 py-3 font-semibold text-primary hover:bg-[var(--teal-accent-strong)]"
+              className="rounded-xl bg-[var(--teal-accent)] px-5 py-3 font-semibold text-primary hover:bg-[var(--club-gold-light)]"
             >
               {c('nextModule', { title: next.title })}
             </button>

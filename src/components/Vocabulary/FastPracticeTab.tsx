@@ -75,7 +75,7 @@ export default function FastPracticeTab({
                       type="button"
                       onClick={() => onPractise({ kind: l.kind, id: l.id })}
                       disabled={starting}
-                      className="rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40"
+                      className="rounded-lg bg-[var(--teal-accent)] px-4 py-2 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)] disabled:opacity-40"
                     >
                       {t('vcPractise')}
                     </button>

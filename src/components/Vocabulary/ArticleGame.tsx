@@ -8,7 +8,7 @@ import { useListTitle } from './wordlistLabels'
 const keyOf = (l: WordlistRef) => `${l.kind}-${l.id}`
 
 const primaryButton =
-  'rounded-lg bg-[var(--teal-accent)] px-5 py-2.5 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40'
+  'rounded-lg bg-[var(--teal-accent)] px-5 py-2.5 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)] disabled:opacity-40'
 const secondaryButton = 'rounded-lg border border-border bg-card px-4 py-2.5 text-sm text-foreground hover:bg-secondary'
 
 /**

@@ -13,12 +13,12 @@ function RegistryLine() {
  */
 export default function LegalFooter() {
   const { t } = useLanguage()
-  const linkClass = 'underline-offset-2 hover:text-foreground hover:underline'
+  const linkClass = 'underline-offset-2 decoration-[var(--club-gold)] hover:text-[var(--club-gold-light)] hover:underline'
 
   return (
-    <footer className="border-t border-border/60">
-      <div className="mx-auto max-w-6xl space-y-1.5 px-4 pt-6 pb-20 text-xs text-muted-foreground sm:pb-16">
-        <h2 className="font-semibold uppercase tracking-wider text-foreground/70">{t('legalHeading')}</h2>
+    <footer className="border-t-2 border-[var(--club-gold)] bg-[var(--club-green)]">
+      <div className="mx-auto max-w-6xl space-y-1.5 px-4 pt-6 pb-20 text-xs text-[rgba(246,236,210,0.75)] sm:pb-16">
+        <h2 className="font-semibold uppercase tracking-[0.2em] text-[var(--club-gold-light)]">{t('legalHeading')}</h2>
         <RegistryLine />
         <nav aria-label={t('legalHeading')} className="flex flex-wrap gap-x-4 gap-y-1">
           <Link to="/privacy" className={linkClass}>

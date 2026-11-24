@@ -118,7 +118,7 @@ export default function TestSession({
             type="button"
             onClick={next}
             disabled={finishing}
-            className="rounded-lg bg-[var(--teal-accent)] px-5 py-2.5 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40"
+            className="rounded-lg bg-[var(--teal-accent)] px-5 py-2.5 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)] disabled:opacity-40"
           >
             {index + 1 >= cards.length ? t('vcTestSeeScore') : t('next')}
           </button>
@@ -180,7 +180,7 @@ export function TestSummaryCard({
           type="button"
           onClick={onAgain}
           disabled={starting}
-          className="rounded-lg bg-[var(--teal-accent)] px-5 py-2.5 text-sm font-semibold text-primary hover:bg-[var(--teal-accent-strong)] disabled:opacity-40"
+          className="rounded-lg bg-[var(--teal-accent)] px-5 py-2.5 text-sm font-semibold text-primary hover:bg-[var(--club-gold-light)] disabled:opacity-40"
         >
           {starting ? t('vcStarting') : t('vcTestAgain')}
         </button>
