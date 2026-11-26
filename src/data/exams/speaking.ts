@@ -415,6 +415,102 @@ const businessB1Speaking02: SpeakingExam = {
   ],
 }
 
+// --- Nyelvvizsga B1 gazdasági: szóbeli minta 3. -------------------------------------------
+// Written for this app (2026-11-26) on the model of a Zöld Út business oral exam. Task 2 is the
+// user's "1. szituáció" (calling a PR agency about a company party), with the candidate's and
+// the agent's points kept as given. Task 3's chart is original, with made-up example figures
+// (labelled as such on the chart). Speaking only.
+const businessB1Speaking03: SpeakingExam = {
+  paperId: 'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-03',
+  language: 'en',
+  board: 'zold-ut',
+  track: 'business',
+  title: 'SPEAKING SKILLS',
+  tasks: [
+    {
+      id: 'S-1',
+      label: 'Task 1',
+      kind: 'interview',
+      title: 'Introduction',
+      source: 'paper',
+      instructions: ['The examiner asks you a few questions about yourself, your work or studies, and how you use English.'],
+      examinerBrief: [
+        'Run a short B1 warm-up interview for the business exam. Ask one simple question at a time, and move on once the candidate has said two or three sentences.',
+        'Ask at least one question from each group. About you: where they live and what they like about it; what they do at the weekend; a skill they would like to learn.',
+        'Work and study: what they do or study and what a normal week is like; their colleagues or classmates; what makes a good boss or a good teacher; working in an office or from home.',
+        'English and business: why they are learning English and when they use it; phone calls or emails, which are easier in English and why; a company they would like to work for.',
+        'Stay away from the topics of the later tasks (parties and company events, advertising). Ask five or six questions in all, then close the task.',
+      ].join(' '),
+      minutes: 4,
+      maxLearnerTurns: 7,
+    },
+    {
+      id: 'S-2',
+      label: 'Task 2',
+      kind: 'role-play',
+      title: 'Situation 1',
+      source: 'paper',
+      examineeCard: {
+        heading: 'You',
+        text: ['You are an assistant at a multinational company. Your manager asks you to call a PR agency to help organise a party.'],
+        points: [
+          { text: 'Introduce yourself and tell them your requirements.' },
+          { text: 'Explain that you intend to invite about 200 guests.' },
+          { text: 'Tell them that you would like a jazz band.' },
+        ],
+      },
+      examinerCard: {
+        heading: 'PR agent',
+        text: ['You are an assistant at a multinational company. Your manager asks you to call a PR agency to help organise a party.'],
+        points: [
+          { text: 'Ask the assistant about how many guests are going to be invited and about the date of the party?' },
+          { text: 'Ask the assistant to send the guest list and then ask about the music.' },
+          { text: 'Say that you will send your offer on an email.' },
+        ],
+      },
+      examinerBrief: [
+        'This is a phone call. You play an agent at a PR agency that organises company events, following the PR agent’s role card. Speak clearly and use simple B1 words.',
+        'After setting the scene, answer the phone with a name you make up for yourself and the agency (for example “Good morning, Bright Events, Kate Miller speaking. How can I help you?”) and let the candidate introduce themselves and explain what they need.',
+        'Ask how many guests they are going to invite and when the party will be (the date), one question at a time. You may also ask one simple extra question, such as what kind of party it is or where they would like to have it.',
+        'Then ask them to send you the guest list (by email), and ask what kind of music they would like. React to their answer (a jazz band is a good idea; you know a good one).',
+        'If the candidate leaves out a point on their card (introducing themselves, the number of guests, the jazz band), give them a natural opening to bring it up.',
+        'Finally say that you will send your offer by email, agree when (for example by Friday), thank them, and close the task.',
+      ].join(' '),
+      minutes: 4,
+      maxLearnerTurns: 10,
+    },
+    {
+      id: 'S-3',
+      label: 'Task 3',
+      kind: 'graph',
+      title: 'Chart',
+      source: 'paper',
+      instructions: [
+        'Look at the chart. Talk about it for about 2 minutes.',
+        'Say what the chart is about. Which type of media got the biggest and the smallest share of the money in 2015 and in 2025? What changed the most? Why do you think companies spend more on Internet advertising today?',
+        'Words on the chart: share = part of the total · billboard = a very big poster next to a road · media = TV, radio, newspapers, the Internet, etc.',
+      ],
+      image: {
+        asset: 'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-03-chart.webp',
+        alt: [
+          'Bar chart: “How companies spend their advertising budget”, subtitled “Share of total advertising spending by type of media, 2015 and 2025 (%)”. Two bars per type of media (dark blue: 2015, light grey-blue: 2025), each with its figure printed above it.',
+          'TV 38% → 27%; Internet 25% → 52%; Newspapers and magazines 17% → 6%; Posters and billboards 11% → 9%; Radio 6% → 4%; Cinema and other 3% → 2%.',
+          'In 2015 TV had the biggest share; in 2025 the Internet has the biggest share, more than half of all spending (it about doubled). Every other type of media went down; newspapers and magazines fell the most (from 17% to 6%). Cinema and other is the smallest in both years.',
+          'Small print: “Example data written for exam practice”.',
+        ].join(' '),
+      },
+      examinerBrief: [
+        'First ask the candidate to describe the chart for about two minutes: what it shows, the biggest and smallest shares, and the main changes between 2015 and 2025 (the Internet doubling and overtaking TV, newspapers and magazines falling). Let them talk; only prompt gently if they stop very early.',
+        'This is B1: the main points are enough, not every figure. Do not correct their numbers.',
+        'Then ask two or three of these, one at a time: Where do you usually see adverts? Do adverts on the Internet or on social media make you buy things? Which advert do you remember, and why? Do you still read newspapers or magazines? Why or why not? If you had a small business, how would you advertise it?',
+        'React briefly to the answers, then close the task.',
+      ].join(' '),
+      minutes: 6,
+      maxLearnerTurns: 8,
+    },
+  ],
+}
+
 // --- Nyelvvizsga B2 (Zöld Út): gazdasági and műszaki szóbeli minta 1. ---------------------
 // From the B2 sample papers' SPEAKING SKILLS pages: Task 1 prints only its title, Task 2 a
 // situation with both role cards, Task 3 only a chart.
@@ -1446,6 +1542,7 @@ export const SPEAKING_EXAMS: Record<string, SpeakingExam> = {
   [generalB1.paperId]: generalB1,
   [businessB1.paperId]: businessB1,
   [businessB1Speaking02.paperId]: businessB1Speaking02,
+  [businessB1Speaking03.paperId]: businessB1Speaking03,
   [businessB2.paperId]: businessB2,
   [technicalB2.paperId]: technicalB2,
   [germanB1.paperId]: germanB1,

@@ -59,6 +59,7 @@ export const examPapers: ExamPaperMeta[] = [
   { id: 'nyelvvizsga-en-b1-gazdasagi-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Minta 1.', track: 'business' },
   { id: 'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Szóbeli minta 1.', track: 'business', speakingOnly: true },
   { id: 'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-02', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Szóbeli minta 2.', track: 'business', speakingOnly: true },
+  { id: 'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-03', type: 'nyelvvizsga', language: 'en', level: 'B1', sittingLabelHu: 'Szóbeli minta 3.', track: 'business', speakingOnly: true },
   { id: 'nyelvvizsga-en-b2-gazdasagi-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B2', sittingLabelHu: 'Minta 1.', track: 'business' },
   { id: 'nyelvvizsga-en-b2-gazdasagi-szobeli-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B2', sittingLabelHu: 'Szóbeli minta 1.', track: 'business', speakingOnly: true },
   { id: 'nyelvvizsga-en-b2-muszaki-minta-01', type: 'nyelvvizsga', language: 'en', level: 'B2', sittingLabelHu: 'Minta 1.', track: 'technical' },
