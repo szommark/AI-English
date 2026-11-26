@@ -248,10 +248,86 @@ const businessB1Speaking02: Record<string, SpeakingRehearsal> = {
   },
 }
 
+// Szóbeli minta 3.: the Task 3 figures match the chart's alt text in speaking.ts.
+const businessB1Speaking03: Record<string, SpeakingRehearsal> = {
+  'S-1': {
+    phrases: [
+      { en: "I live in ... I like it because it's ... and ...", hu: '...-ban/-ben élek. Szeretem, mert ... és ...' },
+      { en: "At the weekend I usually ..., and sometimes I ...", hu: 'Hétvégén általában ..., és néha ...' },
+      { en: "I'm an assistant at ... My job is to ...", hu: 'Asszisztens vagyok a ...-nál/-nél. Az a feladatom, hogy ...' },
+      { en: 'A good boss listens to people and ...', hu: 'Egy jó főnök meghallgatja az embereket, és ...' },
+      { en: "I prefer working in the office, because ...", hu: 'Jobban szeretek az irodában dolgozni, mert ...' },
+      { en: 'For me, emails are easier than phone calls, because I have time to think.', hu: 'Nekem az e-mail könnyebb, mint a telefon, mert van időm gondolkodni.' },
+      { en: "I'd like to work for ..., because ...", hu: 'A ...-nál/-nél szeretnék dolgozni, mert ...' },
+    ],
+    sample: [
+      { speaker: 'examiner', line: "Good morning. Let's start with a few questions about you. Where do you live?" },
+      { speaker: 'you', line: "Good morning. I live in Győr. I like it because it's not too big, and there are lots of nice cafés by the river." },
+      { speaker: 'examiner', line: 'What do you do, and what is a normal week like for you?' },
+      { speaker: 'you', line: "I'm an assistant at an international company. From Monday to Thursday I work in the office, and on Fridays I work from home. I answer emails, book meetings and help my manager." },
+      { speaker: 'examiner', line: 'What makes a good boss, in your opinion?' },
+      { speaker: 'you', line: 'I think a good boss listens to people and explains the tasks clearly. My manager is like that, so I enjoy my work.' },
+      { speaker: 'examiner', line: 'Which is easier for you in English: phone calls or emails?' },
+      { speaker: 'you', line: "Emails are easier for me, because I have time to think and check my words. On the phone, people sometimes speak very fast." },
+      { speaker: 'examiner', line: CLOSE },
+    ],
+  },
+  'S-2': {
+    phrases: [
+      { en: "Good morning. My name is ..., and I'm an assistant at ...", hu: 'Jó napot. ... vagyok, a ... asszisztense.' },
+      { en: "My manager asked me to call you. We're organising a party, and we need your help.", hu: 'A főnököm kért meg, hogy hívjam fel önöket. Bulit szervezünk, és szükségünk van a segítségükre.' },
+      { en: 'We need a venue, food and drinks, and music.', hu: 'Szükségünk van helyszínre, ételre-italra és zenére.' },
+      { en: 'We intend to invite about two hundred guests.', hu: 'Körülbelül kétszáz vendéget szeretnénk meghívni.' },
+      { en: "The party will be on Friday, the twelfth of December, in the evening.", hu: 'A buli december 12-én, pénteken este lesz.' },
+      { en: "Of course, I'll send you the guest list by email today.", hu: 'Természetesen, még ma elküldöm e-mailben a vendéglistát.' },
+      { en: "We'd like a jazz band, if possible.", hu: 'Ha lehet, egy dzsesszzenekart szeretnénk.' },
+      { en: "Great, I'll wait for your offer. Thank you for your help.", hu: 'Remek, várom az ajánlatukat. Köszönöm a segítséget.' },
+    ],
+    sample: [
+      { speaker: 'examiner', line: "In this task I work at a PR agency, and you are calling me about a party. Good morning, Bright Events, Kate Miller speaking. How can I help you?" },
+      { speaker: 'you', line: "Good morning. My name is Eszter Kovács, and I'm an assistant at Danubia Pharma. My manager asked me to call you, because we're organising a party for our partners and colleagues. We need a venue, food and drinks, and music." },
+      { speaker: 'examiner', line: 'Lovely, we can help with all of that. How many guests are you going to invite?' },
+      { speaker: 'you', line: 'We intend to invite about two hundred guests.' },
+      { speaker: 'examiner', line: 'Two hundred, OK. And when will the party be?' },
+      { speaker: 'you', line: "It will be on Friday, the twelfth of December, from seven o'clock in the evening." },
+      { speaker: 'examiner', line: 'Good. Could you send me the guest list, please? Then we can prepare the invitations.' },
+      { speaker: 'you', line: "Of course. I'll send it to you by email this afternoon." },
+      { speaker: 'examiner', line: 'Thank you. And what kind of music would you like?' },
+      { speaker: 'you', line: "We'd like a jazz band. My manager loves jazz, and it's good music for talking and eating." },
+      { speaker: 'examiner', line: "A jazz band is a great idea. We know a very good one. I'll send you our offer by email by Friday." },
+      { speaker: 'you', line: "Great, I'll wait for your offer. Thank you very much for your help. Goodbye." },
+      { speaker: 'examiner', line: `Goodbye. ${CLOSE}` },
+    ],
+  },
+  'S-3': {
+    phrases: [
+      { en: 'The chart shows how companies spend their advertising money on different types of media in 2015 and 2025.', hu: 'A diagram azt mutatja, hogyan költik el a cégek a reklámpénzüket a különböző médiatípusokra 2015-ben és 2025-ben.' },
+      { en: 'In 2015 TV had the biggest share, 38 per cent.', hu: '2015-ben a tévé részesedése volt a legnagyobb, 38 százalék.' },
+      { en: 'In 2025 the Internet has the biggest share: more than half of the money.', hu: '2025-ben az internet részesedése a legnagyobb: a pénz több mint fele.' },
+      { en: 'Internet advertising went up from 25 to 52 per cent, so it almost doubled.', hu: 'Az internetes reklám 25-ről 52 százalékra nőtt, tehát majdnem megduplázódott.' },
+      { en: 'Newspapers and magazines fell the most, from 17 to only 6 per cent.', hu: 'Az újságok és magazinok estek vissza a legjobban, 17-ről csak 6 százalékra.' },
+      { en: 'All the other types of media went down a little.', hu: 'Az összes többi médiatípus kicsit csökkent.' },
+      { en: 'I think the reason is that people spend more time on their phones.', hu: 'Szerintem az az oka, hogy az emberek több időt töltenek a telefonjukon.' },
+    ],
+    sample: [
+      { speaker: 'examiner', line: 'Now please look at the chart on your task sheet and talk about it.' },
+      { speaker: 'you', line: 'The chart shows how companies spend their advertising money on different types of media in 2015 and 2025. In 2015 TV had the biggest share, 38 per cent, and the Internet was second with 25 per cent. But in 2025 the Internet has the biggest share: 52 per cent, so more than half of the money.' },
+      { speaker: 'examiner', line: 'What else changed?' },
+      { speaker: 'you', line: 'All the other types of media went down. TV went down from 38 to 27 per cent. Newspapers and magazines fell the most, from 17 to only 6 per cent. Radio and cinema are very small in both years.' },
+      { speaker: 'examiner', line: 'Why do you think companies spend more on Internet advertising today?' },
+      { speaker: 'you', line: "I think the reason is that people spend a lot of time on their phones and on social media. Companies can also choose who sees their adverts, for example young people or people in one city, so it's cheaper." },
+      { speaker: 'examiner', line: 'Do adverts on social media make you buy things?' },
+      { speaker: 'you', line: "Sometimes, yes. Last month I saw an advert for running shoes on Instagram, and I bought them. But usually I find the adverts annoying, and I don't click on them." },
+      { speaker: 'examiner', line: CLOSE },
+    ],
+  },
+}
+
 const REHEARSALS: Record<string, Record<string, SpeakingRehearsal>> = {
   'nyelvvizsga-en-b1-szobeli-minta-01': generalB1,
   'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-01': businessB1,
   'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-02': businessB1Speaking02,
+  'nyelvvizsga-en-b1-gazdasagi-szobeli-minta-03': businessB1Speaking03,
 }
 
 export function getSpeakingRehearsal(paperId: string, taskId: string): SpeakingRehearsal | undefined {
