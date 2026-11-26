@@ -25,7 +25,7 @@ export interface LearnersCopy {
 }
 
 /**
- * The signed-out home page (src/components/WelcomePanels.tsx): platform strip, then the learner,
+ * The signed-out home page (src/components/WelcomePanels.tsx): audience buttons over the platform strip, then the learner,
  * teacher and company sections the audience buttons jump to. Final wording from the site owner: use it verbatim. Learners and teachers are
  * addressed informally (HU tegezés, DE du), companies formally (HU magázás, DE Sie). The repeated
  * "szabadság" in the Hungarian closing line is an intentional pun.

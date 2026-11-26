@@ -59,7 +59,7 @@ function BackToTop() {
   )
 }
 
-/** One of the three audience buttons under the platform strip; jumps to its section. */
+/** One of the three audience buttons above the platform strip; jumps to its section. */
 function AudienceButton({ id, label, icon: Icon }: { id: SectionId; label: string; icon: LucideIcon }) {
   const navigate = useNavigate()
   function handleClick(e: MouseEvent<HTMLAnchorElement>) {
@@ -133,8 +133,8 @@ function AudienceSection({ id, copy }: { id: SectionId; copy: LandingPanelCopy }
 }
 
 /**
- * Signed-out home page: the club banner, the platform in a horizontal strip, three audience
- * buttons, then one section per audience (learners, language schools and teachers, companies)
+ * Signed-out home page: the club banner, one panel with three audience buttons over the platform
+ * strip, then one section per audience (learners, language schools and teachers, companies)
  * that the buttons jump to. All in the English club's palette (deep green, gold, cream).
  */
 export default function WelcomePanels() {
@@ -158,7 +158,16 @@ export default function WelcomePanels() {
     <div className="space-y-8 py-2">
       <ClubBanner />
 
+      {/* One panel: the audience buttons on top, the platform strip under them. */}
       <PaperFrame>
+        <nav className="grid gap-4 md:grid-cols-3">
+          <AudienceButton id="learners" label={learners.title} icon={Sparkles} />
+          <AudienceButton id="teachers" label={copy.teachers.title} icon={GraduationCap} />
+          <AudienceButton id="companies" label={copy.business.title} icon={Briefcase} />
+        </nav>
+
+        <DecoDivider className="mx-auto my-6 max-w-xs sm:my-8" />
+
         <div className="grid gap-6 md:grid-cols-2 md:gap-0 md:divide-x md:divide-[rgba(201,162,39,0.55)]">
           {copy.platform.map((s, i) => (
             <div key={s.title} className={i === 0 ? 'md:pr-8' : 'md:pl-8'}>
@@ -169,12 +178,6 @@ export default function WelcomePanels() {
           ))}
         </div>
       </PaperFrame>
-
-      <nav className="grid gap-4 md:grid-cols-3">
-        <AudienceButton id="learners" label={learners.title} icon={Sparkles} />
-        <AudienceButton id="teachers" label={copy.teachers.title} icon={GraduationCap} />
-        <AudienceButton id="companies" label={copy.business.title} icon={Briefcase} />
-      </nav>
 
       <section id="learners" className="scroll-mt-24">
         <PaperFrame>
